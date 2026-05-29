@@ -402,7 +402,9 @@ router.post('/settings', requireAdmin, async (req, res) => {
         }
         continue;
       }
-      run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, [k, String(v)]);
+      let val = String(v);
+      if (k === 'base_url') val = val.trim().replace(/\/+$/, '');
+      run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, [k, val]);
     }
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }

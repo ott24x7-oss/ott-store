@@ -1117,7 +1117,7 @@ function portalPlanCard(p){
   const color=PLATFORM_COLORS[p.platform]||'linear-gradient(135deg,#6366f1,#8b5cf6)';
   const isGrad=color.includes('gradient');
   const headerStyle=isGrad?`background:${color}`:`background:${color}`;
-  const dur=p.duration_days>=365?`${Math.round(p.duration_days/365)} Year`:p.duration_days>=30?`${Math.round(p.duration_days/30)} Month`:`${p.duration_days} Days`;
+  const dur=!p.duration_days?'Lifetime':p.duration_days>=365?`${Math.round(p.duration_days/365)} Year`:p.duration_days>=30?`${Math.round(p.duration_days/30)} Month`:`${p.duration_days} Days`;
   return `<div class="my-plan-card${p.badge?' featured':''}${out?' stock-out':''}">
 <div class="my-plan-card-hdr"></div>
 ${p.image_url?`<img class="my-plan-img" src="${esc(p.image_url)}" alt="${esc(p.platform)}" loading="lazy" onerror="this.style.display='none'">`
@@ -1155,11 +1155,15 @@ function confirmBuy(planId,planName,price){
   const imapOn=STORE.imap_enabled==='1';
 
   // Build payment options
-  const walletOption=`
-<button class="btn btn-primary btn-block" id="confirm-buy-btn" ${!enough?'disabled':''} style="margin-bottom:.5rem">
-  ${enough?'✅ Pay from Wallet — '+fmt(cost):'⚠️ Insufficient Wallet Balance'}
+  const shortfall=Math.max(0,cost-balance);
+  const walletOption=enough?`
+<button class="btn btn-primary btn-block" id="confirm-buy-btn" style="margin-bottom:.5rem">
+  ✅ Pay from Wallet — ${fmt(cost)}
+</button>`:`
+<button class="btn btn-primary btn-block" id="add-money-btn" style="margin-bottom:.5rem">
+  ➕ Add Money &amp; Pay — ${fmt(cost)}
 </button>
-${!enough?`<p style="font-size:.75rem;color:var(--muted);text-align:center">Balance: ${fmt(balance)} — need ${fmt(cost)}</p>`:''}`;
+<p style="font-size:.75rem;color:var(--muted);text-align:center">Wallet balance: ${fmt(balance)} — add ${fmt(shortfall)} to continue</p>`;
 
   const upiOption=imapOn?`<button class="btn btn-secondary btn-block" id="upi-direct-btn" style="margin-top:.5rem">📱 Pay via UPI — ${fmt(cost)}</button>`:'';
 
@@ -1191,6 +1195,13 @@ ${!enough?`<p style="font-size:.75rem;color:var(--muted);text-align:center">Bala
       showToast('Order placed! Check Orders tab.','success');
       goTab('orders');
     }catch(e){setLoading(btn,false);showToast(e.message,'error');}
+  });
+
+  // Insufficient balance → send to wallet top-up (Razorpay / Manual UPI)
+  document.getElementById('add-money-btn')?.addEventListener('click',()=>{
+    ov.remove();
+    showToast('Add money to your wallet, then buy this plan.','info');
+    goTab('wallet');
   });
 
   // UPI direct pay

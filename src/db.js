@@ -375,6 +375,10 @@ function migrate(db) {
   seedOtt24x7Products(db);
   seedPlatformImages(db);
   seedWaOffers(db);
+
+  // One-time data fix: strip trailing slash from stored base_url so we never
+  // build URLs like https://site.com//user/api/auth/magic (broke magic links).
+  try { db.run(`UPDATE settings SET value = rtrim(value, '/') WHERE key='base_url' AND value LIKE '%/'`); } catch {}
 }
 
 function seedPlansData(db) {

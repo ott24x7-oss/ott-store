@@ -56,14 +56,15 @@ async function rkRequest(db, method, path, body = null) {
 // ─── Scrape/search ResellKeys product catalog ─────────────────────────────────
 async function scrapeResellKeysProducts(db, searchQuery) {
   const cfg = await getResellKeysConfig(db);
-  // Try API first
+  // Try API first. Build headers conditionally — never set a header to the
+  // literal `undefined`, which Node's http client rejects with
+  // `Invalid value "undefined" for header "Authorization"`.
+  const headers = { 'Accept': 'application/json', 'User-Agent': 'OTTStore/1.0' };
+  if (cfg.apiKey) headers['Authorization'] = `Bearer ${cfg.apiKey}`;
+  if (cfg.email)  headers['X-Auth-Email'] = cfg.email;
   const apiRes = await httpReq(`${cfg.apiUrl}/api/v2/products?search=${encodeURIComponent(searchQuery || '')}&limit=100`, {
     method: 'GET',
-    headers: {
-      'Authorization': cfg.apiKey ? `Bearer ${cfg.apiKey}` : undefined,
-      'Accept': 'application/json',
-      'User-Agent': 'OTTStore/1.0',
-    },
+    headers,
   });
   if (apiRes.status === 200 && Array.isArray(apiRes.body?.data || apiRes.body)) {
     const items = apiRes.body?.data || apiRes.body;
