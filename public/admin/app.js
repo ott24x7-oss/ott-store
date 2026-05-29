@@ -26,6 +26,9 @@ const MENU = [
   { id: 'broadcast',      label: 'Broadcast',     icon: '📢' },
   { id: 'autopost',       label: 'Email Auto-Post', icon: '🤖' },
   { id: 'ai-agent',       label: 'AI Agent',      icon: '🧠' },
+  { group: 'EMAIL & APP' },
+  { id: 'email-marketing', label: 'Email Marketing', icon: '📧' },
+  { id: 'pwa-manager',   label: 'App Manager',   icon: '📱' },
   { group: 'STOREFRONT' },
   { id: 'mystore',        label: 'My Store',      icon: '🏪' },
   { id: 'payments',       label: 'Payments',      icon: '💰' },
@@ -489,10 +492,37 @@ window.openOrderModal = function (orderJson) {
   <div class="form-group"><label class="form-label">Expires At</label>
     <input class="form-input" id="oc-expires" type="datetime-local" value="${o.expires_at ? o.expires_at.replace(' ','T').slice(0,16) : ''}"></div>
 </div>
-<div class="modal-footer">
+<div class="modal-footer" style="flex-wrap:wrap;gap:.4rem">
   <button class="btn btn-secondary" data-close>Cancel</button>
+  <button class="btn btn-secondary" id="copy-creds-btn" title="Copy credentials to clipboard">📋 Copy Creds</button>
+  <button class="btn btn-secondary" id="resend-email-btn" title="Re-send delivery email">📧 Resend Email</button>
+  <button class="btn btn-secondary" id="wa-deliver-btn" title="Send via WhatsApp">💬 WA Deliver</button>
   <button class="btn btn-primary" id="save-order-btn">Save Changes</button>
 </div>`);
+
+  document.getElementById('copy-creds-btn').addEventListener('click', () => {
+    const lines = ['username','password','pin','email','notes']
+      .map(k => { const v = document.getElementById(`oc-${k}`)?.value.trim(); return v ? `${k}: ${v}` : null; })
+      .filter(Boolean);
+    if (!lines.length) { showToast('No credentials to copy', 'error'); return; }
+    navigator.clipboard.writeText(lines.join('\n')).then(() => showToast('Credentials copied!'));
+  });
+
+  document.getElementById('resend-email-btn').addEventListener('click', async () => {
+    if (!confirm('Re-send delivery email to customer?')) return;
+    try {
+      await api(`/orders/${o.id}/resend-email`, { method: 'POST' });
+      showToast('Email sent!');
+    } catch (ex) { showToast(ex.message, 'error'); }
+  });
+
+  document.getElementById('wa-deliver-btn').addEventListener('click', async () => {
+    if (!confirm('Send credentials via WhatsApp to customer?')) return;
+    try {
+      await api(`/orders/${o.id}/wa-deliver`, { method: 'POST' });
+      showToast('Sent via WhatsApp!');
+    } catch (ex) { showToast(ex.message, 'error'); }
+  });
 
   document.getElementById('save-order-btn').addEventListener('click', async () => {
     const credentials = {};
@@ -2057,6 +2087,7 @@ views['wa-offers'] = async function () {
       <td style="white-space:nowrap">
         <button class="btn btn-sm btn-primary" onclick="postNow(${o.id})">Post Now</button>
         <button class="btn btn-sm btn-secondary" onclick="editWaOffer(${o.id})">Edit</button>
+        <button class="btn btn-sm btn-secondary" onclick="cloneWaOffer(${o.id})">Clone</button>
         <button class="btn btn-sm btn-red" onclick="delWaOffer(${o.id})">Del</button>
       </td>
     </tr>`).join('')}</tbody>
@@ -2158,6 +2189,13 @@ views['wa-offers'] = async function () {
       if (!confirm('Delete this offer?')) return;
       await api(`/wa-offers/${id}`, { method:'DELETE' });
       views['wa-offers']();
+    };
+    window.cloneWaOffer = async (id) => {
+      try {
+        await api(`/wa-offers/${id}/clone`, { method:'POST' });
+        showToast('Offer cloned (inactive draft)');
+        views['wa-offers']();
+      } catch(e) { showToast(e.message, 'error'); }
     };
     window.postNow = async (id) => {
       try {
@@ -2338,6 +2376,521 @@ views['ai-agent'] = async function () {
         setTimeout(()=>msg.innerHTML='',2000);
       } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
     };
+
+  } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
+
+// ── views['email-marketing'] ──────────────────────────────────────────────────
+views['email-marketing'] = async function (tab) {
+  tab = tab || 'campaigns';
+  setMain('<div class="spinner"></div>');
+  try {
+    const tabs = ['campaigns','templates','accounts'];
+    const tabBar = tabs.map(t => `<button class="btn btn-sm ${t===tab?'btn-primary':'btn-secondary'}" onclick="views['email-marketing']('${t}')">${t.charAt(0).toUpperCase()+t.slice(1)}</button>`).join('');
+
+    if (tab === 'accounts') {
+      const accounts = await api('/email-accounts');
+      setMain(`
+<h2 style="font-weight:800;margin-bottom:1rem">Email Marketing</h2>
+<div style="display:flex;gap:.5rem;margin-bottom:1.25rem;flex-wrap:wrap">${tabBar}</div>
+<div class="card" style="max-width:700px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+    <div style="font-weight:700">Gmail Accounts (${accounts.length})</div>
+    <button class="btn btn-sm btn-primary" onclick="addEmailAccount()">+ Add Account</button>
+  </div>
+  <p class="muted" style="font-size:.83rem;margin-bottom:.75rem">Add Gmail accounts with App Passwords. Enable 2FA on Gmail, then create an App Password under Google Account → Security.</p>
+  <div id="email-acc-list">
+  ${accounts.length ? `<div class="table-wrap"><table>
+    <thead><tr><th>Label</th><th>Email</th><th>SMTP Host</th><th>Active</th><th></th></tr></thead>
+    <tbody>${accounts.map(a=>`<tr>
+      <td style="font-weight:600">${esc(a.label)}</td>
+      <td style="font-size:.85rem">${esc(a.user)}</td>
+      <td style="font-size:.8rem;color:var(--muted)">${esc(a.host||'smtp.gmail.com')}:${a.port||587}</td>
+      <td>${a.active?'<span class="badge badge-green">On</span>':'<span class="badge badge-grey">Off</span>'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm btn-secondary" onclick="testEmailAccount(${a.id})">Test</button>
+        <button class="btn btn-sm btn-secondary" onclick="editEmailAccount(${a.id})">Edit</button>
+        <button class="btn btn-sm btn-red" onclick="delEmailAccount(${a.id})">Del</button>
+      </td>
+    </tr>`).join('')}</tbody>
+  </table></div>` : '<p class="muted">No accounts yet.</p>'}
+  </div>
+</div>`);
+
+      window.addEmailAccount = () => emailAccountModal(null);
+      window.editEmailAccount = async (id) => {
+        const a = (await api('/email-accounts')).find(x=>x.id===id);
+        if (a) emailAccountModal(a);
+      };
+      window.delEmailAccount = async (id) => {
+        if (!confirm('Delete this account?')) return;
+        await api(`/email-accounts/${id}`, { method:'DELETE' });
+        views['email-marketing']('accounts');
+      };
+      window.testEmailAccount = async (id) => {
+        try {
+          const r = await api(`/email-accounts/${id}/test`, { method:'POST' });
+          showToast(`✓ Connected as ${r.email}`);
+        } catch(e) { showToast(e.message, 'error'); }
+      };
+
+      function emailAccountModal(a) {
+        a = a || {};
+        const ov = openModal(`
+<div class="modal-header"><h3>${a.id?'Edit':'Add'} Gmail Account</h3><button class="btn-icon" data-close>✕</button></div>
+<div class="modal-body">
+  <div id="eacc-msg"></div>
+  <div class="form-group"><label class="form-label">Label (e.g. "Marketing Account 1")</label>
+    <input class="form-input" id="eacc-label" value="${esc(a.label||'')}" placeholder="My Gmail"></div>
+  <div class="form-group"><label class="form-label">Gmail Address</label>
+    <input class="form-input" id="eacc-user" type="email" value="${esc(a.user||'')}" placeholder="you@gmail.com"></div>
+  <div class="form-group"><label class="form-label">App Password <span class="muted">(16-char, no spaces)</span></label>
+    <input class="form-input" id="eacc-pass" type="password" value="${esc(a.app_password||'')}" placeholder="${a.id?'Leave blank to keep current':'abcd efgh ijkl mnop'}"></div>
+  <div class="form-group"><label class="form-label">From Name</label>
+    <input class="form-input" id="eacc-fname" value="${esc(a.from_name||'')}" placeholder="OTT Store"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+    <div class="form-group"><label class="form-label">SMTP Host</label>
+      <input class="form-input" id="eacc-host" value="${esc(a.host||'smtp.gmail.com')}"></div>
+    <div class="form-group"><label class="form-label">Port</label>
+      <input class="form-input" id="eacc-port" type="number" value="${a.port||587}"></div>
+  </div>
+  <label style="display:flex;align-items:center;gap:.5rem"><input type="checkbox" id="eacc-active" ${a.active!==0?'checked':''}> Active</label>
+</div>
+<div class="modal-footer">
+  <button class="btn btn-secondary" data-close>Cancel</button>
+  <button class="btn btn-primary" id="eacc-save">Save Account</button>
+</div>`);
+        document.getElementById('eacc-save').onclick = async () => {
+          const msg = document.getElementById('eacc-msg');
+          const body = {
+            label: document.getElementById('eacc-label').value.trim(),
+            user: document.getElementById('eacc-user').value.trim(),
+            app_password: document.getElementById('eacc-pass').value,
+            from_name: document.getElementById('eacc-fname').value.trim(),
+            host: document.getElementById('eacc-host').value.trim(),
+            port: +document.getElementById('eacc-port').value,
+            active: document.getElementById('eacc-active').checked ? 1 : 0,
+          };
+          if (!body.label || !body.user) { msg.innerHTML='<div class="alert alert-error">Label and email required</div>'; return; }
+          try {
+            if (a.id) await api(`/email-accounts/${a.id}`, { method:'PUT', body: JSON.stringify(body) });
+            else await api('/email-accounts', { method:'POST', body: JSON.stringify(body) });
+            ov.remove(); views['email-marketing']('accounts');
+          } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+        };
+      }
+
+    } else if (tab === 'templates') {
+      const templates = await api('/email-templates');
+      const cats = [...new Set(templates.map(t=>t.category))];
+      let activeCat = 'all';
+
+      const renderTemplates = (cat) => {
+        activeCat = cat;
+        const filtered = cat === 'all' ? templates : templates.filter(t=>t.category===cat);
+        document.getElementById('tpl-grid').innerHTML = filtered.map(t=>`
+<div class="card" style="padding:.75rem;display:flex;flex-direction:column;gap:.4rem;border:1px solid var(--border)">
+  <div style="font-weight:700;font-size:.9rem">${esc(t.name)}</div>
+  <div style="font-size:.78rem;color:var(--muted)">${esc(t.category)} • ${t.is_system?'System':'Custom'}</div>
+  <div style="font-size:.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-secondary)">${esc(t.subject)}</div>
+  <div style="display:flex;gap:.4rem;margin-top:.25rem;flex-wrap:wrap">
+    <button class="btn btn-sm btn-secondary" onclick="previewTemplate(${t.id})">Preview</button>
+    <button class="btn btn-sm btn-secondary" onclick="editTemplate(${t.id})">Edit</button>
+    ${!t.is_system ? `<button class="btn btn-sm btn-red" onclick="delTemplate(${t.id})">Del</button>` : ''}
+    <button class="btn btn-sm btn-primary" onclick="useTemplate(${t.id})">Use in Campaign</button>
+  </div>
+</div>`).join('');
+      };
+
+      setMain(`
+<h2 style="font-weight:800;margin-bottom:1rem">Email Marketing</h2>
+<div style="display:flex;gap:.5rem;margin-bottom:1.25rem;flex-wrap:wrap">${tabBar}</div>
+<div style="max-width:900px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem">
+    <div style="display:flex;gap:.35rem;flex-wrap:wrap">
+      <button class="btn btn-sm btn-secondary" onclick="filterTplCat('all')">All (${templates.length})</button>
+      ${cats.map(c=>`<button class="btn btn-sm btn-secondary" onclick="filterTplCat('${esc(c)}')">${esc(c)} (${templates.filter(t=>t.category===c).length})</button>`).join('')}
+    </div>
+    <button class="btn btn-sm btn-primary" onclick="newTemplate()">+ New Template</button>
+  </div>
+  <div id="tpl-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:.75rem"></div>
+</div>`);
+
+      renderTemplates('all');
+
+      window.filterTplCat = renderTemplates;
+
+      window.previewTemplate = async (id) => {
+        const t = await api(`/email-templates/${id}`);
+        openModal(`
+<div class="modal-header"><h3>Preview: ${esc(t.name)}</h3><button class="btn-icon" data-close>✕</button></div>
+<div class="modal-body" style="padding:0">
+  <iframe srcdoc="${t.html.replace(/"/g,'&quot;')}" style="width:100%;height:65vh;border:0"></iframe>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-close>Close</button></div>`);
+      };
+
+      window.useTemplate = async (id) => {
+        const t = await api(`/email-templates/${id}`);
+        sessionStorage.setItem('em_tpl', JSON.stringify({ subject: t.subject, html: t.html }));
+        views['email-marketing']('campaigns');
+        showToast('Template loaded — click New Campaign');
+      };
+
+      window.editTemplate = async (id) => {
+        const t = await api(`/email-templates/${id}`);
+        templateModal(t);
+      };
+      window.newTemplate = () => templateModal(null);
+      window.delTemplate = async (id) => {
+        if (!confirm('Delete this template?')) return;
+        await api(`/email-templates/${id}`, { method:'DELETE' });
+        views['email-marketing']('templates');
+      };
+
+      function templateModal(t) {
+        t = t || {};
+        const ov = openModal(`
+<div class="modal-header"><h3>${t.id?'Edit':'New'} Template</h3><button class="btn-icon" data-close>✕</button></div>
+<div class="modal-body">
+  <div id="tpl-msg"></div>
+  <div class="form-group"><label class="form-label">Name</label><input class="form-input" id="tpl-name" value="${esc(t.name||'')}"></div>
+  <div class="form-group"><label class="form-label">Category</label>
+    <select class="form-input" id="tpl-cat">
+      ${['welcome','order','offer','product','retention','newsletter'].map(c=>`<option ${(t.category||'offer')===c?'selected':''}>${c}</option>`).join('')}
+    </select></div>
+  <div class="form-group"><label class="form-label">Subject</label><input class="form-input" id="tpl-subject" value="${esc(t.subject||'')}"></div>
+  <div class="form-group"><label class="form-label">HTML Body <span class="muted">(Use {{name}}, {{site_name}}, {{site_url}}, {{email}})</span></label>
+    <textarea class="form-input" id="tpl-html" rows="10" style="font-family:monospace;font-size:.8rem">${esc(t.html||'')}</textarea></div>
+</div>
+<div class="modal-footer">
+  <button class="btn btn-secondary" data-close>Cancel</button>
+  <button class="btn btn-primary" id="tpl-save">Save Template</button>
+</div>`);
+        document.getElementById('tpl-save').onclick = async () => {
+          const msg = document.getElementById('tpl-msg');
+          const body = {
+            name: document.getElementById('tpl-name').value.trim(),
+            category: document.getElementById('tpl-cat').value,
+            subject: document.getElementById('tpl-subject').value.trim(),
+            html: document.getElementById('tpl-html').value,
+          };
+          if (!body.name || !body.subject || !body.html) { msg.innerHTML='<div class="alert alert-error">All fields required</div>'; return; }
+          try {
+            if (t.id) await api(`/email-templates/${t.id}`, { method:'PUT', body: JSON.stringify(body) });
+            else await api('/email-templates', { method:'POST', body: JSON.stringify(body) });
+            ov.remove(); views['email-marketing']('templates');
+          } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+        };
+      }
+
+    } else {
+      // campaigns tab (default)
+      const campaigns = await api('/email-campaigns');
+      const storedTpl = sessionStorage.getItem('em_tpl');
+
+      setMain(`
+<h2 style="font-weight:800;margin-bottom:1rem">Email Marketing</h2>
+<div style="display:flex;gap:.5rem;margin-bottom:1.25rem;flex-wrap:wrap">${tabBar}</div>
+<div style="max-width:860px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+    <div style="font-weight:700">Campaigns (${campaigns.length})</div>
+    <button class="btn btn-sm btn-primary" onclick="newCampaign()">+ New Campaign</button>
+  </div>
+  ${campaigns.length ? `<div class="table-wrap"><table>
+    <thead><tr><th>Name</th><th>Subject</th><th>Target</th><th>Account</th><th>Status</th><th>Progress</th><th></th></tr></thead>
+    <tbody>${campaigns.map(c=>`<tr>
+      <td style="font-weight:600">${esc(c.name)}</td>
+      <td style="font-size:.82rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.subject)}</td>
+      <td><span class="badge badge-blue">${esc(c.target)}</span></td>
+      <td style="font-size:.8rem;color:var(--muted)">${esc(c.account_email||'—')}</td>
+      <td>${statusBadge(c.status)}</td>
+      <td style="font-size:.8rem">${c.total_recipients>0 ? `${c.sent_count}/${c.total_recipients}${c.failed_count>0?` (${c.failed_count} fail)`:''}`:'—'}</td>
+      <td style="white-space:nowrap">
+        ${c.status!=='sending'?`<button class="btn btn-sm btn-primary" onclick="sendCampaign(${c.id})">Send</button>`:'<span class="badge badge-blue">Sending…</span>'}
+        <button class="btn btn-sm btn-secondary" onclick="editCampaign(${c.id})">Edit</button>
+        <button class="btn btn-sm btn-secondary" onclick="dupCampaign(${c.id})">Clone</button>
+        ${c.status!=='sending'?`<button class="btn btn-sm btn-red" onclick="delCampaign(${c.id})">Del</button>`:''}
+      </td>
+    </tr>`).join('')}</tbody>
+  </table></div>` : '<p class="muted">No campaigns yet. Click "+ New Campaign" to start.</p>'}
+</div>`);
+
+      window.newCampaign = async () => {
+        const tplData = storedTpl ? JSON.parse(storedTpl) : null;
+        sessionStorage.removeItem('em_tpl');
+        campaignModal(null, tplData);
+      };
+      window.editCampaign = async (id) => {
+        const c = campaigns.find(x=>x.id===id);
+        if (c) campaignModal(c, null);
+      };
+      window.sendCampaign = async (id) => {
+        if (!confirm('Send this campaign now? This cannot be undone.')) return;
+        try {
+          await api(`/email-campaigns/${id}/send`, { method:'POST' });
+          showToast('Campaign started! Sending in background…');
+          views['email-marketing']('campaigns');
+        } catch(e) { showToast(e.message, 'error'); }
+      };
+      window.dupCampaign = async (id) => {
+        try {
+          await api(`/email-campaigns/${id}/duplicate`, { method:'POST' });
+          showToast('Campaign cloned as draft');
+          views['email-marketing']('campaigns');
+        } catch(e) { showToast(e.message, 'error'); }
+      };
+      window.delCampaign = async (id) => {
+        if (!confirm('Delete this campaign?')) return;
+        await api(`/email-campaigns/${id}`, { method:'DELETE' });
+        views['email-marketing']('campaigns');
+      };
+
+      async function campaignModal(c, prefill) {
+        c = c || {};
+        const [accounts, templates] = await Promise.all([api('/email-accounts'), api('/email-templates')]);
+        const subject = prefill?.subject || c.subject || '';
+        const html = prefill?.html || c.html || '';
+        const ov = openModal(`
+<div class="modal-header"><h3>${c.id?'Edit':'New'} Campaign</h3><button class="btn-icon" data-close>✕</button></div>
+<div class="modal-body" style="max-height:78vh;overflow-y:auto">
+  <div id="camp-msg"></div>
+  <div class="form-group"><label class="form-label">Campaign Name</label>
+    <input class="form-input" id="camp-name" value="${esc(c.name||'')}"></div>
+  <div class="form-group"><label class="form-label">Subject</label>
+    <input class="form-input" id="camp-subject" value="${esc(subject)}"></div>
+  <div class="form-group"><label class="form-label">Email Account</label>
+    <select class="form-input" id="camp-acc">
+      <option value="">— Select Account —</option>
+      ${accounts.map(a=>`<option value="${a.id}" ${c.account_id===a.id?'selected':''}>${esc(a.label)} &lt;${esc(a.user)}&gt;</option>`).join('')}
+    </select></div>
+  <div class="form-group"><label class="form-label">Target Audience</label>
+    <select class="form-input" id="camp-target" onchange="toggleCustomEmails()">
+      ${[['all','All Customers'],['recent7','Ordered in last 7 days'],['recent30','Ordered in last 30 days'],['custom','Custom Email List']].map(([v,l])=>`<option value="${v}" ${(c.target||'all')===v?'selected':''}>${l}</option>`).join('')}
+    </select></div>
+  <div class="form-group" id="camp-custom-wrap" style="display:${c.target==='custom'?'block':'none'}">
+    <label class="form-label">Custom Emails (one per line or comma-separated)</label>
+    <textarea class="form-input" id="camp-custom" rows="4">${esc(c.custom_emails||'')}</textarea></div>
+  <div class="form-group"><label class="form-label">Load from Template</label>
+    <select class="form-input" id="camp-tpl" onchange="loadTplIntoEditor()">
+      <option value="">— pick a template —</option>
+      ${templates.map(t=>`<option value="${t.id}" data-cat="${esc(t.category)}">${esc(t.name)} (${esc(t.category)})</option>`).join('')}
+    </select></div>
+  <div class="form-group"><label class="form-label">HTML Body <span class="muted">(Use {{name}}, {{site_name}}, {{site_url}}, {{email}})</span></label>
+    <textarea class="form-input" id="camp-html" rows="12" style="font-family:monospace;font-size:.78rem">${esc(html)}</textarea></div>
+</div>
+<div class="modal-footer">
+  <button class="btn btn-secondary" data-close>Cancel</button>
+  <button class="btn btn-primary" id="camp-save">Save Draft</button>
+</div>`);
+
+        window.toggleCustomEmails = () => {
+          document.getElementById('camp-custom-wrap').style.display =
+            document.getElementById('camp-target').value === 'custom' ? 'block' : 'none';
+        };
+        window.loadTplIntoEditor = async () => {
+          const id = +document.getElementById('camp-tpl').value;
+          if (!id) return;
+          const t = await api(`/email-templates/${id}`);
+          document.getElementById('camp-subject').value = t.subject;
+          document.getElementById('camp-html').value = t.html;
+        };
+
+        document.getElementById('camp-save').onclick = async () => {
+          const msg = document.getElementById('camp-msg');
+          const body = {
+            name: document.getElementById('camp-name').value.trim(),
+            subject: document.getElementById('camp-subject').value.trim(),
+            account_id: +document.getElementById('camp-acc').value || null,
+            target: document.getElementById('camp-target').value,
+            custom_emails: document.getElementById('camp-custom').value.trim(),
+            html: document.getElementById('camp-html').value,
+          };
+          if (!body.name || !body.subject || !body.html) { msg.innerHTML='<div class="alert alert-error">Name, subject and HTML required</div>'; return; }
+          try {
+            if (c.id) await api(`/email-campaigns/${c.id}`, { method:'PUT', body: JSON.stringify(body) });
+            else await api('/email-campaigns', { method:'POST', body: JSON.stringify(body) });
+            ov.remove(); views['email-marketing']('campaigns');
+          } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+        };
+      }
+    }
+
+  } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
+
+// ── views['pwa-manager'] ──────────────────────────────────────────────────────
+views['pwa-manager'] = async function (tab) {
+  tab = tab || 'branding';
+  setMain('<div class="spinner"></div>');
+  try {
+    const tabs = ['branding','push','subscribers'];
+    const tabBar = tabs.map(t => `<button class="btn btn-sm ${t===tab?'btn-primary':'btn-secondary'}" onclick="views['pwa-manager']('${t}')">${t.charAt(0).toUpperCase()+t.slice(1)}</button>`).join('');
+
+    if (tab === 'branding') {
+      const s = await api('/pwa-settings');
+      setMain(`
+<h2 style="font-weight:800;margin-bottom:1rem">App Manager (PWA)</h2>
+<div style="display:flex;gap:.5rem;margin-bottom:1.25rem;flex-wrap:wrap">${tabBar}</div>
+<div style="max-width:640px;display:flex;flex-direction:column;gap:1.25rem">
+
+<div class="card">
+  <div style="font-weight:700;margin-bottom:.75rem">App Branding</div>
+  <div id="pwa-msg"></div>
+  <div class="form-group"><label class="form-label">App Name (full)</label>
+    <input class="form-input" id="pwa-name" value="${esc(s.pwa_name||'')}" placeholder="OTT Store"></div>
+  <div class="form-group"><label class="form-label">Short Name (home screen)</label>
+    <input class="form-input" id="pwa-sname" value="${esc(s.pwa_short_name||'')}" placeholder="OTT"></div>
+  <div class="form-group"><label class="form-label">Description</label>
+    <input class="form-input" id="pwa-desc" value="${esc(s.pwa_description||'')}" placeholder="Buy OTT Subscriptions at Best Prices"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+    <div class="form-group"><label class="form-label">Theme Color</label>
+      <input class="form-input" id="pwa-theme" type="color" value="${esc(s.pwa_theme_color||'#7c3aed')}" style="height:40px;padding:.25rem"></div>
+    <div class="form-group"><label class="form-label">Background Color</label>
+      <input class="form-input" id="pwa-bg" type="color" value="${esc(s.pwa_bg_color||'#0d1117')}" style="height:40px;padding:.25rem"></div>
+  </div>
+  <div class="form-group"><label class="form-label">App Icon (PNG, min 512×512)</label>
+    <input type="file" accept="image/png,image/jpeg" id="pwa-icon-file" onchange="loadPwaIcon(this)">
+    ${s.pwa_icon_b64 ? `<div style="margin-top:.5rem"><img src="data:image/png;base64,${s.pwa_icon_b64}" style="width:80px;height:80px;border-radius:12px;object-fit:cover;border:2px solid var(--border)"></div>` : ''}
+    <input type="hidden" id="pwa-icon-b64">
+  </div>
+  <label style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem">
+    <input type="checkbox" id="pwa-prompt" ${s.pwa_force_prompt==='1'?'checked':''}>
+    Force install prompt on store visit
+  </label>
+  <button class="btn btn-primary" onclick="savePwaSettings()">Save Branding</button>
+</div>
+
+<div class="card">
+  <div style="font-weight:700;margin-bottom:.5rem">VAPID Keys (Push Notifications)</div>
+  <p class="muted" style="font-size:.83rem;margin-bottom:.75rem">Required for push notifications. Generate once — changing keys will invalidate all existing subscriptions.</p>
+  ${s.vapid_public_key ? `<div style="font-size:.78rem;font-family:monospace;word-break:break-all;background:var(--input-bg);padding:.5rem;border-radius:6px;margin-bottom:.75rem">${esc(s.vapid_public_key)}</div>` : '<p class="muted" style="font-size:.83rem">No VAPID keys yet.</p>'}
+  <div style="display:flex;gap:.5rem">
+    <button class="btn btn-secondary btn-sm" onclick="genVapid()">${s.vapid_public_key?'Regenerate':'Generate'} VAPID Keys</button>
+  </div>
+</div>
+
+</div>`);
+
+      window.loadPwaIcon = (inp) => {
+        const file = inp.files[0];
+        if (!file) return;
+        const r = new FileReader();
+        r.onload = e => { document.getElementById('pwa-icon-b64').value = e.target.result.split(',')[1]; };
+        r.readAsDataURL(file);
+      };
+
+      window.savePwaSettings = async () => {
+        const msg = document.getElementById('pwa-msg');
+        const body = {
+          pwa_name: document.getElementById('pwa-name').value.trim(),
+          pwa_short_name: document.getElementById('pwa-sname').value.trim(),
+          pwa_description: document.getElementById('pwa-desc').value.trim(),
+          pwa_theme_color: document.getElementById('pwa-theme').value,
+          pwa_bg_color: document.getElementById('pwa-bg').value,
+          pwa_force_prompt: document.getElementById('pwa-prompt').checked ? '1' : '0',
+        };
+        const icon = document.getElementById('pwa-icon-b64').value;
+        if (icon) body.pwa_icon_b64 = icon;
+        try {
+          await api('/pwa-settings', { method:'POST', body: JSON.stringify(body) });
+          msg.innerHTML='<div class="alert alert-success">Saved!</div>';
+          setTimeout(()=>msg.innerHTML='',2000);
+        } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+      };
+
+      window.genVapid = async () => {
+        if (!confirm('Generate new VAPID keys? All existing push subscriptions will stop working.')) return;
+        try {
+          const r = await api('/pwa-settings/generate-vapid', { method:'POST' });
+          showToast('VAPID keys generated');
+          views['pwa-manager']('branding');
+        } catch(e) { showToast(e.message, 'error'); }
+      };
+
+    } else if (tab === 'push') {
+      const settings = await api('/pwa-settings');
+      setMain(`
+<h2 style="font-weight:800;margin-bottom:1rem">App Manager (PWA)</h2>
+<div style="display:flex;gap:.5rem;margin-bottom:1.25rem;flex-wrap:wrap">${tabBar}</div>
+<div style="max-width:640px;display:flex;flex-direction:column;gap:1.25rem">
+
+<div class="card">
+  <div style="font-weight:700;margin-bottom:.5rem">Send Push Notification</div>
+  <p class="muted" style="font-size:.83rem;margin-bottom:.75rem">Subscribers: <strong>${settings.subscription_count||0}</strong></p>
+  <div id="push-msg"></div>
+  <div class="form-group"><label class="form-label">Title</label>
+    <input class="form-input" id="push-title" placeholder="🔥 New Deal Available!"></div>
+  <div class="form-group"><label class="form-label">Body</label>
+    <textarea class="form-input" id="push-body" rows="3" placeholder="Netflix 4K • 1 Year • Only ₹699 — Shop now!"></textarea></div>
+  <div class="form-group"><label class="form-label">URL (on click)</label>
+    <input class="form-input" id="push-url" placeholder="/"></div>
+  <button class="btn btn-primary" onclick="sendPushNow()">Send to All Subscribers</button>
+</div>
+
+<div class="card">
+  <div style="font-weight:700;margin-bottom:.5rem">Notification History</div>
+  <div id="push-history"><div class="spinner"></div></div>
+</div>
+
+</div>`);
+
+      window.sendPushNow = async () => {
+        const msg = document.getElementById('push-msg');
+        const title = document.getElementById('push-title').value.trim();
+        const body = document.getElementById('push-body').value.trim();
+        const url = document.getElementById('push-url').value.trim() || '/';
+        if (!title || !body) { msg.innerHTML='<div class="alert alert-error">Title and body required</div>'; return; }
+        if (!confirm(`Send push notification to all subscribers?`)) return;
+        msg.innerHTML='<div class="alert alert-info">Sending…</div>';
+        try {
+          const r = await api('/push-notifications/send', { method:'POST', body: JSON.stringify({ title, body, url }) });
+          msg.innerHTML=`<div class="alert alert-success">Sent: ${r.success}/${r.total}</div>`;
+          loadPushHistory();
+        } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+      };
+
+      async function loadPushHistory() {
+        const el = document.getElementById('push-history');
+        try {
+          const hist = await api('/push-notifications');
+          el.innerHTML = hist.length ? `<div class="table-wrap"><table>
+            <thead><tr><th>Title</th><th>Sent</th><th>Success</th><th>Date</th></tr></thead>
+            <tbody>${hist.map(n=>`<tr>
+              <td>${esc(n.title)}</td>
+              <td>${n.total}</td>
+              <td><span class="badge badge-green">${n.success_count}</span></td>
+              <td style="font-size:.8rem">${fmtDate(n.sent_at)}</td>
+            </tr>`).join('')}</tbody>
+          </table></div>` : '<p class="muted">No notifications sent yet.</p>';
+        } catch(e) { el.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+      }
+      loadPushHistory();
+
+    } else if (tab === 'subscribers') {
+      const subs = await api('/push-subscriptions');
+      setMain(`
+<h2 style="font-weight:800;margin-bottom:1rem">App Manager (PWA)</h2>
+<div style="display:flex;gap:.5rem;margin-bottom:1.25rem;flex-wrap:wrap">${tabBar}</div>
+<div style="max-width:860px">
+  <div style="font-weight:700;margin-bottom:.75rem">Push Subscribers (${subs.length})</div>
+  ${subs.length ? `<div class="table-wrap"><table>
+    <thead><tr><th>Device / Browser</th><th>Endpoint (short)</th><th>Subscribed</th><th></th></tr></thead>
+    <tbody>${subs.map(s=>`<tr>
+      <td style="font-size:.83rem">${esc(s.user_agent||'Unknown')}</td>
+      <td style="font-family:monospace;font-size:.75rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.endpoint.split('/').slice(-1)[0].slice(0,24)+'…')}</td>
+      <td style="font-size:.8rem">${fmtDate(s.created_at)}</td>
+      <td><button class="btn btn-sm btn-red" onclick="delSub(${s.id})">Remove</button></td>
+    </tr>`).join('')}</tbody>
+  </table></div>` : '<p class="muted">No subscribers yet. Install the PWA and allow notifications.</p>'}
+</div>`);
+
+      window.delSub = async (id) => {
+        if (!confirm('Remove this subscriber?')) return;
+        await api(`/push-subscriptions/${id}`, { method:'DELETE' });
+        views['pwa-manager']('subscribers');
+      };
+    }
 
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };

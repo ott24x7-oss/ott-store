@@ -10,7 +10,13 @@
 <meta id="og-desc" property="og:description" content="Premium OTT subscriptions at best prices">
 <meta id="og-img" property="og:image" content="">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="manifest" href="/manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="stylesheet" href="/style.css">
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{})}</script>
 <style>
 /* ── Storefront-specific ── */
 .hero {
@@ -251,6 +257,7 @@ const PLATFORM_ICONS = {
 
 // Load store settings
 fetch('/user/api/store').then(r=>r.json()).then(s => {
+  _storeCfg = s;
   if (s.site_name) {
     document.getElementById('logo-text').textContent = s.site_name;
     document.getElementById('footer-name').textContent = s.site_name;
@@ -262,7 +269,40 @@ fetch('/user/api/store').then(r=>r.json()).then(s => {
   if (s.site_tagline) {
     document.getElementById('hero-sub').textContent = s.site_tagline;
   }
+  // If install prompt already fired before settings loaded, show bar now
+  if (s.pwa_force_prompt === '1' && _pwaPrompt) showInstallBar();
+  // Register push notifications if VAPID key available
+  if (s.vapid_public_key && 'serviceWorker' in navigator && 'PushManager' in window) {
+    navigator.serviceWorker.ready.then(reg => {
+      reg.pushManager.getSubscription().then(existing => {
+        if (existing) return;
+        const key = s.vapid_public_key;
+        const appKey = Uint8Array.from(atob(key.replace(/-/g,'+').replace(/_/g,'/')), c=>c.charCodeAt(0));
+        return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: appKey })
+          .then(sub => fetch('/admin/api/push-subscribe', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ endpoint:sub.endpoint, p256dh:btoa(String.fromCharCode(...new Uint8Array(sub.getKey('p256dh')))), auth:btoa(String.fromCharCode(...new Uint8Array(sub.getKey('auth')))), user_agent: navigator.userAgent }) }));
+      });
+    }).catch(()=>{});
+  }
 }).catch(()=>{});
+
+// PWA install prompt
+let _pwaPrompt = null, _storeCfg = {};
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _pwaPrompt = e;
+  if (_storeCfg.pwa_force_prompt === '1') showInstallBar();
+});
+window.addEventListener('appinstalled', () => { const b = document.getElementById('pwa-install-bar'); if (b) b.remove(); });
+function showInstallBar() {
+  if (document.getElementById('pwa-install-bar')) return;
+  const bar = document.createElement('div');
+  bar.id = 'pwa-install-bar';
+  bar.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:var(--card-bg);border-top:1px solid var(--border);padding:.75rem 1rem;display:flex;align-items:center;gap:.75rem;box-shadow:0 -2px 12px rgba(0,0,0,.18)';
+  bar.innerHTML = `<span style="font-size:1.4rem">📱</span><div style="flex:1"><b>Add to Home Screen</b><div style="font-size:.82rem;color:var(--muted)">Install for the best experience</div></div><button id="pwa-install-btn" class="btn btn-primary btn-sm">Install</button><button id="pwa-dismiss-btn" class="btn btn-secondary btn-sm">✕</button>`;
+  document.body.appendChild(bar);
+  document.getElementById('pwa-install-btn').onclick = () => { _pwaPrompt.prompt(); _pwaPrompt.userChoice.then(()=>{ bar.remove(); _pwaPrompt=null; }); };
+  document.getElementById('pwa-dismiss-btn').onclick = () => bar.remove();
+}
 
 // Check login
 let isLoggedIn = false;

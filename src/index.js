@@ -25,6 +25,78 @@ app.use('/data/uploads', express.static(path.join(__dirname, '..', 'data', 'uplo
 app.use('/user/api', require('./user-api'));
 app.use('/admin/api', require('./admin-api'));
 
+// ─── PWA: dynamic manifest ────────────────────────────────────────────────────
+app.get('/manifest.json', async (req, res) => {
+  try {
+    const [name, shortName, desc, themeColor, bgColor, vapidKey] = await Promise.all([
+      getSetting('pwa_name'), getSetting('pwa_short_name'), getSetting('pwa_description'),
+      getSetting('pwa_theme_color'), getSetting('pwa_bg_color'), getSetting('vapid_public_key'),
+    ]);
+    const siteName = await getSetting('site_name') || 'OTT Store';
+    res.json({
+      name: name || siteName,
+      short_name: shortName || (name || siteName).slice(0, 12),
+      description: desc || 'Buy OTT Subscriptions at Best Prices',
+      start_url: '/',
+      display: 'standalone',
+      background_color: bgColor || '#0d1117',
+      theme_color: themeColor || '#7c3aed',
+      icons: [
+        { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+        { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+      ],
+      ...(vapidKey ? { gcm_sender_id: undefined } : {}),
+    });
+  } catch { res.json({ name: 'OTT Store', start_url: '/', display: 'standalone' }); }
+});
+
+// ─── PWA: app icons (served from DB or placeholder) ──────────────────────────
+const FALLBACK_ICON_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQAABjE+ibYAAAAASUVORK5CYII=';
+async function serveIcon(req, res) {
+  try {
+    const b64 = await getSetting('pwa_icon_b64');
+    const buf = Buffer.from(b64 && b64.length > 100 ? b64 : FALLBACK_ICON_B64, 'base64');
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(buf);
+  } catch { res.status(404).end(); }
+}
+app.get('/icon-192.png', serveIcon);
+app.get('/icon-512.png', serveIcon);
+
+// ─── PWA: service worker ──────────────────────────────────────────────────────
+app.get('/sw.js', async (req, res) => {
+  const vapidKey = await getSetting('vapid_public_key').catch(() => '');
+  res.setHeader('Content-Type', 'application/javascript');
+  res.setHeader('Service-Worker-Allowed', '/');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.send(`
+const CACHE='ott-v6';
+const STATIC=['/','index.html'];
+self.addEventListener('install',e=>{self.skipWaiting()});
+self.addEventListener('activate',e=>{clients.claim()});
+self.addEventListener('fetch',e=>{
+  if(e.request.method!=='GET'||e.request.url.includes('/api/'))return;
+  e.respondWith(fetch(e.request).catch(()=>caches.match(e.request)));
+});
+self.addEventListener('push',e=>{
+  if(!e.data)return;
+  let d={title:'OTT Store',body:'',icon:'/icon-192.png',url:'/'};
+  try{d={...d,...e.data.json()}}catch{}
+  e.waitUntil(self.registration.showNotification(d.title,{body:d.body,icon:d.icon,data:{url:d.url}}));
+});
+self.addEventListener('notificationclick',e=>{
+  e.notification.close();
+  const url=e.notification.data?.url||'/';
+  e.waitUntil(clients.matchAll({type:'window'}).then(cs=>{
+    const c=cs.find(x=>x.url===url&&'focus' in x);
+    if(c)return c.focus();
+    if(clients.openWindow)return clients.openWindow(url);
+  }));
+});
+`);
+});
+
 // ─── SEO: robots.txt ─────────────────────────────────────────────────────────
 app.get('/robots.txt', async (req, res) => {
   try {

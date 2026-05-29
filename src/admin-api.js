@@ -1172,6 +1172,318 @@ router.post('/ai-settings', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── Order enhancements ───────────────────────────────────────────────────────
+router.post('/orders/:id/resend-email', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const order = get(db, `SELECT o.*, p.name as plan_name, p.platform, c.email, c.name as cname
+                           FROM orders o LEFT JOIN plans p ON o.plan_id=p.id LEFT JOIN customers c ON o.customer_jid=c.jid
+                           WHERE o.id=?`, [req.params.id]);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (!order.email) return res.status(400).json({ error: 'Customer has no email address' });
+    const creds = order.credentials ? (typeof order.credentials === 'string' ? JSON.parse(order.credentials) : order.credentials) : {};
+    await sendOrderDelivery(order.email, order.cname, order, creds);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/orders/:id/wa-deliver', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const order = get(db, `SELECT o.*, c.phone, c.name as cname FROM orders o LEFT JOIN customers c ON o.customer_jid=c.jid WHERE o.id=?`, [req.params.id]);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    const phone = order.phone || order.customer_jid?.split('@')[0];
+    if (!phone || !/^\d{7,}$/.test(phone.replace(/\D/g, ''))) return res.status(400).json({ error: 'No valid phone number for this customer' });
+    const creds = order.credentials ? (typeof order.credentials === 'string' ? JSON.parse(order.credentials) : order.credentials) : {};
+    const credsText = Object.entries(creds).filter(([k]) => !['line1','line2'].includes(k))
+      .map(([k,v]) => `  *${k.charAt(0).toUpperCase()+k.slice(1)}:* ${v}`).join('\n') || Object.values(creds).join(' / ') || '(no credentials)';
+    const waBot = require('./wa-bot');
+    const msg = `✅ *Order Delivered!*\n\n📦 *${order.plan_name||'Subscription'}*\n🆔 Order: #${order.id}\n\n🔑 *Credentials:*\n${credsText}\n\n_Keep safe. Do not share._`;
+    const ok = await waBot.sendToPhone(phone, msg);
+    if (!ok) throw new Error('WhatsApp send failed — check connection');
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── WA Offer clone ───────────────────────────────────────────────────────────
+router.post('/wa-offers/:id/clone', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const o = get(db, 'SELECT * FROM wa_offers WHERE id=?', [req.params.id]);
+    if (!o) return res.status(404).json({ error: 'Offer not found' });
+    const r = run(db, `INSERT INTO wa_offers (text, image_b64, active) VALUES (?,?,0)`, [o.text + ' (copy)', o.image_b64 || null]);
+    res.json({ ok: true, id: r.lastInsertRowid });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Email Accounts ───────────────────────────────────────────────────────────
+router.get('/email-accounts', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const accounts = all(db, 'SELECT id,label,host,port,user,from_name,active,created_at FROM email_accounts ORDER BY id ASC');
+    res.json(accounts);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/email-accounts', requireAdmin, async (req, res) => {
+  try {
+    const { label, host, port, secure, user, app_password, from_name, active } = req.body;
+    if (!label || !user || !app_password) return res.status(400).json({ error: 'label, user and app_password required' });
+    const db = await getDb();
+    const r = run(db, `INSERT INTO email_accounts (label,host,port,secure,user,app_password,from_name,active) VALUES (?,?,?,?,?,?,?,?)`,
+      [label, host || 'smtp.gmail.com', port || 587, secure ? 1 : 0, user, app_password, from_name || '', active !== false ? 1 : 0]);
+    res.json({ ok: true, id: r.lastInsertRowid });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/email-accounts/:id', requireAdmin, async (req, res) => {
+  try {
+    const { label, host, port, secure, user, app_password, from_name, active } = req.body;
+    const db = await getDb();
+    const ex = get(db, 'SELECT * FROM email_accounts WHERE id=?', [req.params.id]);
+    if (!ex) return res.status(404).json({ error: 'Account not found' });
+    const pw = app_password && !String(app_password).startsWith('••••') ? app_password : ex.app_password;
+    run(db, `UPDATE email_accounts SET label=?,host=?,port=?,secure=?,user=?,app_password=?,from_name=?,active=? WHERE id=?`,
+      [label ?? ex.label, host ?? ex.host, port ?? ex.port, secure !== undefined ? (secure ? 1 : 0) : ex.secure,
+       user ?? ex.user, pw, from_name ?? ex.from_name, active !== undefined ? (active ? 1 : 0) : ex.active, req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/email-accounts/:id', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    run(db, 'DELETE FROM email_accounts WHERE id=?', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/email-accounts/:id/test', requireAdmin, async (req, res) => {
+  try {
+    const { testAccount } = require('./email-marketing');
+    const result = await testAccount(parseInt(req.params.id));
+    res.json(result);
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+// ─── Email Templates ──────────────────────────────────────────────────────────
+router.get('/email-templates', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const cat = req.query.category;
+    const sql = cat
+      ? `SELECT id,name,category,subject,is_system,created_at FROM email_templates WHERE category=? ORDER BY is_system DESC, name ASC`
+      : `SELECT id,name,category,subject,is_system,created_at FROM email_templates ORDER BY is_system DESC, category ASC, name ASC`;
+    res.json(cat ? all(db, sql, [cat]) : all(db, sql));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/email-templates/:id', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const t = get(db, 'SELECT * FROM email_templates WHERE id=?', [req.params.id]);
+    if (!t) return res.status(404).json({ error: 'Template not found' });
+    res.json(t);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/email-templates', requireAdmin, async (req, res) => {
+  try {
+    const { name, category, subject, html } = req.body;
+    if (!name || !subject || !html) return res.status(400).json({ error: 'name, subject and html required' });
+    const db = await getDb();
+    const r = run(db, `INSERT INTO email_templates (name,category,subject,html,is_system) VALUES (?,?,?,?,0)`,
+      [name, category || 'general', subject, html]);
+    res.json({ ok: true, id: r.lastInsertRowid });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/email-templates/:id', requireAdmin, async (req, res) => {
+  try {
+    const { name, category, subject, html } = req.body;
+    const db = await getDb();
+    run(db, `UPDATE email_templates SET name=?,category=?,subject=?,html=? WHERE id=?`,
+      [name, category || 'general', subject, html, req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/email-templates/:id', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    run(db, 'DELETE FROM email_templates WHERE id=? AND is_system=0', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Email Campaigns ──────────────────────────────────────────────────────────
+router.get('/email-campaigns', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const camps = all(db, `SELECT ec.*, ea.label as account_label, ea.user as account_email FROM email_campaigns ec LEFT JOIN email_accounts ea ON ec.account_id=ea.id ORDER BY ec.created_at DESC LIMIT 100`);
+    res.json(camps);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/email-campaigns', requireAdmin, async (req, res) => {
+  try {
+    const { name, subject, html, account_id, target, custom_emails } = req.body;
+    if (!name || !subject || !html) return res.status(400).json({ error: 'name, subject and html required' });
+    const db = await getDb();
+    const r = run(db, `INSERT INTO email_campaigns (name,subject,html,account_id,target,custom_emails) VALUES (?,?,?,?,?,?)`,
+      [name, subject, html, account_id || null, target || 'all', custom_emails || null]);
+    res.json({ ok: true, id: r.lastInsertRowid });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/email-campaigns/:id', requireAdmin, async (req, res) => {
+  try {
+    const { name, subject, html, account_id, target, custom_emails } = req.body;
+    const db = await getDb();
+    run(db, `UPDATE email_campaigns SET name=?,subject=?,html=?,account_id=?,target=?,custom_emails=? WHERE id=? AND status IN ('draft','sent','failed')`,
+      [name, subject, html, account_id || null, target || 'all', custom_emails || null, req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/email-campaigns/:id', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    run(db, `DELETE FROM email_campaigns WHERE id=? AND status != 'sending'`, [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/email-campaigns/:id/send', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const camp = get(db, 'SELECT status FROM email_campaigns WHERE id=?', [req.params.id]);
+    if (!camp) return res.status(404).json({ error: 'Campaign not found' });
+    if (camp.status === 'sending') return res.status(400).json({ error: 'Campaign is already sending' });
+    const { sendCampaignEmail } = require('./email-marketing');
+    // Run async, respond immediately
+    sendCampaignEmail(parseInt(req.params.id)).catch(e => {
+      const db2 = require('./db').getDb ? null : null;
+      getDb().then(db2 => run(db2, `UPDATE email_campaigns SET status='failed' WHERE id=?`, [req.params.id])).catch(() => {});
+    });
+    res.json({ ok: true, message: 'Campaign started — check progress in campaigns list' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/email-campaigns/:id/duplicate', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const c = get(db, 'SELECT * FROM email_campaigns WHERE id=?', [req.params.id]);
+    if (!c) return res.status(404).json({ error: 'Campaign not found' });
+    const r = run(db, `INSERT INTO email_campaigns (name,subject,html,account_id,target,custom_emails) VALUES (?,?,?,?,?,?)`,
+      [c.name + ' (copy)', c.subject, c.html, c.account_id, c.target, c.custom_emails]);
+    res.json({ ok: true, id: r.lastInsertRowid });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── PWA Settings ─────────────────────────────────────────────────────────────
+router.get('/pwa-settings', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const keys = ['pwa_name','pwa_short_name','pwa_description','pwa_theme_color','pwa_bg_color','pwa_icon_b64','pwa_force_prompt','vapid_public_key'];
+    const rows = all(db, `SELECT key, value FROM settings WHERE key IN (${keys.map(()=>'?').join(',')})`, keys);
+    const out = {};
+    for (const r of rows) out[r.key] = r.value;
+    // subscription count
+    const subCount = get(db, 'SELECT COUNT(*) as c FROM push_subscriptions');
+    out.subscription_count = subCount?.c || 0;
+    res.json(out);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/pwa-settings', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const allowed = ['pwa_name','pwa_short_name','pwa_description','pwa_theme_color','pwa_bg_color','pwa_icon_b64','pwa_force_prompt'];
+    for (const k of allowed) {
+      if (k in req.body) run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, [k, String(req.body[k] ?? '')]);
+    }
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/pwa-settings/generate-vapid', requireAdmin, async (req, res) => {
+  try {
+    const webpush = require('web-push');
+    const keys = webpush.generateVAPIDKeys();
+    const db = await getDb();
+    run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES ('vapid_public_key',?)`, [keys.publicKey]);
+    run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES ('vapid_private_key',?)`, [keys.privateKey]);
+    const sub = req.body.subject || await getSetting('vapid_subject') || 'mailto:admin@example.com';
+    run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES ('vapid_subject',?)`, [sub]);
+    res.json({ ok: true, publicKey: keys.publicKey });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Push Subscriptions (public endpoint called by SW) ───────────────────────
+router.post('/push-subscribe', async (req, res) => {
+  try {
+    const { endpoint, p256dh, auth } = req.body;
+    if (!endpoint || !p256dh || !auth) return res.status(400).json({ error: 'endpoint, p256dh and auth required' });
+    const db = await getDb();
+    run(db, `INSERT OR REPLACE INTO push_subscriptions (endpoint,p256dh,auth,user_agent) VALUES (?,?,?,?)`,
+      [endpoint, p256dh, auth, req.headers['user-agent']?.slice(0,200) || '']);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/push-subscriptions', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    res.json(all(db, 'SELECT id,endpoint,user_agent,created_at FROM push_subscriptions ORDER BY created_at DESC LIMIT 500'));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/push-subscriptions/:id', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    run(db, 'DELETE FROM push_subscriptions WHERE id=?', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/push-notifications/send', requireAdmin, async (req, res) => {
+  try {
+    const { title, body, icon, url } = req.body;
+    if (!title) return res.status(400).json({ error: 'title required' });
+    const db = await getDb();
+    const pubKey = await getSetting('vapid_public_key');
+    const privKey = await getSetting('vapid_private_key');
+    const subject = await getSetting('vapid_subject') || 'mailto:admin@example.com';
+    if (!pubKey || !privKey) return res.status(400).json({ error: 'VAPID keys not configured — generate them in PWA settings first' });
+    const webpush = require('web-push');
+    webpush.setVapidDetails(subject, pubKey, privKey);
+    const subs = all(db, 'SELECT * FROM push_subscriptions');
+    const payload = JSON.stringify({ title, body: body || '', icon: icon || '/icon-192.png', url: url || '/' });
+    const siteName = await getSetting('site_name') || 'OTT Store';
+    let success = 0, failed = 0;
+    for (const sub of subs) {
+      try {
+        await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload);
+        success++;
+      } catch (e2) {
+        failed++;
+        if (e2.statusCode === 410) run(db, 'DELETE FROM push_subscriptions WHERE id=?', [sub.id]);
+      }
+    }
+    run(db, `INSERT INTO push_notifications (title,body,icon,url,total,success_count) VALUES (?,?,?,?,?,?)`,
+      [title, body || '', icon || '', url || '', subs.length, success]);
+    res.json({ ok: true, total: subs.length, success, failed });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/push-notifications', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    res.json(all(db, 'SELECT * FROM push_notifications ORDER BY sent_at DESC LIMIT 100'));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── Check auth status ────────────────────────────────────────────────────────
 router.get('/me', requireAdmin, (req, res) => res.json({ ok: true, role: 'admin' }));
 

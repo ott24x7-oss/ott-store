@@ -248,6 +248,68 @@ function migrate(db) {
     created_at TEXT DEFAULT (datetime('now'))
   )`);
 
+  // ── Email Marketing tables ─────────────────────────────────────────────────
+  db.run(`CREATE TABLE IF NOT EXISTS email_accounts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    label TEXT NOT NULL,
+    host TEXT DEFAULT 'smtp.gmail.com',
+    port INTEGER DEFAULT 587,
+    secure INTEGER DEFAULT 0,
+    user TEXT NOT NULL,
+    app_password TEXT NOT NULL,
+    from_name TEXT,
+    active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS email_templates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    category TEXT DEFAULT 'general',
+    subject TEXT NOT NULL,
+    html TEXT NOT NULL,
+    is_system INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS email_campaigns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    html TEXT NOT NULL,
+    account_id INTEGER,
+    target TEXT DEFAULT 'all',
+    custom_emails TEXT,
+    status TEXT DEFAULT 'draft',
+    scheduled_at TEXT,
+    sent_at TEXT,
+    total_recipients INTEGER DEFAULT 0,
+    sent_count INTEGER DEFAULT 0,
+    failed_count INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+
+  // ── PWA / Push Notification tables ────────────────────────────────────────
+  db.run(`CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    endpoint TEXT UNIQUE NOT NULL,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    user_agent TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS push_notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    body TEXT,
+    icon TEXT,
+    url TEXT,
+    total INTEGER DEFAULT 0,
+    success_count INTEGER DEFAULT 0,
+    sent_at TEXT DEFAULT (datetime('now'))
+  )`);
+
   // Alter existing tables to add new columns (safe — ignored if column exists)
   try { db.run(`ALTER TABLE topups ADD COLUMN unique_amount REAL`); } catch {}
   try { db.run(`ALTER TABLE topups ADD COLUMN payment_method_id INTEGER`); } catch {}
@@ -256,6 +318,7 @@ function migrate(db) {
 
   seedDefaults(db);
   seedLegalPages(db);
+  seedEmailTemplates(db);
 }
 
 function seedLegalPages(db) {
@@ -333,9 +396,264 @@ function seedDefaults(db) {
     ai_persona: '',
     ai_daily_cap: '500',
     ai_fallback_message: '',
+    // PWA / App Manager
+    pwa_name: '',
+    pwa_short_name: '',
+    pwa_description: 'Buy OTT Subscriptions at Best Prices',
+    pwa_theme_color: '#7c3aed',
+    pwa_bg_color: '#0d1117',
+    pwa_icon_b64: '',
+    pwa_force_prompt: '0',
+    vapid_public_key: '',
+    vapid_private_key: '',
+    vapid_subject: 'mailto:admin@example.com',
   };
   for (const [k, v] of Object.entries(defaults)) {
     db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`, [k, v]);
+  }
+}
+
+function seedEmailTemplates(db) {
+  const existing = db.exec('SELECT COUNT(*) as c FROM email_templates WHERE is_system=1');
+  const count = existing[0]?.values[0][0] || 0;
+  if (count > 0) return;
+
+  function tpl(name, category, subject, headline, bodyHtml, ctaText, accent) {
+    const ac = accent || '#7c3aed';
+    const cta = ctaText ? `<div style="text-align:center;margin:24px 0"><a href="{{site_url}}" style="background:${ac};color:#fff;padding:13px 30px;border-radius:8px;font-weight:700;font-size:15px;text-decoration:none;display:inline-block">${ctaText}</a></div>` : '';
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${subject}</title></head><body style="margin:0;padding:0;background:#f0f0f5;font-family:Arial,Helvetica,sans-serif"><table width="100%" cellpadding="0" cellspacing="0" bgcolor="#f0f0f5"><tr><td align="center" style="padding:24px 12px"><table width="580" cellpadding="0" cellspacing="0" style="max-width:580px;width:100%"><tr><td style="background:${ac};padding:22px 28px;border-radius:12px 12px 0 0;text-align:center"><strong style="color:#fff;font-size:24px;font-weight:800;letter-spacing:-0.5px">{{site_name}}</strong></td></tr><tr><td style="background:#fff;padding:32px 28px;border-radius:0 0 12px 12px"><h2 style="color:#111827;font-size:22px;margin:0 0 14px;font-weight:700">${headline}</h2><p style="color:#555;font-size:15px;margin:0 0 16px;line-height:1.7">Hi {{name}},</p>${bodyHtml}${cta}<hr style="border:0;border-top:1px solid #eee;margin:24px 0"><p style="color:#aaa;font-size:12px;margin:0;line-height:1.6">You received this email because you have an account with <strong>{{site_name}}</strong>. If this was sent in error, please ignore.</p></td></tr></table></td></tr></table></body></html>`;
+    return { name, category, subject, html };
+  }
+
+  const T = [
+    // ── Welcome ─────────────────────────────────────────────────────────────
+    tpl('Welcome Email', 'welcome', 'Welcome to {{site_name}}! 🎉', 'Welcome to {{site_name}}!',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Thank you for creating an account! We offer premium OTT subscriptions — Netflix, Spotify, Amazon Prime, Disney+ and more — at the <strong>best prices with instant delivery</strong>.</p><p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Browse our plans and start streaming today.</p>`,
+      'Browse Plans', '#7c3aed'),
+
+    tpl('Email Verified', 'welcome', 'Your email is verified ✅', 'Email Verified Successfully',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Your email address has been verified. You now have full access to all features including order tracking, wallet top-up, and exclusive member offers.</p>`,
+      'Visit Store', '#059669'),
+
+    // ── Order ────────────────────────────────────────────────────────────────
+    tpl('Order Placed', 'order', 'Your order is confirmed! 🛒', 'Order Placed Successfully',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Your order has been placed and is being processed. You'll receive your credentials shortly.</p><table style="background:#f9fafb;border-radius:8px;padding:14px 18px;width:100%;margin:12px 0" cellpadding="0" cellspacing="0"><tr><td style="color:#555;font-size:14px;padding:4px 0"><strong>Order ID:</strong> #{{order_id}}</td></tr><tr><td style="color:#555;font-size:14px;padding:4px 0"><strong>Plan:</strong> {{product_name}}</td></tr><tr><td style="color:#555;font-size:14px;padding:4px 0"><strong>Amount:</strong> ₹{{amount}}</td></tr></table>`,
+      'Track Order', '#7c3aed'),
+
+    tpl('Order Delivered', 'order', '✅ Your order is ready! Credentials inside', 'Your Subscription is Ready!',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Your <strong>{{product_name}}</strong> subscription is now active. Here are your credentials:</p><table style="background:#0d1117;border-radius:8px;padding:16px 20px;width:100%;margin:12px 0" cellpadding="0" cellspacing="0"><tr><td style="color:#d1d5db;font-size:14px;font-family:monospace;line-height:1.8">{{credentials}}</td></tr></table><p style="color:#ef4444;font-size:13px;margin:8px 0 0">⚠️ Keep these credentials safe. Do not share with anyone.</p>`,
+      'My Account', '#059669'),
+
+    tpl('Netflix Delivered', 'order', '🎬 Your Netflix is Ready!', 'Netflix Credentials Delivered',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Your <strong>Netflix</strong> account is ready! Log in at <a href="https://netflix.com" style="color:#E50914">netflix.com</a></p><table style="background:#141414;border-radius:8px;padding:16px 20px;width:100%;margin:12px 0" cellpadding="0" cellspacing="0"><tr><td style="color:#fff;font-size:14px;font-family:monospace;line-height:1.8">{{credentials}}</td></tr></table><p style="color:#aaa;font-size:13px;margin:8px 0">Use the profile assigned to you. Do not change the main account password.</p>`,
+      'Open Netflix', '#E50914'),
+
+    tpl('Amazon Prime Delivered', 'order', '📽️ Your Amazon Prime is Ready!', 'Amazon Prime Credentials Delivered',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Your <strong>Amazon Prime Video</strong> account is ready! Log in at <a href="https://primevideo.com" style="color:#00A8E1">primevideo.com</a></p><table style="background:#131921;border-radius:8px;padding:16px 20px;width:100%;margin:12px 0" cellpadding="0" cellspacing="0"><tr><td style="color:#fff;font-size:14px;font-family:monospace;line-height:1.8">{{credentials}}</td></tr></table>`,
+      'Open Prime Video', '#00A8E1'),
+
+    tpl('Disney+ Hotstar Delivered', 'order', '⭐ Your Disney+ Hotstar is Ready!', 'Disney+ Hotstar is Ready',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Your <strong>Disney+ Hotstar</strong> is now active! Log in at <a href="https://www.hotstar.com" style="color:#1B6FCC">hotstar.com</a></p><table style="background:#03101B;border-radius:8px;padding:16px 20px;width:100%;margin:12px 0" cellpadding="0" cellspacing="0"><tr><td style="color:#fff;font-size:14px;font-family:monospace;line-height:1.8">{{credentials}}</td></tr></table>`,
+      'Open Hotstar', '#1B6FCC'),
+
+    tpl('Spotify Delivered', 'order', '🎵 Your Spotify Premium is Ready!', 'Spotify Premium Credentials Delivered',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Your <strong>Spotify Premium</strong> is ready! Log in at <a href="https://spotify.com" style="color:#1DB954">spotify.com</a></p><table style="background:#121212;border-radius:8px;padding:16px 20px;width:100%;margin:12px 0" cellpadding="0" cellspacing="0"><tr><td style="color:#fff;font-size:14px;font-family:monospace;line-height:1.8">{{credentials}}</td></tr></table>`,
+      'Open Spotify', '#1DB954'),
+
+    tpl('YouTube Premium Delivered', 'order', '📺 Your YouTube Premium is Ready!', 'YouTube Premium Activated',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Your <strong>YouTube Premium</strong> is now active! No ads, offline downloads, and YouTube Music included.</p><table style="background:#0f0f0f;border-radius:8px;padding:16px 20px;width:100%;margin:12px 0" cellpadding="0" cellspacing="0"><tr><td style="color:#fff;font-size:14px;font-family:monospace;line-height:1.8">{{credentials}}</td></tr></table>`,
+      'Open YouTube', '#FF0000'),
+
+    tpl('Order Cancelled', 'order', 'Your order has been cancelled', 'Order Cancelled',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Your order <strong>#{{order_id}}</strong> has been cancelled. If you paid for this order, a refund will be processed within 24–48 hours.</p><p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Contact our support if you have any questions.</p>`,
+      'Contact Support', '#ef4444'),
+
+    tpl('Refund Processed', 'order', 'Refund of ₹{{amount}} processed ✅', 'Refund Processed',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Your refund of <strong>₹{{amount}}</strong> has been processed and added to your wallet. You can use it for future purchases.</p>`,
+      'Shop Again', '#059669'),
+
+    // ── Flash Sales / Offers ──────────────────────────────────────────────────
+    tpl('Flash Sale 50% Off', 'offer', '⚡ FLASH SALE: 50% Off — Today Only!', '⚡ Flash Sale — 50% Off Everything!',
+      `<div style="background:linear-gradient(135deg,#7c3aed,#ec4899);padding:20px;border-radius:10px;text-align:center;margin:0 0 20px"><p style="color:#fff;font-size:28px;font-weight:900;margin:0">50% OFF</p><p style="color:rgba(255,255,255,0.9);font-size:14px;margin:4px 0 0">Today only • Midnight deadline</p></div><p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Don't miss our biggest flash sale ever! All OTT subscriptions — Netflix, Spotify, Amazon Prime and more — are <strong>50% off for the next 24 hours only</strong>.</p>`,
+      'Grab the Deal', '#7c3aed'),
+
+    tpl('Weekend Special Deal', 'offer', '🎉 Weekend Deal: 20% Extra Off!', 'Weekend Special — Extra 20% Off',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">It's the weekend and we're celebrating with an <strong>extra 20% discount</strong> on all subscription plans! Valid Saturday & Sunday only.</p><p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Use code <strong style="background:#f3f4f6;padding:3px 8px;border-radius:4px;font-family:monospace">WEEKEND20</strong> at checkout.</p>`,
+      'Shop Now', '#f59e0b'),
+
+    tpl('New Year 2025 Offer', 'offer', '🎊 Happy New Year! Best Deals of 2025', 'Start 2025 with Amazing Deals!',
+      `<div style="text-align:center;padding:16px 0;margin:0 0 20px"><span style="font-size:48px">🎊</span></div><p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Happy New Year from {{site_name}}! Start 2025 right with our <strong>best subscription deals of the year</strong>. Up to 40% off on Netflix, Spotify, Prime and more!</p>`,
+      'Start the Year', '#7c3aed'),
+
+    tpl('Diwali Mega Sale', 'offer', '🪔 Diwali Mega Sale — Up to 40% Off!', '🪔 Happy Diwali — Mega Sale is Live!',
+      `<div style="text-align:center;padding:16px 0;margin:0 0 20px"><span style="font-size:48px">🪔✨</span></div><p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">This Diwali, light up your entertainment with our biggest sale! Up to <strong>40% off</strong> on premium OTT subscriptions. Festival season calls for binge-watching! 🎉</p>`,
+      'Celebrate & Save', '#f59e0b'),
+
+    tpl('Holi Sale', 'offer', '🌈 Holi Sale — Colorful Savings Inside!', '🌈 Happy Holi — 30% Off!',
+      `<div style="background:linear-gradient(135deg,#ec4899,#f59e0b,#10b981);padding:16px;border-radius:10px;text-align:center;margin:0 0 20px"><strong style="color:#fff;font-size:22px">Happy Holi!</strong></div><p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Color your life with entertainment! Enjoy <strong>30% off</strong> on all subscriptions this Holi. Celebrate with family and stream together!</p>`,
+      'Shop Holi Deals', '#ec4899'),
+
+    tpl('Independence Day Sale', 'offer', '🇮🇳 Independence Day Sale — 25% Off!', '🇮🇳 Happy Independence Day!',
+      `<div style="background:linear-gradient(135deg,#FF9933,#fff,#138808);padding:16px;border-radius:10px;text-align:center;margin:0 0 20px"><strong style="color:#000;font-size:20px">Azaadi Sale — 25% Off!</strong></div><p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Celebrate 77 years of freedom with <strong>25% off</strong> on all OTT subscriptions! Stream the best of Indian and global entertainment.</p>`,
+      'Celebrate & Stream', '#138808'),
+
+    tpl('Limited Time Offer', 'offer', '⏰ Hurry! This offer expires soon', '⏰ Limited Time Offer — Ending Soon!',
+      `<div style="background:#fef2f2;border:2px solid #fca5a5;padding:14px 18px;border-radius:8px;margin:0 0 20px;text-align:center"><strong style="color:#ef4444;font-size:16px">⏰ This offer expires in 24 hours!</strong></div><p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">We have an exclusive offer available for a very limited time. Don't let it slip away — these prices won't last!</p>`,
+      'Claim Before It Expires', '#ef4444'),
+
+    tpl('Buy 1 Get 1 Free', 'offer', '🎁 Buy 1 Get 1 FREE — Today Only!', 'Buy 1 Get 1 FREE on All Plans!',
+      `<div style="background:linear-gradient(135deg,#059669,#10b981);padding:20px;border-radius:10px;text-align:center;margin:0 0 20px"><strong style="color:#fff;font-size:24px">BUY 1 GET 1 FREE 🎁</strong></div><p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Purchase any subscription plan and get a second plan <strong>absolutely FREE</strong>! Perfect for sharing with a friend or family member.</p>`,
+      'Get the Deal', '#059669'),
+
+    tpl('Exclusive Member Offer', 'offer', '🌟 Exclusive offer just for you!', '🌟 An Exclusive Offer for You',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">As one of our valued customers, we have a <strong>special exclusive offer</strong> just for you! This offer is not available to everyone — only selected members like you.</p>`,
+      'Claim Your Offer', '#7c3aed'),
+
+    tpl('OTT Combo Pack', 'offer', '📦 OTT Combo Pack — Save More!', 'Get the Ultimate OTT Combo Pack!',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Why pay separately? Get our <strong>Ultimate OTT Combo Pack</strong> — Netflix + Spotify + Amazon Prime — all in one bundle at a massive discount!</p><table style="width:100%;margin:12px 0" cellpadding="8" cellspacing="0"><tr style="background:#f9fafb"><td style="font-size:14px;color:#333;border-radius:6px">🎬 Netflix Premium</td><td align="right" style="font-size:14px;color:#7c3aed;font-weight:700">Included</td></tr><tr><td style="font-size:14px;color:#333">🎵 Spotify Premium</td><td align="right" style="font-size:14px;color:#7c3aed;font-weight:700">Included</td></tr><tr style="background:#f9fafb"><td style="font-size:14px;color:#333;border-radius:6px">📽️ Amazon Prime</td><td align="right" style="font-size:14px;color:#7c3aed;font-weight:700">Included</td></tr></table>`,
+      'Get Combo Pack', '#7c3aed'),
+
+    tpl('Cashback Offer', 'offer', '💰 Earn Cashback on Your Next Order!', 'Earn Cashback on Every Purchase',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">We're rewarding our customers! Earn <strong>cashback on every order</strong> you place. The cashback is added directly to your wallet for use on future purchases.</p>`,
+      'Shop & Earn', '#f59e0b'),
+
+    tpl('Anniversary Sale', 'offer', '🎂 Anniversary Sale — 35% Off!', '🎂 We\'re Celebrating — 35% Off!',
+      `<div style="text-align:center;padding:16px 0;margin:0 0 20px"><span style="font-size:48px">🎂🎉</span></div><p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">We're celebrating our anniversary and we want you to celebrate with us! Enjoy <strong>35% off on all plans</strong> for 48 hours only!</p>`,
+      'Celebrate & Save', '#ec4899'),
+
+    tpl('Student Discount', 'offer', '🎓 Special Student Pricing Inside!', '🎓 Student Discount — 20% Extra Off',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">We support students! Enjoy an <strong>extra 20% off</strong> on all subscriptions. Perfect for studying and entertainment during your academic journey.</p>`,
+      'Claim Student Discount', '#3b82f6'),
+
+    tpl('Refer & Earn', 'offer', '🤝 Refer Friends — Earn ₹{{referral_amount}} Each!', 'Earn Money by Referring Friends!',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Share {{site_name}} with your friends and earn <strong>₹{{referral_amount}} for every friend</strong> who signs up and makes their first purchase!</p><p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Your referral code: <strong style="background:#f3f4f6;padding:4px 10px;border-radius:4px;font-family:monospace;color:#7c3aed">{{referral_code}}</strong></p>`,
+      'Share & Earn', '#7c3aed'),
+
+    tpl('Loyalty Reward', 'offer', '🏆 You\'ve Earned a Loyalty Reward!', '🏆 Thank You for Being Loyal!',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">You've been with us for a while and we want to say <strong>thank you</strong>! As a loyal customer, we're rewarding you with a special discount on your next purchase.</p>`,
+      'Claim Reward', '#f59e0b'),
+
+    // ── Product Highlights ────────────────────────────────────────────────────
+    tpl('Netflix Plans', 'product', '🎬 Netflix Premium Plans — Best Prices!', 'Get Netflix at the Best Price!',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Watch unlimited movies, TV shows, and originals on Netflix. We offer <strong>Netflix Premium (4K UHD)</strong> at unbeatable prices!</p><ul style="color:#555;font-size:15px;line-height:1.7;margin:0 0 16px;padding-left:20px"><li>4K Ultra HD streaming</li><li>Up to 4 screens simultaneously</li><li>Instant delivery after payment</li><li>1 month, 3 months, yearly plans</li></ul>`,
+      'Buy Netflix Plan', '#E50914'),
+
+    tpl('Amazon Prime Plans', 'product', '📽️ Amazon Prime — Best Deals!', 'Amazon Prime at Amazing Prices!',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Stream 5000+ movies and TV shows on Amazon Prime Video. Plus Prime Music, Prime Reading, and free delivery benefits!</p><ul style="color:#555;font-size:15px;line-height:1.7;margin:0 0 16px;padding-left:20px"><li>Unlimited video streaming</li><li>Prime Music included</li><li>Download for offline viewing</li><li>Exclusive Prime Originals</li></ul>`,
+      'Buy Prime Plan', '#00A8E1'),
+
+    tpl('Disney+ Hotstar Plans', 'product', '⭐ Disney+ Hotstar — All Plans Available!', 'Disney+ Hotstar — Watch Everything!',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Stream Disney, Marvel, Star Wars, Pixar + live sports + Indian content on Hotstar!</p><ul style="color:#555;font-size:15px;line-height:1.7;margin:0 0 16px;padding-left:20px"><li>Disney, Marvel, Star Wars content</li><li>Live cricket & sports streaming</li><li>Bollywood & regional content</li><li>4K streaming available</li></ul>`,
+      'Buy Hotstar Plan', '#1B6FCC'),
+
+    tpl('Spotify Premium Plans', 'product', '🎵 Spotify Premium — Best Prices!', 'Spotify Premium — Stream Ad-Free!',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">100 million+ songs, podcasts, and audiobooks — all ad-free with Spotify Premium!</p><ul style="color:#555;font-size:15px;line-height:1.7;margin:0 0 16px;padding-left:20px"><li>No ads, no interruptions</li><li>Download for offline listening</li><li>Unlimited skips</li><li>High quality audio</li></ul>`,
+      'Buy Spotify Plan', '#1DB954'),
+
+    tpl('YouTube Premium Plans', 'product', '📺 YouTube Premium — No More Ads!', 'YouTube Premium — Ad-Free Streaming!',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">YouTube Premium gives you ad-free videos, background play, YouTube Music, and YouTube Originals!</p><ul style="color:#555;font-size:15px;line-height:1.7;margin:0 0 16px;padding-left:20px"><li>Ad-free on all devices</li><li>Background play while using other apps</li><li>YouTube Music Premium included</li><li>Download videos offline</li></ul>`,
+      'Buy YouTube Plan', '#FF0000'),
+
+    tpl('ChatGPT Plus Plans', 'product', '🤖 ChatGPT Plus — AI Power Unlocked!', 'Get ChatGPT Plus Access!',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Unlock the full power of GPT-4o, DALL·E image generation, browsing, code execution, and more with ChatGPT Plus!</p><ul style="color:#555;font-size:15px;line-height:1.7;margin:0 0 16px;padding-left:20px"><li>GPT-4o access (latest model)</li><li>DALL·E 3 image generation</li><li>Advanced data analysis</li><li>Priority access & faster responses</li></ul>`,
+      'Get ChatGPT Plus', '#10a37f'),
+
+    tpl('Canva Pro Plans', 'product', '🎨 Canva Pro — Design Like a Pro!', 'Canva Pro at Unbeatable Prices!',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Unlock all of Canva's premium features for stunning designs, presentations, videos, and social media content!</p><ul style="color:#555;font-size:15px;line-height:1.7;margin:0 0 16px;padding-left:20px"><li>100+ million premium stock photos</li><li>Background remover tool</li><li>Brand Kit & Magic Resize</li><li>Schedule social media posts</li></ul>`,
+      'Get Canva Pro', '#00c4cc'),
+
+    tpl('Microsoft 365 Plans', 'product', '📘 Microsoft 365 — All Apps Included!', 'Microsoft 365 — Work Smarter!',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Get Word, Excel, PowerPoint, Teams, Outlook, and 1TB OneDrive storage with Microsoft 365!</p><ul style="color:#555;font-size:15px;line-height:1.7;margin:0 0 16px;padding-left:20px"><li>Word, Excel, PowerPoint</li><li>Microsoft Teams for collaboration</li><li>1TB OneDrive cloud storage</li><li>Works on 5 devices</li></ul>`,
+      'Get Microsoft 365', '#0078d4'),
+
+    tpl('VPN Service Plans', 'product', '🔐 VPN — Browse Safely & Freely!', 'Secure Your Internet with VPN!',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Stay private and secure online. Access geo-blocked content from anywhere in the world!</p><ul style="color:#555;font-size:15px;line-height:1.7;margin:0 0 16px;padding-left:20px"><li>Military-grade encryption</li><li>Servers in 90+ countries</li><li>No logs policy</li><li>Connect 6 devices simultaneously</li></ul>`,
+      'Get VPN Plan', '#059669'),
+
+    tpl('OTT Bundle Deal', 'product', '📦 Ultimate OTT Bundle — All in One!', 'Get the Ultimate OTT Bundle!',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Why pay full price for each service? Get our <strong>Ultimate Bundle</strong> with all major OTT platforms at one amazing price!</p><p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Includes Netflix, Prime Video, Hotstar, Spotify, YouTube Premium and more — all at a fraction of the original cost.</p>`,
+      'Get the Bundle', '#7c3aed'),
+
+    // ── Customer Retention ────────────────────────────────────────────────────
+    tpl('We Miss You', 'retention', '💔 We Miss You — Come Back with 15% Off!', 'We Miss You, {{name}}!',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">It's been a while since your last purchase. We miss having you as a customer!</p><p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">We'd love to welcome you back with an <strong>exclusive 15% discount</strong> on your next order. No strings attached!</p>`,
+      'Come Back & Save', '#7c3aed'),
+
+    tpl('Subscription Expiry Warning', 'retention', '⚠️ Your subscription expires in 3 days!', '⏰ Your Subscription is Expiring Soon!',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Your <strong>{{product_name}}</strong> subscription is expiring in <strong>3 days</strong>. Renew now to avoid any interruption to your streaming!</p><p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Renewal takes less than a minute and your new credentials will be delivered instantly.</p>`,
+      'Renew Now', '#f59e0b'),
+
+    tpl('Subscription Expired', 'retention', '📺 Your subscription has expired — Renew Now', 'Your Subscription Has Expired',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Your <strong>{{product_name}}</strong> subscription has expired. Don't miss your favourite shows and music!</p><p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Renew today and get back to streaming instantly. We offer the best renewal prices!</p>`,
+      'Renew Subscription', '#ef4444'),
+
+    tpl('Low Wallet Balance', 'retention', '💳 Your wallet balance is low', 'Top Up Your Wallet',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Your wallet balance is running low. Add money now to make sure your next subscription renewal goes smoothly without interruption.</p>`,
+      'Add Money to Wallet', '#f59e0b'),
+
+    tpl('VIP Upgrade', 'retention', '🌟 You\'ve been upgraded to VIP!', '🌟 Welcome to VIP Status!',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Congratulations! Based on your loyalty, you've been <strong>upgraded to VIP status</strong>. Enjoy exclusive benefits including priority support, early access to deals, and special VIP-only prices!</p>`,
+      'Explore VIP Benefits', '#f59e0b'),
+
+    tpl('Thank You for Purchase', 'retention', '🙏 Thank you for your purchase!', 'Thank You, {{name}}!',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Thank you for choosing {{site_name}}! Your purchase means a lot to us. We hope you enjoy your subscription.</p><p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">If you have any questions or need help, our support team is always here for you.</p>`,
+      'Browse More Plans', '#059669'),
+
+    tpl('Feedback Request', 'retention', '⭐ How was your experience with us?', 'We\'d Love Your Feedback!',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Hi {{name}}, how was your experience with {{site_name}}? Your feedback helps us improve!</p><p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Take 30 seconds to share your thoughts — it means the world to us.</p>`,
+      'Share Feedback', '#7c3aed'),
+
+    tpl('Restock Notification', 'retention', '🎉 {{product_name}} is back in stock!', '{{product_name}} is Back in Stock!',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Great news! <strong>{{product_name}}</strong> is back in stock and ready for purchase. These spots fill up fast, so don't wait too long!</p>`,
+      'Buy Now', '#059669'),
+
+    tpl('Price Drop Alert', 'retention', '📉 Price Drop: {{product_name}} is cheaper now!', 'Price Drop Alert!',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Good news! <strong>{{product_name}}</strong> has just dropped in price. Now available at <strong>₹{{amount}}</strong> — the lowest we've ever offered!</p>`,
+      'Buy at New Price', '#059669'),
+
+    tpl('Win-Back Campaign', 'retention', '🎯 Special offer to win you back!', 'We Have a Special Offer for You!',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">We noticed you haven't purchased recently and we want to make it up to you! Here's an <strong>exclusive 25% discount</strong> valid only for the next 48 hours.</p>`,
+      'Claim 25% Off', '#7c3aed'),
+
+    tpl('Abandoned Cart Reminder', 'retention', '🛒 You left something in your cart!', 'Complete Your Purchase',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">You were so close! You had a subscription plan in mind but didn't complete your purchase. Come back and finish what you started!</p>`,
+      'Complete Purchase', '#f59e0b'),
+
+    // ── Newsletter ────────────────────────────────────────────────────────────
+    tpl('Monthly Newsletter', 'newsletter', '📬 {{site_name}} Monthly Update', 'What\'s New at {{site_name}} This Month',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Here's what happened at {{site_name}} this month — new plans, offers, and updates just for you!</p><p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Check out our latest additions and grab the best deals before they're gone.</p>`,
+      'See This Month\'s Deals', '#7c3aed'),
+
+    tpl('Top Deals This Week', 'newsletter', '🔥 Top 5 Deals You Can\'t Miss!', '🔥 Top Deals This Week',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Here are this week's top 5 deals — carefully picked just for you:</p><ol style="color:#555;font-size:15px;line-height:1.7;margin:0 0 16px;padding-left:20px"><li>Netflix Premium — Best Price</li><li>Spotify + YouTube Bundle</li><li>Amazon Prime Annual</li><li>ChatGPT Plus Monthly</li><li>Canva Pro 1 Year</li></ol>`,
+      'View All Deals', '#7c3aed'),
+
+    tpl('Weekend Picks', 'newsletter', '🍿 Weekend Entertainment Picks!', '🍿 Your Weekend Entertainment Guide',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">The weekend is here! Make the most of it with these streaming picks. We've curated the best subscriptions for an amazing weekend binge!</p>`,
+      'Get Your Weekend Plans', '#7c3aed'),
+
+    tpl('Best Sellers', 'newsletter', '⭐ Our Best-Selling Plans This Month', '⭐ Best-Selling Subscriptions',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">These are our most popular subscriptions this month — loved by thousands of happy customers!</p>`,
+      'Shop Best Sellers', '#f59e0b'),
+
+    tpl('New Arrivals', 'newsletter', '🆕 New Plans Just Added to Our Catalog!', '🆕 New Arrivals — Just In!',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">We've added exciting new plans to our catalog! Check out the latest additions and be among the first to grab them.</p>`,
+      'Explore New Plans', '#7c3aed'),
+
+    tpl('Streaming Tips', 'newsletter', '💡 Tips to Get More from Your Subscriptions', '💡 Streaming Tips & Tricks',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Get the most out of your subscriptions with these tips:</p><ul style="color:#555;font-size:15px;line-height:1.7;margin:0 0 16px;padding-left:20px"><li>Download content for offline viewing</li><li>Enable HD/4K in video quality settings</li><li>Use multiple profiles for personalization</li><li>Enable data saver mode on mobile</li></ul>`,
+      'Explore Plans', '#7c3aed'),
+
+    tpl('Subscription Guide', 'newsletter', '📖 Complete Guide to OTT Subscriptions', '📖 Your OTT Subscription Guide',
+      `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px">Not sure which subscription is right for you? We've put together a comprehensive guide to help you choose the perfect plan for your entertainment needs and budget.</p>`,
+      'Read the Guide', '#7c3aed'),
+  ];
+
+  for (const t of T) {
+    db.run(
+      `INSERT INTO email_templates (name, category, subject, html, is_system) VALUES (?,?,?,?,?)`,
+      [t.name, t.category, t.subject, t.html, 1]
+    );
   }
 }
 
