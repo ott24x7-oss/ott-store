@@ -9,7 +9,7 @@ const { getDb, getSetting, setSetting, all, get, run } = require('./db');
 const { loginLimiter, checkCredentialThrottle, recordFailedLogin, clearFailedLogin } = require('./security');
 const { audit } = require('./audit');
 const { submitUrls, pingSitemap } = require('./google-index');
-const { sendOrderDelivery } = require('./mailer');
+const { sendOrderDelivery, sendMail } = require('./mailer');
 
 const router = express.Router();
 
@@ -513,6 +513,342 @@ router.post('/import', requireAdmin, async (req, res) => {
 
     await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'bulk_import', after: imported, ip: req.ip });
     res.json({ ok: true, imported });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Check auth status ────────────────────────────────────────────────────────
+router.get('/me', requireAdmin, (req, res) => res.json({ ok: true, role: 'admin' }));
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+router.get('/analytics', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const days = parseInt(req.query.days || '30');
+
+    const revenue = all(db, `SELECT date(created_at) as d, SUM(amount_inr) as rev, COUNT(*) as cnt
+      FROM orders WHERE status NOT IN ('cancelled') AND created_at >= datetime('now','-${days} days')
+      GROUP BY date(created_at) ORDER BY d ASC`);
+
+    const topPlans = all(db, `SELECT p.name, p.platform, COUNT(*) as orders, SUM(o.amount_inr) as revenue
+      FROM orders o LEFT JOIN plans p ON o.plan_id=p.id
+      WHERE o.created_at >= datetime('now','-${days} days')
+      GROUP BY o.plan_id ORDER BY orders DESC LIMIT 10`);
+
+    const topCustomers = all(db, `SELECT c.name, c.email, COUNT(*) as orders, SUM(o.amount_inr) as spent
+      FROM orders o LEFT JOIN customers c ON o.customer_jid=c.jid
+      WHERE o.created_at >= datetime('now','-${days} days')
+      GROUP BY o.customer_jid ORDER BY spent DESC LIMIT 10`);
+
+    const platforms = all(db, `SELECT p.platform, COUNT(*) as orders, SUM(o.amount_inr) as revenue
+      FROM orders o LEFT JOIN plans p ON o.plan_id=p.id
+      WHERE o.created_at >= datetime('now','-${days} days')
+      GROUP BY p.platform ORDER BY revenue DESC`);
+
+    const totals = get(db, `SELECT COALESCE(SUM(amount_inr),0) as revenue, COUNT(*) as orders
+      FROM orders WHERE status NOT IN ('cancelled') AND created_at >= datetime('now','-${days} days')`);
+
+    const newCustomers = get(db, `SELECT COUNT(*) as cnt FROM customers WHERE created_at >= datetime('now','-${days} days')`);
+
+    res.json({ revenue, topPlans, topCustomers, platforms, totals, newCustomers: newCustomers?.cnt || 0 });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Stock management ─────────────────────────────────────────────────────────
+router.get('/stock', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const plans = all(db, `SELECT p.id, p.platform, p.name,
+      (SELECT COUNT(*) FROM stock_credentials WHERE plan_id=p.id AND status='available') as available,
+      (SELECT COUNT(*) FROM stock_credentials WHERE plan_id=p.id AND status='sold') as sold
+      FROM plans p ORDER BY p.sort_order ASC, p.id ASC`);
+    res.json(plans);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/stock/:planId', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const creds = all(db, `SELECT * FROM stock_credentials WHERE plan_id=? ORDER BY status ASC, id ASC`, [req.params.planId]);
+    res.json(creds);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/stock/:planId', requireAdmin, async (req, res) => {
+  try {
+    const { line1, line2, extra, cred_type } = req.body;
+    if (!line1) return res.status(400).json({ error: 'line1 required' });
+    const db = await getDb();
+    const r = run(db, `INSERT INTO stock_credentials (plan_id,cred_type,line1,line2,extra) VALUES (?,?,?,?,?)`,
+      [req.params.planId, cred_type || 'credential', line1.trim(), line2 || null, extra || null]);
+    res.json({ ok: true, id: r.lastInsertRowid });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/stock/:planId/bulk', requireAdmin, async (req, res) => {
+  try {
+    const { text, cred_type } = req.body;
+    if (!text) return res.status(400).json({ error: 'text required' });
+    const db = await getDb();
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    let added = 0;
+    for (const line of lines) {
+      const parts = line.split(/[:|,\t]/).map(p => p.trim());
+      const line1 = parts[0];
+      const line2 = parts[1] || null;
+      const extra = parts[2] || null;
+      if (!line1) continue;
+      run(db, `INSERT INTO stock_credentials (plan_id,cred_type,line1,line2,extra) VALUES (?,?,?,?,?)`,
+        [req.params.planId, cred_type || 'credential', line1, line2, extra]);
+      added++;
+    }
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'stock_bulk_add', targetKind: 'plan', targetId: req.params.planId, after: { added }, ip: req.ip });
+    res.json({ ok: true, added });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/stock/:credId', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    run(db, `DELETE FROM stock_credentials WHERE id=? AND status='available'`, [req.params.credId]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Payment Methods ──────────────────────────────────────────────────────────
+router.get('/payment-methods', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    res.json(all(db, `SELECT * FROM payment_methods ORDER BY sort_order ASC, id ASC`));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/payment-methods', requireAdmin, async (req, res) => {
+  try {
+    const { name, type, address, instructions, qr_url, enabled, sort_order } = req.body;
+    if (!name || !type) return res.status(400).json({ error: 'name and type required' });
+    const db = await getDb();
+    const r = run(db, `INSERT INTO payment_methods (name,type,address,instructions,qr_url,enabled,sort_order) VALUES (?,?,?,?,?,?,?)`,
+      [name, type, address || null, instructions || null, qr_url || null, enabled ?? 1, sort_order || 0]);
+    res.json({ ok: true, id: r.lastInsertRowid });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/payment-methods/:id', requireAdmin, async (req, res) => {
+  try {
+    const { name, type, address, instructions, qr_url, enabled, sort_order } = req.body;
+    const db = await getDb();
+    run(db, `UPDATE payment_methods SET name=?,type=?,address=?,instructions=?,qr_url=?,enabled=?,sort_order=? WHERE id=?`,
+      [name, type, address || null, instructions || null, qr_url || null, enabled ?? 1, sort_order || 0, req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/payment-methods/:id', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    run(db, `DELETE FROM payment_methods WHERE id=?`, [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── IMAP ─────────────────────────────────────────────────────────────────────
+router.post('/imap/test', requireAdmin, async (req, res) => {
+  try {
+    const { testImapConnection } = require('./imap-verify');
+    const { host, port, email, password, folder } = req.body;
+    const result = await testImapConnection({ host, port: parseInt(port) || 993, user: email, password, folder });
+    res.json(result);
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
+router.get('/imap/status', requireAdmin, async (req, res) => {
+  try {
+    const { getImapStatus } = require('./imap-verify');
+    res.json(getImapStatus());
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Resellers ────────────────────────────────────────────────────────────────
+router.get('/resellers', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const resellers = all(db, `SELECT r.*, c.name, c.email, c.phone
+      FROM resellers r LEFT JOIN customers c ON r.customer_jid=c.jid
+      ORDER BY r.created_at DESC`);
+    res.json(resellers);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/resellers/:id', requireAdmin, async (req, res) => {
+  try {
+    const { status, discount_percent, notes } = req.body;
+    const db = await getDb();
+    run(db, `UPDATE resellers SET status=?,discount_percent=?,notes=? WHERE id=?`,
+      [status, discount_percent || 0, notes || null, req.params.id]);
+    // Sync discount to customer record
+    const r = get(db, 'SELECT customer_jid FROM resellers WHERE id=?', [req.params.id]);
+    if (r && status === 'approved') {
+      run(db, `UPDATE customers SET discount_percent=? WHERE jid=?`, [discount_percent || 0, r.customer_jid]);
+    } else if (r && status === 'rejected') {
+      run(db, `UPDATE customers SET discount_percent=0 WHERE jid=?`, [r.customer_jid]);
+    }
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/resellers/:id', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const r = get(db, 'SELECT customer_jid FROM resellers WHERE id=?', [req.params.id]);
+    if (r) run(db, `UPDATE customers SET discount_percent=0 WHERE jid=?`, [r.customer_jid]);
+    run(db, `DELETE FROM resellers WHERE id=?`, [req.params.id]);
+    run(db, `DELETE FROM reseller_prices WHERE reseller_id=?`, [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/resellers/:id/prices', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const prices = all(db, `SELECT rp.*, p.name, p.platform FROM reseller_prices rp LEFT JOIN plans p ON rp.plan_id=p.id WHERE rp.reseller_id=?`, [req.params.id]);
+    res.json(prices);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/resellers/:id/prices', requireAdmin, async (req, res) => {
+  try {
+    const { prices } = req.body; // [{plan_id, price_inr}]
+    if (!Array.isArray(prices)) return res.status(400).json({ error: 'prices array required' });
+    const db = await getDb();
+    for (const p of prices) {
+      if (p.price_inr === null || p.price_inr === '') {
+        run(db, `DELETE FROM reseller_prices WHERE reseller_id=? AND plan_id=?`, [req.params.id, p.plan_id]);
+      } else {
+        run(db, `INSERT OR REPLACE INTO reseller_prices (reseller_id,plan_id,price_inr) VALUES (?,?,?)`,
+          [req.params.id, p.plan_id, p.price_inr]);
+      }
+    }
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Referrals ────────────────────────────────────────────────────────────────
+router.get('/referrals', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const referrals = all(db, `SELECT rr.*,
+      c1.name as referrer_name, c1.email as referrer_email,
+      c2.name as referred_name, c2.email as referred_email
+      FROM referral_rewards rr
+      LEFT JOIN customers c1 ON rr.referrer_jid=c1.jid
+      LEFT JOIN customers c2 ON rr.referred_jid=c2.jid
+      ORDER BY rr.created_at DESC LIMIT 200`);
+    res.json(referrals);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/referrals/:id/credit', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const rr = get(db, `SELECT * FROM referral_rewards WHERE id=? AND status='pending'`, [req.params.id]);
+    if (!rr) return res.status(404).json({ error: 'Not found or already credited' });
+    run(db, `UPDATE customers SET wallet_inr = wallet_inr + ? WHERE jid=?`, [rr.reward_inr, rr.referrer_jid]);
+    run(db, `INSERT INTO wallet_txns (customer_jid,amount_inr,type,label) VALUES (?,?,?,?)`,
+      [rr.referrer_jid, rr.reward_inr, 'referral', 'Referral bonus']);
+    run(db, `UPDATE referral_rewards SET status='credited' WHERE id=?`, [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Broadcast ────────────────────────────────────────────────────────────────
+router.post('/broadcast', requireAdmin, async (req, res) => {
+  try {
+    const { subject, message, imageUrl, target } = req.body;
+    if (!subject || !message) return res.status(400).json({ error: 'subject and message required' });
+    const { sendBroadcast } = require('./autopost-worker');
+    const result = await sendBroadcast({ subject, message, imageUrl, target });
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'broadcast', after: result, ip: req.ip });
+    res.json({ ok: true, ...result });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Auto-post campaigns ──────────────────────────────────────────────────────
+router.get('/autopost', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    res.json(all(db, `SELECT * FROM autopost_campaigns ORDER BY created_at DESC`));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/autopost', requireAdmin, async (req, res) => {
+  try {
+    const { title, subject, message, image_url, target, schedule_enabled, interval_hours, active } = req.body;
+    if (!title || !message) return res.status(400).json({ error: 'title and message required' });
+    const db = await getDb();
+    const r = run(db, `INSERT INTO autopost_campaigns (title,subject,message,image_url,target,schedule_enabled,interval_hours,active) VALUES (?,?,?,?,?,?,?,?)`,
+      [title, subject || title, message, image_url || null, target || 'all', schedule_enabled ? 1 : 0, interval_hours || 24, active ?? 1]);
+    res.json({ ok: true, id: r.lastInsertRowid });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/autopost/:id', requireAdmin, async (req, res) => {
+  try {
+    const { title, subject, message, image_url, target, schedule_enabled, interval_hours, active } = req.body;
+    const db = await getDb();
+    run(db, `UPDATE autopost_campaigns SET title=?,subject=?,message=?,image_url=?,target=?,schedule_enabled=?,interval_hours=?,active=? WHERE id=?`,
+      [title, subject || title, message, image_url || null, target || 'all', schedule_enabled ? 1 : 0, interval_hours || 24, active ?? 1, req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/autopost/:id', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    run(db, `DELETE FROM autopost_campaigns WHERE id=?`, [req.params.id]);
+    run(db, `DELETE FROM autopost_log WHERE campaign_id=?`, [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/autopost/:id/send-now', requireAdmin, async (req, res) => {
+  try {
+    const { sendCampaignNow } = require('./autopost-worker');
+    const result = await sendCampaignNow(parseInt(req.params.id));
+    res.json({ ok: true, ...result });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/autopost/:id/logs', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    res.json(all(db, `SELECT * FROM autopost_log WHERE campaign_id=? ORDER BY sent_at DESC LIMIT 500`, [req.params.id]));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Legal pages ──────────────────────────────────────────────────────────────
+router.get('/legal', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    res.json(all(db, `SELECT slug, title, updated_at FROM legal_pages ORDER BY slug ASC`));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/legal/:slug', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const page = get(db, `SELECT * FROM legal_pages WHERE slug=?`, [req.params.slug]);
+    if (!page) return res.status(404).json({ error: 'Page not found' });
+    res.json(page);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/legal/:slug', requireAdmin, async (req, res) => {
+  try {
+    const { title, body } = req.body;
+    const db = await getDb();
+    run(db, `INSERT OR REPLACE INTO legal_pages (slug,title,body,updated_at) VALUES (?,?,?,datetime('now'))`,
+      [req.params.slug, title, body || '']);
+    res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

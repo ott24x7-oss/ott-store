@@ -73,6 +73,8 @@ router.get('/store', async (req, res) => {
     const s = {};
     rows.forEach(r => s[r.key] = r.value);
     s.razorpay_key = s.razorpay_enabled === '1' ? cfg.razorpay.keyId : '';
+    // Expose active payment methods for checkout
+    s.payment_methods = all(db, `SELECT id, name, type, address, instructions, qr_url FROM payment_methods WHERE enabled=1 ORDER BY sort_order ASC, id ASC`);
     res.json(s);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -225,9 +227,16 @@ router.post('/orders', requireCustomer, async (req, res) => {
     if (plan.stock === 0) return res.status(400).json({ error: 'Out of stock' });
     const c = get(db, 'SELECT * FROM customers WHERE jid=?', [req.customer.jid]);
     if (!c) return res.status(404).json({ error: 'Customer not found' });
-    const price = c.discount_percent > 0
-      ? plan.price_inr * (1 - c.discount_percent / 100)
-      : plan.price_inr;
+    // Check reseller custom price
+    const reseller = get(db, `SELECT r.id, r.discount_percent FROM resellers r WHERE r.customer_jid=? AND r.status='approved'`, [c.jid]);
+    let price = plan.price_inr;
+    if (reseller) {
+      const rp = get(db, `SELECT price_inr FROM reseller_prices WHERE reseller_id=? AND plan_id=?`, [reseller.id, plan_id]);
+      if (rp) price = rp.price_inr;
+      else if (reseller.discount_percent > 0) price = plan.price_inr * (1 - reseller.discount_percent / 100);
+    } else if (c.discount_percent > 0) {
+      price = plan.price_inr * (1 - c.discount_percent / 100);
+    }
     if (c.wallet_inr < price) return res.status(400).json({ error: 'Insufficient wallet balance' });
     debitWallet(db, c.jid, price, 'order', `${plan.platform} - ${plan.name}`, null);
     const expiresAt = plan.duration_days
@@ -237,7 +246,32 @@ router.post('/orders', requireCustomer, async (req, res) => {
       [c.jid, plan_id, price, 'pending', expiresAt]);
     if (plan.stock > 0) run(db, `UPDATE plans SET stock=stock-1 WHERE id=?`, [plan_id]);
     await audit({ actorKind: 'customer', actorLabel: c.email, action: 'place_order', targetKind: 'order', targetId: result.lastInsertRowid, ip: req.ip });
-    res.json({ ok: true, order_id: result.lastInsertRowid });
+
+    // Credit referral reward on first order
+    if (c.referred_by) {
+      const alreadyRewarded = get(db, `SELECT id FROM referral_rewards WHERE referred_jid=?`, [c.jid]);
+      if (!alreadyRewarded) {
+        const rewardInr = parseFloat(await getSetting('referral_reward_inr') || '20');
+        run(db, `INSERT OR IGNORE INTO referral_rewards (referrer_jid,referred_jid,reward_inr,order_id) VALUES (?,?,?,?)`,
+          [c.referred_by, c.jid, rewardInr, result.lastInsertRowid]);
+        // Auto-credit referral reward
+        run(db, `UPDATE customers SET wallet_inr = wallet_inr + ? WHERE jid=?`, [rewardInr, c.referred_by]);
+        run(db, `INSERT INTO wallet_txns (customer_jid,amount_inr,type,label) VALUES (?,?,?,?)`,
+          [c.referred_by, rewardInr, 'referral', 'Referral bonus']);
+        run(db, `UPDATE referral_rewards SET status='credited' WHERE referred_jid=?`, [c.jid]);
+      }
+    }
+
+    // Trigger auto-delivery from stock
+    const orderId = result.lastInsertRowid;
+    setImmediate(async () => {
+      try {
+        const { autoDeliverForCustomer } = require('./delivery-worker');
+        await autoDeliverForCustomer(c.jid);
+      } catch {}
+    });
+
+    res.json({ ok: true, order_id: orderId });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -314,13 +348,34 @@ router.post('/topup/razorpay/verify', requireCustomer, async (req, res) => {
 
 router.post('/topup/upi', requireCustomer, upload.single('screenshot'), async (req, res) => {
   try {
-    const { amount, reference } = req.body;
+    const { amount, reference, payment_method_id } = req.body;
     if (!amount || amount < 1) return res.status(400).json({ error: 'Invalid amount' });
     const screenshotUrl = req.file ? `/data/uploads/${req.file.filename}` : null;
     const db = await getDb();
-    run(db, `INSERT INTO topups (customer_jid,amount_inr,method,reference,status,screenshot_url) VALUES (?,?,?,?,?,?)`,
-      [req.customer.jid, amount, 'upi_manual', reference || null, 'pending', screenshotUrl]);
-    res.json({ ok: true, message: 'Topup request submitted. Pending admin approval.' });
+
+    // Determine method: IMAP auto-verify or manual
+    const imapEnabled = await getSetting('imap_enabled');
+    let method = 'upi_manual';
+    let uniqueAmount = null;
+    let pmId = payment_method_id || null;
+
+    if (imapEnabled === '1') {
+      method = 'upi_imap';
+      const { generateUniqueAmount } = require('./imap-verify');
+      uniqueAmount = generateUniqueAmount(amount);
+    }
+
+    const r = run(db, `INSERT INTO topups (customer_jid,amount_inr,unique_amount,method,reference,status,screenshot_url,payment_method_id) VALUES (?,?,?,?,?,?,?,?)`,
+      [req.customer.jid, parseFloat(amount), uniqueAmount, method, reference || null, 'pending', screenshotUrl, pmId]);
+
+    if (method === 'upi_imap') {
+      const upiId = await getSetting('upi_id') || '';
+      res.json({ ok: true, method: 'upi_imap', unique_amount: uniqueAmount, upi_id: upiId,
+        message: `Pay exactly ₹${uniqueAmount} to ${upiId}. Auto-verified within 30 seconds.` });
+    } else {
+      res.json({ ok: true, method: 'upi_manual', topup_id: r.lastInsertRowid,
+        message: 'Topup request submitted. Pending admin approval.' });
+    }
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -330,6 +385,46 @@ router.get('/wallet/transactions', requireCustomer, async (req, res) => {
     const txns = all(db, `SELECT * FROM wallet_txns WHERE customer_jid=? ORDER BY created_at DESC LIMIT 100`,
       [req.customer.jid]);
     res.json(txns);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Referral ─────────────────────────────────────────────────────────────────
+router.get('/referral', requireCustomer, async (req, res) => {
+  try {
+    const db = await getDb();
+    const c = get(db, 'SELECT referral_code, referred_by FROM customers WHERE jid=?', [req.customer.jid]);
+    const rewards = all(db, `SELECT rr.*, c2.name as referred_name
+      FROM referral_rewards rr LEFT JOIN customers c2 ON rr.referred_jid=c2.jid
+      WHERE rr.referrer_jid=? ORDER BY rr.created_at DESC`, [req.customer.jid]);
+    const totalEarned = rewards.filter(r => r.status === 'credited').reduce((s, r) => s + r.reward_inr, 0);
+    const rewardAmount = parseFloat(await getSetting('referral_reward_inr') || '20');
+    const baseUrl = await getSetting('base_url') || cfg.baseUrl;
+    res.json({
+      referral_code: c?.referral_code,
+      share_url: `${baseUrl}/my#register?ref=${c?.referral_code}`,
+      rewards,
+      total_earned: totalEarned,
+      reward_per_referral: rewardAmount,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Reseller apply ───────────────────────────────────────────────────────────
+router.post('/reseller/apply', requireCustomer, async (req, res) => {
+  try {
+    const db = await getDb();
+    const existing = get(db, `SELECT id, status FROM resellers WHERE customer_jid=?`, [req.customer.jid]);
+    if (existing) return res.json({ ok: true, status: existing.status, message: `Application ${existing.status}` });
+    run(db, `INSERT INTO resellers (customer_jid) VALUES (?)`, [req.customer.jid]);
+    res.json({ ok: true, status: 'pending', message: 'Reseller application submitted. Admin will review shortly.' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/reseller/status', requireCustomer, async (req, res) => {
+  try {
+    const db = await getDb();
+    const r = get(db, `SELECT status, discount_percent FROM resellers WHERE customer_jid=?`, [req.customer.jid]);
+    res.json(r || { status: null });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

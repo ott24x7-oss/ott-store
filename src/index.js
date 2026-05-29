@@ -82,14 +82,21 @@ app.get('/blog', async (req, res) => {
 app.get('/my', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'store', 'my.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'admin', 'index.html')));
 
-// Public static pages
+// Public static pages — served from DB legal_pages table
 const staticRoutes = { '/about': 'about', '/contact': 'contact', '/privacy': 'privacy', '/terms': 'terms', '/refund': 'refund' };
-for (const [route, name] of Object.entries(staticRoutes)) {
+for (const [route, slug] of Object.entries(staticRoutes)) {
   app.get(route, async (req, res) => {
-    const filePath = path.join(__dirname, '..', 'public', 'store', `${name}.html`);
-    if (fs.existsSync(filePath)) return res.sendFile(filePath);
-    const siteName = await getSetting('site_name') || 'OTT Store';
-    res.send(buildSimplePage(name, siteName));
+    try {
+      const db = await getDb();
+      const page = db ? (() => { const { get: dbGet } = require('./db'); return dbGet(db, `SELECT * FROM legal_pages WHERE slug=?`, [slug]); })() : null;
+      const siteName = await getSetting('site_name') || 'OTT Store';
+      if (page) return res.send(buildLegalPage(page, siteName));
+      const filePath = path.join(__dirname, '..', 'public', 'store', `${slug}.html`);
+      if (fs.existsSync(filePath)) return res.sendFile(filePath);
+      res.send(buildSimplePage(slug, siteName));
+    } catch {
+      res.send(buildSimplePage(slug, 'OTT Store'));
+    }
   });
 }
 
@@ -196,8 +203,31 @@ function esc(s) {
 }
 
 // ─── Start ────────────────────────────────────────────────────────────────────
+function buildLegalPage(page, siteName) {
+  const baseUrl = cfg.baseUrl;
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(page.title)} — ${esc(siteName)}</title>
+<meta name="description" content="${esc(page.title)} for ${esc(siteName)}">
+<link rel="canonical" href="${esc(baseUrl)}/${page.slug}">
+<link rel="stylesheet" href="/style.css"></head>
+<body><header class="site-header"><div class="container"><a href="/" class="logo-link">${esc(siteName)}</a><nav><a href="/plans">Plans</a><a href="/my">My Account</a></nav></div></header>
+<main class="container" style="max-width:800px;padding:2rem 20px">
+<h1>${esc(page.title)}</h1>
+<div style="line-height:1.8;margin-top:1.5rem">${page.body || ''}</div>
+</main>
+<footer class="site-footer"><div class="container"><p>© ${new Date().getFullYear()} ${esc(siteName)}</p></div></footer>
+</body></html>`;
+}
+
 async function start() {
   await getDb(); // init DB before accepting requests
+
+  // Start background workers
+  try { require('./delivery-worker').startDeliveryWorker(); } catch (e) { console.error('delivery-worker error:', e.message); }
+  try { require('./renewal-worker').startRenewalWorker(); } catch (e) { console.error('renewal-worker error:', e.message); }
+  try { require('./autopost-worker').startAutopostWorker(); } catch (e) { console.error('autopost-worker error:', e.message); }
+  try { require('./imap-verify').startImapWorker(); } catch (e) { console.error('imap-verify error:', e.message); }
+
   app.listen(cfg.port, () => {
     console.log(`OTT Store running on http://localhost:${cfg.port}`);
     console.log(`  Store:  http://localhost:${cfg.port}/`);

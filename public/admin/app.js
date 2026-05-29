@@ -7,24 +7,32 @@ let PENDING_TOPUPS = 0, PENDING_ORDERS = 0;
 
 const MENU = [
   { group: 'OVERVIEW' },
-  { id: 'dashboard',   label: 'Dashboard',    icon: '📊' },
+  { id: 'dashboard',      label: 'Dashboard',     icon: '📊' },
+  { id: 'analytics',      label: 'Analytics',     icon: '📈' },
   { group: 'CATALOG' },
-  { id: 'plans',       label: 'Plans',        icon: '🎬' },
+  { id: 'plans',          label: 'Plans',         icon: '🎬' },
+  { id: 'stock',          label: 'Stock',         icon: '📦' },
   { group: 'SALES' },
-  { id: 'orders',      label: 'Orders',       icon: '📦' },
-  { id: 'topups',      label: 'Top-ups',      icon: '💳' },
-  { id: 'customers',   label: 'Customers',    icon: '👥' },
+  { id: 'orders',         label: 'Orders',        icon: '🛒' },
+  { id: 'topups',         label: 'Top-ups',       icon: '💳' },
+  { id: 'customers',      label: 'Customers',     icon: '👥' },
+  { id: 'resellers',      label: 'Resellers',     icon: '🤝' },
+  { id: 'referrals',      label: 'Referrals',     icon: '🔗' },
+  { group: 'MARKETING' },
+  { id: 'broadcast',      label: 'Broadcast',     icon: '📢' },
+  { id: 'autopost',       label: 'Auto-Post',     icon: '🤖' },
   { group: 'STOREFRONT' },
-  { id: 'mystore',     label: 'My Store',     icon: '🏪' },
-  { id: 'payments',    label: 'Payments',     icon: '💰' },
-  { id: 'tickets',     label: 'Support',      icon: '🎧' },
-  { id: 'blog',        label: 'Blog CMS',     icon: '✍️' },
-  { id: 'seo',         label: 'SEO',          icon: '🔍' },
-  { id: 'googleindex', label: 'Google Index', icon: '🌐' },
+  { id: 'mystore',        label: 'My Store',      icon: '🏪' },
+  { id: 'payments',       label: 'Payments',      icon: '💰' },
+  { id: 'legal',          label: 'Legal Pages',   icon: '📄' },
+  { id: 'tickets',        label: 'Support',       icon: '🎧' },
+  { id: 'blog',           label: 'Blog CMS',      icon: '✍️' },
+  { id: 'seo',            label: 'SEO',           icon: '🔍' },
+  { id: 'googleindex',    label: 'Google Index',  icon: '🌐' },
   { group: 'ACCOUNT' },
-  { id: 'settings',    label: 'Settings',     icon: '⚙️' },
-  { id: 'auditlog',    label: 'Audit Log',    icon: '📋' },
-  { id: 'backup',      label: 'DB Backup',    icon: '💾' },
+  { id: 'settings',       label: 'Settings',      icon: '⚙️' },
+  { id: 'auditlog',       label: 'Audit Log',     icon: '📋' },
+  { id: 'backup',         label: 'DB Backup',     icon: '💾' },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1202,6 +1210,591 @@ views.backup = async function () {
   <p class="muted" style="margin-bottom:1.5rem">Download a full backup of the store database. Keep this safe — it contains all customer and order data.</p>
   <a href="/admin/api/backup/download" class="btn btn-primary" download>⬇️ Download Backup</a>
 </div>`);
+};
+
+// ── views.analytics ───────────────────────────────────────────────────────────
+views.analytics = async function () {
+  setMain('<div class="spinner"></div>');
+  try {
+    let days = 30;
+    const render = async () => {
+      const d = await api(`/analytics?days=${days}`);
+      const revenueRows = d.revenue.map(r =>
+        `<tr><td>${r.d}</td><td>${fmt(r.rev)}</td><td>${r.cnt}</td></tr>`).join('');
+      const topPlanRows = (d.topPlans||[]).map(p =>
+        `<tr><td>${esc(p.platform||'')}</td><td>${esc(p.name||'')}</td><td>${p.orders}</td><td>${fmt(p.revenue)}</td></tr>`).join('');
+      const topCustRows = (d.topCustomers||[]).map(c =>
+        `<tr><td>${esc(c.name||'')}</td><td>${esc(c.email||'')}</td><td>${c.orders}</td><td>${fmt(c.spent)}</td></tr>`).join('');
+      const platformRows = (d.platforms||[]).map(p =>
+        `<tr><td>${esc(p.platform||'Other')}</td><td>${p.orders}</td><td>${fmt(p.revenue)}</td></tr>`).join('');
+      setMain(`
+<div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap">
+  <h2 style="font-weight:800;flex:1">Analytics</h2>
+  <select id="days-sel" class="form-input" style="width:150px">
+    <option value="7" ${days===7?'selected':''}>Last 7 days</option>
+    <option value="30" ${days===30?'selected':''}>Last 30 days</option>
+    <option value="90" ${days===90?'selected':''}>Last 90 days</option>
+  </select>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:1.5rem">
+  <div class="card text-center"><div style="font-size:1.6rem;font-weight:800;color:var(--green)">${fmt(d.totals?.revenue||0)}</div><div class="muted">Revenue (${days}d)</div></div>
+  <div class="card text-center"><div style="font-size:1.6rem;font-weight:800">${d.totals?.orders||0}</div><div class="muted">Orders (${days}d)</div></div>
+  <div class="card text-center"><div style="font-size:1.6rem;font-weight:800">${d.newCustomers||0}</div><div class="muted">New Customers</div></div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.5rem">
+  <div class="card"><div style="font-weight:700;margin-bottom:.75rem">Daily Revenue</div>
+  <div class="table-wrap"><table><thead><tr><th>Date</th><th>Revenue</th><th>Orders</th></tr></thead>
+  <tbody>${revenueRows||'<tr><td colspan=3 class="muted">No data</td></tr>'}</tbody></table></div></div>
+  <div class="card"><div style="font-weight:700;margin-bottom:.75rem">By Platform</div>
+  <div class="table-wrap"><table><thead><tr><th>Platform</th><th>Orders</th><th>Revenue</th></tr></thead>
+  <tbody>${platformRows||'<tr><td colspan=3 class="muted">No data</td></tr>'}</tbody></table></div></div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem">
+  <div class="card"><div style="font-weight:700;margin-bottom:.75rem">Top Plans</div>
+  <div class="table-wrap"><table><thead><tr><th>Platform</th><th>Plan</th><th>Orders</th><th>Revenue</th></tr></thead>
+  <tbody>${topPlanRows||'<tr><td colspan=4 class="muted">No data</td></tr>'}</tbody></table></div></div>
+  <div class="card"><div style="font-weight:700;margin-bottom:.75rem">Top Customers</div>
+  <div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Orders</th><th>Spent</th></tr></thead>
+  <tbody>${topCustRows||'<tr><td colspan=4 class="muted">No data</td></tr>'}</tbody></table></div></div>
+</div>`);
+      document.getElementById('days-sel').onchange = e => { days = parseInt(e.target.value); render(); };
+    };
+    await render();
+  } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
+
+// ── views.stock ────────────────────────────────────────────────────────────────
+views.stock = async function () {
+  setMain('<div class="spinner"></div>');
+  try {
+    const plans = await api('/stock');
+    let activePlan = null;
+    const renderList = () => {
+      setMain(`
+<div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem">
+  <h2 style="font-weight:800;flex:1">Stock Management</h2>
+</div>
+<div class="table-wrap"><table>
+<thead><tr><th>Platform</th><th>Plan</th><th>Available</th><th>Sold</th><th>Action</th></tr></thead>
+<tbody>${plans.map(p => `<tr>
+  <td><span class="badge badge-blue">${esc(p.platform)}</span></td>
+  <td>${esc(p.name)}</td>
+  <td><span class="badge ${p.available > 5 ? 'badge-green' : p.available > 0 ? 'badge-yellow' : 'badge-red'}">${p.available}</span></td>
+  <td class="muted">${p.sold}</td>
+  <td><button class="btn btn-sm btn-primary" onclick="manageStock(${p.id},'${esc(p.name)}')">Manage</button></td>
+</tr>`).join('')}</tbody></table></div>`);
+    };
+    renderList();
+
+    window.manageStock = async function(planId, planName) {
+      const creds = await api(`/stock/${planId}`);
+      const avail = creds.filter(c => c.status === 'available');
+      const sold = creds.filter(c => c.status === 'sold');
+      const ov = openModal(`
+<div class="modal-header"><h3>Stock: ${esc(planName)}</h3><button class="btn-icon" onclick="this.closest('.modal-overlay').remove()">✕</button></div>
+<div class="modal-body">
+  <div class="alert alert-info">${avail.length} available · ${sold.length} sold</div>
+  <div class="form-group"><label class="form-label">Add Single Credential</label>
+    <input class="form-input" id="sk-line1" placeholder="Email / Key / Link">
+    <input class="form-input mt-2" id="sk-line2" placeholder="Password (optional)">
+    <select class="form-input mt-2" id="sk-type"><option value="credential">Email:Password</option><option value="key">License Key</option><option value="link">Link</option><option value="text">Text</option></select>
+    <button class="btn btn-primary btn-sm mt-2" onclick="addSingle(${planId})">Add</button>
+  </div>
+  <div class="form-group"><label class="form-label">Bulk Import (one per line: email:password or email|password)</label>
+    <textarea class="form-input" id="sk-bulk" rows="6" placeholder="user1@gmail.com:pass1&#10;user2@gmail.com:pass2"></textarea>
+    <button class="btn btn-green btn-sm mt-2" onclick="bulkImport(${planId})">Import Bulk</button>
+  </div>
+  <div id="sk-msg"></div>
+  <div style="font-weight:600;margin-top:.75rem">Available (${avail.length})</div>
+  <div style="max-height:200px;overflow-y:auto;font-size:.8rem">
+    ${avail.map(c => `<div style="display:flex;justify-content:space-between;padding:.25rem 0;border-bottom:1px solid var(--border)">
+      <span style="font-family:monospace">${esc(c.line1)}${c.line2 ? ':'+esc(c.line2) : ''}</span>
+      <button class="btn btn-red btn-sm" onclick="deleteCred(${c.id},${planId},'${esc(planName)}')">×</button>
+    </div>`).join('') || '<p class="muted">No stock</p>'}
+  </div>
+</div>`);
+
+      window.addSingle = async function(pid) {
+        const line1 = document.getElementById('sk-line1').value.trim();
+        const line2 = document.getElementById('sk-line2').value.trim();
+        const cred_type = document.getElementById('sk-type').value;
+        const msg = document.getElementById('sk-msg');
+        if (!line1) { msg.innerHTML='<div class="alert alert-error">Line1 required</div>'; return; }
+        try {
+          await api(`/stock/${pid}`, { method:'POST', body: JSON.stringify({ line1, line2, cred_type }) });
+          msg.innerHTML='<div class="alert alert-success">Added!</div>';
+          document.getElementById('sk-line1').value = '';
+          document.getElementById('sk-line2').value = '';
+          setTimeout(() => { ov.remove(); manageStock(pid, planName); }, 800);
+        } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+      };
+      window.bulkImport = async function(pid) {
+        const text = document.getElementById('sk-bulk').value.trim();
+        const msg = document.getElementById('sk-msg');
+        if (!text) return;
+        try {
+          const r = await api(`/stock/${pid}/bulk`, { method:'POST', body: JSON.stringify({ text }) });
+          msg.innerHTML=`<div class="alert alert-success">Imported ${r.added} credentials!</div>`;
+          setTimeout(() => { ov.remove(); const pl = plans.find(p=>p.id===pid); if(pl){ pl.available += r.added; } renderList(); manageStock(pid, planName); }, 800);
+        } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+      };
+      window.deleteCred = async function(cid, pid, pname) {
+        if (!confirm('Delete this credential?')) return;
+        await api(`/stock/${cid}`, { method:'DELETE' });
+        ov.remove(); manageStock(pid, pname);
+      };
+    };
+  } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
+
+// ── views.resellers ────────────────────────────────────────────────────────────
+views.resellers = async function () {
+  setMain('<div class="spinner"></div>');
+  try {
+    const resellers = await api('/resellers');
+    setMain(`
+<h2 style="font-weight:800;margin-bottom:1.5rem">Resellers</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Name</th><th>Email</th><th>Status</th><th>Discount</th><th>Applied</th><th>Actions</th></tr></thead>
+<tbody>${resellers.length ? resellers.map(r => `<tr>
+  <td>${esc(r.name||'—')}</td>
+  <td>${esc(r.email||'—')}</td>
+  <td>${statusBadge(r.status)}</td>
+  <td>${r.discount_percent||0}%</td>
+  <td>${fmtDateShort(r.created_at)}</td>
+  <td style="display:flex;gap:.4rem">
+    <button class="btn btn-sm btn-green" onclick="editReseller(${r.id},'${esc(r.status)}',${r.discount_percent||0},'${esc(r.notes||'')}')">Edit</button>
+    <button class="btn btn-sm btn-red" onclick="deleteReseller(${r.id})">Delete</button>
+  </td>
+</tr>`).join('') : '<tr><td colspan=6 class="muted" style="text-align:center;padding:2rem">No reseller applications</td></tr>'}</tbody></table></div>`);
+
+    window.editReseller = function(id, status, discount, notes) {
+      const ov = openModal(`
+<div class="modal-header"><h3>Edit Reseller</h3><button class="btn-icon" onclick="this.closest('.modal-overlay').remove()">✕</button></div>
+<div class="modal-body">
+  <div id="rs-msg"></div>
+  <div class="form-group"><label class="form-label">Status</label>
+    <select class="form-input" id="rs-status">
+      <option value="pending" ${status==='pending'?'selected':''}>Pending</option>
+      <option value="approved" ${status==='approved'?'selected':''}>Approved</option>
+      <option value="rejected" ${status==='rejected'?'selected':''}>Rejected</option>
+    </select>
+  </div>
+  <div class="form-group"><label class="form-label">Discount %</label><input class="form-input" id="rs-disc" type="number" min="0" max="99" value="${discount}"></div>
+  <div class="form-group"><label class="form-label">Notes</label><input class="form-input" id="rs-notes" value="${esc(notes)}"></div>
+</div>
+<div class="modal-footer"><button class="btn btn-primary" onclick="saveReseller(${id})">Save</button></div>`);
+
+      window.saveReseller = async function(rid) {
+        const msg = document.getElementById('rs-msg');
+        try {
+          await api(`/resellers/${rid}`, { method:'PUT', body: JSON.stringify({
+            status: document.getElementById('rs-status').value,
+            discount_percent: parseFloat(document.getElementById('rs-disc').value)||0,
+            notes: document.getElementById('rs-notes').value,
+          })});
+          ov.remove(); views.resellers();
+        } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+      };
+    };
+    window.deleteReseller = async function(id) {
+      if (!confirm('Remove this reseller?')) return;
+      await api(`/resellers/${id}`, { method:'DELETE' });
+      views.resellers();
+    };
+  } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
+
+// ── views.referrals ────────────────────────────────────────────────────────────
+views.referrals = async function () {
+  setMain('<div class="spinner"></div>');
+  try {
+    const refs = await api('/referrals');
+    setMain(`
+<h2 style="font-weight:800;margin-bottom:1.5rem">Referrals</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Referrer</th><th>Referred</th><th>Reward</th><th>Status</th><th>Date</th><th></th></tr></thead>
+<tbody>${refs.length ? refs.map(r => `<tr>
+  <td>${esc(r.referrer_name||r.referrer_jid||'—')}<br><span class="muted">${esc(r.referrer_email||'')}</span></td>
+  <td>${esc(r.referred_name||r.referred_jid||'—')}<br><span class="muted">${esc(r.referred_email||'')}</span></td>
+  <td>₹${r.reward_inr}</td>
+  <td>${statusBadge(r.status)}</td>
+  <td>${fmtDateShort(r.created_at)}</td>
+  <td>${r.status==='pending' ? `<button class="btn btn-sm btn-green" onclick="creditRef(${r.id})">Credit</button>` : ''}</td>
+</tr>`).join('') : '<tr><td colspan=6 class="muted" style="text-align:center;padding:2rem">No referrals yet</td></tr>'}</tbody></table></div>`);
+
+    window.creditRef = async function(id) {
+      await api(`/referrals/${id}/credit`, { method:'POST', body:'{}' });
+      views.referrals();
+    };
+  } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
+
+// ── views.broadcast ────────────────────────────────────────────────────────────
+views.broadcast = async function () {
+  setMain(`
+<h2 style="font-weight:800;margin-bottom:1.5rem">Broadcast Email</h2>
+<div style="max-width:680px">
+  <div class="card">
+    <div id="bc-msg"></div>
+    <form id="bc-form" style="display:flex;flex-direction:column;gap:.9rem">
+      <div class="form-group"><label class="form-label">Subject</label><input class="form-input" name="subject" placeholder="🎉 Special offer just for you!"></div>
+      <div class="form-group"><label class="form-label">Message</label><textarea class="form-input" name="message" rows="6" placeholder="Hi there,\n\nWe have an exciting offer..."></textarea></div>
+      <div class="form-group"><label class="form-label">Image URL (optional)</label><input class="form-input" name="imageUrl" placeholder="https://..."></div>
+      <div class="form-group"><label class="form-label">Target</label>
+        <select class="form-input" name="target">
+          <option value="all">All customers</option>
+          <option value="active">Active (ordered in last 30 days)</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:200px">📢 Send Broadcast</button>
+    </form>
+  </div>
+</div>`);
+  document.getElementById('bc-form').onsubmit = async e => {
+    e.preventDefault();
+    const fd = new FormData(e.target); const b = {};
+    fd.forEach((v,k) => b[k] = v);
+    const msg = document.getElementById('bc-msg');
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true; btn.textContent = 'Sending…';
+    try {
+      const r = await api('/broadcast', { method:'POST', body: JSON.stringify(b) });
+      msg.innerHTML = `<div class="alert alert-success">✓ Sent to ${r.sent} customers. ${r.failed ? r.failed + ' failed.' : ''}</div>`;
+    } catch(ex) { msg.innerHTML = `<div class="alert alert-error">${esc(ex.message)}</div>`; }
+    finally { btn.disabled = false; btn.textContent = '📢 Send Broadcast'; }
+  };
+};
+
+// ── views.autopost ─────────────────────────────────────────────────────────────
+views.autopost = async function () {
+  setMain('<div class="spinner"></div>');
+  try {
+    const campaigns = await api('/autopost');
+    const renderMain = () => setMain(`
+<div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem">
+  <h2 style="font-weight:800;flex:1">Auto-Post Campaigns</h2>
+  <button class="btn btn-primary" onclick="newCampaign()">+ New Campaign</button>
+</div>
+<div class="table-wrap"><table>
+<thead><tr><th>Title</th><th>Schedule</th><th>Times Sent</th><th>Last Sent</th><th>Status</th><th>Actions</th></tr></thead>
+<tbody>${campaigns.length ? campaigns.map(c => `<tr>
+  <td><strong>${esc(c.title)}</strong></td>
+  <td>${c.schedule_enabled ? 'Every '+c.interval_hours+'h' : 'Manual'}</td>
+  <td>${c.times_sent}</td>
+  <td>${c.last_sent_at ? fmtDateShort(c.last_sent_at) : '—'}</td>
+  <td>${c.active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-grey">Paused</span>'}</td>
+  <td style="display:flex;gap:.4rem;flex-wrap:wrap">
+    <button class="btn btn-sm btn-secondary" onclick="editCampaign(${c.id})">Edit</button>
+    <button class="btn btn-sm btn-primary" onclick="sendNow(${c.id})">Send Now</button>
+    <button class="btn btn-sm btn-red" onclick="deleteCamp(${c.id})">Delete</button>
+  </td>
+</tr>`).join('') : '<tr><td colspan=6 class="muted" style="text-align:center;padding:2rem">No campaigns yet</td></tr>'}</tbody></table></div>`);
+    renderMain();
+
+    function campaignModal(camp) {
+      const isNew = !camp.id;
+      const ov = openModal(`
+<div class="modal-header"><h3>${isNew ? 'New Campaign' : 'Edit Campaign'}</h3><button class="btn-icon" onclick="this.closest('.modal-overlay').remove()">✕</button></div>
+<div class="modal-body">
+  <div id="cp-msg"></div>
+  <div class="form-group"><label class="form-label">Title</label><input class="form-input" id="cp-title" value="${esc(camp.title||'')}"></div>
+  <div class="form-group"><label class="form-label">Email Subject</label><input class="form-input" id="cp-subject" value="${esc(camp.subject||'')}"></div>
+  <div class="form-group"><label class="form-label">Message (HTML allowed)</label><textarea class="form-input" id="cp-msg-body" rows="5">${esc(camp.message||'')}</textarea></div>
+  <div class="form-group"><label class="form-label">Image URL</label><input class="form-input" id="cp-img" value="${esc(camp.image_url||'')}"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+    <div class="form-group"><label class="form-label">Target</label>
+      <select class="form-input" id="cp-target"><option value="all" ${camp.target==='all'?'selected':''}>All</option><option value="active" ${camp.target==='active'?'selected':''}>Active only</option></select>
+    </div>
+    <div class="form-group"><label class="form-label">Schedule</label>
+      <select class="form-input" id="cp-sched"><option value="0" ${!camp.schedule_enabled?'selected':''}>Manual only</option><option value="1" ${camp.schedule_enabled?'selected':''}>Auto-schedule</option></select>
+    </div>
+  </div>
+  <div class="form-group"><label class="form-label">Interval (hours)</label><input class="form-input" id="cp-interval" type="number" value="${camp.interval_hours||24}"></div>
+</div>
+<div class="modal-footer"><button class="btn btn-primary" onclick="saveCampaign(${camp.id||'null'})">Save</button></div>`);
+
+      window.saveCampaign = async function(id) {
+        const msg = document.getElementById('cp-msg');
+        const body = {
+          title: document.getElementById('cp-title').value,
+          subject: document.getElementById('cp-subject').value,
+          message: document.getElementById('cp-msg-body').value,
+          image_url: document.getElementById('cp-img').value,
+          target: document.getElementById('cp-target').value,
+          schedule_enabled: document.getElementById('cp-sched').value === '1' ? 1 : 0,
+          interval_hours: parseInt(document.getElementById('cp-interval').value)||24,
+          active: 1,
+        };
+        try {
+          if (id) await api(`/autopost/${id}`, { method:'PUT', body: JSON.stringify(body) });
+          else await api('/autopost', { method:'POST', body: JSON.stringify(body) });
+          ov.remove(); views.autopost();
+        } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+      };
+    }
+
+    window.newCampaign = () => campaignModal({});
+    window.editCampaign = async (id) => {
+      const cs = await api('/autopost');
+      const c = cs.find(x => x.id === id);
+      if (c) campaignModal(c);
+    };
+    window.sendNow = async (id) => {
+      const btn = event.target; btn.disabled=true; btn.textContent='Sending…';
+      try {
+        const r = await api(`/autopost/${id}/send-now`, { method:'POST', body:'{}' });
+        showToast(`Sent to ${r.sent} customers`);
+      } catch(e) { showToast(e.message,'error'); }
+      finally { btn.disabled=false; btn.textContent='Send Now'; }
+    };
+    window.deleteCamp = async (id) => {
+      if (!confirm('Delete this campaign?')) return;
+      await api(`/autopost/${id}`, { method:'DELETE' });
+      views.autopost();
+    };
+  } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
+
+// ── views.legal ────────────────────────────────────────────────────────────────
+views.legal = async function () {
+  setMain('<div class="spinner"></div>');
+  try {
+    const pages = await api('/legal');
+    let activeSlug = pages[0]?.slug || 'about';
+
+    const renderEditor = async (slug) => {
+      activeSlug = slug;
+      const page = await api(`/legal/${slug}`);
+      document.getElementById('legal-body').innerHTML = `
+<div id="lp-msg"></div>
+<div class="form-group"><label class="form-label">Title</label><input class="form-input" id="lp-title" value="${esc(page.title)}"></div>
+<div class="form-group"><label class="form-label">Content (HTML)</label><textarea class="form-input" id="lp-body" rows="14" style="font-family:monospace">${esc(page.body||'')}</textarea></div>
+<div style="display:flex;gap:.75rem;margin-top:.5rem">
+  <button class="btn btn-primary" onclick="saveLegal('${slug}')">Save</button>
+  <a href="/${slug}" target="_blank" class="btn btn-secondary">Preview →</a>
+</div>`;
+    };
+
+    setMain(`
+<h2 style="font-weight:800;margin-bottom:1.5rem">Legal Pages</h2>
+<div style="display:grid;grid-template-columns:180px 1fr;gap:1.25rem;align-items:start">
+  <div class="card" style="padding:.5rem">
+    ${pages.map(p => `<button class="btn btn-secondary btn-block" id="lp-tab-${p.slug}" style="text-align:left;margin-bottom:.25rem" onclick="switchLegal('${p.slug}')">${esc(p.title)}</button>`).join('')}
+  </div>
+  <div class="card" id="legal-body"><div class="spinner"></div></div>
+</div>`);
+
+    window.switchLegal = async (slug) => {
+      pages.forEach(p => { const el = document.getElementById('lp-tab-'+p.slug); if(el) el.style.background = p.slug===slug ? 'var(--border)' : ''; });
+      await renderEditor(slug);
+    };
+    window.saveLegal = async (slug) => {
+      const msg = document.getElementById('lp-msg');
+      try {
+        await api(`/legal/${slug}`, { method:'PUT', body: JSON.stringify({
+          title: document.getElementById('lp-title').value,
+          body: document.getElementById('lp-body').value,
+        })});
+        msg.innerHTML='<div class="alert alert-success">Saved!</div>';
+        setTimeout(()=>msg.innerHTML='', 2000);
+      } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+    };
+
+    await renderEditor(activeSlug);
+    const activeBtn = document.getElementById('lp-tab-'+activeSlug);
+    if (activeBtn) activeBtn.style.background = 'var(--border)';
+  } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
+
+// ── views.payments (enhanced with IMAP config + payment methods) ───────────────
+const _origPaymentsView = views.payments;
+views.payments = async function () {
+  setMain('<div class="spinner"></div>');
+  try {
+    const s = await api('/settings');
+    const methods = await api('/payment-methods');
+    const imapStatus = await api('/imap/status').catch(() => ({}));
+
+    setMain(`
+<h2 style="font-weight:800;margin-bottom:1.5rem">Payments & IMAP</h2>
+<div style="max-width:760px;display:flex;flex-direction:column;gap:1.25rem">
+
+<div class="card">
+  <div style="font-weight:700;margin-bottom:.75rem">UPI Settings</div>
+  <div id="upi-msg"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+    <div class="form-group"><label class="form-label">UPI ID</label><input class="form-input" id="upi-id" value="${esc(s.upi_id||'')}"></div>
+    <div class="form-group"><label class="form-label">UPI Name</label><input class="form-input" id="upi-name" value="${esc(s.upi_name||'')}"></div>
+  </div>
+  <div class="form-group mt-2"><label class="form-label">UPI QR Image URL</label><input class="form-input" id="upi-qr" value="${esc(s.upi_qr_url||'')}"></div>
+  <label style="display:flex;align-items:center;gap:.5rem;margin-top:.75rem"><input type="checkbox" id="upi-manual-en" ${s.upi_manual_enabled==='1'?'checked':''}> UPI Manual (screenshot) enabled</label>
+  <button class="btn btn-primary btn-sm mt-3" onclick="saveUpi()">Save UPI</button>
+</div>
+
+<div class="card">
+  <div style="font-weight:700;margin-bottom:.5rem">IMAP Auto-Verify <span class="badge ${imapStatus.ok ? 'badge-green' : 'badge-grey'}">${imapStatus.ok ? 'Connected' : imapStatus.lastError ? 'Error' : 'Not tested'}</span></div>
+  <p class="muted" style="font-size:.85rem;margin-bottom:.75rem">Configure Gmail IMAP to auto-verify UPI payments. Your bank sends payment confirmation emails — IMAP polls for them and auto-credits the customer's wallet.</p>
+  <div id="imap-msg"></div>
+  <label style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem"><input type="checkbox" id="imap-en" ${s.imap_enabled==='1'?'checked':''}> Enable IMAP Auto-Verify</label>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+    <div class="form-group"><label class="form-label">IMAP Email (Gmail)</label><input class="form-input" id="imap-email" value="${esc(s.imap_email||'')}"></div>
+    <div class="form-group"><label class="form-label">App Password</label><input class="form-input" type="password" id="imap-pass" value="${esc(s.imap_password||'')}"></div>
+    <div class="form-group"><label class="form-label">IMAP Host</label><input class="form-input" id="imap-host" value="${esc(s.imap_host||'imap.gmail.com')}"></div>
+    <div class="form-group"><label class="form-label">Port</label><input class="form-input" id="imap-port" value="${esc(s.imap_port||'993')}"></div>
+  </div>
+  <div style="display:flex;gap:.75rem;margin-top:.75rem">
+    <button class="btn btn-primary btn-sm" onclick="saveImap()">Save IMAP</button>
+    <button class="btn btn-secondary btn-sm" onclick="testImap()">Test Connection</button>
+  </div>
+  ${imapStatus.lastRun ? `<p class="muted mt-2" style="font-size:.8rem">Last run: ${fmtDate(imapStatus.lastRun)} · Matched: ${imapStatus.matched||0}</p>` : ''}
+  ${imapStatus.lastError ? `<p style="color:var(--red);font-size:.8rem;margin-top:.25rem">Error: ${esc(imapStatus.lastError)}</p>` : ''}
+</div>
+
+<div class="card">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+    <div style="font-weight:700">Payment Methods</div>
+    <button class="btn btn-sm btn-primary" onclick="addPaymentMethod()">+ Add Method</button>
+  </div>
+  <div id="pm-list">
+    ${methods.length ? `<div class="table-wrap"><table>
+    <thead><tr><th>Name</th><th>Type</th><th>Address</th><th>Status</th><th></th></tr></thead>
+    <tbody>${methods.map(m=>`<tr>
+      <td>${esc(m.name)}</td><td><span class="badge badge-blue">${esc(m.type)}</span></td>
+      <td style="font-family:monospace;font-size:.8rem">${esc(m.address||'—')}</td>
+      <td>${m.enabled ? '<span class="badge badge-green">On</span>' : '<span class="badge badge-grey">Off</span>'}</td>
+      <td><button class="btn btn-sm btn-secondary" onclick="editPm(${m.id})">Edit</button> <button class="btn btn-sm btn-red" onclick="delPm(${m.id})">Del</button></td>
+    </tr>`).join('')}</tbody></table></div>` : '<p class="muted">No custom payment methods yet.</p>'}
+  </div>
+</div>
+
+<div class="card">
+  <div style="font-weight:700;margin-bottom:.75rem">Razorpay</div>
+  <label style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem"><input type="checkbox" id="rz-en" ${s.razorpay_enabled==='1'?'checked':''}> Enable Razorpay</label>
+  <p class="muted" style="font-size:.85rem">Razorpay keys are configured via environment variables (RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET).</p>
+  <button class="btn btn-primary btn-sm mt-3" onclick="saveRz()">Save</button>
+</div>
+
+<div class="card">
+  <div style="font-weight:700;margin-bottom:.75rem">Delivery Settings</div>
+  <div class="form-group"><label class="form-label">Low Stock Alert Email</label><input class="form-input" id="stock-alert-email" value="${esc(s.stock_alert_email||'')}"></div>
+  <div class="form-group mt-2"><label class="form-label">Alert when stock ≤</label><input class="form-input" id="stock-threshold" type="number" value="${s.stock_alert_threshold||5}" style="width:100px"></div>
+  <div class="form-group mt-2"><label class="form-label">Renewal Reminder Days Before Expiry</label><input class="form-input" id="renewal-days" type="number" value="${s.renewal_reminder_days||3}" style="width:100px"></div>
+  <div class="form-group mt-2"><label class="form-label">Referral Reward (₹)</label><input class="form-input" id="ref-reward" type="number" value="${s.referral_reward_inr||20}" style="width:100px"></div>
+  <button class="btn btn-primary btn-sm mt-3" onclick="saveDelivery()">Save</button>
+</div>
+</div>`);
+
+    window.saveUpi = async () => {
+      const msg = document.getElementById('upi-msg');
+      try {
+        await api('/settings', { method:'POST', body: JSON.stringify({
+          upi_id: document.getElementById('upi-id').value,
+          upi_name: document.getElementById('upi-name').value,
+          upi_qr_url: document.getElementById('upi-qr').value,
+          upi_manual_enabled: document.getElementById('upi-manual-en').checked ? '1' : '0',
+        })});
+        msg.innerHTML='<div class="alert alert-success">Saved!</div>';
+        setTimeout(()=>msg.innerHTML='',2000);
+      } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+    };
+
+    window.saveImap = async () => {
+      const msg = document.getElementById('imap-msg');
+      try {
+        await api('/settings', { method:'POST', body: JSON.stringify({
+          imap_enabled: document.getElementById('imap-en').checked ? '1' : '0',
+          imap_email: document.getElementById('imap-email').value,
+          imap_password: document.getElementById('imap-pass').value,
+          imap_host: document.getElementById('imap-host').value,
+          imap_port: document.getElementById('imap-port').value,
+        })});
+        msg.innerHTML='<div class="alert alert-success">Saved!</div>';
+        setTimeout(()=>msg.innerHTML='',2000);
+      } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+    };
+
+    window.testImap = async () => {
+      const msg = document.getElementById('imap-msg');
+      msg.innerHTML='<div class="alert alert-info">Testing…</div>';
+      try {
+        const r = await api('/imap/test', { method:'POST', body: JSON.stringify({
+          host: document.getElementById('imap-host').value,
+          port: document.getElementById('imap-port').value,
+          email: document.getElementById('imap-email').value,
+          password: document.getElementById('imap-pass').value,
+        })});
+        msg.innerHTML = r.ok ? '<div class="alert alert-success">✓ IMAP connection successful!</div>' : `<div class="alert alert-error">✗ ${esc(r.error)}</div>`;
+      } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+    };
+
+    window.saveRz = async () => {
+      await api('/settings', { method:'POST', body: JSON.stringify({ razorpay_enabled: document.getElementById('rz-en').checked ? '1' : '0' }) });
+      showToast('Saved!');
+    };
+
+    window.saveDelivery = async () => {
+      await api('/settings', { method:'POST', body: JSON.stringify({
+        stock_alert_email: document.getElementById('stock-alert-email').value,
+        stock_alert_threshold: document.getElementById('stock-threshold').value,
+        renewal_reminder_days: document.getElementById('renewal-days').value,
+        referral_reward_inr: document.getElementById('ref-reward').value,
+      })});
+      showToast('Saved!');
+    };
+
+    const pmModal = (m) => {
+      m = m || {};
+      const ov = openModal(`
+<div class="modal-header"><h3>${m.id ? 'Edit' : 'Add'} Payment Method</h3><button class="btn-icon" onclick="this.closest('.modal-overlay').remove()">✕</button></div>
+<div class="modal-body">
+  <div id="pm-msg"></div>
+  <div class="form-group"><label class="form-label">Name</label><input class="form-input" id="pm-name" value="${esc(m.name||'')}"></div>
+  <div class="form-group"><label class="form-label">Type</label>
+    <select class="form-input" id="pm-type">
+      <option value="upi_manual" ${m.type==='upi_manual'?'selected':''}>UPI Manual (screenshot)</option>
+      <option value="upi_imap" ${m.type==='upi_imap'?'selected':''}>UPI IMAP (auto-verify)</option>
+      <option value="binance" ${m.type==='binance'?'selected':''}>Binance Pay</option>
+      <option value="crypto" ${m.type==='crypto'?'selected':''}>USDT/Crypto</option>
+      <option value="custom" ${m.type==='custom'?'selected':''}>Custom / Bank Transfer</option>
+    </select>
+  </div>
+  <div class="form-group"><label class="form-label">Address / UPI ID / Wallet</label><input class="form-input" id="pm-address" value="${esc(m.address||'')}"></div>
+  <div class="form-group"><label class="form-label">Instructions</label><textarea class="form-input" id="pm-instr" rows="3">${esc(m.instructions||'')}</textarea></div>
+  <div class="form-group"><label class="form-label">QR Image URL</label><input class="form-input" id="pm-qr" value="${esc(m.qr_url||'')}"></div>
+  <label style="display:flex;align-items:center;gap:.5rem;margin-top:.5rem"><input type="checkbox" id="pm-enabled" ${m.enabled===0?'':'checked'}> Enabled</label>
+</div>
+<div class="modal-footer"><button class="btn btn-primary" onclick="savePm(${m.id||'null'})">Save</button></div>`);
+
+      window.savePm = async (id) => {
+        const msg = document.getElementById('pm-msg');
+        const body = {
+          name: document.getElementById('pm-name').value,
+          type: document.getElementById('pm-type').value,
+          address: document.getElementById('pm-address').value,
+          instructions: document.getElementById('pm-instr').value,
+          qr_url: document.getElementById('pm-qr').value,
+          enabled: document.getElementById('pm-enabled').checked ? 1 : 0,
+        };
+        try {
+          if (id) await api(`/payment-methods/${id}`, { method:'PUT', body: JSON.stringify(body) });
+          else await api('/payment-methods', { method:'POST', body: JSON.stringify(body) });
+          ov.remove(); views.payments();
+        } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+      };
+    };
+
+    window.addPaymentMethod = () => pmModal(null);
+    window.editPm = async (id) => {
+      const ms = await api('/payment-methods');
+      pmModal(ms.find(x=>x.id===id));
+    };
+    window.delPm = async (id) => {
+      if (!confirm('Delete this payment method?')) return;
+      await api(`/payment-methods/${id}`, { method:'DELETE' });
+      views.payments();
+    };
+  } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };
 
 // ── expose goView globally ────────────────────────────────────────────────────

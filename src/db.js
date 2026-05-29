@@ -133,7 +133,112 @@ function migrate(db) {
     expires_at TEXT,
     used INTEGER DEFAULT 0
   )`);
+
+  // ── New tables ─────────────────────────────────────────────────────────────
+  db.run(`CREATE TABLE IF NOT EXISTS payment_methods (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    address TEXT,
+    instructions TEXT,
+    qr_url TEXT,
+    enabled INTEGER DEFAULT 1,
+    sort_order INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS stock_credentials (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plan_id INTEGER NOT NULL,
+    cred_type TEXT DEFAULT 'credential',
+    line1 TEXT NOT NULL,
+    line2 TEXT,
+    extra TEXT,
+    status TEXT DEFAULT 'available',
+    sold_order_id INTEGER,
+    sold_at TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS resellers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_jid TEXT UNIQUE NOT NULL,
+    discount_percent REAL DEFAULT 0,
+    status TEXT DEFAULT 'pending',
+    notes TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS reseller_prices (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    reseller_id INTEGER NOT NULL,
+    plan_id INTEGER NOT NULL,
+    price_inr REAL NOT NULL,
+    UNIQUE(reseller_id, plan_id)
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS referral_rewards (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    referrer_jid TEXT NOT NULL,
+    referred_jid TEXT NOT NULL UNIQUE,
+    reward_inr REAL DEFAULT 20,
+    status TEXT DEFAULT 'pending',
+    order_id INTEGER,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS autopost_campaigns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    subject TEXT,
+    message TEXT NOT NULL,
+    image_url TEXT,
+    target TEXT DEFAULT 'all',
+    schedule_enabled INTEGER DEFAULT 0,
+    interval_hours INTEGER DEFAULT 24,
+    last_sent_at TEXT,
+    times_sent INTEGER DEFAULT 0,
+    active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS autopost_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    campaign_id INTEGER NOT NULL,
+    recipient TEXT NOT NULL,
+    success INTEGER DEFAULT 0,
+    error TEXT,
+    sent_at TEXT DEFAULT (datetime('now'))
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS legal_pages (
+    slug TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    body TEXT DEFAULT '',
+    updated_at TEXT DEFAULT (datetime('now'))
+  )`);
+
+  // Alter existing tables to add new columns (safe — ignored if column exists)
+  try { db.run(`ALTER TABLE topups ADD COLUMN unique_amount REAL`); } catch {}
+  try { db.run(`ALTER TABLE topups ADD COLUMN payment_method_id INTEGER`); } catch {}
+  try { db.run(`ALTER TABLE orders ADD COLUMN stock_credential_id INTEGER`); } catch {}
+  try { db.run(`ALTER TABLE orders ADD COLUMN renewal_reminded_at TEXT`); } catch {}
+
   seedDefaults(db);
+  seedLegalPages(db);
+}
+
+function seedLegalPages(db) {
+  const pages = [
+    { slug: 'about',   title: 'About Us',       body: '<p>Welcome to our OTT subscription store. We provide premium streaming subscriptions at the best prices.</p>' },
+    { slug: 'contact', title: 'Contact Us',      body: '<p>Email: support@example.com<br>WhatsApp: Available in header</p>' },
+    { slug: 'privacy', title: 'Privacy Policy',  body: '<p>We respect your privacy. Your personal data is never shared with third parties.</p>' },
+    { slug: 'terms',   title: 'Terms of Service',body: '<p>By purchasing from us you agree to our terms. All sales are final once credentials are delivered.</p>' },
+    { slug: 'refund',  title: 'Refund Policy',   body: '<p>Refunds are processed within 24 hours for undelivered orders. No refunds after credentials are delivered.</p>' },
+  ];
+  for (const p of pages) {
+    db.run(`INSERT OR IGNORE INTO legal_pages (slug,title,body) VALUES (?,?,?)`, [p.slug, p.title, p.body]);
+  }
 }
 
 function seedDefaults(db) {
@@ -161,6 +266,18 @@ function seedDefaults(db) {
     admin_2fa_enabled: '0',
     admin_2fa_secret: '',
     google_index_credentials: '',
+    imap_enabled: '0',
+    imap_host: 'imap.gmail.com',
+    imap_port: '993',
+    imap_email: '',
+    imap_password: '',
+    imap_folder: 'INBOX',
+    referral_reward_inr: '20',
+    referral_min_redeem: '20',
+    stock_alert_threshold: '5',
+    stock_alert_email: '',
+    renewal_reminder_days: '3',
+    autopost_enabled: '0',
   };
   for (const [k, v] of Object.entries(defaults)) {
     db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`, [k, v]);
