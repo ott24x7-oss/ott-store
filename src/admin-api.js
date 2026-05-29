@@ -1809,4 +1809,38 @@ router.post('/bot-settings', requireAdmin, async (req, res) => {
 // ─── Check auth status ────────────────────────────────────────────────────────
 router.get('/me', requireAdmin, (req, res) => res.json({ ok: true, role: 'admin' }));
 
+// ─── Cross-origin WA offer batch import (one-time use, token auth) ───────────
+const WA_IMPORT_TOKEN = 'ott24x7-wa-import-2025';
+
+router.options('/wa-offers-batch-import', (req, res) => {
+  res.set('Access-Control-Allow-Origin', 'https://store.watshop.in');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, X-Import-Token');
+  res.set('Access-Control-Allow-Methods', 'POST');
+  res.status(204).end();
+});
+
+router.post('/wa-offers-batch-import', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', 'https://store.watshop.in');
+  if (req.headers['x-import-token'] !== WA_IMPORT_TOKEN) {
+    return res.status(401).json({ error: 'Invalid import token' });
+  }
+  const { offers } = req.body;
+  if (!Array.isArray(offers) || !offers.length) {
+    return res.status(400).json({ error: 'offers[] required' });
+  }
+  try {
+    const db = await getDb();
+    let created = 0;
+    for (const o of offers) {
+      if (!o.text) continue;
+      try {
+        run(db, `INSERT INTO wa_offers (text, image_b64, active) VALUES (?,?,0)`,
+          [o.text, o.image_b64 || null]);
+        created++;
+      } catch {}
+    }
+    res.json({ ok: true, created });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 module.exports = router;
