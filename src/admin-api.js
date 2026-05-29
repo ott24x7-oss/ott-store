@@ -1484,6 +1484,80 @@ router.get('/push-notifications', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── API Channels ─────────────────────────────────────────────────────────────
+router.get('/api-channels', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const rows = all(db, `SELECT id, label, type, url, model, active, notes, created_at FROM api_channels ORDER BY id ASC`);
+    // mask key: show only last 8 chars
+    const full = all(db, `SELECT id, api_key FROM api_channels`);
+    const keyMap = {};
+    full.forEach(r => { keyMap[r.id] = r.api_key ? '••••••••' + String(r.api_key).slice(-8) : ''; });
+    rows.forEach(r => { r.api_key = keyMap[r.id] || ''; });
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/api-channels', requireAdmin, async (req, res) => {
+  try {
+    const { label, type, url, api_key, model, active, notes } = req.body;
+    if (!label || !url || !api_key) return res.status(400).json({ error: 'label, url and api_key required' });
+    const db = await getDb();
+    run(db, `INSERT INTO api_channels (label,type,url,api_key,model,active,notes) VALUES (?,?,?,?,?,?,?)`,
+      [label, type||'newapi_channel_conn', url, api_key, model||'gpt-4o-mini', active??1, notes||'']);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/api-channels/:id', requireAdmin, async (req, res) => {
+  try {
+    const { label, type, url, api_key, model, active, notes } = req.body;
+    const db = await getDb();
+    const existing = get(db, `SELECT api_key FROM api_channels WHERE id=?`, [req.params.id]);
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+    const finalKey = (api_key && !String(api_key).startsWith('••••••••')) ? api_key : existing.api_key;
+    run(db, `UPDATE api_channels SET label=?,type=?,url=?,api_key=?,model=?,active=?,notes=? WHERE id=?`,
+      [label, type||'newapi_channel_conn', url, finalKey, model||'gpt-4o-mini', active??1, notes||'', req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/api-channels/:id', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    run(db, `DELETE FROM api_channels WHERE id=?`, [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/api-channels/:id/test', requireAdmin, async (req, res) => {
+  try {
+    const { testChannel } = require('./ai');
+    const result = await testChannel(+req.params.id);
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/api-channels/:id/set-active', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    run(db, `UPDATE api_channels SET active=0`);
+    run(db, `UPDATE api_channels SET active=1 WHERE id=?`, [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── AI Chat (test / admin use) ───────────────────────────────────────────────
+router.post('/ai/chat', requireAdmin, async (req, res) => {
+  try {
+    const { messages, model, max_tokens } = req.body;
+    if (!messages?.length) return res.status(400).json({ error: 'messages required' });
+    const { chat } = require('./ai');
+    const reply = await chat(messages, { model, max_tokens });
+    res.json({ reply });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── Check auth status ────────────────────────────────────────────────────────
 router.get('/me', requireAdmin, (req, res) => res.json({ ok: true, role: 'admin' }));
 

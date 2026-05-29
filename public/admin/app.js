@@ -26,6 +26,7 @@ const MENU = [
   { id: 'broadcast',      label: 'Broadcast',     icon: '📢' },
   { id: 'autopost',       label: 'Email Auto-Post', icon: '🤖' },
   { id: 'ai-agent',       label: 'AI Agent',      icon: '🧠' },
+  { id: 'api-channels',  label: 'API Channels',  icon: '🔌' },
   { group: 'EMAIL & APP' },
   { id: 'email-marketing', label: 'Email Marketing', icon: '📧' },
   { id: 'pwa-manager',   label: 'App Manager',   icon: '📱' },
@@ -2376,6 +2377,154 @@ views['ai-agent'] = async function () {
         setTimeout(()=>msg.innerHTML='',2000);
       } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
     };
+
+  } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
+
+// ── views['api-channels'] ─────────────────────────────────────────────────────
+views['api-channels'] = async function () {
+  setMain('<div class="spinner"></div>');
+  try {
+    const channels = await api('/api-channels');
+
+    setMain(`
+<h2 style="font-weight:800;margin-bottom:1.5rem">API Channels</h2>
+<div style="max-width:820px;display:flex;flex-direction:column;gap:1.25rem">
+
+<div class="card" style="border-left:3px solid var(--purple)">
+  <div style="display:flex;gap:.75rem;align-items:flex-start">
+    <div style="font-size:2rem">🔌</div>
+    <div>
+      <div style="font-weight:700">OpenAI-Compatible API Channels</div>
+      <div class="muted" style="font-size:.85rem;margin-top:.25rem">Connect any OpenAI-compatible API endpoint — New API, one-api, custom proxies, or direct providers. The <b>active</b> channel is used by the AI Agent and all AI features.</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+    <div style="font-weight:700">Channels (${channels.length})</div>
+    <button class="btn btn-sm btn-primary" onclick="addChannel()">+ Add Channel</button>
+  </div>
+  ${channels.length ? `<div class="table-wrap"><table>
+    <thead><tr><th>Label</th><th>Type</th><th>Endpoint</th><th>Model</th><th>Key</th><th>Status</th><th></th></tr></thead>
+    <tbody>${channels.map(c => `<tr>
+      <td style="font-weight:600">${esc(c.label)}</td>
+      <td><span class="badge badge-blue" style="font-size:.75rem">${esc(c.type||'newapi_channel_conn')}</span></td>
+      <td style="font-family:monospace;font-size:.8rem;color:var(--muted)">${esc(c.url)}</td>
+      <td style="font-size:.82rem">${esc(c.model||'gpt-4o-mini')}</td>
+      <td style="font-family:monospace;font-size:.78rem;color:var(--muted)">${esc(c.api_key)}</td>
+      <td>${c.active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-grey">Off</span>'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm btn-primary" onclick="testChannel(${c.id})" title="Test connection">Test</button>
+        <button class="btn btn-sm btn-secondary" onclick="setActiveChannel(${c.id})" title="Set as default">Set Active</button>
+        <button class="btn btn-sm btn-secondary" onclick="editChannel(${c.id})">Edit</button>
+        <button class="btn btn-sm btn-red" onclick="delChannel(${c.id})">Del</button>
+      </td>
+    </tr>`).join('')}</tbody>
+  </table></div>` : '<p class="muted">No channels yet. Add one to enable AI features.</p>'}
+</div>
+
+<div class="card">
+  <div style="font-weight:700;margin-bottom:.75rem">Test AI Chat</div>
+  <div id="ai-test-msg"></div>
+  <div class="form-group"><label class="form-label">Your message</label>
+    <textarea class="form-input" id="ai-test-input" rows="3" placeholder="Ask anything to test the active channel..."></textarea></div>
+  <button class="btn btn-primary btn-sm" onclick="sendAiTest()">Send →</button>
+  <div id="ai-test-reply" style="margin-top:.75rem"></div>
+</div>
+
+</div>`);
+
+    window.addChannel = () => channelModal(null);
+    window.editChannel = async (id) => {
+      const c = channels.find(x => x.id === id);
+      if (c) channelModal(c);
+    };
+    window.delChannel = async (id) => {
+      if (!confirm('Delete this channel?')) return;
+      await api(`/api-channels/${id}`, { method: 'DELETE' });
+      views['api-channels']();
+    };
+    window.setActiveChannel = async (id) => {
+      await api(`/api-channels/${id}/set-active`, { method: 'POST' });
+      showToast('Channel set as active');
+      views['api-channels']();
+    };
+    window.testChannel = async (id) => {
+      showToast('Testing connection…');
+      try {
+        const r = await api(`/api-channels/${id}/test`, { method: 'POST' });
+        showToast(`✓ Connected — model: ${r.model}, reply: "${r.reply}"`);
+      } catch (e) { showToast(e.message, 'error'); }
+    };
+    window.sendAiTest = async () => {
+      const input = document.getElementById('ai-test-input').value.trim();
+      if (!input) return;
+      const replyEl = document.getElementById('ai-test-reply');
+      const msgEl = document.getElementById('ai-test-msg');
+      replyEl.innerHTML = '<div class="spinner" style="margin:.5rem 0"></div>';
+      msgEl.innerHTML = '';
+      try {
+        const r = await api('/ai/chat', { method: 'POST', body: JSON.stringify({ messages: [{ role: 'user', content: input }] }) });
+        replyEl.innerHTML = `<div style="background:var(--input-bg);border-radius:var(--radius-sm);padding:.75rem 1rem;white-space:pre-wrap;font-size:.9rem">${esc(r.reply)}</div>`;
+      } catch (e) {
+        replyEl.innerHTML = '';
+        msgEl.innerHTML = `<div class="alert alert-error">${esc(e.message)}</div>`;
+      }
+    };
+
+    function channelModal(c) {
+      c = c || {};
+      const ov = openModal(`
+<div class="modal-header"><h3>${c.id ? 'Edit' : 'Add'} API Channel</h3><button class="btn-icon" data-close>✕</button></div>
+<div class="modal-body">
+  <div id="ch-msg"></div>
+  <div class="form-group"><label class="form-label">Label</label>
+    <input class="form-input" id="ch-label" value="${esc(c.label||'')}" placeholder="My API Channel"></div>
+  <div class="form-group"><label class="form-label">Type</label>
+    <select class="form-input" id="ch-type">
+      <option value="newapi_channel_conn" ${(c.type||'newapi_channel_conn')==='newapi_channel_conn'?'selected':''}>New API (newapi_channel_conn)</option>
+      <option value="openai" ${c.type==='openai'?'selected':''}>OpenAI Direct</option>
+      <option value="custom" ${c.type==='custom'?'selected':''}>Custom OpenAI-compatible</option>
+    </select></div>
+  <div class="form-group"><label class="form-label">Base URL <span class="muted">(without /v1)</span></label>
+    <input class="form-input" id="ch-url" value="${esc(c.url||'')}" placeholder="s1.tokenclub.top or https://api.openai.com"></div>
+  <div class="form-group"><label class="form-label">API Key</label>
+    <input class="form-input" id="ch-key" type="password" value="${esc(c.api_key||'')}" placeholder="${c.id ? 'Leave blank to keep current' : 'sk-...' }"></div>
+  <div class="form-group"><label class="form-label">Default Model</label>
+    <input class="form-input" id="ch-model" value="${esc(c.model||'gpt-4o-mini')}" placeholder="gpt-4o-mini"></div>
+  <div class="form-group"><label class="form-label">Notes <span class="muted">(optional)</span></label>
+    <input class="form-input" id="ch-notes" value="${esc(c.notes||'')}" placeholder="e.g. 1M tokens/day free tier"></div>
+  <label style="display:flex;align-items:center;gap:.5rem;margin-top:.25rem">
+    <input type="checkbox" id="ch-active" ${c.active !== 0 ? 'checked' : ''}> Set as active channel
+  </label>
+</div>
+<div class="modal-footer">
+  <button class="btn btn-secondary" data-close>Cancel</button>
+  <button class="btn btn-primary" id="ch-save">Save Channel</button>
+</div>`);
+
+      document.getElementById('ch-save').onclick = async () => {
+        const msg = document.getElementById('ch-msg');
+        const body = {
+          label: document.getElementById('ch-label').value.trim(),
+          type: document.getElementById('ch-type').value,
+          url: document.getElementById('ch-url').value.trim(),
+          api_key: document.getElementById('ch-key').value,
+          model: document.getElementById('ch-model').value.trim() || 'gpt-4o-mini',
+          active: document.getElementById('ch-active').checked ? 1 : 0,
+          notes: document.getElementById('ch-notes').value.trim(),
+        };
+        if (!body.label || !body.url) { msg.innerHTML = '<div class="alert alert-error">Label and URL required</div>'; return; }
+        if (!c.id && !body.api_key) { msg.innerHTML = '<div class="alert alert-error">API Key required</div>'; return; }
+        try {
+          if (c.id) await api(`/api-channels/${c.id}`, { method: 'PUT', body: JSON.stringify(body) });
+          else await api('/api-channels', { method: 'POST', body: JSON.stringify(body) });
+          ov.remove(); views['api-channels']();
+        } catch (e) { msg.innerHTML = `<div class="alert alert-error">${esc(e.message)}</div>`; }
+      };
+    }
 
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };

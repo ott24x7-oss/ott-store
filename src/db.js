@@ -310,6 +310,18 @@ function migrate(db) {
     sent_at TEXT DEFAULT (datetime('now'))
   )`);
 
+  db.run(`CREATE TABLE IF NOT EXISTS api_channels (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    label TEXT NOT NULL,
+    type TEXT DEFAULT 'newapi_channel_conn',
+    url TEXT NOT NULL,
+    api_key TEXT NOT NULL,
+    model TEXT DEFAULT 'gpt-4o-mini',
+    active INTEGER DEFAULT 1,
+    notes TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+
   // Alter existing tables to add new columns (safe — ignored if column exists)
   try { db.run(`ALTER TABLE topups ADD COLUMN unique_amount REAL`); } catch {}
   try { db.run(`ALTER TABLE topups ADD COLUMN payment_method_id INTEGER`); } catch {}
