@@ -20,10 +20,10 @@ html{overflow-x:hidden}
 html[data-store-theme]{background:var(--st-bg);color:var(--st-text)}
 body{
   background:
-    radial-gradient(ellipse 70% 55% at -5% -5%,rgba(124,58,237,.22) 0%,transparent 52%),
-    radial-gradient(ellipse 55% 45% at 105% 5%,rgba(79,70,229,.18) 0%,transparent 52%),
-    radial-gradient(ellipse 75% 65% at 50% 108%,rgba(236,72,153,.14) 0%,transparent 60%),
-    var(--st-bg,#07080f);
+    radial-gradient(circle at top left,rgba(255,43,79,.22),transparent 28%),
+    radial-gradient(circle at 70% 20%,rgba(66,232,255,.16),transparent 30%),
+    radial-gradient(circle at bottom right,rgba(155,92,255,.24),transparent 32%),
+    var(--st-bg,#05050b);
   color:var(--st-text);overflow-x:hidden;-webkit-tap-highlight-color:transparent;font-family:'Inter',system-ui,-apple-system,sans-serif
 }
 body::before{display:none}
@@ -128,10 +128,14 @@ html[data-theme="dark"] .snav-logo .logo-dark{display:block}
   .snav-burger{display:block}
   .plans-header{padding:2rem 1rem 1rem}
   .plans-filters,.plans-results-bar,.plans-main{padding-left:1rem;padding-right:1rem}
+  .plat-chips{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:.4rem}
+  .plat-chips::-webkit-scrollbar{display:none}
+  .plat-chip{flex-shrink:0}
+  .plans-search-row{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+  .plans-search-box{grid-column:1/-1}
 }
 @media(max-width:480px){
-  .splan-grid{grid-template-columns:repeat(2,1fr);gap:.7rem}
-  .plans-search-row{flex-direction:column}
+  .splan-grid{grid-template-columns:repeat(2,1fr);gap:.6rem}
   .filter-select{width:100%}
 }
 @media(max-width:360px){.splan-grid{grid-template-columns:1fr}}

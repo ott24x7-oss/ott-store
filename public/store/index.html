@@ -321,7 +321,12 @@ footer{
 .home-bnav-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--muted);font-size:.65rem;font-weight:600;text-decoration:none;transition:color .15s;padding:.3rem .5rem}
 .home-bnav-btn span{font-size:1.15rem;line-height:1}
 .home-bnav-btn.active,.home-bnav-btn:hover{color:var(--text)}
-@media(max-width:760px){.home-bnav{display:grid}body{padding-bottom:58px}}
+@media(max-width:760px){
+  .home-bnav{display:grid}
+  body{padding-bottom:58px}
+  #chat-fab{bottom:72px;right:16px}
+  #chat-panel{bottom:136px;right:8px;width:calc(100vw - 16px)}
+}
 </style>
 </head>
 <body>
