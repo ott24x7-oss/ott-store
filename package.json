@@ -1,0 +1,26 @@
+{
+  "name": "ott-store",
+  "version": "1.0.0",
+  "description": "Single OTT Store — self-hosted storefront for OTT subscriptions",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "compression": "^1.8.1",
+    "cookie-parser": "^1.4.6",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.3.1",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.14",
+    "razorpay": "^2.9.2",
+    "sql.js": "^1.12.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
