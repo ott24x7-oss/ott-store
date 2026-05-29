@@ -356,6 +356,7 @@ function migrate(db) {
   seedDefaults(db);
   seedLegalPages(db);
   seedEmailTemplates(db);
+  seedAutopostCampaigns(db);
 }
 
 function seedLegalPages(db) {
@@ -752,6 +753,336 @@ function getSettingSync(key) {
 function setSettingSync(key, value) {
   if (!_db) return;
   run(_db, 'INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)', [key, String(value ?? '')]);
+}
+
+// ─── Seed autopost campaigns ──────────────────────────────────────────────────
+function seedAutopostCampaigns(db) {
+  const existing = db.exec('SELECT COUNT(*) as c FROM autopost_campaigns');
+  const count = existing[0]?.values[0][0] || 0;
+  if (count > 0) return; // only seed on a fresh install
+
+  const campaigns = [
+    // ── Welcome / Engagement ────────────────────────────────────────────────
+    {
+      title: '🎉 Welcome to {{site_name}}',
+      subject: 'Welcome to {{site_name}} — Your OTT Subscription Store!',
+      message: `Hi {{name}},
+
+Welcome to *{{site_name}}*! 🎉
+
+We offer premium OTT subscriptions — Netflix, Amazon Prime, Disney+ Hotstar, Spotify, YouTube Premium and more — at the *best prices* with instant delivery.
+
+💳 Easy UPI / WhatsApp payment
+🚀 Instant auto-delivery
+🔒 100% safe & trusted
+
+Browse our plans and start streaming today!
+
+👉 {{site_url}}`,
+      interval_hours: 0,
+      schedule_enabled: 0,
+      target: 'all',
+    },
+
+    // ── Netflix ─────────────────────────────────────────────────────────────
+    {
+      title: '🎬 Netflix Premium — Best Price in India',
+      subject: '🎬 Netflix Premium 4K at ₹149/mo — Limited Stock!',
+      message: `Hi {{name}},
+
+*Netflix Premium* (4K UHD) is now available at the *lowest price* — only from {{site_name}}! 🎬
+
+✅ 4K Ultra HD + HDR
+✅ 4 screens simultaneously
+✅ All original content unlocked
+✅ Instant delivery after payment
+
+🔥 Price: Starting ₹149/month
+⚡ Stock is limited — grab yours before it's gone!
+
+Order now → {{site_url}}`,
+      interval_hours: 72,
+      schedule_enabled: 1,
+      target: 'all',
+    },
+
+    // ── Amazon Prime ────────────────────────────────────────────────────────
+    {
+      title: '📦 Amazon Prime — Streaming + Free Delivery',
+      subject: '📦 Amazon Prime at Just ₹89/mo — Prime Video + Free Delivery!',
+      message: `Hi {{name}},
+
+Get *Amazon Prime* at a fraction of the official price! 💥
+
+🎬 Prime Video — movies, web series, Amazon Originals
+🚀 Free & fast delivery on Amazon shopping
+🎵 Prime Music — millions of songs ad-free
+📖 Prime Reading — thousands of e-books
+
+✅ Instant delivery | ✅ 1 month / 3 month / 1 year plans
+
+💸 Starting just ₹89/month only at {{site_name}}
+
+Order here → {{site_url}}`,
+      interval_hours: 72,
+      schedule_enabled: 1,
+      target: 'all',
+    },
+
+    // ── Disney+ Hotstar ─────────────────────────────────────────────────────
+    {
+      title: '⭐ Disney+ Hotstar Super — IPL + Movies',
+      subject: '⭐ Disney+ Hotstar at ₹59/mo — Watch IPL Live + Disney Shows!',
+      message: `Hi {{name}},
+
+🏏 IPL season is here — don't miss a single ball!
+
+Get *Disney+ Hotstar Super* at unbeatable prices:
+
+🏏 Live Cricket — IPL, ICC, T20 World Cup
+🎬 Marvel, Star Wars, Pixar movies
+📺 Star & FX TV shows + Hotstar Specials
+🌐 Available on TV, mobile, tablet & web
+
+⚡ Starting ₹59/month | Instant activation
+
+Grab it now → {{site_url}}`,
+      interval_hours: 96,
+      schedule_enabled: 1,
+      target: 'all',
+    },
+
+    // ── Spotify ─────────────────────────────────────────────────────────────
+    {
+      title: '🎵 Spotify Premium — Music Without Limits',
+      subject: '🎵 Spotify Premium — Ad-free Music at ₹39/mo!',
+      message: `Hi {{name}},
+
+Tired of ads interrupting your music? 🎵
+
+Get *Spotify Premium* at the best price:
+
+🎵 80 million+ songs & podcasts ad-free
+📥 Download for offline listening
+🔊 High-quality audio streaming
+🔀 Unlimited skips
+
+💸 Only ₹39/month at {{site_name}} — 70% cheaper than official!
+
+Listen without limits → {{site_url}}`,
+      interval_hours: 96,
+      schedule_enabled: 1,
+      target: 'all',
+    },
+
+    // ── YouTube Premium ──────────────────────────────────────────────────────
+    {
+      title: '📺 YouTube Premium — No Ads + YouTube Music',
+      subject: '📺 YouTube Premium — Watch ad-free at ₹59/mo!',
+      message: `Hi {{name}},
+
+Say goodbye to YouTube ads forever! 🚫📢
+
+*YouTube Premium* includes:
+📺 Ad-free YouTube on all devices
+📥 Download videos for offline viewing
+🎵 YouTube Music Premium included FREE
+📱 Picture-in-picture on mobile
+🎮 Background play while using other apps
+
+💸 Starting just ₹59/month at {{site_name}}!
+
+Order today → {{site_url}}`,
+      interval_hours: 96,
+      schedule_enabled: 1,
+      target: 'all',
+    },
+
+    // ── Combo Bundle ────────────────────────────────────────────────────────
+    {
+      title: '🔥 MEGA BUNDLE — Netflix + Prime + Hotstar',
+      subject: '🔥 MEGA BUNDLE: Netflix + Prime + Hotstar = Save ₹300+!',
+      message: `Hi {{name}},
+
+Why pay full price for one when you can get *three* for less? 💥
+
+🎬 *MEGA OTT BUNDLE* — Our Best Deal Ever:
+✅ Netflix Premium (4K)
+✅ Amazon Prime Video
+✅ Disney+ Hotstar Super
+
+💸 Bundle price: Starting ₹299/month
+🔥 You save ₹300+ vs buying individually!
+
+Limited slots available every month — these go fast!
+
+Grab the bundle → {{site_url}}`,
+      interval_hours: 48,
+      schedule_enabled: 1,
+      target: 'all',
+    },
+
+    // ── Flash Sale ──────────────────────────────────────────────────────────
+    {
+      title: '⚡ FLASH SALE — 30% Off All Plans',
+      subject: '⚡ FLASH SALE: 30% Off TODAY ONLY — OTT Subscriptions!',
+      message: `Hi {{name}},
+
+⚡ *FLASH SALE* — 30% Off all plans for 24 hours only!
+
+This is the biggest discount we've ever offered:
+
+🎬 Netflix Premium — 30% off
+📦 Amazon Prime — 30% off
+⭐ Disney+ Hotstar — 30% off
+🎵 Spotify — 30% off
+📺 YouTube Premium — 30% off
+🔥 All bundle plans — 30% off
+
+⏰ *ENDS MIDNIGHT TONIGHT*
+
+Don't miss this → {{site_url}}`,
+      interval_hours: 168,
+      schedule_enabled: 0,
+      target: 'all',
+    },
+
+    // ── Weekend Offer ───────────────────────────────────────────────────────
+    {
+      title: '🎉 Weekend Special — Extra 20% Off',
+      subject: '🎉 Weekend Only: Extra 20% Off OTT Plans!',
+      message: `Hi {{name}},
+
+Happy weekend! 🎉 Enjoy *20% extra off* all OTT subscriptions this Saturday & Sunday only!
+
+🎬 Netflix | 📦 Amazon Prime | ⭐ Hotstar
+🎵 Spotify | 📺 YouTube | 🎭 Zee5 | ☁️ SonyLIV
+
+Weekend discounts are applied automatically at checkout — no coupon needed!
+
+Shop the weekend deals → {{site_url}}`,
+      interval_hours: 168,
+      schedule_enabled: 1,
+      target: 'all',
+    },
+
+    // ── Renewal Reminder ────────────────────────────────────────────────────
+    {
+      title: '🔔 Renewal Reminder — Your Subscription Ending Soon',
+      subject: '🔔 Renewal Reminder: Don\'t Let Your Subscription Expire!',
+      message: `Hi {{name}},
+
+Just a friendly reminder — your OTT subscription may be expiring soon! 🔔
+
+Renew early and enjoy:
+✅ No interruption to your streaming
+✅ Same low price guaranteed
+✅ Instant reactivation
+
+We're offering *10% off renewals* this week as a loyalty bonus for existing customers!
+
+Renew here → {{site_url}}`,
+      interval_hours: 120,
+      schedule_enabled: 1,
+      target: 'active',
+    },
+
+    // ── Re-engagement ────────────────────────────────────────────────────────
+    {
+      title: '💌 We Miss You — Come Back Offer',
+      subject: '💌 We miss you! Here\'s a special offer just for you',
+      message: `Hi {{name}},
+
+It's been a while since we heard from you — and we miss you! 😊
+
+We've been busy adding amazing new plans and lowering our prices. Here's what's new:
+
+🆕 New 3-month & 6-month bundle plans
+💸 Prices reduced on all plans by 10-15%
+⚡ Faster auto-delivery system
+🎁 Refer a friend — earn ₹50 wallet credit
+
+Come back and use code *COMEBACK10* for an extra 10% off your next order!
+
+See what's new → {{site_url}}`,
+      interval_hours: 240,
+      schedule_enabled: 1,
+      target: 'all',
+    },
+
+    // ── Referral ─────────────────────────────────────────────────────────────
+    {
+      title: '🤝 Refer & Earn ₹100 — Share with Friends',
+      subject: '🤝 Earn ₹100 for every friend you refer to {{site_name}}!',
+      message: `Hi {{name}},
+
+Did you know you can *earn money* just by telling your friends about us? 💰
+
+*{{site_name}} Referral Program:*
+💸 You earn ₹100 wallet credit per referral
+💸 Your friend gets ₹50 off their first order
+🔄 No limit — refer as many as you want!
+
+Share your referral link from the *My Account* section and start earning today.
+
+Your referrals pay for your next subscription! 🎉
+
+Start earning → {{site_url}}`,
+      interval_hours: 168,
+      schedule_enabled: 1,
+      target: 'all',
+    },
+
+    // ── Seasonal / Republic Day ──────────────────────────────────────────────
+    {
+      title: '🇮🇳 Republic Day Sale — 26% Off!',
+      subject: '🇮🇳 Happy Republic Day! 26% Off All Plans — Today Only!',
+      message: `Hi {{name}},
+
+🇮🇳 *Happy Republic Day!* Celebrating with our biggest offer of the month:
+
+*26% OFF* all OTT subscriptions — because 26th January! 🎉
+
+🎬 Netflix | 📦 Prime | ⭐ Hotstar | 🎵 Spotify
+
+Discount applied automatically — no code needed.
+Valid 26th January only.
+
+Celebrate with entertainment → {{site_url}}`,
+      interval_hours: 0,
+      schedule_enabled: 0,
+      target: 'all',
+    },
+
+    // ── New Plans / Stock Alert ──────────────────────────────────────────────
+    {
+      title: '🆕 New Plans Added — Check Them Out!',
+      subject: '🆕 New OTT Plans Just Added at {{site_name}}!',
+      message: `Hi {{name}},
+
+We've just added exciting new plans to our catalog! 🆕
+
+🔥 *What's new:*
+✅ 6-month plans now available (save more!)
+✅ Zee5 Premium just added
+✅ Apple TV+ plans now in stock
+✅ New budget combo plans starting ₹199
+
+These new plans are already selling fast — check them out before stock runs out!
+
+See new plans → {{site_url}}`,
+      interval_hours: 168,
+      schedule_enabled: 0,
+      target: 'all',
+    },
+  ];
+
+  for (const c of campaigns) {
+    try {
+      db.run(`INSERT OR IGNORE INTO autopost_campaigns (title,subject,message,target,schedule_enabled,interval_hours,active) VALUES (?,?,?,?,?,?,1)`,
+        [c.title, c.subject, c.message, c.target, c.schedule_enabled ? 1 : 0, c.interval_hours]);
+    } catch {}
+  }
 }
 
 module.exports = { getDb, getSetting, setSetting, getSettingSync, setSettingSync, all, get, run };
