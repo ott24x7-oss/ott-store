@@ -16,7 +16,7 @@
 .my-main-auth{flex:1;display:flex;align-items:center;justify-content:center;padding:2rem 1rem}
 
 /* ── Header ── */
-.my-nav{position:sticky;top:0;z-index:200;background:rgba(8,11,20,.88);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:.8rem 1.5rem}
+.my-nav{position:sticky;top:0;z-index:200;background:var(--header-bg);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:.8rem 1.5rem}
 .my-nav-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:.75rem}
 .my-logo{font-size:1.25rem;font-weight:900;background:linear-gradient(135deg,#7c3aed,#4f46e5);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-decoration:none;flex-shrink:0;display:flex;align-items:center}
 .my-logo:hover{opacity:.85;text-decoration:none}
@@ -726,25 +726,38 @@ window.waSend=async function(){
   }catch(ex){err.textContent=ex.message;err.style.display='';setLoading(btn,false);}
 };
 
+let _waLoginResult=null;
 window.waVerify=async function(){
   const phone=localStorage.getItem('my_last_phone')||'';
   const otp=document.getElementById('wa-otp').value.trim();
-  const name=document.getElementById('wa-name')?.value.trim()||'';
+  const nameInput=document.getElementById('wa-name');
+  const name=nameInput?.value.trim()||'';
   const err=document.getElementById('wa-err2');
   const btn=document.getElementById('wa-verify-btn');
   if(!otp){err.textContent='Enter the OTP from WhatsApp.';err.style.display='';return;}
+  // If name row is already showing, user is completing registration — no need to re-verify OTP
+  const nameRow=document.getElementById('wa-name-row');
+  if(_waLoginResult&&nameRow&&nameRow.style.display!=='none'){
+    if(!name){err.textContent='Please enter your name.';err.style.display='';return;}
+    setLoading(btn,true,'Completing...');
+    try{
+      await api('/complete-profile',{method:'PUT',body:JSON.stringify({name})});
+    }catch(ex){/* non-fatal */}
+    await initPortal(_waLoginResult);
+    return;
+  }
   setLoading(btn,true,'Verifying...');
   try{
     const r=await api('/verify-wa-otp',{method:'POST',body:JSON.stringify({phone,otp,name})});
-    if(r.is_new){
-      const nameRow=document.getElementById('wa-name-row');
-      if(nameRow&&nameRow.style.display==='none'){
-        nameRow.style.display='';
-        setLoading(btn,false);
-        showToast('Please enter your name to complete registration','success');
-        return;
-      }
+    if(r.is_new&&nameRow&&nameRow.style.display==='none'){
+      _waLoginResult=r;
+      nameRow.style.display='';
+      setLoading(btn,false);
+      btn.textContent='Complete Registration →';
+      showToast('OTP verified! Enter your name to finish.','success');
+      return;
     }
+    _waLoginResult=null;
     await initPortal(r);
   }catch(ex){err.textContent=ex.message;err.style.display='';setLoading(btn,false);}
 };

@@ -104,7 +104,7 @@ document.getElementById('theme-toggle')?.addEventListener('click', () => {
   const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
   localStorage.setItem('theme', next); applyTheme(next);
 });
-applyTheme(document.documentElement.getAttribute('data-theme') || 'light');
+applyTheme(document.documentElement.getAttribute('data-theme') || 'dark');
 
 // ── Sidebar ────────────────────────────────────────────────────────────────────
 let sidebarCollapsed = false;

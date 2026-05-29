@@ -114,7 +114,7 @@ input:checked + .toggle-slider::before { transform: translateX(18px); }
 <body>
 <script>
 (function(){
-  var t = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
+  var t = localStorage.getItem('theme') || 'dark';
   document.documentElement.setAttribute('data-theme', t);
 })();
 </script>
@@ -130,10 +130,10 @@ input:checked + .toggle-slider::before { transform: translateX(18px); }
 
   <div class="admin-body">
     <header class="admin-topbar">
-      <div style="display:flex;align-items:center;gap:.75rem">
+      <div style="display:flex;align-items:center;gap:.75rem;min-width:48px">
         <button class="collapse-btn" id="mobile-menu-btn" style="font-size:1.3rem;display:none">☰</button>
-        <span class="topbar-title" id="topbar-title">Dashboard</span>
       </div>
+      <span class="topbar-title" id="topbar-title" style="position:absolute;left:50%;transform:translateX(-50%);white-space:nowrap">Dashboard</span>
       <div class="topbar-right">
         <button class="btn btn-secondary btn-sm" id="theme-toggle">🌙</button>
         <a href="/" target="_blank" class="btn btn-secondary btn-sm">🏪 View Store</a>

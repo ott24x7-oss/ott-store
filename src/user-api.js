@@ -202,7 +202,7 @@ router.post('/forgot-password', async (req, res) => {
     const token = crypto.randomBytes(32).toString('hex');
     const expires = new Date(Date.now() + 30 * 60 * 1000).toISOString();
     run(db, `INSERT OR REPLACE INTO pw_resets (token,customer_jid,expires_at,used) VALUES (?,?,?,0)`, [token, jid, expires]);
-    const baseUrl = await getSetting('base_url') || cfg.baseUrl;
+    const baseUrl = await getSetting('base_url') || `${req.protocol}://${req.get('host')}`;
     const resetUrl = `${baseUrl}/my#reset-password?token=${token}`;
     await sendPasswordReset(c.email, c.name, resetUrl).catch(() => {});
     res.json({ ok: true });
@@ -290,7 +290,7 @@ router.post('/send-magic-link', async (req, res) => {
     const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
     run(db, `INSERT INTO auth_tokens (token,purpose,email,expires_at) VALUES (?,?,?,?)`,
       [token, 'magic_link', emailNorm, expires]);
-    const baseUrl = await getSetting('base_url') || cfg.baseUrl;
+    const baseUrl = await getSetting('base_url') || `${req.protocol}://${req.get('host')}`;
     const siteName = await getSetting('site_name') || 'OTT Store';
     const magicUrl = `${baseUrl}/user/api/auth/magic?token=${token}`;
     sendMagicLinkEmail(emailNorm, customer?.name || '', magicUrl, siteName).catch(() => {});
