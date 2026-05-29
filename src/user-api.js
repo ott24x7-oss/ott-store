@@ -70,7 +70,7 @@ router.get('/store', async (req, res) => {
     const rows = all(db, `SELECT key, value FROM settings WHERE key IN
       ('site_name','site_tagline','logo_url','announcement','upi_id','upi_name',
        'razorpay_enabled','upi_manual_enabled','support_whatsapp','support_email',
-       'pwa_force_prompt','vapid_public_key')`, []);
+       'pwa_force_prompt','vapid_public_key','store_theme')`, []);
     const s = {};
     rows.forEach(r => s[r.key] = r.value);
     s.razorpay_key = s.razorpay_enabled === '1' ? cfg.razorpay.keyId : '';

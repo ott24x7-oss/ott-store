@@ -34,6 +34,7 @@ const MENU = [
   { id: 'pwa-manager',   label: 'App Manager',   icon: '📱' },
   { group: 'STOREFRONT' },
   { id: 'mystore',        label: 'My Store',      icon: '🏪' },
+  { id: 'store-theme',    label: 'Store Themes',  icon: '🎨' },
   { id: 'payments',       label: 'Payments',      icon: '💰' },
   { id: 'legal',          label: 'Legal Pages',   icon: '📄' },
   { id: 'tickets',        label: 'Support',       icon: '🎧' },
@@ -3417,6 +3418,100 @@ views['pwa-manager'] = async function (tab) {
         views['pwa-manager']('subscribers');
       };
     }
+
+  } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
+
+// ── views['store-theme'] ──────────────────────────────────────────────────────
+views['store-theme'] = async function () {
+  setMain('<div class="spinner"></div>');
+  try {
+    const s = await api('/store-theme');
+    const current = s.theme || 'midnight-purple';
+
+    const THEMES = [
+      { id:'midnight-purple', label:'Midnight Purple',   bg:'#0d1117', card:'#161b2e', a1:'#7c3aed', a2:'#a855f7', text:'#e2e8f0', dark:true  },
+      { id:'neon-dark',       label:'Neon Dark',         bg:'#0a0a0f', card:'#12121e', a1:'#00ff94', a2:'#00d4ff', text:'#f0fdf4', dark:true  },
+      { id:'ocean-deep',      label:'Ocean Deep',        bg:'#061e2f', card:'#0a2540', a1:'#0ea5e9', a2:'#38bdf8', text:'#e0f2fe', dark:true  },
+      { id:'cosmic',          label:'Cosmic',            bg:'#050d1a', card:'#0d1630', a1:'#8b5cf6', a2:'#3b82f6', text:'#ede9fe', dark:true  },
+      { id:'sunset-glow',     label:'Sunset Glow',       bg:'#1a0d05', card:'#2a1508', a1:'#f97316', a2:'#ef4444', text:'#fff7ed', dark:true  },
+      { id:'forest-dark',     label:'Forest Dark',       bg:'#051a0d', card:'#0a2e18', a1:'#22c55e', a2:'#10b981', text:'#f0fdf4', dark:true  },
+      { id:'royal-gold',      label:'Royal Gold',        bg:'#0d0a00', card:'#1e1800', a1:'#f59e0b', a2:'#fbbf24', text:'#fffbeb', dark:true  },
+      { id:'rose-noir',       label:'Rose Noir',         bg:'#1a050e', card:'#2a0a1a', a1:'#f43f5e', a2:'#ec4899', text:'#fff1f2', dark:true  },
+      { id:'arctic-light',    label:'Arctic Light',      bg:'#f0f4f8', card:'#ffffff', a1:'#0ea5e9', a2:'#6366f1', text:'#0f172a', dark:false },
+      { id:'sakura',          label:'Sakura',            bg:'#fff5f7', card:'#ffffff', a1:'#f43f5e', a2:'#ec4899', text:'#1e0010', dark:false },
+      { id:'slate-minimal',   label:'Slate Minimal',     bg:'#f8fafc', card:'#ffffff', a1:'#475569', a2:'#334155', text:'#0f172a', dark:false },
+      { id:'cyberpunk',       label:'Cyberpunk',         bg:'#0d0017', card:'#160028', a1:'#ff00ff', a2:'#00ffff', text:'#f0e6ff', dark:true  },
+      { id:'aurora-teal',     label:'Aurora Teal',       bg:'#020d12', card:'#061824', a1:'#14b8a6', a2:'#06b6d4', text:'#ccfbf1', dark:true  },
+      { id:'volcano',         label:'Volcano',           bg:'#160800', card:'#240e00', a1:'#f97316', a2:'#dc2626', text:'#fff7ed', dark:true  },
+      { id:'lavender-mist',   label:'Lavender Mist',     bg:'#f5f0ff', card:'#ffffff', a1:'#7c3aed', a2:'#a855f7', text:'#1e0050', dark:false },
+      { id:'navy-classic',    label:'Navy Classic',      bg:'#001233', card:'#001e4d', a1:'#3b82f6', a2:'#1d4ed8', text:'#dbeafe', dark:true  },
+      { id:'emerald-city',    label:'Emerald City',      bg:'#022c22', card:'#044034', a1:'#059669', a2:'#10b981', text:'#d1fae5', dark:true  },
+      { id:'crystal-clean',   label:'Crystal Clean',     bg:'#ffffff', card:'#f8fafc', a1:'#2563eb', a2:'#4f46e5', text:'#0f172a', dark:false },
+      { id:'obsidian-gold',   label:'Obsidian Gold',     bg:'#0c0c0c', card:'#1a1a1a', a1:'#f59e0b', a2:'#d97706', text:'#fef9c3', dark:true  },
+      { id:'electric-blue',   label:'Electric Blue',     bg:'#000a1a', card:'#00122e', a1:'#2563eb', a2:'#3b82f6', text:'#dbeafe', dark:true  },
+      { id:'crimson-tide',    label:'Crimson Tide',      bg:'#0d0000', card:'#1f0000', a1:'#dc2626', a2:'#ef4444', text:'#fee2e2', dark:true  },
+      { id:'teal-ocean',      label:'Teal Ocean',        bg:'#01151e', card:'#00253a', a1:'#0891b2', a2:'#0ea5e9', text:'#e0f2fe', dark:true  },
+    ];
+
+    const cards = THEMES.map(t => {
+      const isCurrent = t.id === current;
+      const border = isCurrent ? `3px solid ${t.a1}` : `2px solid ${t.dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.1)'}`;
+      const shadow = isCurrent ? `0 0 0 2px ${t.a1}44, 0 8px 24px ${t.a1}33` : '0 2px 8px rgba(0,0,0,0.12)';
+      const checkmark = isCurrent ? `<div style="position:absolute;top:8px;right:8px;background:${t.a1};color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">✓</div>` : '';
+      return `
+<div onclick="window.setTheme('${t.id}')" style="cursor:pointer;border-radius:14px;overflow:hidden;border:${border};box-shadow:${shadow};transition:all .2s;position:relative;background:${t.bg}">
+  ${checkmark}
+  <div style="height:72px;background:linear-gradient(135deg,${t.a1},${t.a2});display:flex;align-items:center;gap:8px;padding:0 14px">
+    <div style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.25);border:2px solid rgba(255,255,255,0.5)"></div>
+    <div style="flex:1">
+      <div style="height:8px;border-radius:4px;background:rgba(255,255,255,0.4);width:60%;margin-bottom:5px"></div>
+      <div style="height:5px;border-radius:3px;background:rgba(255,255,255,0.25);width:40%"></div>
+    </div>
+  </div>
+  <div style="padding:12px;background:${t.card}">
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <div style="flex:1;height:32px;border-radius:7px;background:linear-gradient(135deg,${t.a1}22,${t.a2}22);border:1px solid ${t.a1}44"></div>
+      <div style="flex:1;height:32px;border-radius:7px;background:linear-gradient(135deg,${t.a1}22,${t.a2}22);border:1px solid ${t.a1}44"></div>
+    </div>
+    <div style="height:6px;border-radius:3px;background:linear-gradient(90deg,${t.a1},${t.a2});margin-bottom:5px;width:55%"></div>
+    <div style="height:5px;border-radius:3px;background:${t.dark?'rgba(255,255,255,0.12)':'rgba(0,0,0,0.1)'};width:75%"></div>
+  </div>
+  <div style="padding:8px 14px 12px;background:${t.bg};border-top:1px solid ${t.dark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.06)'}">
+    <div style="font-size:13px;font-weight:700;color:${t.text}">${esc(t.label)}</div>
+    ${isCurrent ? `<div style="font-size:11px;color:${t.a1};margin-top:2px;font-weight:600">● Active</div>` : `<div style="font-size:11px;color:${t.dark?'rgba(255,255,255,0.35)':'rgba(0,0,0,0.35)'};margin-top:2px">Click to apply</div>`}
+  </div>
+</div>`;
+    }).join('');
+
+    setMain(`
+<h2 style="font-weight:800;margin-bottom:.25rem">Store Themes</h2>
+<p style="color:var(--muted);margin-bottom:1.5rem;font-size:.9rem">Choose a visual theme for your storefront. Changes apply instantly for all visitors.</p>
+<div id="theme-msg"></div>
+<div style="background:var(--card);border-radius:12px;padding:1.25rem;margin-bottom:1.5rem;display:flex;align-items:center;gap:12px">
+  <span style="font-size:1.5rem">🎨</span>
+  <div>
+    <div style="font-weight:700">Currently Active: <span id="theme-current-label" style="color:var(--accent)">${esc(THEMES.find(t=>t.id===current)?.label || current)}</span></div>
+    <div style="font-size:.82rem;color:var(--muted)">Theme ID: <code>${esc(current)}</code></div>
+  </div>
+  <a href="/" target="_blank" class="btn btn-sm btn-secondary" style="margin-left:auto">Preview Store ↗</a>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px">
+${cards}
+</div>
+<style>
+  [onclick*="setTheme"]:hover { transform:translateY(-3px) scale(1.02); }
+</style>`);
+
+    window.setTheme = async function(id) {
+      const theme = THEMES.find(t => t.id === id);
+      if (!theme) return;
+      try {
+        await api('/store-theme', { method:'POST', body: JSON.stringify({ theme: id }) });
+        showToast(`Theme applied: ${theme.label}`);
+        views['store-theme']();
+      } catch(e) { showToast(e.message, 'error'); }
+    };
 
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };

@@ -452,6 +452,8 @@ function seedDefaults(db) {
     bot_accent: '#7c3aed',
     bot_greeting: "👋 Hi! I'm your *{site_name}* AI.\nWhat would you like to do?",
     bot_system_prompt: '',
+    // Store Appearance
+    store_theme: 'midnight-purple',
     // PWA / App Manager
     pwa_name: '',
     pwa_short_name: '',

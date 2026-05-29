@@ -1,0 +1,593 @@
+/* ─── OTT Store — 22 Theme Definitions ─────────────────────────────────────── */
+/* Applied via: <html data-store-theme="theme-name">                           */
+/* Each theme sets these variables used throughout store CSS:                   */
+/*   --th-bg           page background                                          */
+/*   --th-hero-bg      hero radial/gradient overlay                             */
+/*   --th-card         card bg (semi-transparent for glass)                     */
+/*   --th-card-solid   opaque card bg                                           */
+/*   --th-border       border color                                             */
+/*   --th-accent       primary accent                                           */
+/*   --th-accent-end   gradient end color                                       */
+/*   --th-text         main text                                                */
+/*   --th-muted        secondary text                                           */
+/*   --th-glow         accent glow (box-shadow)                                 */
+/*   --th-btn          button gradient                                          */
+/*   --th-blob1/2/3    hero background blob colors                              */
+/*   --th-nav-bg       navbar backdrop                                          */
+/*   --th-badge-bg     gradient for feature badges                              */
+/*   --th-stat-bg      stats card tint                                          */
+/*   --th-step-bg      how-it-works step tint                                   */
+/*   --th-faq-bg       faq row bg                                               */
+/* ──────────────────────────────────────────────────────────────────────────── */
+
+/* ── 1. Midnight Purple (default) ─────────────────────────────────────────── */
+[data-store-theme="midnight-purple"] {
+  --th-bg: #080b14;
+  --th-hero-bg: radial-gradient(ellipse 130% 70% at 50% -5%, #1e0a3c 0%, #080b14 65%);
+  --th-card: rgba(255,255,255,.04);
+  --th-card-solid: #0e1020;
+  --th-border: rgba(255,255,255,.09);
+  --th-accent: #7c3aed;
+  --th-accent-end: #4f46e5;
+  --th-accent-pop: #06b6d4;
+  --th-text: #f1f5f9;
+  --th-muted: #94a3b8;
+  --th-glow: rgba(124,58,237,.45);
+  --th-btn: linear-gradient(135deg,#7c3aed 0%,#4f46e5 100%);
+  --th-blob1: rgba(124,58,237,.18);
+  --th-blob2: rgba(6,182,212,.12);
+  --th-blob3: rgba(236,72,153,.09);
+  --th-nav-bg: rgba(8,11,20,.88);
+  --th-badge-bg: linear-gradient(135deg,#7c3aed,#ec4899);
+  --th-stat-bg: rgba(124,58,237,.08);
+  --th-step-bg: rgba(124,58,237,.1);
+  --th-faq-bg: rgba(255,255,255,.03);
+  --th-hero-line: #c4b5fd;
+  --th-dark: 1;
+}
+
+/* ── 2. Neon Dark ─────────────────────────────────────────────────────────── */
+[data-store-theme="neon-dark"] {
+  --th-bg: #030a0d;
+  --th-hero-bg: radial-gradient(ellipse 130% 70% at 50% -5%, #001a1f 0%, #030a0d 65%);
+  --th-card: rgba(0,255,200,.03);
+  --th-card-solid: #071012;
+  --th-border: rgba(0,255,180,.12);
+  --th-accent: #00ffc6;
+  --th-accent-end: #00b8ff;
+  --th-accent-pop: #ff00aa;
+  --th-text: #e0fff8;
+  --th-muted: #7ecdc0;
+  --th-glow: rgba(0,255,198,.4);
+  --th-btn: linear-gradient(135deg,#00ffc6 0%,#00b8ff 100%);
+  --th-blob1: rgba(0,255,198,.15);
+  --th-blob2: rgba(0,184,255,.1);
+  --th-blob3: rgba(255,0,170,.07);
+  --th-nav-bg: rgba(3,10,13,.9);
+  --th-badge-bg: linear-gradient(135deg,#00ffc6,#00b8ff);
+  --th-stat-bg: rgba(0,255,198,.06);
+  --th-step-bg: rgba(0,255,198,.07);
+  --th-faq-bg: rgba(0,255,198,.025);
+  --th-hero-line: #00ffc6;
+  --th-dark: 1;
+}
+
+/* ── 3. Ocean Deep ────────────────────────────────────────────────────────── */
+[data-store-theme="ocean-deep"] {
+  --th-bg: #030d1a;
+  --th-hero-bg: radial-gradient(ellipse 130% 70% at 50% -5%, #001f40 0%, #030d1a 65%);
+  --th-card: rgba(0,100,200,.05);
+  --th-card-solid: #071525;
+  --th-border: rgba(30,144,255,.14);
+  --th-accent: #1d9bf0;
+  --th-accent-end: #0066cc;
+  --th-accent-pop: #00d4ff;
+  --th-text: #e2f4ff;
+  --th-muted: #7db8d8;
+  --th-glow: rgba(29,155,240,.45);
+  --th-btn: linear-gradient(135deg,#1d9bf0 0%,#0052cc 100%);
+  --th-blob1: rgba(29,155,240,.15);
+  --th-blob2: rgba(0,212,255,.1);
+  --th-blob3: rgba(0,82,204,.1);
+  --th-nav-bg: rgba(3,13,26,.9);
+  --th-badge-bg: linear-gradient(135deg,#1d9bf0,#00d4ff);
+  --th-stat-bg: rgba(29,155,240,.08);
+  --th-step-bg: rgba(0,212,255,.08);
+  --th-faq-bg: rgba(29,155,240,.04);
+  --th-hero-line: #7dd3fc;
+  --th-dark: 1;
+}
+
+/* ── 4. Cosmic Space ──────────────────────────────────────────────────────── */
+[data-store-theme="cosmic"] {
+  --th-bg: #020408;
+  --th-hero-bg: radial-gradient(ellipse 130% 70% at 50% -5%, #0d0830 0%, #020408 65%);
+  --th-card: rgba(255,255,255,.03);
+  --th-card-solid: #06080f;
+  --th-border: rgba(99,102,241,.15);
+  --th-accent: #818cf8;
+  --th-accent-end: #6366f1;
+  --th-accent-pop: #c084fc;
+  --th-text: #f0f0ff;
+  --th-muted: #9090c0;
+  --th-glow: rgba(129,140,248,.45);
+  --th-btn: linear-gradient(135deg,#818cf8 0%,#6366f1 100%);
+  --th-blob1: rgba(99,102,241,.18);
+  --th-blob2: rgba(192,132,252,.1);
+  --th-blob3: rgba(236,72,153,.07);
+  --th-nav-bg: rgba(2,4,8,.9);
+  --th-badge-bg: linear-gradient(135deg,#818cf8,#c084fc);
+  --th-stat-bg: rgba(129,140,248,.07);
+  --th-step-bg: rgba(129,140,248,.08);
+  --th-faq-bg: rgba(129,140,248,.03);
+  --th-hero-line: #c4b5fd;
+  --th-dark: 1;
+}
+
+/* ── 5. Sunset Glow ───────────────────────────────────────────────────────── */
+[data-store-theme="sunset-glow"] {
+  --th-bg: #0d0407;
+  --th-hero-bg: radial-gradient(ellipse 130% 70% at 50% -5%, #2d0a00 0%, #0d0407 65%);
+  --th-card: rgba(255,100,0,.04);
+  --th-card-solid: #140508;
+  --th-border: rgba(251,113,48,.14);
+  --th-accent: #f97316;
+  --th-accent-end: #ec4899;
+  --th-accent-pop: #fbbf24;
+  --th-text: #fff1ec;
+  --th-muted: #c4845a;
+  --th-glow: rgba(249,115,22,.45);
+  --th-btn: linear-gradient(135deg,#f97316 0%,#ec4899 100%);
+  --th-blob1: rgba(249,115,22,.18);
+  --th-blob2: rgba(236,72,153,.12);
+  --th-blob3: rgba(251,191,36,.1);
+  --th-nav-bg: rgba(13,4,7,.9);
+  --th-badge-bg: linear-gradient(135deg,#f97316,#ec4899);
+  --th-stat-bg: rgba(249,115,22,.08);
+  --th-step-bg: rgba(249,115,22,.09);
+  --th-faq-bg: rgba(249,115,22,.04);
+  --th-hero-line: #fdba74;
+  --th-dark: 1;
+}
+
+/* ── 6. Forest Dark ───────────────────────────────────────────────────────── */
+[data-store-theme="forest-dark"] {
+  --th-bg: #040d06;
+  --th-hero-bg: radial-gradient(ellipse 130% 70% at 50% -5%, #062010 0%, #040d06 65%);
+  --th-card: rgba(0,200,80,.04);
+  --th-card-solid: #071009;
+  --th-border: rgba(34,197,94,.13);
+  --th-accent: #22c55e;
+  --th-accent-end: #15803d;
+  --th-accent-pop: #86efac;
+  --th-text: #ecfdf5;
+  --th-muted: #6aad7a;
+  --th-glow: rgba(34,197,94,.4);
+  --th-btn: linear-gradient(135deg,#22c55e 0%,#15803d 100%);
+  --th-blob1: rgba(34,197,94,.16);
+  --th-blob2: rgba(134,239,172,.1);
+  --th-blob3: rgba(5,150,105,.1);
+  --th-nav-bg: rgba(4,13,6,.9);
+  --th-badge-bg: linear-gradient(135deg,#22c55e,#06b6d4);
+  --th-stat-bg: rgba(34,197,94,.07);
+  --th-step-bg: rgba(34,197,94,.08);
+  --th-faq-bg: rgba(34,197,94,.03);
+  --th-hero-line: #86efac;
+  --th-dark: 1;
+}
+
+/* ── 7. Royal Gold ────────────────────────────────────────────────────────── */
+[data-store-theme="royal-gold"] {
+  --th-bg: #090600;
+  --th-hero-bg: radial-gradient(ellipse 130% 70% at 50% -5%, #1e1000 0%, #090600 65%);
+  --th-card: rgba(255,200,0,.04);
+  --th-card-solid: #0f0a01;
+  --th-border: rgba(245,158,11,.13);
+  --th-accent: #f59e0b;
+  --th-accent-end: #d97706;
+  --th-accent-pop: #fde68a;
+  --th-text: #fffbeb;
+  --th-muted: #b08030;
+  --th-glow: rgba(245,158,11,.45);
+  --th-btn: linear-gradient(135deg,#f59e0b 0%,#b45309 100%);
+  --th-blob1: rgba(245,158,11,.18);
+  --th-blob2: rgba(253,230,138,.1);
+  --th-blob3: rgba(180,83,9,.12);
+  --th-nav-bg: rgba(9,6,0,.9);
+  --th-badge-bg: linear-gradient(135deg,#f59e0b,#ef4444);
+  --th-stat-bg: rgba(245,158,11,.08);
+  --th-step-bg: rgba(245,158,11,.09);
+  --th-faq-bg: rgba(245,158,11,.04);
+  --th-hero-line: #fde68a;
+  --th-dark: 1;
+}
+
+/* ── 8. Rose Noir ─────────────────────────────────────────────────────────── */
+[data-store-theme="rose-noir"] {
+  --th-bg: #0d0409;
+  --th-hero-bg: radial-gradient(ellipse 130% 70% at 50% -5%, #2a0519 0%, #0d0409 65%);
+  --th-card: rgba(244,63,94,.04);
+  --th-card-solid: #130509;
+  --th-border: rgba(244,63,94,.14);
+  --th-accent: #f43f5e;
+  --th-accent-end: #e11d48;
+  --th-accent-pop: #fb7185;
+  --th-text: #fff1f5;
+  --th-muted: #c06880;
+  --th-glow: rgba(244,63,94,.45);
+  --th-btn: linear-gradient(135deg,#f43f5e 0%,#9f1239 100%);
+  --th-blob1: rgba(244,63,94,.18);
+  --th-blob2: rgba(251,113,133,.1);
+  --th-blob3: rgba(192,38,211,.09);
+  --th-nav-bg: rgba(13,4,9,.9);
+  --th-badge-bg: linear-gradient(135deg,#f43f5e,#c026d3);
+  --th-stat-bg: rgba(244,63,94,.07);
+  --th-step-bg: rgba(244,63,94,.08);
+  --th-faq-bg: rgba(244,63,94,.03);
+  --th-hero-line: #fda4af;
+  --th-dark: 1;
+}
+
+/* ── 9. Arctic Light ──────────────────────────────────────────────────────── */
+[data-store-theme="arctic-light"] {
+  --th-bg: #f0f6ff;
+  --th-hero-bg: radial-gradient(ellipse 130% 70% at 50% -5%, #dbeafe 0%, #f0f6ff 65%);
+  --th-card: rgba(255,255,255,.8);
+  --th-card-solid: #ffffff;
+  --th-border: rgba(30,100,220,.14);
+  --th-accent: #2563eb;
+  --th-accent-end: #7c3aed;
+  --th-accent-pop: #06b6d4;
+  --th-text: #0f172a;
+  --th-muted: #475569;
+  --th-glow: rgba(37,99,235,.25);
+  --th-btn: linear-gradient(135deg,#2563eb 0%,#7c3aed 100%);
+  --th-blob1: rgba(37,99,235,.12);
+  --th-blob2: rgba(124,58,237,.08);
+  --th-blob3: rgba(6,182,212,.08);
+  --th-nav-bg: rgba(240,246,255,.92);
+  --th-badge-bg: linear-gradient(135deg,#2563eb,#7c3aed);
+  --th-stat-bg: rgba(37,99,235,.06);
+  --th-step-bg: rgba(37,99,235,.07);
+  --th-faq-bg: rgba(37,99,235,.04);
+  --th-hero-line: #2563eb;
+  --th-dark: 0;
+}
+
+/* ── 10. Sakura ───────────────────────────────────────────────────────────── */
+[data-store-theme="sakura"] {
+  --th-bg: #fff5f8;
+  --th-hero-bg: radial-gradient(ellipse 130% 70% at 50% -5%, #ffe4ee 0%, #fff5f8 65%);
+  --th-card: rgba(255,255,255,.85);
+  --th-card-solid: #ffffff;
+  --th-border: rgba(236,72,153,.15);
+  --th-accent: #ec4899;
+  --th-accent-end: #db2777;
+  --th-accent-pop: #f472b6;
+  --th-text: #1a0a12;
+  --th-muted: #9d4a6e;
+  --th-glow: rgba(236,72,153,.25);
+  --th-btn: linear-gradient(135deg,#ec4899 0%,#a21caf 100%);
+  --th-blob1: rgba(236,72,153,.12);
+  --th-blob2: rgba(244,114,182,.09);
+  --th-blob3: rgba(168,85,247,.07);
+  --th-nav-bg: rgba(255,245,248,.92);
+  --th-badge-bg: linear-gradient(135deg,#ec4899,#8b5cf6);
+  --th-stat-bg: rgba(236,72,153,.07);
+  --th-step-bg: rgba(236,72,153,.08);
+  --th-faq-bg: rgba(236,72,153,.04);
+  --th-hero-line: #ec4899;
+  --th-dark: 0;
+}
+
+/* ── 11. Slate Minimal ────────────────────────────────────────────────────── */
+[data-store-theme="slate-minimal"] {
+  --th-bg: #0c0e11;
+  --th-hero-bg: radial-gradient(ellipse 130% 70% at 50% -5%, #1a1d24 0%, #0c0e11 65%);
+  --th-card: rgba(255,255,255,.04);
+  --th-card-solid: #13151a;
+  --th-border: rgba(255,255,255,.08);
+  --th-accent: #6366f1;
+  --th-accent-end: #4f46e5;
+  --th-accent-pop: #a5b4fc;
+  --th-text: #f8fafc;
+  --th-muted: #64748b;
+  --th-glow: rgba(99,102,241,.4);
+  --th-btn: linear-gradient(135deg,#6366f1 0%,#4338ca 100%);
+  --th-blob1: rgba(99,102,241,.12);
+  --th-blob2: rgba(165,180,252,.07);
+  --th-blob3: rgba(99,102,241,.07);
+  --th-nav-bg: rgba(12,14,17,.9);
+  --th-badge-bg: linear-gradient(135deg,#6366f1,#a855f7);
+  --th-stat-bg: rgba(99,102,241,.07);
+  --th-step-bg: rgba(99,102,241,.08);
+  --th-faq-bg: rgba(255,255,255,.025);
+  --th-hero-line: #a5b4fc;
+  --th-dark: 1;
+}
+
+/* ── 12. Cyberpunk ────────────────────────────────────────────────────────── */
+[data-store-theme="cyberpunk"] {
+  --th-bg: #05020f;
+  --th-hero-bg: radial-gradient(ellipse 130% 70% at 50% -5%, #10001a 0%, #05020f 65%);
+  --th-card: rgba(255,255,0,.03);
+  --th-card-solid: #0a0515;
+  --th-border: rgba(255,220,0,.12);
+  --th-accent: #facc15;
+  --th-accent-end: #f97316;
+  --th-accent-pop: #f0abfc;
+  --th-text: #fefce8;
+  --th-muted: #a0906a;
+  --th-glow: rgba(250,204,21,.45);
+  --th-btn: linear-gradient(135deg,#facc15 0%,#f97316 100%);
+  --th-blob1: rgba(250,204,21,.14);
+  --th-blob2: rgba(240,171,252,.1);
+  --th-blob3: rgba(249,115,22,.09);
+  --th-nav-bg: rgba(5,2,15,.9);
+  --th-badge-bg: linear-gradient(135deg,#facc15,#f0abfc);
+  --th-stat-bg: rgba(250,204,21,.07);
+  --th-step-bg: rgba(250,204,21,.08);
+  --th-faq-bg: rgba(250,204,21,.03);
+  --th-hero-line: #fef08a;
+  --th-dark: 1;
+}
+
+/* ── 13. Aurora Teal ──────────────────────────────────────────────────────── */
+[data-store-theme="aurora-teal"] {
+  --th-bg: #030f0e;
+  --th-hero-bg: radial-gradient(ellipse 130% 70% at 50% -5%, #061e1c 0%, #030f0e 65%);
+  --th-card: rgba(20,184,166,.04);
+  --th-card-solid: #061413;
+  --th-border: rgba(20,184,166,.13);
+  --th-accent: #14b8a6;
+  --th-accent-end: #0f766e;
+  --th-accent-pop: #2dd4bf;
+  --th-text: #f0fdfa;
+  --th-muted: #5fb3a8;
+  --th-glow: rgba(20,184,166,.42);
+  --th-btn: linear-gradient(135deg,#14b8a6 0%,#0e7490 100%);
+  --th-blob1: rgba(20,184,166,.17);
+  --th-blob2: rgba(45,212,191,.1);
+  --th-blob3: rgba(6,182,212,.1);
+  --th-nav-bg: rgba(3,15,14,.9);
+  --th-badge-bg: linear-gradient(135deg,#14b8a6,#3b82f6);
+  --th-stat-bg: rgba(20,184,166,.07);
+  --th-step-bg: rgba(20,184,166,.08);
+  --th-faq-bg: rgba(20,184,166,.035);
+  --th-hero-line: #5eead4;
+  --th-dark: 1;
+}
+
+/* ── 14. Volcano ──────────────────────────────────────────────────────────── */
+[data-store-theme="volcano"] {
+  --th-bg: #0d0300;
+  --th-hero-bg: radial-gradient(ellipse 130% 70% at 50% -5%, #250600 0%, #0d0300 65%);
+  --th-card: rgba(239,68,68,.04);
+  --th-card-solid: #130300;
+  --th-border: rgba(239,68,68,.14);
+  --th-accent: #ef4444;
+  --th-accent-end: #dc2626;
+  --th-accent-pop: #fca5a5;
+  --th-text: #fff1f1;
+  --th-muted: #b05050;
+  --th-glow: rgba(239,68,68,.45);
+  --th-btn: linear-gradient(135deg,#ef4444 0%,#7f1d1d 100%);
+  --th-blob1: rgba(239,68,68,.18);
+  --th-blob2: rgba(249,115,22,.12);
+  --th-blob3: rgba(220,38,38,.1);
+  --th-nav-bg: rgba(13,3,0,.9);
+  --th-badge-bg: linear-gradient(135deg,#ef4444,#f97316);
+  --th-stat-bg: rgba(239,68,68,.08);
+  --th-step-bg: rgba(239,68,68,.08);
+  --th-faq-bg: rgba(239,68,68,.035);
+  --th-hero-line: #fca5a5;
+  --th-dark: 1;
+}
+
+/* ── 15. Lavender Mist ────────────────────────────────────────────────────── */
+[data-store-theme="lavender-mist"] {
+  --th-bg: #faf5ff;
+  --th-hero-bg: radial-gradient(ellipse 130% 70% at 50% -5%, #ede9fe 0%, #faf5ff 65%);
+  --th-card: rgba(255,255,255,.85);
+  --th-card-solid: #ffffff;
+  --th-border: rgba(139,92,246,.16);
+  --th-accent: #8b5cf6;
+  --th-accent-end: #7c3aed;
+  --th-accent-pop: #a78bfa;
+  --th-text: #1e1030;
+  --th-muted: #6b5b95;
+  --th-glow: rgba(139,92,246,.25);
+  --th-btn: linear-gradient(135deg,#8b5cf6 0%,#6d28d9 100%);
+  --th-blob1: rgba(139,92,246,.12);
+  --th-blob2: rgba(167,139,250,.09);
+  --th-blob3: rgba(236,72,153,.07);
+  --th-nav-bg: rgba(250,245,255,.92);
+  --th-badge-bg: linear-gradient(135deg,#8b5cf6,#ec4899);
+  --th-stat-bg: rgba(139,92,246,.07);
+  --th-step-bg: rgba(139,92,246,.08);
+  --th-faq-bg: rgba(139,92,246,.05);
+  --th-hero-line: #8b5cf6;
+  --th-dark: 0;
+}
+
+/* ── 16. Navy Classic ─────────────────────────────────────────────────────── */
+[data-store-theme="navy-classic"] {
+  --th-bg: #020a1a;
+  --th-hero-bg: radial-gradient(ellipse 130% 70% at 50% -5%, #041030 0%, #020a1a 65%);
+  --th-card: rgba(30,80,200,.05);
+  --th-card-solid: #040e24;
+  --th-border: rgba(59,130,246,.14);
+  --th-accent: #3b82f6;
+  --th-accent-end: #1d4ed8;
+  --th-accent-pop: #93c5fd;
+  --th-text: #f0f4ff;
+  --th-muted: #6080b0;
+  --th-glow: rgba(59,130,246,.42);
+  --th-btn: linear-gradient(135deg,#3b82f6 0%,#1e3a8a 100%);
+  --th-blob1: rgba(59,130,246,.15);
+  --th-blob2: rgba(147,197,253,.09);
+  --th-blob3: rgba(99,102,241,.1);
+  --th-nav-bg: rgba(2,10,26,.9);
+  --th-badge-bg: linear-gradient(135deg,#3b82f6,#8b5cf6);
+  --th-stat-bg: rgba(59,130,246,.07);
+  --th-step-bg: rgba(59,130,246,.08);
+  --th-faq-bg: rgba(59,130,246,.035);
+  --th-hero-line: #93c5fd;
+  --th-dark: 1;
+}
+
+/* ── 17. Emerald City ─────────────────────────────────────────────────────── */
+[data-store-theme="emerald-city"] {
+  --th-bg: #020d08;
+  --th-hero-bg: radial-gradient(ellipse 130% 70% at 50% -5%, #041a0e 0%, #020d08 65%);
+  --th-card: rgba(16,185,129,.04);
+  --th-card-solid: #04110a;
+  --th-border: rgba(16,185,129,.13);
+  --th-accent: #10b981;
+  --th-accent-end: #059669;
+  --th-accent-pop: #6ee7b7;
+  --th-text: #f0fdf4;
+  --th-muted: #4a9a72;
+  --th-glow: rgba(16,185,129,.42);
+  --th-btn: linear-gradient(135deg,#10b981 0%,#065f46 100%);
+  --th-blob1: rgba(16,185,129,.16);
+  --th-blob2: rgba(110,231,183,.1);
+  --th-blob3: rgba(5,150,105,.1);
+  --th-nav-bg: rgba(2,13,8,.9);
+  --th-badge-bg: linear-gradient(135deg,#10b981,#3b82f6);
+  --th-stat-bg: rgba(16,185,129,.07);
+  --th-step-bg: rgba(16,185,129,.08);
+  --th-faq-bg: rgba(16,185,129,.04);
+  --th-hero-line: #6ee7b7;
+  --th-dark: 1;
+}
+
+/* ── 18. Crystal Clean ────────────────────────────────────────────────────── */
+[data-store-theme="crystal-clean"] {
+  --th-bg: #f8faff;
+  --th-hero-bg: radial-gradient(ellipse 130% 70% at 50% -5%, #e8f0ff 0%, #f8faff 65%);
+  --th-card: rgba(255,255,255,.9);
+  --th-card-solid: #ffffff;
+  --th-border: rgba(100,100,255,.12);
+  --th-accent: #4f46e5;
+  --th-accent-end: #7c3aed;
+  --th-accent-pop: #818cf8;
+  --th-text: #0f0f2d;
+  --th-muted: #6060a0;
+  --th-glow: rgba(79,70,229,.22);
+  --th-btn: linear-gradient(135deg,#4f46e5 0%,#7c3aed 100%);
+  --th-blob1: rgba(79,70,229,.1);
+  --th-blob2: rgba(139,92,246,.07);
+  --th-blob3: rgba(6,182,212,.07);
+  --th-nav-bg: rgba(248,250,255,.95);
+  --th-badge-bg: linear-gradient(135deg,#4f46e5,#06b6d4);
+  --th-stat-bg: rgba(79,70,229,.05);
+  --th-step-bg: rgba(79,70,229,.06);
+  --th-faq-bg: rgba(79,70,229,.04);
+  --th-hero-line: #4f46e5;
+  --th-dark: 0;
+}
+
+/* ── 19. Obsidian Gold ────────────────────────────────────────────────────── */
+[data-store-theme="obsidian-gold"] {
+  --th-bg: #020200;
+  --th-hero-bg: radial-gradient(ellipse 130% 70% at 50% -5%, #120d00 0%, #020200 65%);
+  --th-card: rgba(255,200,0,.03);
+  --th-card-solid: #080700;
+  --th-border: rgba(212,175,55,.14);
+  --th-accent: #d4af37;
+  --th-accent-end: #b8860b;
+  --th-accent-pop: #ffd700;
+  --th-text: #fffef0;
+  --th-muted: #997a20;
+  --th-glow: rgba(212,175,55,.45);
+  --th-btn: linear-gradient(135deg,#d4af37 0%,#8b6914 100%);
+  --th-blob1: rgba(212,175,55,.17);
+  --th-blob2: rgba(255,215,0,.1);
+  --th-blob3: rgba(184,134,11,.1);
+  --th-nav-bg: rgba(2,2,0,.92);
+  --th-badge-bg: linear-gradient(135deg,#d4af37,#ef4444);
+  --th-stat-bg: rgba(212,175,55,.07);
+  --th-step-bg: rgba(212,175,55,.08);
+  --th-faq-bg: rgba(212,175,55,.03);
+  --th-hero-line: #ffd700;
+  --th-dark: 1;
+}
+
+/* ── 20. Electric Blue ────────────────────────────────────────────────────── */
+[data-store-theme="electric-blue"] {
+  --th-bg: #010512;
+  --th-hero-bg: radial-gradient(ellipse 130% 70% at 50% -5%, #020d30 0%, #010512 65%);
+  --th-card: rgba(0,100,255,.04);
+  --th-card-solid: #02071a;
+  --th-border: rgba(0,140,255,.14);
+  --th-accent: #0080ff;
+  --th-accent-end: #00ccff;
+  --th-accent-pop: #60c8ff;
+  --th-text: #e8f4ff;
+  --th-muted: #4080b0;
+  --th-glow: rgba(0,128,255,.5);
+  --th-btn: linear-gradient(135deg,#0080ff 0%,#00ccff 100%);
+  --th-blob1: rgba(0,128,255,.18);
+  --th-blob2: rgba(0,204,255,.12);
+  --th-blob3: rgba(0,60,200,.1);
+  --th-nav-bg: rgba(1,5,18,.9);
+  --th-badge-bg: linear-gradient(135deg,#0080ff,#00ccff);
+  --th-stat-bg: rgba(0,128,255,.08);
+  --th-step-bg: rgba(0,128,255,.09);
+  --th-faq-bg: rgba(0,128,255,.04);
+  --th-hero-line: #60c8ff;
+  --th-dark: 1;
+}
+
+/* ── 21. Crimson Tide ─────────────────────────────────────────────────────── */
+[data-store-theme="crimson-tide"] {
+  --th-bg: #0e0003;
+  --th-hero-bg: radial-gradient(ellipse 130% 70% at 50% -5%, #200008 0%, #0e0003 65%);
+  --th-card: rgba(185,28,28,.04);
+  --th-card-solid: #130004;
+  --th-border: rgba(185,28,28,.15);
+  --th-accent: #b91c1c;
+  --th-accent-end: #991b1b;
+  --th-accent-pop: #fca5a5;
+  --th-text: #fff5f5;
+  --th-muted: #a05060;
+  --th-glow: rgba(185,28,28,.45);
+  --th-btn: linear-gradient(135deg,#b91c1c 0%,#7f1d1d 100%);
+  --th-blob1: rgba(185,28,28,.18);
+  --th-blob2: rgba(220,38,38,.12);
+  --th-blob3: rgba(239,68,68,.09);
+  --th-nav-bg: rgba(14,0,3,.9);
+  --th-badge-bg: linear-gradient(135deg,#b91c1c,#f97316);
+  --th-stat-bg: rgba(185,28,28,.07);
+  --th-step-bg: rgba(185,28,28,.08);
+  --th-faq-bg: rgba(185,28,28,.035);
+  --th-hero-line: #fca5a5;
+  --th-dark: 1;
+}
+
+/* ── 22. Teal Ocean ───────────────────────────────────────────────────────── */
+[data-store-theme="teal-ocean"] {
+  --th-bg: #020e10;
+  --th-hero-bg: radial-gradient(ellipse 130% 70% at 50% -5%, #041c20 0%, #020e10 65%);
+  --th-card: rgba(8,145,178,.04);
+  --th-card-solid: #041416;
+  --th-border: rgba(8,145,178,.13);
+  --th-accent: #0891b2;
+  --th-accent-end: #0e7490;
+  --th-accent-pop: #67e8f9;
+  --th-text: #ecfeff;
+  --th-muted: #4090a0;
+  --th-glow: rgba(8,145,178,.43);
+  --th-btn: linear-gradient(135deg,#0891b2 0%,#0e4f66 100%);
+  --th-blob1: rgba(8,145,178,.17);
+  --th-blob2: rgba(103,232,249,.1);
+  --th-blob3: rgba(20,184,166,.1);
+  --th-nav-bg: rgba(2,14,16,.9);
+  --th-badge-bg: linear-gradient(135deg,#0891b2,#8b5cf6);
+  --th-stat-bg: rgba(8,145,178,.07);
+  --th-step-bg: rgba(8,145,178,.08);
+  --th-faq-bg: rgba(8,145,178,.04);
+  --th-hero-line: #67e8f9;
+  --th-dark: 1;
+}

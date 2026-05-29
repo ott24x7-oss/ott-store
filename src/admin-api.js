@@ -1432,6 +1432,25 @@ router.post('/pwa-settings/generate-vapid', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── Store Theme ──────────────────────────────────────────────────────────────
+router.get('/store-theme', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const row = get(db, `SELECT value FROM settings WHERE key='store_theme'`, []);
+    res.json({ theme: row ? row.value : 'midnight-purple' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/store-theme', requireAdmin, async (req, res) => {
+  try {
+    const { theme } = req.body;
+    if (!theme || typeof theme !== 'string') return res.status(400).json({ error: 'theme required' });
+    const db = await getDb();
+    run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES ('store_theme',?)`, [theme]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── Push Subscriptions (public endpoint called by SW) ───────────────────────
 router.post('/push-subscribe', async (req, res) => {
   try {
