@@ -1029,13 +1029,52 @@ router.get('/whatsapp/diagnostics', requireAdmin, (req, res) => {
 });
 
 // ─── WA Offers (group autopost) ───────────────────────────────────────────────
+function fetchImageBase64(url) {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const lib = parsed.protocol === 'https:' ? require('https') : require('http');
+    lib.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, res => {
+      const chunks = [];
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => resolve(Buffer.concat(chunks).toString('base64')));
+    }).on('error', reject);
+  });
+}
+
 router.get('/wa-offers', requireAdmin, async (req, res) => {
   try {
     const db = await getDb();
-    // Don't return image_b64 in list to save bandwidth
     res.json(all(db, `SELECT id, text, active, last_posted_at, created_at,
-      CASE WHEN image_b64 IS NOT NULL THEN 1 ELSE 0 END as has_image
+      CASE WHEN image_b64 IS NOT NULL THEN 1 ELSE 0 END as has_image,
+      (SELECT COUNT(*) FROM wa_offer_log WHERE offer_id=wa_offers.id AND success=1) as times_sent
       FROM wa_offers ORDER BY created_at DESC`));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/wa-offers/:id/image', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const o = get(db, `SELECT image_b64 FROM wa_offers WHERE id=?`, [req.params.id]);
+    if (!o?.image_b64) return res.status(404).end();
+    const buf = Buffer.from(o.image_b64, 'base64');
+    res.set('Content-Type', 'image/jpeg');
+    res.set('Cache-Control', 'private, max-age=3600');
+    res.send(buf);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/wa-offers/from-autopost/:campaignId', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const c = get(db, `SELECT * FROM autopost_campaigns WHERE id=?`, [req.params.campaignId]);
+    if (!c) return res.status(404).json({ error: 'Campaign not found' });
+    let image_b64 = null;
+    if (c.image_url) {
+      try { image_b64 = await fetchImageBase64(c.image_url); } catch {}
+    }
+    const r = run(db, `INSERT INTO wa_offers (text, image_b64, active) VALUES (?,?,0)`,
+      [c.message, image_b64]);
+    res.json({ ok: true, id: r.lastInsertRowid });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

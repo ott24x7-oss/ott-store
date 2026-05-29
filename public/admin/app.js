@@ -2235,22 +2235,29 @@ views['wa-offers'] = async function () {
 
 <div class="card">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
-    <div style="font-weight:700">Offers (${offers.length})</div>
-    <button class="btn btn-sm btn-primary" onclick="addWaOffer()">+ New Offer</button>
+    <div style="font-weight:700">Scheduled Offers (${offers.length})</div>
+    <div style="display:flex;gap:.5rem">
+      <button class="btn btn-sm btn-secondary" onclick="fromAutopost()">+ From AutoPost</button>
+      <button class="btn btn-sm btn-primary" onclick="addWaOffer()">+ New Offer</button>
+    </div>
   </div>
   <div id="waof-list">
   ${offers.length ? `<div class="table-wrap"><table>
-    <thead><tr><th>Text</th><th>Image</th><th>Active</th><th>Last Posted</th><th></th></tr></thead>
-    <tbody>${offers.map(o=>`<tr>
-      <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.text)}</td>
-      <td>${o.has_image ? '🖼️ Yes' : '—'}</td>
-      <td>${o.active ? '<span class="badge badge-green">On</span>' : '<span class="badge badge-grey">Off</span>'}</td>
-      <td style="font-size:.8rem">${fmtDate(o.last_posted_at)}</td>
+    <thead><tr><th style="width:32px">#</th><th style="width:56px">Image</th><th>Post</th><th style="width:90px">Sent</th><th style="width:100px">Last Sent</th><th style="width:70px">Status</th><th style="width:120px">Actions</th></tr></thead>
+    <tbody>${offers.map((o,i)=>`<tr>
+      <td class="muted" style="font-size:.82rem">${i+1}</td>
+      <td>${o.has_image
+        ? `<img src="/admin/api/wa-offers/${o.id}/image" style="width:44px;height:44px;object-fit:cover;border-radius:6px;display:block">`
+        : `<div style="width:44px;height:44px;border-radius:6px;background:#1e293b;display:flex;align-items:center;justify-content:center;font-size:1.2rem">📷</div>`}</td>
+      <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.85rem">${esc(o.text)}</td>
+      <td style="font-size:.82rem;text-align:center">${o.times_sent || 0}</td>
+      <td style="font-size:.78rem">${o.last_posted_at ? fmtDateShort(o.last_posted_at) : '—'}</td>
+      <td>${o.active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-grey">Paused</span>'}</td>
       <td style="white-space:nowrap">
-        <button class="btn btn-sm btn-primary" onclick="postNow(${o.id})">Post Now</button>
-        <button class="btn btn-sm btn-secondary" onclick="editWaOffer(${o.id})">Edit</button>
-        <button class="btn btn-sm btn-secondary" onclick="cloneWaOffer(${o.id})">Clone</button>
-        <button class="btn btn-sm btn-red" onclick="delWaOffer(${o.id})">Del</button>
+        <button title="Post Now" onclick="postNow(${o.id})" style="background:#16a34a;color:#fff;border:none;border-radius:5px;padding:5px 7px;cursor:pointer;font-size:.85rem">▶</button>
+        <button title="Edit" onclick="editWaOffer(${o.id})" style="background:#d97706;color:#fff;border:none;border-radius:5px;padding:5px 7px;cursor:pointer;font-size:.85rem">✏️</button>
+        <button title="Clone" onclick="cloneWaOffer(${o.id})" style="background:#0ea5e9;color:#fff;border:none;border-radius:5px;padding:5px 7px;cursor:pointer;font-size:.85rem">⧉</button>
+        <button title="Delete" onclick="delWaOffer(${o.id})" style="background:#dc2626;color:#fff;border:none;border-radius:5px;padding:5px 7px;cursor:pointer;font-size:.85rem">🗑</button>
       </td>
     </tr>`).join('')}</tbody>
   </table></div>` : '<p class="muted">No offers yet. Add one above.</p>'}
@@ -2358,6 +2365,38 @@ views['wa-offers'] = async function () {
         showToast('Offer cloned (inactive draft)');
         views['wa-offers']();
       } catch(e) { showToast(e.message, 'error'); }
+    };
+    window.fromAutopost = async () => {
+      const ov = openModal(`
+<div class="modal-header"><h3>Import from AutoPost Campaign</h3><button class="btn-icon" onclick="this.closest('.modal-overlay').remove()">✕</button></div>
+<div class="modal-body">
+  <p class="muted" style="font-size:.85rem;margin-bottom:1rem">Select a campaign to import as a WA offer (saved as inactive draft). The message text and image will be copied.</p>
+  <div id="ap-pick-msg"></div>
+  <div id="ap-pick-list"><div class="spinner"></div></div>
+</div>`);
+      try {
+        const camps = await api('/autopost');
+        const list = document.getElementById('ap-pick-list');
+        if (!camps.length) { list.innerHTML = '<p class="muted">No autopost campaigns found.</p>'; return; }
+        list.innerHTML = `<div style="display:flex;flex-direction:column;gap:.5rem;max-height:400px;overflow-y:auto">
+          ${camps.map(c => `<div style="display:flex;align-items:flex-start;gap:.75rem;padding:.6rem;border:1px solid #334155;border-radius:8px">
+            ${c.image_url ? `<img src="${esc(c.image_url)}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;flex-shrink:0" onerror="this.style.display='none'">` : `<div style="width:44px;height:44px;background:#1e293b;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center">📷</div>`}
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:600;font-size:.88rem;margin-bottom:.2rem">${esc(c.title)}</div>
+              <div style="font-size:.78rem;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.message)}</div>
+            </div>
+            <button onclick="importAutopostCamp(${c.id}, this)" style="background:#16a34a;color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:.82rem;flex-shrink:0">Import</button>
+          </div>`).join('')}
+        </div>`;
+        window.importAutopostCamp = async (campId, btn) => {
+          btn.disabled = true; btn.textContent = '…';
+          try {
+            await api(`/wa-offers/from-autopost/${campId}`, { method:'POST' });
+            showToast('Imported as inactive WA offer');
+            ov.remove(); views['wa-offers']();
+          } catch(e) { btn.disabled=false; btn.textContent='Import'; document.getElementById('ap-pick-msg').innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+        };
+      } catch(e) { document.getElementById('ap-pick-list').innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
     };
     window.postNow = async (id) => {
       try {
