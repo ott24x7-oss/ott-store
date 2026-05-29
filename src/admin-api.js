@@ -485,6 +485,37 @@ router.get('/dashboard', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── Bulk import (one-time migration) ────────────────────────────────────────
+router.post('/import', requireAdmin, async (req, res) => {
+  try {
+    const { customers: custs = [], orders: ords = [], settings: settingsData = {} } = req.body;
+    const db = await getDb();
+    const imported = { customers: 0, orders: 0, settings: 0 };
+
+    for (const [k, v] of Object.entries(settingsData)) {
+      run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, [k, String(v)]);
+      imported.settings++;
+    }
+
+    for (const c of custs) {
+      const existing = get(db, `SELECT jid FROM customers WHERE jid=?`, [c.jid]);
+      if (existing) continue;
+      run(db, `INSERT INTO customers (jid,name,email,phone,wallet_inr,created_at) VALUES (?,?,?,?,?,?)`,
+        [c.jid, c.name || null, c.email || null, c.phone || null, c.wallet_inr || 0, c.created_at || null]);
+      imported.customers++;
+    }
+
+    for (const o of ords) {
+      run(db, `INSERT INTO orders (customer_jid,plan_id,amount_inr,status,delivery_note,created_at,delivered_at) VALUES (?,?,?,?,?,?,?)`,
+        [o.customer_jid, o.plan_id || null, o.amount_inr || 0, o.status || 'delivered', o.delivery_note || null, o.created_at || null, o.delivered_at || null]);
+      imported.orders++;
+    }
+
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'bulk_import', after: imported, ip: req.ip });
+    res.json({ ok: true, imported });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── Check auth status ────────────────────────────────────────────────────────
 router.get('/me', requireAdmin, (req, res) => res.json({ ok: true, role: 'admin' }));
 
