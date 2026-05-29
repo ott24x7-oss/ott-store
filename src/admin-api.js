@@ -852,6 +852,326 @@ router.put('/legal/:slug', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── WhatsApp Bot ─────────────────────────────────────────────────────────────
+router.get('/whatsapp/status', requireAdmin, async (req, res) => {
+  try {
+    const waBot = require('./wa-bot');
+    const status = waBot.getStatus();
+    const qrDataUrl = status.hasQR ? await waBot.getQRBase64() : null;
+    res.json({ ...status, qrDataUrl });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/whatsapp/qr', requireAdmin, async (req, res) => {
+  try {
+    const waBot = require('./wa-bot');
+    const qr = waBot.getQR();
+    if (!qr) return res.json({ hasQR: false });
+    const qrDataUrl = await waBot.getQRBase64();
+    res.json({ hasQR: true, qrDataUrl });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/whatsapp/connect', requireAdmin, async (req, res) => {
+  try {
+    const waBot = require('./wa-bot');
+    const db = await getDb();
+    run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES ('wa_enabled','1')`);
+    await waBot.connect();
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/whatsapp/disconnect', requireAdmin, async (req, res) => {
+  try {
+    const waBot = require('./wa-bot');
+    await waBot.disconnect();
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/whatsapp/reconnect', requireAdmin, async (req, res) => {
+  try {
+    const waBot = require('./wa-bot');
+    await waBot.reconnect();
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/whatsapp/clear-session', requireAdmin, async (req, res) => {
+  try {
+    const waBot = require('./wa-bot');
+    await waBot.clearSession();
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/whatsapp/pairing-code', requireAdmin, async (req, res) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) return res.status(400).json({ error: 'phone required' });
+    const waBot = require('./wa-bot');
+    const code = await waBot.requestPairingCode(phone);
+    res.json({ ok: true, code });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/whatsapp/groups', requireAdmin, async (req, res) => {
+  try {
+    const waBot = require('./wa-bot');
+    const groups = await waBot.getGroups();
+    res.json(groups);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/whatsapp/test-meta', requireAdmin, async (req, res) => {
+  try {
+    const { phoneNumberId, accessToken } = req.body;
+    if (!phoneNumberId || !accessToken) return res.status(400).json({ error: 'phoneNumberId and accessToken required' });
+    const waBot = require('./wa-bot');
+    const result = await waBot.testMetaCreds({ phoneNumberId, accessToken });
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/whatsapp/broadcast', requireAdmin, async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ error: 'message required' });
+    const db = await getDb();
+    const customers = all(db, `SELECT phone, jid FROM customers WHERE blocked=0 AND phone IS NOT NULL AND phone NOT LIKE '%@wa.local' AND phone NOT LIKE '%@imported.local'`);
+    const waBot = require('./wa-bot');
+    let sent = 0, failed = 0;
+    for (const c of customers) {
+      const phone = c.phone || c.jid?.split('@')[0];
+      if (!phone || !/^\d{7,}$/.test(phone.replace(/\D/g, ''))) { failed++; continue; }
+      const ok = await waBot.sendToPhone(phone, message);
+      ok ? sent++ : failed++;
+      await new Promise(r => setTimeout(r, 200));
+    }
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'wa_broadcast', after: { sent, failed }, ip: req.ip });
+    res.json({ ok: true, sent, failed });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/whatsapp/settings', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const keys = ['wa_enabled','wa_transport','wa_meta_phone_number_id','wa_meta_waba_id',
+      'wa_meta_app_secret','wa_meta_webhook_verify_token','wa_owner_number','wa_owner_lid',
+      'wa_autoreply_enabled','wa_autopost_enabled','wa_autopost_groups','wa_autopost_interval',
+      'wa_autopost_start','wa_autopost_end','wa_daily_summary'];
+    const rows = all(db, `SELECT key, value FROM settings WHERE key IN (${keys.map(()=>'?').join(',')})`, keys);
+    const out = {};
+    for (const r of rows) out[r.key] = r.value;
+    // Never return access_token in settings
+    const at = get(db, `SELECT value FROM settings WHERE key='wa_meta_access_token'`);
+    out.wa_meta_access_token = at?.value ? '••••••••' + String(at.value).slice(-4) : '';
+    res.json(out);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/whatsapp/settings', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const allowed = ['wa_enabled','wa_transport','wa_meta_phone_number_id','wa_meta_waba_id',
+      'wa_meta_app_secret','wa_meta_webhook_verify_token','wa_owner_number','wa_owner_lid',
+      'wa_autoreply_enabled','wa_autopost_enabled','wa_autopost_groups','wa_autopost_interval',
+      'wa_autopost_start','wa_autopost_end','wa_daily_summary'];
+    for (const k of allowed) {
+      if (!(k in req.body)) continue;
+      let v = req.body[k];
+      // Don't overwrite access_token with masked placeholder
+      if (k === 'wa_meta_access_token') {
+        if (String(v).startsWith('••••••••')) continue;
+        run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, [k, String(v)]);
+        continue;
+      }
+      run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, [k, String(v ?? '')]);
+    }
+    // Access token separate
+    if (req.body.wa_meta_access_token && !String(req.body.wa_meta_access_token).startsWith('••••••••')) {
+      run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, ['wa_meta_access_token', req.body.wa_meta_access_token]);
+    }
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/whatsapp/diagnostics', requireAdmin, (req, res) => {
+  try {
+    const waBot = require('./wa-bot');
+    const waWorker = require('./wa-worker');
+    res.json({ bot: waBot.getDiagnostics(), worker: waWorker.getDiagnostics() });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── WA Offers (group autopost) ───────────────────────────────────────────────
+router.get('/wa-offers', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    // Don't return image_b64 in list to save bandwidth
+    res.json(all(db, `SELECT id, text, active, last_posted_at, created_at,
+      CASE WHEN image_b64 IS NOT NULL THEN 1 ELSE 0 END as has_image
+      FROM wa_offers ORDER BY created_at DESC`));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/wa-offers/:id', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const o = get(db, `SELECT * FROM wa_offers WHERE id=?`, [req.params.id]);
+    if (!o) return res.status(404).json({ error: 'Not found' });
+    res.json(o);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/wa-offers', requireAdmin, async (req, res) => {
+  try {
+    const { text, image_b64, active } = req.body;
+    if (!text) return res.status(400).json({ error: 'text required' });
+    const db = await getDb();
+    const r = run(db, `INSERT INTO wa_offers (text, image_b64, active) VALUES (?,?,?)`,
+      [text, image_b64 || null, active ?? 1]);
+    res.json({ ok: true, id: r.lastInsertRowid });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/wa-offers/:id', requireAdmin, async (req, res) => {
+  try {
+    const { text, image_b64, active } = req.body;
+    const db = await getDb();
+    const existing = get(db, 'SELECT image_b64 FROM wa_offers WHERE id=?', [req.params.id]);
+    const img = image_b64 !== undefined ? (image_b64 || null) : existing?.image_b64;
+    run(db, `UPDATE wa_offers SET text=?, image_b64=?, active=? WHERE id=?`,
+      [text, img, active ?? 1, req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/wa-offers/:id', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    run(db, `DELETE FROM wa_offers WHERE id=?`, [req.params.id]);
+    run(db, `DELETE FROM wa_offer_log WHERE offer_id=?`, [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/wa-offers/:id/post-now', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const offer = get(db, `SELECT * FROM wa_offers WHERE id=?`, [req.params.id]);
+    if (!offer) return res.status(404).json({ error: 'Offer not found' });
+    const waBot = require('./wa-bot');
+    const sock = waBot.getActiveSock();
+    if (!sock) return res.status(400).json({ error: 'WhatsApp not connected' });
+    const groups = JSON.parse(get(db, `SELECT value FROM settings WHERE key='wa_autopost_groups'`)?.value || '[]');
+    if (!groups.length) return res.status(400).json({ error: 'No groups selected in WA settings' });
+    let sent = 0;
+    for (const gid of groups) {
+      try {
+        if (offer.image_b64) {
+          await sock.sendMessage(gid, { image: Buffer.from(offer.image_b64, 'base64'), caption: offer.text });
+        } else {
+          await sock.sendMessage(gid, { text: offer.text });
+        }
+        db.run(`INSERT INTO wa_offer_log (offer_id, group_id, success) VALUES (?,?,1)`, [offer.id, gid]);
+        sent++;
+        await new Promise(r => setTimeout(r, 1500));
+      } catch (e2) {
+        db.run(`INSERT INTO wa_offer_log (offer_id, group_id, success, error) VALUES (?,?,0,?)`, [offer.id, gid, e2.message]);
+      }
+    }
+    db.run(`UPDATE wa_offers SET last_posted_at=datetime('now') WHERE id=?`, [offer.id]);
+    res.json({ ok: true, sent, total: groups.length });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/wa-offers/:id/logs', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    res.json(all(db, `SELECT * FROM wa_offer_log WHERE offer_id=? ORDER BY sent_at DESC LIMIT 200`, [req.params.id]));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Suppliers ────────────────────────────────────────────────────────────────
+router.get('/suppliers', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    res.json(all(db, `SELECT * FROM suppliers ORDER BY name ASC`));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/suppliers', requireAdmin, async (req, res) => {
+  try {
+    const { name, phone, product_ids, active, notes } = req.body;
+    if (!name || !phone) return res.status(400).json({ error: 'name and phone required' });
+    const db = await getDb();
+    const r = run(db, `INSERT INTO suppliers (name,phone,product_ids,active,notes) VALUES (?,?,?,?,?)`,
+      [name, phone, JSON.stringify(product_ids || []), active ?? 1, notes || null]);
+    res.json({ ok: true, id: r.lastInsertRowid });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/suppliers/:id', requireAdmin, async (req, res) => {
+  try {
+    const { name, phone, product_ids, active, notes } = req.body;
+    const db = await getDb();
+    run(db, `UPDATE suppliers SET name=?,phone=?,product_ids=?,active=?,notes=? WHERE id=?`,
+      [name, phone, JSON.stringify(product_ids || []), active ?? 1, notes || null, req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/suppliers/:id', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    run(db, `DELETE FROM suppliers WHERE id=?`, [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/suppliers/:id/notify', requireAdmin, async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ error: 'message required' });
+    const db = await getDb();
+    const sup = get(db, `SELECT * FROM suppliers WHERE id=?`, [req.params.id]);
+    if (!sup) return res.status(404).json({ error: 'Supplier not found' });
+    const waBot = require('./wa-bot');
+    const ok = await waBot.sendToPhone(sup.phone, message);
+    res.json({ ok });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── AI Agent Settings ────────────────────────────────────────────────────────
+router.get('/ai-settings', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const keys = ['ai_enabled','ai_provider','ai_model','ai_persona','ai_daily_cap','ai_fallback_message'];
+    const rows = all(db, `SELECT key, value FROM settings WHERE key IN (${keys.map(()=>'?').join(',')})`, keys);
+    const out = {};
+    for (const r of rows) out[r.key] = r.value;
+    const ak = get(db, `SELECT value FROM settings WHERE key='ai_api_key'`);
+    out.ai_api_key = ak?.value ? '••••••••' + String(ak.value).slice(-4) : '';
+    res.json(out);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/ai-settings', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const allowed = ['ai_enabled','ai_provider','ai_model','ai_persona','ai_daily_cap','ai_fallback_message'];
+    for (const k of allowed) {
+      if (k in req.body) run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, [k, String(req.body[k] ?? '')]);
+    }
+    if (req.body.ai_api_key && !String(req.body.ai_api_key).startsWith('••••••••')) {
+      run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, ['ai_api_key', req.body.ai_api_key]);
+    }
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── Check auth status ────────────────────────────────────────────────────────
 router.get('/me', requireAdmin, (req, res) => res.json({ ok: true, role: 'admin' }));
 

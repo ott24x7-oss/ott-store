@@ -32,7 +32,7 @@ async function autoDeliverOrder(order, db) {
     ['system', 'delivery-worker', 'auto_deliver', 'order', String(order.id), JSON.stringify({ credential_id: cred.id })]);
 
   // Email customer
-  const cust = get(db, 'SELECT email, name FROM customers WHERE jid=?', [order.customer_jid]);
+  const cust = get(db, 'SELECT email, name, phone FROM customers WHERE jid=?', [order.customer_jid]);
   const plan = get(db, 'SELECT name, platform FROM plans WHERE id=?', [order.plan_id]);
   if (cust?.email && plan) {
     const credsHtml = Object.entries(credentials)
@@ -49,6 +49,25 @@ ${credsHtml}
 <p style="color:#666;font-size:12px">Keep these credentials safe. Do not share with anyone.</p>
 <p>Thank you for your order!</p>`,
     }).catch(() => {});
+  }
+
+  // WhatsApp delivery notification (best-effort)
+  const phone = cust?.phone || (order.customer_jid && !order.customer_jid.includes('@') ? order.customer_jid : null)
+    || (order.customer_jid ? order.customer_jid.split('@')[0] : null);
+  if (phone && /^\d{7,}$/.test(phone.replace(/\D/g, ''))) {
+    try {
+      const { sendToPhone } = require('./wa-bot');
+      const credsLines = Object.entries(credentials)
+        .filter(([k]) => !['line1','line2'].includes(k))
+        .map(([k, v]) => `  *${k.charAt(0).toUpperCase() + k.slice(1)}:* ${v}`)
+        .join('\n');
+      const waMsg =
+        `✅ *Order Delivered!*\n\n` +
+        `📦 *${plan?.platform || ''} – ${plan?.name || ''}*\n\n` +
+        `🔑 *Your Credentials:*\n${credsLines || Object.values(credentials).join(' / ')}\n\n` +
+        `_Keep safe. Do not share._`;
+      sendToPhone(phone, waMsg).catch(() => {});
+    } catch {}
   }
 
   // Check low-stock alert

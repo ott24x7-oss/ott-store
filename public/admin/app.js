@@ -18,9 +18,14 @@ const MENU = [
   { id: 'customers',      label: 'Customers',     icon: '👥' },
   { id: 'resellers',      label: 'Resellers',     icon: '🤝' },
   { id: 'referrals',      label: 'Referrals',     icon: '🔗' },
+  { group: 'WHATSAPP' },
+  { id: 'whatsapp',       label: 'WA Bot',        icon: '💬' },
+  { id: 'wa-offers',      label: 'WA Offers',     icon: '📋' },
+  { id: 'suppliers',      label: 'Suppliers',     icon: '🏭' },
   { group: 'MARKETING' },
   { id: 'broadcast',      label: 'Broadcast',     icon: '📢' },
-  { id: 'autopost',       label: 'Auto-Post',     icon: '🤖' },
+  { id: 'autopost',       label: 'Email Auto-Post', icon: '🤖' },
+  { id: 'ai-agent',       label: 'AI Agent',      icon: '🧠' },
   { group: 'STOREFRONT' },
   { id: 'mystore',        label: 'My Store',      icon: '🏪' },
   { id: 'payments',       label: 'Payments',      icon: '💰' },
@@ -1794,6 +1799,546 @@ views.payments = async function () {
       await api(`/payment-methods/${id}`, { method:'DELETE' });
       views.payments();
     };
+  } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
+
+// ── views.whatsapp ────────────────────────────────────────────────────────────
+views.whatsapp = async function () {
+  setMain('<div class="spinner"></div>');
+  try {
+    const [status, settings] = await Promise.all([
+      api('/whatsapp/status'),
+      api('/whatsapp/settings'),
+    ]);
+
+    const modeLabel = status.mode === 'meta_cloud' ? 'Meta Cloud API' : 'Baileys (QR/Pairing)';
+    const statusColor = status.status === 'connected' ? 'badge-green' : status.status === 'waiting_qr' ? 'badge-yellow' : 'badge-grey';
+
+    setMain(`
+<h2 style="font-weight:800;margin-bottom:1.5rem">WhatsApp Bot</h2>
+<div style="max-width:780px;display:flex;flex-direction:column;gap:1.25rem">
+
+<div class="card">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+    <div>
+      <div style="font-weight:700;margin-bottom:.25rem">Connection Status</div>
+      <span class="badge ${statusColor}">${esc(status.status)}</span>
+      <span class="badge badge-blue" style="margin-left:.4rem">${esc(modeLabel)}</span>
+      ${status.number ? `<span class="muted" style="margin-left:.5rem;font-size:.85rem">📱 ${esc(status.number)}</span>` : ''}
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+      <button class="btn btn-sm btn-primary" onclick="waConnect()">Connect</button>
+      <button class="btn btn-sm btn-secondary" onclick="waReconnect()">Reconnect</button>
+      <button class="btn btn-sm btn-secondary" onclick="waDisconnect()">Disconnect</button>
+      <button class="btn btn-sm btn-red" onclick="waClearSession()">Clear Session</button>
+    </div>
+  </div>
+  ${status.hasQR && status.qrDataUrl ? `
+  <div style="text-align:center;margin:1rem 0">
+    <p style="font-weight:600;margin-bottom:.5rem">Scan QR Code with WhatsApp</p>
+    <img src="${status.qrDataUrl}" style="width:220px;height:220px;border:4px solid var(--border);border-radius:12px" alt="QR Code">
+    <p class="muted mt-2" style="font-size:.8rem">QR refreshes automatically. Click Connect if it doesn't appear.</p>
+    <button class="btn btn-sm btn-secondary mt-2" onclick="refreshWaStatus()">🔄 Refresh QR</button>
+  </div>` : ''}
+  ${status.mode === 'baileys' && status.status !== 'connected' && status.status !== 'waiting_qr' ? `
+  <div style="margin-top:.75rem">
+    <div style="font-weight:600;margin-bottom:.5rem">Or use Pairing Code (no QR needed)</div>
+    <div style="display:flex;gap:.5rem">
+      <input class="form-input" id="wa-pair-phone" placeholder="+91XXXXXXXXXX (with country code)" style="flex:1;max-width:280px">
+      <button class="btn btn-primary btn-sm" onclick="waPairCode()">Get Code</button>
+    </div>
+    <div id="wa-pair-result" style="margin-top:.5rem"></div>
+  </div>` : ''}
+</div>
+
+<div class="card">
+  <div style="font-weight:700;margin-bottom:.75rem">Bot Settings</div>
+  <div id="wa-settings-msg"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+    <div class="form-group">
+      <label class="form-label">Transport Mode</label>
+      <select class="form-input" id="wa-transport">
+        <option value="baileys" ${settings.wa_transport==='baileys'?'selected':''}>Baileys (QR / Pairing Code)</option>
+        <option value="meta_cloud" ${settings.wa_transport==='meta_cloud'?'selected':''}>Meta Cloud API</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Bot Auto-Reply</label>
+      <select class="form-input" id="wa-autoreply">
+        <option value="1" ${settings.wa_autoreply_enabled!=='0'?'selected':''}>Enabled</option>
+        <option value="0" ${settings.wa_autoreply_enabled==='0'?'selected':''}>Disabled (manual replies only)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Owner WhatsApp Number</label>
+      <input class="form-input" id="wa-owner-num" value="${esc(settings.wa_owner_number||'')}" placeholder="919876543210">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Owner WhatsApp LID (if applicable)</label>
+      <input class="form-input" id="wa-owner-lid" value="${esc(settings.wa_owner_lid||'')}" placeholder="LID (leave blank if not needed)">
+    </div>
+  </div>
+  <label style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem"><input type="checkbox" id="wa-enabled" ${settings.wa_enabled==='1'?'checked':''}> Start WhatsApp bot automatically on server startup</label>
+  <label style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem"><input type="checkbox" id="wa-daily" ${settings.wa_daily_summary!=='0'?'checked':''}> Send daily revenue summary at 9 PM IST</label>
+  <button class="btn btn-primary btn-sm mt-2" onclick="saveWaSettings()">Save Settings</button>
+</div>
+
+<div class="card" id="meta-card" style="${settings.wa_transport==='meta_cloud'?'':'display:none'}">
+  <div style="font-weight:700;margin-bottom:.75rem">Meta Cloud API Credentials</div>
+  <div id="meta-msg"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+    <div class="form-group"><label class="form-label">Phone Number ID</label><input class="form-input" id="meta-pid" value="${esc(settings.wa_meta_phone_number_id||'')}"></div>
+    <div class="form-group"><label class="form-label">Access Token</label><input class="form-input" type="password" id="meta-tok" value="${esc(settings.wa_meta_access_token||'')}"></div>
+    <div class="form-group"><label class="form-label">WABA ID</label><input class="form-input" id="meta-waba" value="${esc(settings.wa_meta_waba_id||'')}"></div>
+    <div class="form-group"><label class="form-label">App Secret</label><input class="form-input" type="password" id="meta-secret" value="${esc(settings.wa_meta_app_secret||'')}"></div>
+    <div class="form-group"><label class="form-label">Webhook Verify Token</label><input class="form-input" id="meta-verify" value="${esc(settings.wa_meta_webhook_verify_token||'')}"></div>
+  </div>
+  <div style="display:flex;gap:.5rem;margin-top:.75rem">
+    <button class="btn btn-primary btn-sm" onclick="saveMetaCreds()">Save Credentials</button>
+    <button class="btn btn-secondary btn-sm" onclick="testMeta()">Test Connection</button>
+  </div>
+</div>
+
+<div class="card">
+  <div style="font-weight:700;margin-bottom:.75rem">WA Broadcast</div>
+  <p class="muted" style="font-size:.85rem;margin-bottom:.75rem">Send a WhatsApp message to all customers who have a phone number. (Different from email broadcast)</p>
+  <div id="wa-bc-msg"></div>
+  <textarea class="form-input" id="wa-bc-text" rows="3" placeholder="Your message here... Use *bold* for WhatsApp formatting"></textarea>
+  <button class="btn btn-primary btn-sm mt-2" onclick="sendWaBroadcast()">Send WA Broadcast</button>
+</div>
+
+</div>`);
+
+    document.getElementById('wa-transport').addEventListener('change', function() {
+      document.getElementById('meta-card').style.display = this.value === 'meta_cloud' ? '' : 'none';
+    });
+
+    let statusPoll;
+    function refreshWaStatus() { clearInterval(statusPoll); views.whatsapp(); }
+    window.refreshWaStatus = refreshWaStatus;
+    // Auto-refresh QR every 20s when waiting
+    if (status.status === 'waiting_qr') {
+      statusPoll = setInterval(refreshWaStatus, 20000);
+    }
+
+    window.waConnect = async () => {
+      try { await api('/whatsapp/connect', { method:'POST' }); showToast('Connecting…'); setTimeout(refreshWaStatus, 3000); }
+      catch(e) { showToast(e.message, 'error'); }
+    };
+    window.waDisconnect = async () => {
+      if (!confirm('Disconnect WhatsApp bot?')) return;
+      await api('/whatsapp/disconnect', { method:'POST' }); refreshWaStatus();
+    };
+    window.waReconnect = async () => {
+      await api('/whatsapp/reconnect', { method:'POST' }); showToast('Reconnecting…'); setTimeout(refreshWaStatus, 3000);
+    };
+    window.waClearSession = async () => {
+      if (!confirm('This will delete the WA session and require re-scanning QR. Continue?')) return;
+      await api('/whatsapp/clear-session', { method:'POST' }); refreshWaStatus();
+    };
+    window.waPairCode = async () => {
+      const phone = document.getElementById('wa-pair-phone').value.trim();
+      const el = document.getElementById('wa-pair-result');
+      try {
+        const r = await api('/whatsapp/pairing-code', { method:'POST', body: JSON.stringify({ phone }) });
+        el.innerHTML = `<div class="alert alert-success">Your pairing code: <strong>${esc(r.code)}</strong> — enter this in WhatsApp → Linked Devices → Link a Device → Link with phone number</div>`;
+      } catch(e) { el.innerHTML = `<div class="alert alert-error">${esc(e.message)}</div>`; }
+    };
+
+    window.saveWaSettings = async () => {
+      const msg = document.getElementById('wa-settings-msg');
+      try {
+        await api('/whatsapp/settings', { method:'POST', body: JSON.stringify({
+          wa_enabled: document.getElementById('wa-enabled').checked ? '1' : '0',
+          wa_transport: document.getElementById('wa-transport').value,
+          wa_owner_number: document.getElementById('wa-owner-num').value,
+          wa_owner_lid: document.getElementById('wa-owner-lid').value,
+          wa_autoreply_enabled: document.getElementById('wa-autoreply').value,
+          wa_daily_summary: document.getElementById('wa-daily').checked ? '1' : '0',
+        })});
+        msg.innerHTML='<div class="alert alert-success">Saved!</div>';
+        setTimeout(()=>msg.innerHTML='',2000);
+      } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+    };
+
+    window.saveMetaCreds = async () => {
+      const msg = document.getElementById('meta-msg');
+      try {
+        await api('/whatsapp/settings', { method:'POST', body: JSON.stringify({
+          wa_meta_phone_number_id: document.getElementById('meta-pid').value,
+          wa_meta_access_token: document.getElementById('meta-tok').value,
+          wa_meta_waba_id: document.getElementById('meta-waba').value,
+          wa_meta_app_secret: document.getElementById('meta-secret').value,
+          wa_meta_webhook_verify_token: document.getElementById('meta-verify').value,
+        })});
+        msg.innerHTML='<div class="alert alert-success">Saved!</div>';
+        setTimeout(()=>msg.innerHTML='',2000);
+      } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+    };
+
+    window.testMeta = async () => {
+      const msg = document.getElementById('meta-msg');
+      msg.innerHTML='<div class="alert alert-info">Testing…</div>';
+      try {
+        const r = await api('/whatsapp/test-meta', { method:'POST', body: JSON.stringify({
+          phoneNumberId: document.getElementById('meta-pid').value,
+          accessToken: document.getElementById('meta-tok').value,
+        })});
+        msg.innerHTML = r.ok
+          ? `<div class="alert alert-success">✓ Connected — ${esc(r.name || '')} (${esc(r.phone || '')})</div>`
+          : `<div class="alert alert-error">✗ ${esc(r.error)}</div>`;
+      } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+    };
+
+    window.sendWaBroadcast = async () => {
+      const msg = document.getElementById('wa-bc-msg');
+      const text = document.getElementById('wa-bc-text').value.trim();
+      if (!text) { msg.innerHTML='<div class="alert alert-error">Enter a message</div>'; return; }
+      if (!confirm(`Send WA broadcast to all customers?`)) return;
+      msg.innerHTML='<div class="alert alert-info">Sending…</div>';
+      try {
+        const r = await api('/whatsapp/broadcast', { method:'POST', body: JSON.stringify({ message: text }) });
+        msg.innerHTML=`<div class="alert alert-success">Sent: ${r.sent}, Failed: ${r.failed}</div>`;
+      } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+    };
+
+  } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
+
+// ── views['wa-offers'] ────────────────────────────────────────────────────────
+views['wa-offers'] = async function () {
+  setMain('<div class="spinner"></div>');
+  try {
+    const [offers, settings] = await Promise.all([
+      api('/wa-offers'),
+      api('/whatsapp/settings'),
+    ]);
+
+    const groupsStr = settings.wa_autopost_groups || '[]';
+
+    setMain(`
+<h2 style="font-weight:800;margin-bottom:1.5rem">WA Group Offers</h2>
+<div style="max-width:780px;display:flex;flex-direction:column;gap:1.25rem">
+
+<div class="card">
+  <div style="font-weight:700;margin-bottom:.75rem">Autopost Schedule</div>
+  <div id="waop-msg"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem">
+    <div class="form-group"><label class="form-label">Interval (min)</label><input class="form-input" id="waop-interval" type="number" value="${esc(settings.wa_autopost_interval||'45')}" style="width:100px"></div>
+    <div class="form-group"><label class="form-label">Start (IST hour)</label><input class="form-input" id="waop-start" type="number" value="${esc(settings.wa_autopost_start||'9')}" min="0" max="23" style="width:80px"></div>
+    <div class="form-group"><label class="form-label">End (IST hour)</label><input class="form-input" id="waop-end" type="number" value="${esc(settings.wa_autopost_end||'23')}" min="0" max="23" style="width:80px"></div>
+  </div>
+  <label style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem"><input type="checkbox" id="waop-enabled" ${settings.wa_autopost_enabled==='1'?'checked':''}> Enable WA Group Autopost</label>
+  <div class="form-group" style="margin-bottom:.75rem">
+    <label class="form-label">Selected Groups (JSON array of group JIDs)</label>
+    <textarea class="form-input" id="waop-groups" rows="2" style="font-family:monospace;font-size:.8rem">${esc(groupsStr)}</textarea>
+    <p class="muted mt-1" style="font-size:.8rem">Go to Admin → WA Bot → Connect, then use the groups list below. Paste the JID array here.</p>
+  </div>
+  <div style="display:flex;gap:.5rem">
+    <button class="btn btn-primary btn-sm" onclick="saveWaOpSettings()">Save Schedule</button>
+    <button class="btn btn-secondary btn-sm" onclick="loadWaGroups()">Fetch Groups →</button>
+  </div>
+  <div id="waop-groups-list" style="margin-top:.75rem"></div>
+</div>
+
+<div class="card">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+    <div style="font-weight:700">Offers (${offers.length})</div>
+    <button class="btn btn-sm btn-primary" onclick="addWaOffer()">+ New Offer</button>
+  </div>
+  <div id="waof-list">
+  ${offers.length ? `<div class="table-wrap"><table>
+    <thead><tr><th>Text</th><th>Image</th><th>Active</th><th>Last Posted</th><th></th></tr></thead>
+    <tbody>${offers.map(o=>`<tr>
+      <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.text)}</td>
+      <td>${o.has_image ? '🖼️ Yes' : '—'}</td>
+      <td>${o.active ? '<span class="badge badge-green">On</span>' : '<span class="badge badge-grey">Off</span>'}</td>
+      <td style="font-size:.8rem">${fmtDate(o.last_posted_at)}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm btn-primary" onclick="postNow(${o.id})">Post Now</button>
+        <button class="btn btn-sm btn-secondary" onclick="editWaOffer(${o.id})">Edit</button>
+        <button class="btn btn-sm btn-red" onclick="delWaOffer(${o.id})">Del</button>
+      </td>
+    </tr>`).join('')}</tbody>
+  </table></div>` : '<p class="muted">No offers yet. Add one above.</p>'}
+  </div>
+</div>
+
+</div>`);
+
+    window.saveWaOpSettings = async () => {
+      const msg = document.getElementById('waop-msg');
+      try {
+        await api('/whatsapp/settings', { method:'POST', body: JSON.stringify({
+          wa_autopost_enabled: document.getElementById('waop-enabled').checked ? '1' : '0',
+          wa_autopost_interval: document.getElementById('waop-interval').value,
+          wa_autopost_start: document.getElementById('waop-start').value,
+          wa_autopost_end: document.getElementById('waop-end').value,
+          wa_autopost_groups: document.getElementById('waop-groups').value,
+        })});
+        msg.innerHTML='<div class="alert alert-success">Saved!</div>';
+        setTimeout(()=>msg.innerHTML='',2000);
+      } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+    };
+
+    window.loadWaGroups = async () => {
+      const el = document.getElementById('waop-groups-list');
+      el.innerHTML = '<div class="spinner"></div>';
+      try {
+        const groups = await api('/whatsapp/groups');
+        if (!groups.length) { el.innerHTML = '<p class="muted">No groups found. Make sure WA bot is connected and the bot account is in some WhatsApp groups.</p>'; return; }
+        el.innerHTML = `<div style="font-weight:600;margin-bottom:.5rem">Select groups to post to:</div>
+        <div style="display:flex;flex-direction:column;gap:.4rem;max-height:200px;overflow-y:auto">
+          ${groups.map(g=>`<label style="display:flex;align-items:center;gap:.5rem">
+            <input type="checkbox" class="wa-group-cb" data-id="${esc(g.id)}" value="${esc(g.id)}">
+            ${esc(g.name)} <span class="muted">(${g.participants} members)</span>
+          </label>`).join('')}
+        </div>
+        <button class="btn btn-sm btn-secondary mt-2" onclick="applyGroupSelection()">Apply Selection</button>`;
+        // Check already-selected groups
+        const sel = JSON.parse(document.getElementById('waop-groups').value || '[]');
+        document.querySelectorAll('.wa-group-cb').forEach(cb => { if (sel.includes(cb.value)) cb.checked = true; });
+        window.applyGroupSelection = () => {
+          const checked = [...document.querySelectorAll('.wa-group-cb:checked')].map(cb=>cb.value);
+          document.getElementById('waop-groups').value = JSON.stringify(checked);
+          showToast('Groups selected — click Save Schedule to save');
+        };
+      } catch(e) { el.innerHTML = `<div class="alert alert-error">${esc(e.message)}</div>`; }
+    };
+
+    const offerModal = (o) => {
+      o = o || {};
+      const ov = openModal(`
+<div class="modal-header"><h3>${o.id ? 'Edit' : 'New'} WA Offer</h3><button class="btn-icon" onclick="this.closest('.modal-overlay').remove()">✕</button></div>
+<div class="modal-body">
+  <div id="waof-msg"></div>
+  <div class="form-group"><label class="form-label">Message Text (WhatsApp formatting: *bold*, _italic_)</label>
+    <textarea class="form-input" id="waof-text" rows="5" placeholder="🔥 Hot offer! Get Netflix 4K for ₹199...\n\n📱 DM to order!">${esc(o.text||'')}</textarea>
+  </div>
+  <div class="form-group"><label class="form-label">Image (base64, optional)</label>
+    <input type="file" accept="image/*" id="waof-img-file" onchange="readWaImg(this)">
+    ${o.has_image ? '<p class="muted mt-1" style="font-size:.8rem">✓ Image attached. Upload new file to replace.</p>' : ''}
+    <input type="hidden" id="waof-img-b64">
+  </div>
+  <label style="display:flex;align-items:center;gap:.5rem;margin-top:.5rem"><input type="checkbox" id="waof-active" ${o.active !== 0?'checked':''}> Active</label>
+</div>
+<div class="modal-footer"><button class="btn btn-primary" onclick="saveWaOffer(${o.id||'null'})">Save</button></div>`);
+
+      window.readWaImg = (inp) => {
+        const file = inp.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => { document.getElementById('waof-img-b64').value = e.target.result.split(',')[1]; };
+        reader.readAsDataURL(file);
+      };
+
+      window.saveWaOffer = async (id) => {
+        const msg = document.getElementById('waof-msg');
+        const body = {
+          text: document.getElementById('waof-text').value.trim(),
+          active: document.getElementById('waof-active').checked ? 1 : 0,
+        };
+        const img = document.getElementById('waof-img-b64').value;
+        if (img) body.image_b64 = img;
+        if (!body.text) { msg.innerHTML='<div class="alert alert-error">Text required</div>'; return; }
+        try {
+          if (id) await api(`/wa-offers/${id}`, { method:'PUT', body: JSON.stringify(body) });
+          else await api('/wa-offers', { method:'POST', body: JSON.stringify(body) });
+          ov.remove(); views['wa-offers']();
+        } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+      };
+    };
+
+    window.addWaOffer = () => offerModal(null);
+    window.editWaOffer = async (id) => {
+      const o = await api(`/wa-offers/${id}`);
+      offerModal(o);
+    };
+    window.delWaOffer = async (id) => {
+      if (!confirm('Delete this offer?')) return;
+      await api(`/wa-offers/${id}`, { method:'DELETE' });
+      views['wa-offers']();
+    };
+    window.postNow = async (id) => {
+      try {
+        const r = await api(`/wa-offers/${id}/post-now`, { method:'POST' });
+        showToast(`Posted to ${r.sent}/${r.total} groups`);
+        views['wa-offers']();
+      } catch(e) { showToast(e.message, 'error'); }
+    };
+
+  } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
+
+// ── views.suppliers ───────────────────────────────────────────────────────────
+views.suppliers = async function () {
+  setMain('<div class="spinner"></div>');
+  try {
+    const [suppliers, plans] = await Promise.all([
+      api('/suppliers'),
+      api('/plans'),
+    ]);
+
+    const planMap = {};
+    plans.forEach(p => { planMap[p.id] = `${p.platform} — ${p.name}`; });
+
+    setMain(`
+<h2 style="font-weight:800;margin-bottom:1.5rem">Suppliers</h2>
+<div class="card" style="max-width:780px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+    <div style="font-weight:700">Suppliers (${suppliers.length})</div>
+    <button class="btn btn-sm btn-primary" onclick="addSupplier()">+ Add Supplier</button>
+  </div>
+  <p class="muted" style="font-size:.85rem;margin-bottom:1rem">Suppliers receive WhatsApp notifications when stock is low. You can also send them messages directly.</p>
+  ${suppliers.length ? `<div class="table-wrap"><table>
+    <thead><tr><th>Name</th><th>Phone</th><th>Products</th><th>Active</th><th></th></tr></thead>
+    <tbody id="sup-rows">${suppliers.map(s=>{
+      const prods = JSON.parse(s.product_ids||'[]').map(pid=>planMap[pid]||'Plan #'+pid).join(', ') || '—';
+      return `<tr>
+        <td style="font-weight:600">${esc(s.name)}</td>
+        <td style="font-family:monospace">${esc(s.phone)}</td>
+        <td style="font-size:.85rem">${esc(prods)}</td>
+        <td>${s.active?'<span class="badge badge-green">Yes</span>':'<span class="badge badge-grey">No</span>'}</td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-sm btn-primary" onclick="notifySupplier(${s.id},'${esc(s.name)}')">💬 WA</button>
+          <button class="btn btn-sm btn-secondary" onclick="editSupplier(${s.id})">Edit</button>
+          <button class="btn btn-sm btn-red" onclick="delSupplier(${s.id})">Del</button>
+        </td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table></div>` : '<p class="muted">No suppliers yet.</p>'}
+</div>`);
+
+    const supModal = (s, allPlans) => {
+      s = s || {};
+      const sel = JSON.parse(s.product_ids||'[]');
+      const ov = openModal(`
+<div class="modal-header"><h3>${s.id?'Edit':'Add'} Supplier</h3><button class="btn-icon" onclick="this.closest('.modal-overlay').remove()">✕</button></div>
+<div class="modal-body">
+  <div id="sup-msg"></div>
+  <div class="form-group"><label class="form-label">Name</label><input class="form-input" id="sup-name" value="${esc(s.name||'')}"></div>
+  <div class="form-group"><label class="form-label">Phone (with country code)</label><input class="form-input" id="sup-phone" value="${esc(s.phone||'')}" placeholder="919876543210"></div>
+  <div class="form-group"><label class="form-label">Assigned Plans (for low-stock notifications)</label>
+    <div style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:.5rem;display:flex;flex-direction:column;gap:.3rem">
+      ${allPlans.map(p=>`<label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem"><input type="checkbox" class="sup-plan-cb" value="${p.id}" ${sel.includes(p.id)?'checked':''}> ${esc(p.platform)} — ${esc(p.name)}</label>`).join('')}
+    </div>
+  </div>
+  <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="sup-notes" rows="2">${esc(s.notes||'')}</textarea></div>
+  <label style="display:flex;align-items:center;gap:.5rem;margin-top:.5rem"><input type="checkbox" id="sup-active" ${s.active!==0?'checked':''}> Active</label>
+</div>
+<div class="modal-footer"><button class="btn btn-primary" onclick="saveSupplier(${s.id||'null'})">Save</button></div>`);
+
+      window.saveSupplier = async (id) => {
+        const msg = document.getElementById('sup-msg');
+        const product_ids = [...document.querySelectorAll('.sup-plan-cb:checked')].map(cb=>parseInt(cb.value));
+        const body = {
+          name: document.getElementById('sup-name').value.trim(),
+          phone: document.getElementById('sup-phone').value.trim().replace(/\D/g,''),
+          notes: document.getElementById('sup-notes').value,
+          active: document.getElementById('sup-active').checked ? 1 : 0,
+          product_ids,
+        };
+        if (!body.name || !body.phone) { msg.innerHTML='<div class="alert alert-error">Name and phone required</div>'; return; }
+        try {
+          if (id) await api(`/suppliers/${id}`, { method:'PUT', body: JSON.stringify(body) });
+          else await api('/suppliers', { method:'POST', body: JSON.stringify(body) });
+          ov.remove(); views.suppliers();
+        } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+      };
+    };
+
+    window.addSupplier = () => supModal(null, plans);
+    window.editSupplier = async (id) => {
+      const s = suppliers.find(x=>x.id===id);
+      supModal(s, plans);
+    };
+    window.delSupplier = async (id) => {
+      if (!confirm('Delete supplier?')) return;
+      await api(`/suppliers/${id}`, { method:'DELETE' });
+      views.suppliers();
+    };
+    window.notifySupplier = async (id, name) => {
+      const msg = prompt(`Send WhatsApp message to ${name}:`);
+      if (!msg) return;
+      try {
+        const r = await api(`/suppliers/${id}/notify`, { method:'POST', body: JSON.stringify({ message: msg }) });
+        showToast(r.ok ? 'Message sent!' : 'Failed to send');
+      } catch(e) { showToast(e.message, 'error'); }
+    };
+
+  } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
+
+// ── views['ai-agent'] ─────────────────────────────────────────────────────────
+views['ai-agent'] = async function () {
+  setMain('<div class="spinner"></div>');
+  try {
+    const s = await api('/ai-settings');
+
+    setMain(`
+<h2 style="font-weight:800;margin-bottom:1.5rem">AI Agent Settings</h2>
+<div class="card" style="max-width:680px">
+  <div id="ai-msg"></div>
+  <p class="muted" style="font-size:.85rem;margin-bottom:1rem">
+    Configure an AI assistant that auto-replies to WhatsApp messages (when bot is in human mode).
+    Supports Google Gemini and OpenRouter (any free model).
+  </p>
+  <label style="display:flex;align-items:center;gap:.5rem;margin-bottom:1rem"><input type="checkbox" id="ai-enabled" ${s.ai_enabled==='1'?'checked':''}> Enable AI Auto-Reply on WhatsApp</label>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+    <div class="form-group">
+      <label class="form-label">Provider</label>
+      <select class="form-input" id="ai-provider">
+        <option value="gemini" ${s.ai_provider==='gemini'?'selected':''}>Google Gemini (free tier)</option>
+        <option value="openrouter" ${s.ai_provider==='openrouter'?'selected':''}>OpenRouter (any model)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Model <span class="muted">(leave blank for default)</span></label>
+      <input class="form-input" id="ai-model" value="${esc(s.ai_model||'')}" placeholder="gemini-2.0-flash or leave blank">
+    </div>
+    <div class="form-group">
+      <label class="form-label">API Key</label>
+      <input class="form-input" type="password" id="ai-key" value="${esc(s.ai_api_key||'')}" placeholder="Google AI Studio or OpenRouter key">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Daily Message Cap</label>
+      <input class="form-input" type="number" id="ai-cap" value="${esc(s.ai_daily_cap||'500')}" style="width:100px">
+    </div>
+  </div>
+
+  <div class="form-group mt-2">
+    <label class="form-label">Custom Persona / System Prompt</label>
+    <textarea class="form-input" id="ai-persona" rows="5" placeholder="You are a helpful sales assistant for [Store Name]. You help customers with OTT subscription queries...">${esc(s.ai_persona||'')}</textarea>
+    <p class="muted mt-1" style="font-size:.8rem">Leave blank to use the default product-aware persona. The AI automatically knows your plans and prices.</p>
+  </div>
+
+  <div class="form-group mt-2">
+    <label class="form-label">Fallback Message (when AI fails / quota exceeded)</label>
+    <input class="form-input" id="ai-fallback" value="${esc(s.ai_fallback_message||'')}" placeholder="Thank you! Our team will get back to you shortly.">
+    <p class="muted mt-1" style="font-size:.8rem">Leave blank to stay silent (seller can reply manually).</p>
+  </div>
+
+  <button class="btn btn-primary mt-3" onclick="saveAiSettings()">Save AI Settings</button>
+</div>`);
+
+    window.saveAiSettings = async () => {
+      const msg = document.getElementById('ai-msg');
+      try {
+        await api('/ai-settings', { method:'POST', body: JSON.stringify({
+          ai_enabled: document.getElementById('ai-enabled').checked ? '1' : '0',
+          ai_provider: document.getElementById('ai-provider').value,
+          ai_model: document.getElementById('ai-model').value,
+          ai_api_key: document.getElementById('ai-key').value,
+          ai_daily_cap: document.getElementById('ai-cap').value,
+          ai_persona: document.getElementById('ai-persona').value,
+          ai_fallback_message: document.getElementById('ai-fallback').value,
+        })});
+        msg.innerHTML='<div class="alert alert-success">Saved!</div>';
+        setTimeout(()=>msg.innerHTML='',2000);
+      } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+    };
+
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };
 

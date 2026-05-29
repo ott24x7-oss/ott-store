@@ -218,6 +218,36 @@ function migrate(db) {
     updated_at TEXT DEFAULT (datetime('now'))
   )`);
 
+  // ── WhatsApp tables ────────────────────────────────────────────────────────
+  db.run(`CREATE TABLE IF NOT EXISTS wa_offers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    text TEXT NOT NULL,
+    image_b64 TEXT,
+    active INTEGER DEFAULT 1,
+    last_posted_at TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS wa_offer_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    offer_id INTEGER NOT NULL,
+    group_id TEXT NOT NULL,
+    group_name TEXT,
+    success INTEGER DEFAULT 0,
+    error TEXT,
+    sent_at TEXT DEFAULT (datetime('now'))
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS suppliers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    product_ids TEXT DEFAULT '[]',
+    active INTEGER DEFAULT 1,
+    notes TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+
   // Alter existing tables to add new columns (safe — ignored if column exists)
   try { db.run(`ALTER TABLE topups ADD COLUMN unique_amount REAL`); } catch {}
   try { db.run(`ALTER TABLE topups ADD COLUMN payment_method_id INTEGER`); } catch {}
@@ -278,6 +308,31 @@ function seedDefaults(db) {
     stock_alert_email: '',
     renewal_reminder_days: '3',
     autopost_enabled: '0',
+    // WhatsApp Bot
+    wa_enabled: '0',
+    wa_transport: 'baileys',
+    wa_meta_phone_number_id: '',
+    wa_meta_access_token: '',
+    wa_meta_waba_id: '',
+    wa_meta_app_secret: '',
+    wa_meta_webhook_verify_token: '',
+    wa_owner_number: '',
+    wa_owner_lid: '',
+    wa_autoreply_enabled: '1',
+    wa_autopost_enabled: '0',
+    wa_autopost_groups: '[]',
+    wa_autopost_interval: '45',
+    wa_autopost_start: '9',
+    wa_autopost_end: '23',
+    wa_daily_summary: '1',
+    // AI Agent
+    ai_enabled: '0',
+    ai_provider: 'gemini',
+    ai_api_key: '',
+    ai_model: '',
+    ai_persona: '',
+    ai_daily_cap: '500',
+    ai_fallback_message: '',
   };
   for (const [k, v] of Object.entries(defaults)) {
     db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`, [k, v]);
@@ -315,4 +370,16 @@ async function setSetting(key, value) {
   run(db, `INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)`, [key, String(value)]);
 }
 
-module.exports = { getDb, getSetting, setSetting, all, get, run };
+// Synchronous variants — safe to use after DB is initialized (after first getDb() call)
+function getSettingSync(key) {
+  if (!_db) return null;
+  const row = get(_db, 'SELECT value FROM settings WHERE key=?', [key]);
+  return row ? row.value : null;
+}
+
+function setSettingSync(key, value) {
+  if (!_db) return;
+  run(_db, 'INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)', [key, String(value ?? '')]);
+}
+
+module.exports = { getDb, getSetting, setSetting, getSettingSync, setSettingSync, all, get, run };

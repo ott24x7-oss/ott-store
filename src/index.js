@@ -228,6 +228,17 @@ async function start() {
   try { require('./autopost-worker').startAutopostWorker(); } catch (e) { console.error('autopost-worker error:', e.message); }
   try { require('./imap-verify').startImapWorker(); } catch (e) { console.error('imap-verify error:', e.message); }
 
+  // WhatsApp Bot + WA worker
+  try {
+    const waBot = require('./wa-bot');
+    waBot.startWatchdog();
+    const { getSettingSync } = require('./db');
+    if (getSettingSync('wa_enabled') === '1') {
+      waBot.connect().catch(e => console.error('WA connect error:', e.message));
+    }
+  } catch (e) { console.error('wa-bot error:', e.message); }
+  try { require('./wa-worker').startWaWorker(); } catch (e) { console.error('wa-worker error:', e.message); }
+
   app.listen(cfg.port, () => {
     console.log(`OTT Store running on http://localhost:${cfg.port}`);
     console.log(`  Store:  http://localhost:${cfg.port}/`);
