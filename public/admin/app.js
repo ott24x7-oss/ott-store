@@ -1219,7 +1219,39 @@ views.mystore = async function () {
   <div id="store-msg"></div>
   <div class="form-group"><label class="form-label">Store Name</label><input class="form-input" name="site_name" value="${esc(s.site_name||'')}"></div>
   <div class="form-group"><label class="form-label">Tagline</label><input class="form-input" name="site_tagline" value="${esc(s.site_tagline||'')}"></div>
-  <div class="form-group"><label class="form-label">Logo URL</label><input class="form-input" name="logo_url" value="${esc(s.logo_url||'')}" placeholder="https://..."></div>
+  <div class="form-group">
+    <label class="form-label" style="margin-bottom:.6rem">Site Logo</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+      <div class="card" style="padding:1rem;border:2px dashed var(--border)">
+        <div style="font-size:.8rem;font-weight:700;margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem">☀️ Light Mode Logo</div>
+        <div style="font-size:.72rem;color:var(--muted);margin-bottom:.75rem">Recommended: 280×100px · Max 2MB · PNG/SVG/WebP</div>
+        <div id="logo-light-preview" style="height:56px;display:flex;align-items:center;justify-content:center;background:var(--card);border-radius:8px;margin-bottom:.75rem;overflow:hidden;border:1px solid var(--border)">
+          ${s.logo_light_url ? `<img src="${esc(s.logo_light_url)}" style="max-height:48px;max-width:100%;object-fit:contain">` : '<span style="font-size:.75rem;color:var(--muted)">No logo</span>'}
+        </div>
+        <div style="display:flex;gap:.5rem">
+          <label style="flex:1;cursor:pointer">
+            <input type="file" accept="image/*" style="display:none" onchange="uploadLogo('light',this)">
+            <span class="btn btn-secondary btn-sm" style="width:100%;display:block;text-align:center">Upload</span>
+          </label>
+          ${s.logo_light_url ? `<button type="button" class="btn btn-red btn-sm" onclick="deleteLogo('light')">Remove</button>` : ''}
+        </div>
+      </div>
+      <div class="card" style="padding:1rem;border:2px dashed var(--border)">
+        <div style="font-size:.8rem;font-weight:700;margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem">🌙 Dark Mode Logo</div>
+        <div style="font-size:.72rem;color:var(--muted);margin-bottom:.75rem">Recommended: 280×100px · Max 2MB · PNG/SVG/WebP</div>
+        <div id="logo-dark-preview" style="height:56px;display:flex;align-items:center;justify-content:center;background:#111;border-radius:8px;margin-bottom:.75rem;overflow:hidden;border:1px solid var(--border)">
+          ${s.logo_dark_url ? `<img src="${esc(s.logo_dark_url)}" style="max-height:48px;max-width:100%;object-fit:contain">` : '<span style="font-size:.75rem;color:var(--muted)">No logo</span>'}
+        </div>
+        <div style="display:flex;gap:.5rem">
+          <label style="flex:1;cursor:pointer">
+            <input type="file" accept="image/*" style="display:none" onchange="uploadLogo('dark',this)">
+            <span class="btn btn-secondary btn-sm" style="width:100%;display:block;text-align:center">Upload</span>
+          </label>
+          ${s.logo_dark_url ? `<button type="button" class="btn btn-red btn-sm" onclick="deleteLogo('dark')">Remove</button>` : ''}
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Support Email</label><input class="form-input" name="support_email" type="email" value="${esc(s.support_email||'')}"></div>
     <div class="form-group"><label class="form-label">WhatsApp Support</label><input class="form-input" name="support_whatsapp" value="${esc(s.support_whatsapp||'')}" placeholder="+91..."></div>
@@ -4250,9 +4282,42 @@ ${cards}
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };
 
+// ── Logo upload helpers ───────────────────────────────────────────────────────
+async function uploadLogo(type, input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { showToast('File too large. Max 2MB allowed.', 'error'); input.value = ''; return; }
+  const fd = new FormData();
+  fd.append('logo', file);
+  try {
+    showToast('Uploading…');
+    const r = await fetch(`/admin/api/upload-logo/${type}`, { method: 'POST', body: fd, credentials: 'include' });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || 'Upload failed');
+    const preview = document.getElementById(`logo-${type}-preview`);
+    if (preview) preview.innerHTML = `<img src="${j.url}?t=${Date.now()}" style="max-height:48px;max-width:100%;object-fit:contain">`;
+    showToast('Logo uploaded!');
+  } catch (e) { showToast(e.message, 'error'); }
+  input.value = '';
+}
+
+async function deleteLogo(type) {
+  if (!confirm('Remove this logo?')) return;
+  try {
+    const r = await fetch(`/admin/api/upload-logo/${type}`, { method: 'DELETE', credentials: 'include' });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error);
+    const preview = document.getElementById(`logo-${type}-preview`);
+    if (preview) preview.innerHTML = '<span style="font-size:.75rem;color:var(--muted)">No logo</span>';
+    showToast('Logo removed');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
 // ── expose goView globally ────────────────────────────────────────────────────
 window.goView = goView;
 window.views = views;
+window.uploadLogo = uploadLogo;
+window.deleteLogo = deleteLogo;
 
 // ── Hash-based routing: handle browser back/forward ───────────────────────────
 window.addEventListener('popstate', () => {

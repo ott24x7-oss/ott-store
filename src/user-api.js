@@ -68,9 +68,9 @@ router.get('/store', async (req, res) => {
   try {
     const db = await getDb();
     const rows = all(db, `SELECT key, value FROM settings WHERE key IN
-      ('site_name','site_tagline','logo_url','announcement','upi_id','upi_name',
+      ('site_name','site_tagline','logo_url','logo_light_url','logo_dark_url','announcement','upi_id','upi_name',
        'razorpay_enabled','upi_manual_enabled','support_whatsapp','support_email',
-       'pwa_force_prompt','vapid_public_key','store_theme','wa_enabled')`, []);
+       'pwa_force_prompt','vapid_public_key','store_theme','wa_enabled','imap_enabled')`, []);
     const s = {};
     rows.forEach(r => s[r.key] = r.value);
     s.razorpay_key = s.razorpay_enabled === '1' ? cfg.razorpay.keyId : '';
@@ -572,6 +572,82 @@ router.get('/wallet/transactions', requireCustomer, async (req, res) => {
     const txns = all(db, `SELECT * FROM wallet_txns WHERE customer_jid=? ORDER BY created_at DESC LIMIT 100`,
       [req.customer.jid]);
     res.json(txns);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Direct Checkout (IMAP UPI) ───────────────────────────────────────────────
+// Creates a pending topup linked to a plan; IMAP will auto-create the order on match
+router.post('/checkout/upi-direct', requireCustomer, async (req, res) => {
+  try {
+    const { plan_id } = req.body;
+    if (!plan_id) return res.status(400).json({ error: 'plan_id required' });
+    const db = await getDb();
+
+    const imapEnabled = await getSetting('imap_enabled');
+    if (imapEnabled !== '1') return res.status(400).json({ error: 'UPI auto-verify not enabled' });
+
+    const plan = get(db, 'SELECT * FROM plans WHERE id=? AND active=1', [plan_id]);
+    if (!plan) return res.status(404).json({ error: 'Plan not found or unavailable' });
+    if (plan.stock === 0) return res.status(400).json({ error: 'Out of stock' });
+
+    const c = get(db, 'SELECT * FROM customers WHERE jid=?', [req.customer.jid]);
+    if (!c) return res.status(404).json({ error: 'Customer not found' });
+
+    // Compute effective price (reseller or personal discount)
+    const reseller = get(db, `SELECT r.id, r.discount_percent FROM resellers r WHERE r.customer_jid=? AND r.status='approved'`, [c.jid]);
+    let price = plan.price_inr;
+    if (reseller) {
+      const rp = get(db, `SELECT price_inr FROM reseller_prices WHERE reseller_id=? AND plan_id=?`, [reseller.id, plan_id]);
+      if (rp) price = rp.price_inr;
+      else if (reseller.discount_percent > 0) price = plan.price_inr * (1 - reseller.discount_percent / 100);
+    } else if (c.discount_percent > 0) {
+      price = plan.price_inr * (1 - c.discount_percent / 100);
+    }
+
+    // Expire any existing pending direct-checkout for same customer+plan
+    run(db, `UPDATE topups SET status='expired' WHERE customer_jid=? AND plan_id=? AND purpose='order' AND status='pending'`,
+      [c.jid, plan_id]);
+
+    const { generateUniqueAmount } = require('./imap-verify');
+    const uniqueAmount = generateUniqueAmount(price);
+    const upiId = await getSetting('upi_id') || '';
+    const upiName = (await getSetting('upi_name') || '').replace(/[^a-zA-Z0-9 ]/g, '');
+
+    const r = run(db, `INSERT INTO topups (customer_jid,amount_inr,unique_amount,method,status,purpose,plan_id) VALUES (?,?,?,?,?,?,?)`,
+      [c.jid, price, uniqueAmount, 'upi_imap', 'pending', 'order', plan_id]);
+
+    res.json({
+      ok: true,
+      topup_id: r.lastInsertRowid,
+      unique_amount: uniqueAmount,
+      upi_id: upiId,
+      upi_name: upiName,
+      plan_name: plan.name,
+      plan_price: price,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Poll checkout status — returns topup status + order info if created
+router.get('/checkout/poll/:topupId', requireCustomer, async (req, res) => {
+  try {
+    const db = await getDb();
+    const topup = get(db, `SELECT * FROM topups WHERE id=? AND customer_jid=? AND purpose='order'`,
+      [req.params.topupId, req.customer.jid]);
+    if (!topup) return res.status(404).json({ error: 'Not found' });
+
+    if (topup.status === 'approved' && topup.order_id) {
+      const order = get(db, `SELECT o.id, o.status, p.name as plan_name, p.platform FROM orders o LEFT JOIN plans p ON o.plan_id=p.id WHERE o.id=?`,
+        [topup.order_id]);
+      return res.json({ status: 'paid', order });
+    }
+    if (topup.status === 'approved') {
+      return res.json({ status: 'paid', order: null });
+    }
+    if (topup.status === 'expired' || topup.status === 'rejected') {
+      return res.json({ status: topup.status });
+    }
+    res.json({ status: 'pending' });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

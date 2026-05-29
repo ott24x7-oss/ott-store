@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" data-store-theme="midnight-purple">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>All Plans — OTT Store</title>
+<meta name="description" content="Browse all OTT subscription plans. Netflix, Amazon Prime, Hotstar, Spotify and 50+ platforms at lowest prices.">
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/store/themes.css">
+<style>
+:root{
+  --st-bg:var(--th-bg,#080b14);--st-card:var(--th-card,rgba(255,255,255,.04));
+  --st-card-solid:var(--th-card-solid,#0e1020);--st-border:var(--th-border,rgba(255,255,255,.09));
+  --st-accent:var(--th-accent,#7c3aed);--st-accent-end:var(--th-accent-end,#4f46e5);
+  --st-text:var(--th-text,#f1f5f9);--st-muted:var(--th-muted,#94a3b8);
+  --st-btn:var(--th-btn,linear-gradient(135deg,#7c3aed,#4f46e5));
+  --st-nav:var(--th-nav-bg,rgba(8,11,20,.88));
+}
+html{overflow-x:hidden}
+html[data-store-theme]{background:var(--st-bg);color:var(--st-text)}
+body{background:var(--st-bg);color:var(--st-text);overflow-x:hidden;-webkit-tap-highlight-color:transparent;font-family:'Inter',system-ui,-apple-system,sans-serif}
+body::before{display:none}
+*,*::before,*::after{box-sizing:border-box}
+
+/* ── Navbar ── */
+.snav{position:sticky;top:0;z-index:1000;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);background:var(--st-nav);border-bottom:1px solid var(--st-border)}
+.snav-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:1.5rem;padding:.9rem 1.5rem}
+.snav-logo{font-size:1.35rem;font-weight:900;background:var(--st-btn);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-decoration:none;white-space:nowrap;display:flex;align-items:center}
+.snav-logo img{max-height:40px;max-width:180px;object-fit:contain;display:block;-webkit-text-fill-color:initial;background:none}
+html[data-store-theme] .snav-logo .logo-light{display:block}
+html[data-store-theme] .snav-logo .logo-dark{display:none}
+html[data-theme="dark"] .snav-logo .logo-light{display:none}
+html[data-theme="dark"] .snav-logo .logo-dark{display:block}
+.snav-links{display:flex;gap:1.5rem;flex:1}
+.snav-links a{color:var(--st-muted);text-decoration:none;font-size:.9rem;font-weight:500;transition:color .15s}
+.snav-links a:hover,.snav-links a.active{color:var(--st-text)}
+.snav-right{display:flex;align-items:center;gap:.65rem;margin-left:auto}
+.snav-login{background:var(--st-btn);color:#fff;border:none;border-radius:50px;padding:.45rem 1.1rem;font-size:.85rem;font-weight:700;cursor:pointer;text-decoration:none;transition:opacity .15s}
+.snav-login:hover{opacity:.85;text-decoration:none;color:#fff}
+.snav-theme-btn{background:var(--st-card);border:1px solid var(--st-border);color:var(--st-text);border-radius:50%;width:34px;height:34px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center}
+.snav-burger{display:none;background:none;border:none;color:var(--st-text);font-size:1.4rem;cursor:pointer;padding:.2rem}
+.snav-mob{display:none;flex-direction:column;position:fixed;top:0;left:0;right:0;bottom:0;background:var(--st-bg);z-index:999;padding:5rem 2rem 2rem;gap:1rem}
+.snav-mob.open{display:flex}
+.snav-mob a{color:var(--st-text);font-size:1.1rem;font-weight:600;text-decoration:none;padding:.75rem 0;border-bottom:1px solid var(--st-border)}
+.snav-mob-close{position:absolute;top:1rem;right:1.5rem;background:none;border:none;color:var(--st-muted);font-size:1.8rem;cursor:pointer}
+
+/* ── Page header ── */
+.plans-header{padding:3.5rem 1.5rem 1.5rem;text-align:center;position:relative;overflow:hidden}
+.plans-header::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 100% at 50% -20%,rgba(124,58,237,.2) 0%,transparent 70%);pointer-events:none}
+.plans-header-badge{display:inline-flex;align-items:center;gap:.5rem;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.3);color:var(--st-accent);border-radius:50px;padding:.3rem .9rem;font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:1rem}
+.plans-header h1{font-size:clamp(2rem,5vw,3.2rem);font-weight:900;line-height:1.1;margin-bottom:.75rem}
+.plans-header h1 span{background:var(--st-btn);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.plans-header p{color:var(--st-muted);font-size:1rem;max-width:520px;margin:0 auto}
+
+/* ── Filters ── */
+.plans-filters{max-width:1200px;margin:0 auto;padding:1.5rem 1.5rem 0}
+.plans-search-row{display:flex;gap:.75rem;margin-bottom:1.25rem;flex-wrap:wrap}
+.plans-search-box{flex:1;min-width:220px;position:relative}
+.plans-search-box input{width:100%;background:var(--st-card);border:1.5px solid var(--st-border);border-radius:12px;padding:.65rem 1rem .65rem 2.5rem;color:var(--st-text);font-size:.9rem;outline:none;transition:border-color .2s}
+.plans-search-box input:focus{border-color:var(--st-accent)}
+.plans-search-box::before{content:'🔍';position:absolute;left:.8rem;top:50%;transform:translateY(-50%);font-size:.9rem;pointer-events:none}
+.filter-select{background:var(--st-card);border:1.5px solid var(--st-border);border-radius:12px;padding:.65rem 1rem;color:var(--st-text);font-size:.875rem;font-weight:600;cursor:pointer;outline:none;transition:border-color .2s}
+.filter-select:focus{border-color:var(--st-accent)}
+
+.plat-chips{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1.5rem;padding-bottom:.25rem}
+.plat-chip{background:var(--st-card);border:1.5px solid var(--st-border);border-radius:50px;padding:.4rem .9rem;font-size:.8rem;font-weight:600;color:var(--st-muted);cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0}
+.plat-chip:hover{border-color:var(--st-accent);color:var(--st-text)}
+.plat-chip.active{background:linear-gradient(135deg,rgba(124,58,237,.25),rgba(79,70,229,.2));border-color:var(--st-accent);color:var(--st-text)}
+
+/* ── Results bar ── */
+.plans-results-bar{max-width:1200px;margin:0 auto;padding:0 1.5rem .75rem;display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap}
+.plans-count{font-size:.85rem;color:var(--st-muted);font-weight:500}
+.plans-sort{display:flex;gap:.4rem}
+.sort-btn{background:var(--st-card);border:1.5px solid var(--st-border);border-radius:8px;padding:.35rem .75rem;font-size:.78rem;font-weight:600;color:var(--st-muted);cursor:pointer;transition:all .15s}
+.sort-btn.active,.sort-btn:hover{border-color:var(--st-accent);color:var(--st-accent)}
+
+/* ── Plans grid (reuse from index.html) ── */
+.plans-main{max-width:1200px;margin:0 auto;padding:0 1.5rem 4rem}
+.splan-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.1rem}
+.splan-card{background:var(--st-card-solid);border:1.5px solid var(--st-border);border-radius:16px;overflow:hidden;transition:all .2s;display:flex;flex-direction:column}
+.splan-card:hover{border-color:var(--st-accent);transform:translateY(-4px);box-shadow:0 12px 32px rgba(124,58,237,.18)}
+.splan-card.featured{border-color:rgba(124,58,237,.5)}
+.splan-card.splan-oos{opacity:.55}
+.splan-header{position:relative;height:90px;overflow:hidden}
+.splan-header img{width:100%;height:100%;object-fit:contain;padding:.5rem;background:rgba(0,0,0,.2)}
+.splan-header-bg{width:100%;height:100%;display:flex;align-items:center;justify-content:center;gap:.5rem}
+.splan-header-icon{font-size:1.6rem}
+.splan-header-plat{font-size:.85rem;font-weight:800;color:#fff;opacity:.9;text-transform:uppercase;letter-spacing:.04em}
+.splan-badge{position:absolute;top:.5rem;left:.5rem;background:linear-gradient(135deg,#7c3aed,#ec4899);color:#fff;border-radius:6px;padding:.2rem .5rem;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;z-index:1}
+.splan-body{padding:1rem;flex:1;display:flex;flex-direction:column;gap:.45rem}
+.splan-name{font-weight:700;font-size:.92rem;line-height:1.3;color:var(--st-text)}
+.splan-dur{font-size:.75rem;color:var(--st-muted);font-weight:500}
+.splan-price-row{display:flex;align-items:baseline;gap:.5rem;margin-top:.1rem}
+.splan-price{font-size:1.5rem;font-weight:900;background:var(--st-btn);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.splan-orig{font-size:.8rem;color:var(--st-muted);text-decoration:line-through}
+.splan-delivery{font-size:.72rem;font-weight:700;color:#10b981;background:rgba(16,185,129,.1);border-radius:4px;padding:.2rem .4rem;display:inline-block}
+.splan-feats{list-style:none;margin-top:.25rem;display:flex;flex-direction:column;gap:.2rem}
+.splan-feats li{font-size:.75rem;color:var(--st-muted);padding-left:1em;position:relative}
+.splan-feats li::before{content:'✓';position:absolute;left:0;color:var(--st-accent);font-size:.7rem}
+.splan-btn{margin-top:auto;padding:.6rem 1rem;background:var(--st-btn);color:#fff;border:none;border-radius:10px;font-size:.85rem;font-weight:700;cursor:pointer;width:100%;transition:opacity .15s}
+.splan-btn:hover:not(:disabled){opacity:.85}
+.splan-btn:disabled{background:var(--st-card);color:var(--st-muted);cursor:not-allowed}
+
+/* ── Empty / loading ── */
+.plans-empty{text-align:center;padding:4rem 1rem;color:var(--st-muted)}
+.plans-empty-icon{font-size:3.5rem;margin-bottom:1rem}
+.plans-show-more{text-align:center;margin-top:2rem}
+.plans-show-more button{background:var(--st-card);border:1.5px solid var(--st-border);color:var(--st-muted);border-radius:12px;padding:.7rem 2.5rem;font-size:.9rem;font-weight:600;cursor:pointer;transition:all .2s}
+.plans-show-more button:hover{border-color:var(--st-accent);color:var(--st-accent)}
+
+/* ── Footer ── */
+.pfooter{background:var(--st-card);border-top:1px solid var(--st-border);padding:2rem 1.5rem;text-align:center;color:var(--st-muted);font-size:.82rem}
+.pfooter a{color:var(--st-muted);text-decoration:none;margin:0 .5rem}
+.pfooter a:hover{color:var(--st-text)}
+
+/* ── Responsive ── */
+@media(max-width:1100px){.splan-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:760px){
+  .splan-grid{grid-template-columns:repeat(2,1fr)}
+  .snav-links,.snav-theme-btn{display:none}
+  .snav-burger{display:block}
+  .plans-header{padding:2rem 1rem 1rem}
+  .plans-filters,.plans-results-bar,.plans-main{padding-left:1rem;padding-right:1rem}
+}
+@media(max-width:480px){
+  .splan-grid{grid-template-columns:repeat(2,1fr);gap:.7rem}
+  .plans-search-row{flex-direction:column}
+  .filter-select{width:100%}
+}
+@media(max-width:360px){.splan-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<script>
+(function(){
+  var t=localStorage.getItem('theme')||(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+  document.documentElement.setAttribute('data-theme',t);
+})();
+</script>
+
+<!-- Navbar -->
+<nav class="snav">
+  <div class="snav-inner">
+    <a href="/" class="snav-logo" id="nav-logo">OTT Store</a>
+    <div class="snav-links">
+      <a href="/">Home</a>
+      <a href="/plans" class="active">Plans</a>
+      <a href="/#how-it-works">How It Works</a>
+      <a href="/#faq">FAQ</a>
+      <a href="/blog">Blog</a>
+    </div>
+    <div class="snav-right">
+      <button id="theme-toggle" class="snav-theme-btn" title="Toggle theme">🌙</button>
+      <a href="/my" class="snav-login" id="header-login-btn">Login / Sign Up</a>
+    </div>
+    <button class="snav-burger" id="nav-burger" aria-label="Menu">☰</button>
+  </div>
+</nav>
+
+<!-- Mobile nav -->
+<div class="snav-mob" id="nav-mob">
+  <button class="snav-mob-close" id="nav-mob-close">✕</button>
+  <a href="/">🏠 Home</a>
+  <a href="/plans">📦 All Plans</a>
+  <a href="/#how-it-works">🔧 How It Works</a>
+  <a href="/#faq">❓ FAQ</a>
+  <a href="/blog">✍️ Blog</a>
+  <a href="/my" class="snav-login" style="text-align:center;margin-top:.5rem">Login / Sign Up</a>
+</div>
+
+<!-- Page Header -->
+<div class="plans-header">
+  <div class="plans-header-badge">📦 All Plans</div>
+  <h1>Browse All <span>Subscriptions</span></h1>
+  <p>Choose from 50+ OTT, music, productivity &amp; streaming plans — at India's lowest prices.</p>
+</div>
+
+<!-- Filters -->
+<div class="plans-filters">
+  <div class="plans-search-row">
+    <div class="plans-search-box">
+      <input id="search-input" type="search" placeholder="Search plans, platforms..." autocomplete="off">
+    </div>
+    <select class="filter-select" id="duration-filter">
+      <option value="">⏱ All Durations</option>
+      <option value="30">1 Month</option>
+      <option value="90">3 Months</option>
+      <option value="180">6 Months</option>
+      <option value="365">1 Year</option>
+    </select>
+    <select class="filter-select" id="sort-filter">
+      <option value="">Sort: Default</option>
+      <option value="price_asc">Price: Low → High</option>
+      <option value="price_desc">Price: High → Low</option>
+      <option value="name_asc">Name: A → Z</option>
+    </select>
+  </div>
+  <div class="plat-chips" id="platform-chips">
+    <button class="plat-chip active" data-platform="">🌐 All Platforms</button>
+  </div>
+</div>
+
+<!-- Results bar -->
+<div class="plans-results-bar">
+  <div class="plans-count" id="results-count">Loading plans...</div>
+</div>
+
+<!-- Plans Grid -->
+<div class="plans-main">
+  <div id="plans-loading" style="text-align:center;padding:4rem"><div class="spinner"></div></div>
+  <div class="splan-grid" id="plans-grid" style="display:none"></div>
+  <div id="no-plans" style="display:none">
+    <div class="plans-empty">
+      <div class="plans-empty-icon">🎬</div>
+      <p>No plans found. Try a different filter.</p>
+    </div>
+  </div>
+  <div class="plans-show-more" id="plans-show-more" style="display:none">
+    <button id="show-more-btn">Show more plans ↓</button>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer class="pfooter">
+  <p id="footer-copy">© 2025 OTT Store. All rights reserved.</p>
+  <div style="margin-top:.5rem">
+    <a href="/">Home</a>
+    <a href="/privacy">Privacy</a>
+    <a href="/terms">Terms</a>
+    <a href="/refund">Refund Policy</a>
+    <a href="/my">My Account</a>
+  </div>
+</footer>
+
+<script>
+(function(){
+'use strict';
+
+// Theme
+const themeBtn = document.getElementById('theme-toggle');
+function applyTheme(t){document.documentElement.setAttribute('data-theme',t);themeBtn.textContent=t==='dark'?'☀️':'🌙';}
+applyTheme(document.documentElement.getAttribute('data-theme')||'dark');
+themeBtn.addEventListener('click',()=>{const n=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';localStorage.setItem('theme',n);applyTheme(n);});
+
+// Mobile nav
+const burger=document.getElementById('nav-burger');
+const mob=document.getElementById('nav-mob');
+const mobClose=document.getElementById('nav-mob-close');
+burger.addEventListener('click',()=>mob.classList.add('open'));
+mobClose.addEventListener('click',()=>mob.classList.remove('open'));
+mob.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>mob.classList.remove('open')));
+
+// Platform icons + colors
+const ICONS={'Netflix':'🎬','Amazon Prime':'📦','Disney+':'⭐','Disney+ Hotstar':'⭐','Sony LIV':'📺','Zee5':'🎭','ZEE5':'🎭','Hotstar':'🌟','JioCinema':'🎥','MX Player':'▶️','Apple TV+':'🍎','Spotify':'🎵','YouTube Premium':'▶️','YouTube':'▶️','Canva':'🎨','LinkedIn':'💼','ChatGPT':'🤖','Adobe':'🎨','Microsoft 365':'💻','Voot':'📱','HBO Max':'🎬','OpenAI':'🤖'};
+const COLORS={'Netflix':['#e50914','#8b0000'],'Amazon Prime':['#00a8e0','#005c8a'],'Prime Video':['#00a8e0','#005c8a'],'Disney+':['#0f2f7f','#3d5afa'],'Disney+ Hotstar':['#1a56db','#0284c7'],'Hotstar':['#00b4ff','#0070b8'],'Sony LIV':['#004fcc','#1a73e8'],'Zee5':['#7b1fa2','#c026d3'],'ZEE5':['#7b1fa2','#c026d3'],'JioCinema':['#4a00e0','#8e2de2'],'Spotify':['#1db954','#127c38'],'YouTube Premium':['#ff0000','#b91c1c'],'YouTube':['#ff0000','#b91c1c'],'Canva':['#00c4cc','#0098a6'],'LinkedIn':['#0a66c2','#004182'],'ChatGPT':['#10a37f','#0d6b58'],'Adobe':['#fa0f00','#b30b00'],'Microsoft 365':['#0078d4','#005a9e'],'Apple TV+':['#1c1c1e','#48484a'],'default':['#7c3aed','#6d28d9']};
+
+let ALL_PLANS=[], ACTIVE_PLATFORM='', SEARCH='', DURATION='', SORT='', isLoggedIn=false;
+const PAGE_SIZE=24;
+let _visible=PAGE_SIZE;
+
+// Store config
+fetch('/user/api/store').then(r=>r.json()).then(s=>{
+  if(s.logo_light_url||s.logo_dark_url){
+    const light=s.logo_light_url||s.logo_dark_url, dark=s.logo_dark_url||s.logo_light_url;
+    document.getElementById('nav-logo').innerHTML=`<img src="${light}" class="logo-light" alt="${s.site_name||'Logo'}"><img src="${dark}" class="logo-dark" alt="${s.site_name||'Logo'}">`;
+  } else if(s.site_name){
+    document.getElementById('nav-logo').textContent=s.site_name;
+  }
+  if(s.site_name){
+    document.getElementById('footer-copy').textContent=`© ${new Date().getFullYear()} ${s.site_name}. All rights reserved.`;
+    document.title=`All Plans — ${s.site_name}`;
+  }
+  if(s.store_theme)document.documentElement.setAttribute('data-store-theme',s.store_theme);
+}).catch(()=>{});
+
+// Auth check
+fetch('/user/api/me',{credentials:'include'}).then(r=>{
+  if(r.ok){isLoggedIn=true;document.getElementById('header-login-btn').textContent='👤 My Account';}
+}).catch(()=>{});
+
+// Load plans
+fetch('/user/api/plans').then(r=>r.json()).then(plans=>{
+  ALL_PLANS=plans;
+  document.getElementById('plans-loading').style.display='none';
+  buildPlatformChips(plans);
+  renderPlans();
+}).catch(()=>{
+  document.getElementById('plans-loading').innerHTML='<p style="color:var(--st-muted)">⚠️ Failed to load plans.</p>';
+});
+
+function buildPlatformChips(plans){
+  const platforms=[...new Set(plans.map(p=>p.platform))].sort();
+  const container=document.getElementById('platform-chips');
+  platforms.forEach(pf=>{
+    const btn=document.createElement('button');
+    btn.className='plat-chip';
+    btn.dataset.platform=pf;
+    const cols=COLORS[pf]||COLORS['default'];
+    btn.innerHTML=`<span style="font-size:.9em">${ICONS[pf]||'📺'}</span> ${esc(pf)}`;
+    container.appendChild(btn);
+  });
+  container.addEventListener('click',e=>{
+    const chip=e.target.closest('.plat-chip');
+    if(!chip)return;
+    ACTIVE_PLATFORM=chip.dataset.platform||'';
+    _visible=PAGE_SIZE;
+    container.querySelectorAll('.plat-chip').forEach(c=>c.classList.toggle('active',c===chip));
+    renderPlans();
+  });
+}
+
+document.getElementById('search-input').addEventListener('input',e=>{SEARCH=e.target.value.toLowerCase();_visible=PAGE_SIZE;renderPlans();});
+document.getElementById('duration-filter').addEventListener('change',e=>{DURATION=e.target.value;_visible=PAGE_SIZE;renderPlans();});
+document.getElementById('sort-filter').addEventListener('change',e=>{SORT=e.target.value;renderPlans();});
+document.getElementById('show-more-btn').addEventListener('click',()=>{_visible+=PAGE_SIZE;renderPlans();});
+
+function renderPlans(){
+  let plans=[...ALL_PLANS];
+  if(ACTIVE_PLATFORM)plans=plans.filter(p=>p.platform===ACTIVE_PLATFORM);
+  if(SEARCH)plans=plans.filter(p=>p.name.toLowerCase().includes(SEARCH)||p.platform.toLowerCase().includes(SEARCH));
+  if(DURATION){
+    const d=parseInt(DURATION);
+    plans=plans.filter(p=>{
+      if(d===30)return p.duration_days>0&&p.duration_days<=35;
+      if(d===90)return p.duration_days>35&&p.duration_days<=100;
+      if(d===180)return p.duration_days>100&&p.duration_days<=200;
+      if(d===365)return p.duration_days>200;
+      return true;
+    });
+  }
+  if(SORT==='price_asc')plans.sort((a,b)=>a.price_inr-b.price_inr);
+  else if(SORT==='price_desc')plans.sort((a,b)=>b.price_inr-a.price_inr);
+  else if(SORT==='name_asc')plans.sort((a,b)=>a.name.localeCompare(b.name));
+
+  const grid=document.getElementById('plans-grid');
+  const noPlans=document.getElementById('no-plans');
+  const showMore=document.getElementById('plans-show-more');
+  const countEl=document.getElementById('results-count');
+
+  countEl.textContent=`${plans.length} plan${plans.length!==1?'s':''} found`;
+
+  if(!plans.length){
+    grid.style.display='none';noPlans.style.display='block';showMore.style.display='none';return;
+  }
+  noPlans.style.display='none';
+  grid.style.display='grid';
+  grid.innerHTML=plans.slice(0,_visible).map(p=>planCard(p)).join('');
+  grid.querySelectorAll('.splan-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      if(!isLoggedIn){window.location.href='/my';return;}
+      window.location.href='/my#plans';
+    });
+  });
+  showMore.style.display=plans.length>_visible?'block':'none';
+  if(plans.length>_visible){
+    document.getElementById('show-more-btn').textContent=`Show ${plans.length-_visible} more plans ↓`;
+  }
+}
+
+function planCard(p){
+  const features=Array.isArray(p.features)?p.features:[];
+  const origPrice=(p.original_price_inr&&p.original_price_inr>p.price_inr)?`<span class="splan-orig">₹${Number(p.original_price_inr).toLocaleString('en-IN')}</span>`:'';
+  const badge=p.badge?`<span class="splan-badge">${esc(p.badge)}</span>`:'';
+  const outOfStock=p.stock===0;
+  const icon=ICONS[p.platform]||'📺';
+  const dur=!p.duration_days?'Lifetime':p.duration_days>=365?`${Math.round(p.duration_days/365)}Y`:p.duration_days>=30?`${Math.round(p.duration_days/30)}M`:`${p.duration_days}d`;
+  const cols=COLORS[p.platform]||COLORS['default'];
+  const grad=`linear-gradient(135deg,${cols[0]},${cols[1]})`;
+  const headerInner=p.image_url
+    ?`<img src="${esc(p.image_url)}" alt="${esc(p.platform)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="splan-header-bg" style="display:none;background:${grad}"><span class="splan-header-icon">${icon}</span><span class="splan-header-plat">${esc(p.platform)}</span></div>`
+    :`<div class="splan-header-bg" style="background:${grad}"><span class="splan-header-icon">${icon}</span><span class="splan-header-plat">${esc(p.platform)}</span></div>`;
+  return `<div class="splan-card${p.badge?' featured':''}${outOfStock?' splan-oos':''}">
+<div class="splan-header">${badge}${headerInner}</div>
+<div class="splan-body">
+  <div class="splan-name">${esc(p.name)}</div>
+  <div class="splan-dur">⏱ ${dur} validity</div>
+  <div class="splan-price-row"><span class="splan-price">₹${Number(p.price_inr).toLocaleString('en-IN')}</span>${origPrice}</div>
+  ${p.delivery_type==='instant'?'<div class="splan-delivery">⚡ Instant Delivery</div>':''}
+  ${features.length?`<ul class="splan-feats">${features.slice(0,3).map(f=>`<li>${esc(f)}</li>`).join('')}</ul>`:''}
+  <button class="splan-btn" ${outOfStock?'disabled':''} data-id="${p.id}">${outOfStock?'🔴 Out of Stock':isLoggedIn?'🛒 Buy Now':'🔐 Login to Buy'}</button>
+</div>
+</div>`;
+}
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+})();
+</script>
+</body>
+</html>

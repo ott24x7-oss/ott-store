@@ -16,10 +16,15 @@
 .my-main-auth{flex:1;display:flex;align-items:center;justify-content:center;padding:2rem 1rem}
 
 /* ── Header ── */
-.my-nav{position:sticky;top:0;z-index:200;background:var(--header-bg);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:.7rem 1.25rem}
+.my-nav{position:sticky;top:0;z-index:200;background:rgba(8,11,20,.88);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:.8rem 1.5rem}
 .my-nav-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:.75rem}
-.my-logo{font-size:1.15rem;font-weight:800;color:var(--text);text-decoration:none;flex-shrink:0}
-.my-logo:hover{color:var(--grad-1);text-decoration:none}
+.my-logo{font-size:1.25rem;font-weight:900;background:linear-gradient(135deg,#7c3aed,#4f46e5);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-decoration:none;flex-shrink:0;display:flex;align-items:center}
+.my-logo:hover{opacity:.85;text-decoration:none}
+.my-logo img{max-height:36px;max-width:160px;object-fit:contain;display:block}
+html .my-logo .logo-light{display:block}
+html .my-logo .logo-dark{display:none}
+html[data-theme="dark"] .my-logo .logo-light{display:none}
+html[data-theme="dark"] .my-logo .logo-dark{display:block}
 .my-nav-links{display:flex;gap:.25rem;align-items:center}
 .my-nav-links a{color:var(--muted);font-size:.875rem;font-weight:600;padding:.3rem .65rem;border-radius:7px;text-decoration:none;transition:all .15s}
 .my-nav-links a:hover{color:var(--text);background:rgba(99,102,241,.1);text-decoration:none}
@@ -97,18 +102,72 @@
 .my-err{font-size:.82rem;color:var(--red);background:var(--red-bg);border:1px solid var(--red);border-radius:8px;padding:.5rem .75rem}
 .my-ok{font-size:.82rem;color:var(--green);background:var(--green-bg);border:1px solid var(--green);border-radius:8px;padding:.5rem .75rem}
 
-/* Portal stats / cards (reuse existing style.css classes, add portal-specific) */
-.my-stat-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem}
-.my-stat-card{text-align:center}
-.my-stat-icon{font-size:1.4rem;margin-bottom:.2rem}
-.my-stat-label{font-size:.72rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-.my-stat-val{font-size:1.55rem;font-weight:800;background:linear-gradient(135deg,var(--grad-1),var(--grad-2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+/* ── Dashboard Hero ── */
+.dash-hero{background:linear-gradient(135deg,var(--grad-1) 0%,var(--grad-2) 55%,var(--grad-3) 100%);border-radius:20px;padding:1.5rem 1.75rem;margin-bottom:1.25rem;position:relative;overflow:hidden;color:#fff}
+.dash-hero::before{content:'';position:absolute;width:280px;height:280px;border-radius:50%;background:rgba(255,255,255,.07);top:-80px;right:-60px;pointer-events:none}
+.dash-hero::after{content:'';position:absolute;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.05);bottom:-60px;right:80px;pointer-events:none}
+.dash-hero-top{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;position:relative;z-index:1}
+.dash-hero-greet{font-size:.82rem;opacity:.85;margin-bottom:.15rem;font-weight:500}
+.dash-hero-name{font-size:1.45rem;font-weight:900;line-height:1.15}
+.dash-hero-wallet{text-align:right;flex-shrink:0}
+.dash-hero-wlbl{font-size:.7rem;opacity:.75;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.1rem}
+.dash-hero-wamt{font-size:1.6rem;font-weight:900;letter-spacing:-.02em}
+.dash-hero-actions{display:flex;gap:.6rem;margin-top:1.1rem;position:relative;z-index:1}
+.dash-hero-btn{padding:.45rem 1rem;border-radius:50px;font-size:.8rem;font-weight:700;cursor:pointer;border:none;transition:all .15s;text-decoration:none;display:inline-flex;align-items:center;gap:.35rem}
+.dash-hero-btn-white{background:#fff;color:var(--grad-1)}
+.dash-hero-btn-white:hover{background:rgba(255,255,255,.9)}
+.dash-hero-btn-ghost{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3)}
+.dash-hero-btn-ghost:hover{background:rgba(255,255,255,.25)}
 
-.my-qa{display:grid;grid-template-columns:repeat(4,1fr);gap:.7rem;margin-bottom:1.5rem}
-.my-qa-tile{display:flex;flex-direction:column;align-items:center;gap:.4rem;padding:.9rem .5rem;background:var(--card);border:1.5px solid var(--border);border-radius:12px;cursor:pointer;transition:all .15s;text-align:center}
-.my-qa-tile:hover{border-color:var(--grad-1);transform:translateY(-2px)}
-.my-qa-icon{font-size:1.5rem}
-.my-qa-lbl{font-size:.78rem;font-weight:600;color:var(--muted)}
+/* ── Stat cards ── */
+.my-stat-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:.85rem;margin-bottom:1.25rem}
+.my-stat-card{text-align:left;padding:1.1rem 1.1rem .95rem;position:relative;overflow:hidden;border-radius:16px}
+.my-stat-card::after{content:attr(data-icon);position:absolute;right:-.2rem;bottom:-.5rem;font-size:3.2rem;opacity:.09;pointer-events:none;line-height:1}
+.my-stat-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;margin-bottom:.6rem}
+.my-stat-label{font-size:.7rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.2rem}
+.my-stat-val{font-size:1.5rem;font-weight:900;background:linear-gradient(135deg,var(--grad-1),var(--grad-2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.1}
+.my-stat-icon-wallet{background:linear-gradient(135deg,rgba(99,102,241,.18),rgba(139,92,246,.18))}
+.my-stat-icon-active{background:linear-gradient(135deg,rgba(16,185,129,.18),rgba(5,150,105,.18))}
+.my-stat-icon-orders{background:linear-gradient(135deg,rgba(245,158,11,.18),rgba(234,88,12,.18))}
+.my-stat-icon-spent{background:linear-gradient(135deg,rgba(236,72,153,.18),rgba(219,39,119,.18))}
+
+/* ── Quick Actions ── */
+.dash-section-title{font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.7rem}
+.my-qa{display:grid;grid-template-columns:repeat(6,1fr);gap:.65rem;margin-bottom:1.5rem}
+.my-qa-tile{display:flex;flex-direction:column;align-items:center;gap:.45rem;padding:1rem .5rem .85rem;background:var(--card);border:1.5px solid var(--border);border-radius:14px;cursor:pointer;transition:all .18s;text-align:center;position:relative;overflow:hidden}
+.my-qa-tile::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,var(--grad-1),var(--grad-2));opacity:0;transition:opacity .18s;border-radius:13px}
+.my-qa-tile:hover::before{opacity:.06}
+.my-qa-tile:hover{border-color:var(--grad-1);transform:translateY(-3px);box-shadow:0 8px 20px rgba(99,102,241,.13)}
+.my-qa-tile:active{transform:translateY(-1px)}
+.my-qa-icon-wrap{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.25rem;position:relative;z-index:1;flex-shrink:0}
+.my-qa-lbl{font-size:.71rem;font-weight:700;color:var(--text);position:relative;z-index:1;line-height:1.3}
+.qa-plans .my-qa-icon-wrap{background:linear-gradient(135deg,#6366f1,#8b5cf6)}
+.qa-orders .my-qa-icon-wrap{background:linear-gradient(135deg,#f59e0b,#ea580c)}
+.qa-topup .my-qa-icon-wrap{background:linear-gradient(135deg,#10b981,#059669)}
+.qa-referral .my-qa-icon-wrap{background:linear-gradient(135deg,#ec4899,#db2777)}
+.qa-support .my-qa-icon-wrap{background:linear-gradient(135deg,#0ea5e9,#0284c7)}
+.qa-profile .my-qa-icon-wrap{background:linear-gradient(135deg,#8b5cf6,#7c3aed)}
+
+/* ── Active Subs ── */
+.dash-active-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.75rem;margin-bottom:1.5rem}
+.dash-active-card{background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:1rem 1.1rem;display:flex;align-items:center;gap:.9rem;transition:all .15s}
+.dash-active-card:hover{border-color:var(--grad-1)}
+.dash-active-icon{width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,var(--grad-1),var(--grad-2));display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0}
+.dash-active-info{min-width:0}
+.dash-active-name{font-weight:700;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-active-plat{font-size:.73rem;color:var(--muted);margin-bottom:.2rem}
+.dash-active-exp{font-size:.7rem;color:var(--muted)}
+.dash-active-exp.exp-soon{color:#f59e0b;font-weight:600}
+
+/* ── Recent orders row ── */
+.dash-order-row{display:flex;align-items:center;gap:.85rem;padding:.85rem 1rem;border-bottom:1px solid var(--border)}
+.dash-order-row:last-child{border-bottom:none}
+.dash-order-icon{width:38px;height:38px;border-radius:9px;background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(139,92,246,.12));display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+.dash-order-info{flex:1;min-width:0}
+.dash-order-name{font-weight:600;font-size:.875rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-order-meta{font-size:.73rem;color:var(--muted);margin-top:.1rem}
+.dash-order-right{text-align:right;flex-shrink:0}
+.dash-order-amt{font-weight:700;font-size:.88rem}
 
 .my-plans-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}
 .my-plat-chips{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem}
@@ -177,29 +236,47 @@
 .my-thread-msg.admin{background:var(--card);border:1px solid var(--border);align-self:flex-start}
 .my-thread-sender{font-size:.7rem;font-weight:700;color:var(--muted);margin-bottom:.2rem}
 
+@media(max-width:900px){
+  .my-qa{grid-template-columns:repeat(3,1fr)}
+}
 @media(max-width:760px){
   .my-tab-nav{display:none}
   .my-bnav{display:flex}
   .my-nav-links{display:none}
   .my-stat-cards{grid-template-columns:repeat(2,1fr);gap:.7rem}
-  .my-stat-val{font-size:1.2rem}
-  .my-qa{grid-template-columns:repeat(2,1fr)}
+  .my-stat-val{font-size:1.3rem}
+  .my-qa{grid-template-columns:repeat(3,1fr)}
   .my-plans-grid{grid-template-columns:repeat(2,1fr)}
   .my-topup-methods{grid-template-columns:1fr}
   .my-main{padding:1rem .75rem 6rem}
   .my-auth-card{padding:1.5rem 1.25rem}
+  .dash-hero{padding:1.25rem 1.25rem}
+  .dash-hero-name{font-size:1.2rem}
+  .dash-hero-wamt{font-size:1.35rem}
+}
+@media(max-width:520px){
+  .my-qa{grid-template-columns:repeat(3,1fr);gap:.5rem}
+  .my-qa-icon-wrap{width:38px;height:38px;font-size:1.1rem}
+  .my-qa-lbl{font-size:.66rem}
+  .my-stat-cards{grid-template-columns:repeat(2,1fr);gap:.6rem}
+  .dash-active-grid{grid-template-columns:1fr}
+  .dash-hero-actions{flex-wrap:wrap;gap:.45rem}
 }
 @media(max-width:480px){
   .my-plans-grid{grid-template-columns:1fr}
   .mam-btn{font-size:.68rem;padding:.4rem .25rem}
+  .my-qa{grid-template-columns:repeat(3,1fr)}
 }
+.spinner-inline{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--grad-1);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:4px}
 </style>
 </head>
 <body>
 <script>
 (function(){
-  var t=localStorage.getItem('theme')||(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+  var t=localStorage.getItem('theme')||'dark';
   document.documentElement.setAttribute('data-theme',t);
+  var st=localStorage.getItem('store_theme')||'midnight-purple';
+  document.documentElement.setAttribute('data-store-theme',st);
 })();
 </script>
 
@@ -784,11 +861,14 @@ async function initPortal(loginResult){
   try{
     [STORE,CUSTOMER]=await Promise.all([api('/store'),api('/me')]);
     const siteName=STORE.site_name||'OTT Store';
-    document.getElementById('my-logo').textContent=siteName;
+    if(STORE.logo_light_url||STORE.logo_dark_url){
+      const l=STORE.logo_light_url||STORE.logo_dark_url, d=STORE.logo_dark_url||STORE.logo_light_url;
+      document.getElementById('my-logo').innerHTML=`<img src="${l}" class="logo-light" alt="${siteName}"><img src="${d}" class="logo-dark" alt="${siteName}">`;
+    } else { document.getElementById('my-logo').textContent=siteName; }
     document.title=`My Account — ${siteName}`;
     document.getElementById('my-title').textContent=`My Account — ${siteName}`;
     document.getElementById('footer-copy').textContent=`© ${new Date().getFullYear()} ${siteName}`;
-    if(STORE.store_theme) document.documentElement.setAttribute('data-store-theme',STORE.store_theme);
+    if(STORE.store_theme){document.documentElement.setAttribute('data-store-theme',STORE.store_theme);localStorage.setItem('store_theme',STORE.store_theme);}
     updateHeaderUI();
     showPortal();
     buildNav();
@@ -805,7 +885,10 @@ async function initPortal(loginResult){
     // Not logged in or API error
     try{STORE=await api('/store');}catch{}
     const siteName=STORE?.site_name||'OTT Store';
-    document.getElementById('my-logo').textContent=siteName;
+    if(STORE?.logo_light_url||STORE?.logo_dark_url){
+      const l=STORE.logo_light_url||STORE.logo_dark_url, d=STORE.logo_dark_url||STORE.logo_light_url;
+      document.getElementById('my-logo').innerHTML=`<img src="${l}" class="logo-light" alt="${siteName}"><img src="${d}" class="logo-dark" alt="${siteName}">`;
+    } else { document.getElementById('my-logo').textContent=siteName; }
     document.title=`Login — ${siteName}`;
     document.getElementById('footer-copy').textContent=`© ${new Date().getFullYear()} ${siteName}`;
     if(STORE?.store_theme) document.documentElement.setAttribute('data-store-theme',STORE.store_theme);
@@ -838,26 +921,137 @@ async function renderDashboard(){
   main.innerHTML=`<div class="spinner"></div>`;
   try{
     [ORDERS,TXNS]=await Promise.all([api('/orders'),api('/wallet/transactions')]);
-    const active=ORDERS.filter(o=>o.status==='delivered'&&o.expires_at&&new Date(o.expires_at)>new Date()).length;
+    const now=new Date();
+    const activeSubs=ORDERS.filter(o=>o.status==='delivered'&&o.expires_at&&new Date(o.expires_at)>now);
     const totalSpent=ORDERS.filter(o=>o.status!=='cancelled').reduce((s,o)=>s+Number(o.amount_inr||0),0);
-    const expiring=ORDERS.filter(o=>{if(o.status!=='delivered'||!o.expires_at)return false;const d=new Date(o.expires_at)-new Date();return d>0&&d<7*86400000;});
-    main.innerHTML=`
+    const expiring=ORDERS.filter(o=>{if(o.status!=='delivered'||!o.expires_at)return false;const d=new Date(o.expires_at)-now;return d>0&&d<7*86400000;});
+    const greeting=()=>{const h=new Date().getHours();return h<12?'Good morning':h<17?'Good afternoon':'Good evening'};
+
+    // Hero card
+    const heroHtml=`
+<div class="dash-hero">
+  <div class="dash-hero-top">
+    <div>
+      <div class="dash-hero-greet">${greeting()}, ${esc(CUSTOMER.name?.split(' ')[0]||'there')} 👋</div>
+      <div class="dash-hero-name">${esc(STORE.site_name||'OTT Store')}</div>
+    </div>
+    <div class="dash-hero-wallet">
+      <div class="dash-hero-wlbl">Wallet Balance</div>
+      <div class="dash-hero-wamt">${fmt(CUSTOMER.wallet_inr)}</div>
+    </div>
+  </div>
+  <div class="dash-hero-actions">
+    <button class="dash-hero-btn dash-hero-btn-white" onclick="goTab('plans')">🎬 Browse Plans</button>
+    <button class="dash-hero-btn dash-hero-btn-ghost" onclick="goTab('wallet')">➕ Add Money</button>
+  </div>
+</div>`;
+
+    // Alerts
+    const alertsHtml=`
 ${STORE.announcement?`<div class="alert alert-info" style="margin-bottom:1rem">📢 ${esc(STORE.announcement)}</div>`:''}
-${expiring.length?`<div class="alert alert-warn" style="margin-bottom:1rem">⚠️ ${expiring.length} subscription${expiring.length>1?'s':''} expiring within 7 days! <span style="cursor:pointer;color:var(--blue)" onclick="goTab('orders')">View →</span></div>`:''}
+${expiring.length?`<div class="alert alert-warn" style="margin-bottom:1rem">⚠️ ${expiring.length} subscription${expiring.length>1?'s':''} expiring soon! <span style="cursor:pointer;color:var(--blue);font-weight:600" onclick="goTab('orders')">Renew →</span></div>`:''}`;
+
+    // Stat cards
+    const statsHtml=`
 <div class="my-stat-cards">
-  <div class="card my-stat-card"><div class="my-stat-icon">💰</div><div class="my-stat-label">Wallet</div><div class="my-stat-val">${fmt(CUSTOMER.wallet_inr)}</div></div>
-  <div class="card my-stat-card"><div class="my-stat-icon">▶️</div><div class="my-stat-label">Active</div><div class="my-stat-val">${active}</div></div>
-  <div class="card my-stat-card"><div class="my-stat-icon">📦</div><div class="my-stat-label">Orders</div><div class="my-stat-val">${ORDERS.length}</div></div>
-  <div class="card my-stat-card"><div class="my-stat-icon">💸</div><div class="my-stat-label">Spent</div><div class="my-stat-val">${fmt(totalSpent)}</div></div>
-</div>
+  <div class="card my-stat-card" data-icon="💰" onclick="goTab('wallet')" style="cursor:pointer">
+    <div class="my-stat-icon my-stat-icon-wallet">💰</div>
+    <div class="my-stat-label">Wallet</div>
+    <div class="my-stat-val">${fmt(CUSTOMER.wallet_inr)}</div>
+  </div>
+  <div class="card my-stat-card" data-icon="▶️" onclick="goTab('orders')" style="cursor:pointer">
+    <div class="my-stat-icon my-stat-icon-active">▶️</div>
+    <div class="my-stat-label">Active</div>
+    <div class="my-stat-val">${activeSubs.length}</div>
+  </div>
+  <div class="card my-stat-card" data-icon="📦" onclick="goTab('orders')" style="cursor:pointer">
+    <div class="my-stat-icon my-stat-icon-orders">📦</div>
+    <div class="my-stat-label">Orders</div>
+    <div class="my-stat-val">${ORDERS.length}</div>
+  </div>
+  <div class="card my-stat-card" data-icon="💸">
+    <div class="my-stat-icon my-stat-icon-spent">💸</div>
+    <div class="my-stat-label">Spent</div>
+    <div class="my-stat-val">${fmt(totalSpent)}</div>
+  </div>
+</div>`;
+
+    // Quick actions (6 tiles)
+    const qaHtml=`
+<div class="dash-section-title">Quick Actions</div>
 <div class="my-qa">
-  <div class="my-qa-tile" onclick="goTab('plans')"><div class="my-qa-icon">🎬</div><div class="my-qa-lbl">Browse Plans</div></div>
-  <div class="my-qa-tile" onclick="goTab('orders')"><div class="my-qa-icon">📦</div><div class="my-qa-lbl">My Orders</div></div>
-  <div class="my-qa-tile" onclick="goTab('wallet')"><div class="my-qa-icon">💳</div><div class="my-qa-lbl">Top Up</div></div>
-  <div class="my-qa-tile" onclick="goTab('support')"><div class="my-qa-icon">🎧</div><div class="my-qa-lbl">Support</div></div>
+  <div class="my-qa-tile qa-plans" onclick="goTab('plans')">
+    <div class="my-qa-icon-wrap">🎬</div>
+    <div class="my-qa-lbl">Browse Plans</div>
+  </div>
+  <div class="my-qa-tile qa-orders" onclick="goTab('orders')">
+    <div class="my-qa-icon-wrap">📦</div>
+    <div class="my-qa-lbl">My Orders</div>
+  </div>
+  <div class="my-qa-tile qa-topup" onclick="goTab('wallet')">
+    <div class="my-qa-icon-wrap">💳</div>
+    <div class="my-qa-lbl">Top Up</div>
+  </div>
+  <div class="my-qa-tile qa-referral" onclick="goTab('referral')">
+    <div class="my-qa-icon-wrap">🎁</div>
+    <div class="my-qa-lbl">Referral</div>
+  </div>
+  <div class="my-qa-tile qa-support" onclick="goTab('support')">
+    <div class="my-qa-icon-wrap">🎧</div>
+    <div class="my-qa-lbl">Support</div>
+  </div>
+  <div class="my-qa-tile qa-profile" onclick="goTab('profile')">
+    <div class="my-qa-icon-wrap">👤</div>
+    <div class="my-qa-lbl">Profile</div>
+  </div>
+</div>`;
+
+    // Active subscriptions
+    const activeSubsHtml=activeSubs.length?`
+<div class="dash-section-title">Active Subscriptions</div>
+<div class="dash-active-grid">
+${activeSubs.slice(0,6).map(o=>{
+  const daysLeft=Math.ceil((new Date(o.expires_at)-now)/86400000);
+  const expSoon=daysLeft<=7;
+  const icon=PLATFORM_ICONS[o.platform]||'📺';
+  return `<div class="dash-active-card">
+<div class="dash-active-icon">${icon}</div>
+<div class="dash-active-info">
+  <div class="dash-active-plat">${esc(o.platform||'')}</div>
+  <div class="dash-active-name">${esc(o.plan_name||'Plan')}</div>
+  <div class="dash-active-exp${expSoon?' exp-soon':''}">${expSoon?'⚠️ ':'⏱ '}Expires in ${daysLeft}d</div>
 </div>
-<h3 style="font-weight:700;margin-bottom:.75rem">Recent Orders</h3>
-${ORDERS.slice(0,5).map(orderItem).join('')||'<p style="color:var(--muted)">No orders yet. <span style="color:var(--blue);cursor:pointer" onclick="goTab(\'plans\')">Browse plans →</span></p>'}`;
+</div>`;}).join('')}
+${activeSubs.length>6?`<div class="dash-active-card" style="justify-content:center;cursor:pointer;border-style:dashed" onclick="goTab('orders')"><div style="color:var(--muted);font-size:.85rem;font-weight:600">+${activeSubs.length-6} more →</div></div>`:''}
+</div>`:
+`<div class="dash-section-title">Active Subscriptions</div>
+<div class="card" style="padding:1.5rem;text-align:center;margin-bottom:1.5rem">
+  <div style="font-size:2.5rem;margin-bottom:.5rem">📺</div>
+  <p style="color:var(--muted);margin-bottom:.75rem;font-size:.9rem">No active subscriptions yet</p>
+  <button class="btn btn-primary btn-sm" onclick="goTab('plans')">Browse Plans →</button>
+</div>`;
+
+    // Recent orders
+    const recentHtml=`
+<div class="dash-section-title">Recent Orders</div>
+${ORDERS.length?`<div class="card" style="padding:0;overflow:hidden;margin-bottom:1.5rem">
+${ORDERS.slice(0,5).map(o=>`
+<div class="dash-order-row">
+  <div class="dash-order-icon">${PLATFORM_ICONS[o.platform]||'📺'}</div>
+  <div class="dash-order-info">
+    <div class="dash-order-name">${esc(o.plan_name||'Plan')}</div>
+    <div class="dash-order-meta">${esc(o.platform||'')} · ${fmtDate(o.created_at)}</div>
+  </div>
+  <div class="dash-order-right">
+    ${statusBadge(o.status)}
+    <div class="dash-order-amt">${fmt(o.amount_inr)}</div>
+  </div>
+</div>`).join('')}
+${ORDERS.length>5?`<div style="padding:.75rem 1rem;text-align:center"><span style="color:var(--blue);font-size:.82rem;font-weight:600;cursor:pointer" onclick="goTab('orders')">View all ${ORDERS.length} orders →</span></div>`:''}
+</div>`
+:`<div class="card" style="padding:1.5rem;text-align:center;margin-bottom:1.5rem"><p style="color:var(--muted);font-size:.9rem">No orders yet. <span style="color:var(--blue);cursor:pointer;font-weight:600" onclick="goTab('plans')">Browse plans →</span></p></div>`}`;
+
+    main.innerHTML=heroHtml+alertsHtml+statsHtml+qaHtml+activeSubsHtml+recentHtml;
     showProfileBanner();
   }catch(e){main.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`;}
 }
@@ -936,22 +1130,35 @@ function confirmBuy(planId,planName,price){
   const balance=Number(CUSTOMER?.wallet_inr||0);
   const cost=Number(price);
   const enough=balance>=cost;
+  const imapOn=STORE.imap_enabled==='1';
+
+  // Build payment options
+  const walletOption=`
+<button class="btn btn-primary btn-block" id="confirm-buy-btn" ${!enough?'disabled':''} style="margin-bottom:.5rem">
+  ${enough?'✅ Pay from Wallet — '+fmt(cost):'⚠️ Insufficient Wallet Balance'}
+</button>
+${!enough?`<p style="font-size:.75rem;color:var(--muted);text-align:center">Balance: ${fmt(balance)} — need ${fmt(cost)}</p>`:''}`;
+
+  const upiOption=imapOn?`<button class="btn btn-secondary btn-block" id="upi-direct-btn" style="margin-top:.5rem">📱 Pay via UPI — ${fmt(cost)}</button>`:'';
+
   const ov=openModal(`
 <div class="modal-header"><h3>Confirm Purchase</h3><button class="btn-icon" data-close>✕</button></div>
 <div class="modal-body">
-  ${!enough?`<div class="alert alert-warn">⚠️ Insufficient balance. You need ${fmt(cost)}, have ${fmt(balance)}. <span style="color:var(--blue);cursor:pointer" onclick="window._closeAndWallet()">Top up wallet →</span></div>`:''}
-  <div style="background:var(--input-bg);border-radius:var(--radius-sm);padding:1rem">
+  <div style="background:var(--input-bg);border-radius:var(--radius-sm);padding:1rem;margin-bottom:1rem">
     <div style="font-size:.8rem;color:var(--muted)">Plan</div>
     <div style="font-weight:700">${esc(planName)}</div>
-    <div style="font-size:1.3rem;font-weight:800;margin-top:.5rem" class="grad-text">${fmt(cost)}</div>
+    <div style="font-size:1.3rem;font-weight:800;margin-top:.25rem" class="grad-text">${fmt(cost)}</div>
   </div>
-  <p style="font-size:.8rem;color:var(--muted);margin-top:.5rem">Amount will be deducted from your wallet balance.</p>
+  <div id="buy-payment-area">
+    ${walletOption}
+    ${upiOption}
+  </div>
 </div>
 <div class="modal-footer">
   <button class="btn btn-secondary" data-close>Cancel</button>
-  <button class="btn btn-primary" id="confirm-buy-btn" ${!enough?'disabled':''}>Confirm Purchase</button>
 </div>`);
-  window._closeAndWallet=()=>{ov.remove();goTab('wallet');};
+
+  // Wallet pay
   document.getElementById('confirm-buy-btn')?.addEventListener('click',async()=>{
     const btn=document.getElementById('confirm-buy-btn');
     setLoading(btn,true,'Processing...');
@@ -963,6 +1170,62 @@ function confirmBuy(planId,planName,price){
       goTab('orders');
     }catch(e){setLoading(btn,false);showToast(e.message,'error');}
   });
+
+  // UPI direct pay
+  document.getElementById('upi-direct-btn')?.addEventListener('click',async()=>{
+    const area=document.getElementById('buy-payment-area');
+    area.innerHTML=`<div class="spinner" style="margin:1rem auto"></div>`;
+    try{
+      const r=await api('/checkout/upi-direct',{method:'POST',body:JSON.stringify({plan_id:Number(planId)})});
+      showUpiPaymentStep(ov,area,r,planName);
+    }catch(e){
+      area.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>
+<button class="btn btn-secondary btn-block mt-2" onclick="confirmBuy(${planId},'${planName.replace(/'/g,"\\'")}',${price});this.closest('.modal-overlay').remove()">← Back</button>`;
+    }
+  });
+}
+
+function showUpiPaymentStep(modalEl,area,r,planName){
+  const upiLink=`upi://pay?pa=${encodeURIComponent(r.upi_id)}&pn=${encodeURIComponent(r.upi_name||'Store')}&am=${r.unique_amount}&cu=INR`;
+  area.innerHTML=`
+<div style="text-align:center;padding:.5rem 0">
+  <div style="font-size:.8rem;color:var(--muted);margin-bottom:.25rem">Pay exactly</div>
+  <div style="font-size:2rem;font-weight:900;color:var(--green)" class="grad-text">₹${r.unique_amount}</div>
+  <div style="font-size:.75rem;color:var(--muted);margin-bottom:1rem">(unique amount — do not round off)</div>
+  <div style="background:var(--input-bg);border-radius:var(--radius-sm);padding:.75rem;margin-bottom:.75rem">
+    <div style="font-size:.75rem;color:var(--muted)">UPI ID</div>
+    <div style="font-weight:700;font-size:1rem;word-break:break-all">${esc(r.upi_id)}</div>
+  </div>
+  <a href="${upiLink}" class="btn btn-primary btn-block" style="margin-bottom:.5rem">📱 Open UPI App</a>
+  <div id="upi-poll-status" style="margin-top:1rem;font-size:.875rem;color:var(--muted)">
+    <span class="spinner-inline"></span> Waiting for payment confirmation...
+  </div>
+  <p style="font-size:.75rem;color:var(--muted);margin-top:.5rem">Auto-verified within 30 seconds after payment</p>
+</div>`;
+
+  // Poll every 5 seconds
+  let pollCount=0;
+  const maxPolls=72; // 6 minutes
+  const timer=setInterval(async()=>{
+    if(!document.body.contains(modalEl)){clearInterval(timer);return;}
+    pollCount++;
+    if(pollCount>maxPolls){
+      clearInterval(timer);
+      document.getElementById('upi-poll-status').innerHTML='⏱ Timed out. If you paid, check Orders tab in a minute.';
+      return;
+    }
+    try{
+      const s=await api('/checkout/poll/'+r.topup_id);
+      if(s.status==='paid'){
+        clearInterval(timer);
+        modalEl.remove();
+        CUSTOMER=await api('/me').catch(()=>CUSTOMER);
+        updateHeaderUI();
+        showToast('Payment confirmed! Order placed.','success');
+        goTab('orders');
+      }
+    }catch{}
+  },5000);
 }
 
 // ── Orders ─────────────────────────────────────────────────────────────────────

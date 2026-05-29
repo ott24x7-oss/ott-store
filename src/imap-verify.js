@@ -62,29 +62,99 @@ async function parseAndMatch(rawMessages) {
 
       // Auto-approve
       run(db, `UPDATE topups SET status='approved' WHERE id=?`, [topup.id]);
-      run(db, `UPDATE customers SET wallet_inr = wallet_inr + ? WHERE jid=?`, [topup.amount_inr, topup.customer_jid]);
-      run(db, `INSERT INTO wallet_txns (customer_jid,amount_inr,type,label,ref_id) VALUES (?,?,?,?,?)`,
-        [topup.customer_jid, topup.amount_inr, 'topup', 'UPI Auto-Verified', String(topup.id)]);
       run(db, `INSERT INTO audit_log (actor_kind,actor_label,action,target_kind,target_id,after_json) VALUES (?,?,?,?,?,?)`,
         ['system', 'imap-verify', 'topup_auto_approve', 'topup', String(topup.id),
-         JSON.stringify({ amount: topup.amount_inr, unique_amount: topup.unique_amount })]);
+         JSON.stringify({ amount: topup.amount_inr, unique_amount: topup.unique_amount, purpose: topup.purpose })]);
       matched++;
 
-      // Notify customer via email
-      const cust = get(db, 'SELECT email, name FROM customers WHERE jid=?', [topup.customer_jid]);
-      if (cust?.email) {
-        sendMail({
-          to: cust.email,
-          subject: 'Wallet Topped Up ✓',
-          html: `<p>Hi ${cust.name},</p><p>Your wallet has been topped up with <strong>₹${topup.amount_inr}</strong> via UPI (auto-verified).</p><p>Current balance updated in your account.</p>`,
-        }).catch(() => {});
-      }
+      const cust = get(db, 'SELECT * FROM customers WHERE jid=?', [topup.customer_jid]);
 
-      // Trigger auto-delivery for any pending orders
-      triggerDelivery(topup.customer_jid).catch(() => {});
+      if (topup.purpose === 'order' && topup.plan_id) {
+        // Direct checkout: create the order immediately, no wallet credit
+        await handleDirectCheckout(db, topup, cust).catch(() => {});
+      } else {
+        // Standard wallet topup
+        run(db, `UPDATE customers SET wallet_inr = wallet_inr + ? WHERE jid=?`, [topup.amount_inr, topup.customer_jid]);
+        run(db, `INSERT INTO wallet_txns (customer_jid,amount_inr,type,label,ref_id) VALUES (?,?,?,?,?)`,
+          [topup.customer_jid, topup.amount_inr, 'topup', 'UPI Auto-Verified', String(topup.id)]);
+
+        if (cust?.email) {
+          sendMail({
+            to: cust.email,
+            subject: 'Wallet Topped Up ✓',
+            html: `<p>Hi ${cust.name},</p><p>Your wallet has been topped up with <strong>₹${topup.amount_inr}</strong> via UPI (auto-verified).</p><p>Current balance updated in your account.</p>`,
+          }).catch(() => {});
+        }
+
+        // Trigger auto-delivery for any pending orders
+        triggerDelivery(topup.customer_jid).catch(() => {});
+      }
     }
   }
   return matched;
+}
+
+async function handleDirectCheckout(db, topup, cust) {
+  const plan = get(db, 'SELECT * FROM plans WHERE id=? AND active=1', [topup.plan_id]);
+  if (!plan) return;
+  if (plan.stock === 0) return;
+
+  const expiresAt = plan.duration_days
+    ? new Date(Date.now() + plan.duration_days * 86400000).toISOString()
+    : null;
+
+  const result = run(db, `INSERT INTO orders (customer_jid,plan_id,amount_inr,status,expires_at) VALUES (?,?,?,?,?)`,
+    [topup.customer_jid, topup.plan_id, topup.amount_inr, 'pending', expiresAt]);
+  const orderId = result.lastInsertRowid;
+
+  if (plan.stock > 0) run(db, `UPDATE plans SET stock=stock-1 WHERE id=?`, [topup.plan_id]);
+
+  // Link order back to topup for polling
+  run(db, `UPDATE topups SET order_id=? WHERE id=?`, [orderId, topup.id]);
+
+  // Credit referral reward on first order
+  if (cust?.referred_by) {
+    const alreadyRewarded = get(db, `SELECT id FROM referral_rewards WHERE referred_jid=?`, [topup.customer_jid]);
+    if (!alreadyRewarded) {
+      const rewardInr = parseFloat(await getSetting('referral_reward_inr') || '20');
+      run(db, `INSERT OR IGNORE INTO referral_rewards (referrer_jid,referred_jid,reward_inr,order_id) VALUES (?,?,?,?)`,
+        [cust.referred_by, topup.customer_jid, rewardInr, orderId]);
+      run(db, `UPDATE customers SET wallet_inr = wallet_inr + ? WHERE jid=?`, [rewardInr, cust.referred_by]);
+      run(db, `INSERT INTO wallet_txns (customer_jid,amount_inr,type,label) VALUES (?,?,?,?)`,
+        [cust.referred_by, rewardInr, 'referral', 'Referral bonus']);
+      run(db, `UPDATE referral_rewards SET status='credited' WHERE referred_jid=?`, [topup.customer_jid]);
+    }
+  }
+
+  run(db, `INSERT INTO audit_log (actor_kind,actor_label,action,target_kind,target_id,after_json) VALUES (?,?,?,?,?,?)`,
+    ['system', 'imap-verify', 'direct_checkout_order', 'order', String(orderId),
+     JSON.stringify({ topup_id: topup.id, plan_id: topup.plan_id, amount: topup.amount_inr })]);
+
+  // Notify customer via email
+  if (cust?.email) {
+    sendMail({
+      to: cust.email,
+      subject: `Order Placed — ${plan.platform} ${plan.name}`,
+      html: `<p>Hi ${cust.name},</p><p>Your payment of <strong>₹${topup.amount_inr}</strong> was received and your order for <strong>${plan.platform} — ${plan.name}</strong> has been placed.</p><p>Your credentials will be delivered shortly.</p>`,
+    }).catch(() => {});
+  }
+
+  // Notify owner via WhatsApp
+  notifyOwner(db, `🛍️ *New Order (UPI Direct)*\nCustomer: ${cust?.name || topup.customer_jid}\nPlan: ${plan.platform} — ${plan.name}\nAmount: ₹${topup.amount_inr}\nOrder ID: #${orderId}`).catch(() => {});
+
+  // Trigger auto-delivery
+  triggerDelivery(topup.customer_jid).catch(() => {});
+}
+
+async function notifyOwner(db, message) {
+  try {
+    const supportPhone = get(db, `SELECT value FROM settings WHERE key='support_whatsapp'`)?.value || '';
+    if (!supportPhone) return;
+    const phone = String(supportPhone).replace(/\D/g, '');
+    if (!phone) return;
+    const { sendToPhone } = require('./wa-bot');
+    await sendToPhone(phone, message);
+  } catch {}
 }
 
 // Called after wallet is credited — attempt auto-delivery of pending orders

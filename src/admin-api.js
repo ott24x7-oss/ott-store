@@ -115,6 +115,45 @@ router.get('/plan-image/:filename', async (req, res) => {
   } catch { res.status(404).end(); }
 });
 
+// ─── Site logo upload ─────────────────────────────────────────────────────────
+const logoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (/^image\/(png|jpeg|jpg|svg\+xml|webp|gif)$/.test(file.mimetype)) cb(null, true);
+    else cb(new Error('Only image files are allowed (PNG, JPG, SVG, WebP)'));
+  },
+});
+
+router.post('/upload-logo/:type', requireAdmin, logoUpload.single('logo'), async (req, res) => {
+  try {
+    const type = req.params.type === 'dark' ? 'dark' : 'light';
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    const ext = (req.file.originalname.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const filename = `logo_${type}.${ext}`;
+    fs.writeFileSync(path.join(UPLOADS_DIR, filename), req.file.buffer);
+    const url = `/data/uploads/${filename}`;
+    const db = await getDb();
+    run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, [`logo_${type}_url`, url]);
+    res.json({ ok: true, url });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/upload-logo/:type', requireAdmin, async (req, res) => {
+  try {
+    const type = req.params.type === 'dark' ? 'dark' : 'light';
+    const db = await getDb();
+    const row = get(db, `SELECT value FROM settings WHERE key=?`, [`logo_${type}_url`]);
+    if (row?.value) {
+      const filename = path.basename(row.value);
+      const filepath = path.join(UPLOADS_DIR, filename);
+      if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
+    }
+    run(db, `DELETE FROM settings WHERE key=?`, [`logo_${type}_url`]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── Plans ────────────────────────────────────────────────────────────────────
 router.get('/plans', requireAdmin, async (req, res) => {
   try {

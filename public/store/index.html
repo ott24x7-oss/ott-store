@@ -68,7 +68,14 @@ body::before{display:none}
   font-size:1.35rem;font-weight:900;
   background:var(--st-btn);-webkit-background-clip:text;-webkit-text-fill-color:transparent;
   background-clip:text;text-decoration:none;white-space:nowrap;
+  display:flex;align-items:center;
 }
+.snav-logo img{max-height:40px;max-width:180px;object-fit:contain;display:block;
+  -webkit-text-fill-color:initial;background:none}
+html[data-store-theme] .snav-logo .logo-light{display:block}
+html[data-store-theme] .snav-logo .logo-dark{display:none}
+html[data-theme="dark"] .snav-logo .logo-light{display:none}
+html[data-theme="dark"] .snav-logo .logo-dark{display:block}
 .snav-links{display:flex;gap:1.5rem;flex:1}
 .snav-links a{
   color:var(--st-muted);text-decoration:none;font-size:.9rem;font-weight:500;
@@ -654,6 +661,231 @@ body::before{display:none}
   .splan-body{padding:.75rem .85rem .85rem}
   .show-num{width:40px;height:40px;font-size:1rem}
 }
+
+/* ════════════════════════════════════════════════════════
+   CINEMATIC HERO — replaces old .shero styles
+   ════════════════════════════════════════════════════════ */
+
+/* Stars */
+@keyframes twinkle{0%,100%{opacity:.2}50%{opacity:1}}
+@keyframes float-up{0%{transform:translateY(0) scale(1);opacity:.6}100%{transform:translateY(-120vh) scale(.4);opacity:0}}
+@keyframes drift{0%{transform:translate(0,0)}50%{transform:translate(40px,20px)}100%{transform:translate(0,0)}}
+@keyframes glow-pulse{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:.9;transform:scale(1.08)}}
+@keyframes text-reveal{from{opacity:0;transform:translateY(32px)}to{opacity:1;transform:translateY(0)}}
+@keyframes badge-pop{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+@keyframes orbit-spin{to{transform:rotate(360deg)}}
+@keyframes orbit-spin-rev{to{transform:rotate(-360deg)}}
+@keyframes orbit-item-stable{to{transform:var(--orbit-pos) rotate(-360deg)}}
+@keyframes orbit-item-stable-rev{to{transform:var(--orbit-pos) rotate(360deg)}}
+@keyframes logo-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes scan-line{0%{top:-10%}100%{top:110%}}
+@keyframes marquee-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes gradient-shift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+
+/* ── New hero container ── */
+.shero-cinematic{
+  position:relative;min-height:100vh;display:flex;align-items:center;
+  overflow:hidden;padding:0;background:#030508;
+}
+
+/* Starfield layer */
+.shero-stars{
+  position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;
+}
+.star{position:absolute;border-radius:50%;animation:twinkle var(--dur,3s) var(--del,0s) ease-in-out infinite}
+.star-tiny{width:1px;height:1px;background:#fff}
+.star-sm{width:2px;height:2px;background:rgba(255,255,255,.8)}
+.star-md{width:3px;height:3px;background:rgba(200,190,255,.9);box-shadow:0 0 4px rgba(180,160,255,.6)}
+
+/* Gradient atmosphere */
+.shero-atmo{
+  position:absolute;inset:0;pointer-events:none;z-index:1;
+  background:
+    radial-gradient(ellipse 60% 50% at 15% 50%,rgba(124,58,237,.18) 0%,transparent 70%),
+    radial-gradient(ellipse 50% 60% at 85% 40%,rgba(6,182,212,.10) 0%,transparent 65%),
+    radial-gradient(ellipse 40% 30% at 50% 100%,rgba(236,72,153,.08) 0%,transparent 60%);
+}
+
+/* Animated blobs */
+.cblob{position:absolute;border-radius:50%;filter:blur(80px);opacity:.25;pointer-events:none;z-index:1;animation:drift var(--t,18s) ease-in-out infinite}
+.cblob-1{width:500px;height:500px;background:radial-gradient(circle,#7c3aed,transparent 70%);top:-15%;left:-10%;--t:22s}
+.cblob-2{width:400px;height:400px;background:radial-gradient(circle,#06b6d4,transparent 70%);bottom:-10%;right:-5%;--t:28s;animation-direction:reverse}
+.cblob-3{width:300px;height:300px;background:radial-gradient(circle,#ec4899,transparent 70%);top:40%;left:50%;--t:18s;opacity:.15}
+
+/* Scan line */
+.shero-scan{position:absolute;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(124,58,237,.4),rgba(6,182,212,.3),transparent);animation:scan-line 6s linear infinite;pointer-events:none;z-index:2}
+
+/* ── Hero layout ── */
+.shero-cin-inner{
+  max-width:1280px;margin:0 auto;width:100%;padding:7rem 3rem 5rem;
+  display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:center;position:relative;z-index:5;
+}
+
+/* Left: text */
+.shero-cin-text{position:relative}
+.shero-cin-badge{
+  display:inline-flex;align-items:center;gap:.5rem;
+  background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.35);
+  border-radius:50px;padding:.35rem 1rem;font-size:.78rem;font-weight:700;
+  color:rgba(196,181,253,1);letter-spacing:.06em;text-transform:uppercase;
+  margin-bottom:1.5rem;animation:badge-pop .6s .1s both;
+}
+.cin-badge-dot{width:6px;height:6px;background:#7c3aed;border-radius:50%;box-shadow:0 0 8px #7c3aed;animation:glow-pulse 2s ease-in-out infinite}
+.shero-cin-h1{
+  font-size:clamp(2.4rem,4.5vw,4.2rem);font-weight:900;line-height:1.05;
+  letter-spacing:-.025em;margin-bottom:1.25rem;
+  animation:text-reveal .7s .2s both;
+}
+.cin-h1-line2{
+  background:linear-gradient(135deg,#c4b5fd,#7c3aed,#06b6d4,#ec4899);
+  background-size:300% 300%;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:gradient-shift 4s ease infinite,text-reveal .7s .35s both;
+  display:block;
+}
+.shero-cin-sub{
+  font-size:1.05rem;color:var(--st-muted);line-height:1.7;max-width:480px;
+  margin-bottom:2rem;animation:text-reveal .7s .5s both;
+}
+.shero-cin-ctas{display:flex;gap:.85rem;flex-wrap:wrap;animation:text-reveal .7s .65s both}
+.btn-cin-primary{
+  padding:.8rem 2rem;background:var(--st-btn);color:#fff;border:none;border-radius:50px;
+  font-size:.95rem;font-weight:800;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:.5rem;
+  box-shadow:0 0 24px rgba(124,58,237,.4);transition:all .2s;
+}
+.btn-cin-primary:hover{opacity:.9;transform:translateY(-2px);box-shadow:0 0 36px rgba(124,58,237,.55);color:#fff;text-decoration:none}
+.btn-cin-ghost{
+  padding:.8rem 2rem;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.15);
+  color:var(--st-text);border-radius:50px;font-size:.95rem;font-weight:700;
+  cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:.5rem;transition:all .2s;
+}
+.btn-cin-ghost:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.3);color:var(--st-text);text-decoration:none}
+
+/* Floating platform tags under CTAs */
+.shero-cin-tags{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:1.5rem;animation:text-reveal .7s .8s both}
+.cin-tag{
+  font-size:.72rem;font-weight:700;padding:.3rem .7rem;border-radius:6px;
+  border:1px solid rgba(255,255,255,.1);color:var(--st-muted);
+  background:rgba(255,255,255,.04);
+}
+
+/* Right: orbit visualization */
+.shero-cin-orbit{position:relative;display:flex;align-items:center;justify-content:center;min-height:480px;animation:text-reveal .8s .3s both}
+
+/* Orbit rings */
+.orbit-container{position:relative;width:400px;height:400px;flex-shrink:0}
+.orbit-ring{position:absolute;inset:0;border-radius:50%;animation:orbit-spin var(--spd,30s) linear infinite}
+.orbit-ring.rev{animation-direction:reverse}
+.orbit-ring-visual{
+  position:absolute;inset:0;border-radius:50%;
+  border:1px solid rgba(124,58,237,.15);
+  box-shadow:inset 0 0 30px rgba(124,58,237,.05),0 0 30px rgba(124,58,237,.05);
+}
+.orbit-ring-outer .orbit-ring-visual{border-color:rgba(124,58,237,.2)}
+.orbit-ring-inner .orbit-ring-visual{border-color:rgba(6,182,212,.15)}
+
+/* Orbit item positioning */
+.oitem{
+  position:absolute;
+  top:50%;left:50%;
+  /* Radius = 180px for outer, 110px for inner */
+  transform:var(--orbit-pos);
+  animation:orbit-item-stable var(--spd,30s) linear infinite;
+}
+.orbit-ring.rev .oitem{animation-name:orbit-item-stable-rev}
+
+.oitem-logo{
+  width:52px;height:52px;border-radius:14px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  box-shadow:0 4px 20px rgba(0,0,0,.4),0 0 12px var(--glow,rgba(124,58,237,.3));
+  border:1px solid rgba(255,255,255,.12);
+  backdrop-filter:blur(12px);
+  background:var(--bg,rgba(15,10,30,.85));
+  transition:transform .2s;cursor:default;
+}
+.oitem-logo:hover{transform:scale(1.12)}
+.oitem-icon{font-size:1.3rem;line-height:1}
+.oitem-name{font-size:.42rem;font-weight:800;color:rgba(255,255,255,.65);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+
+/* Inner items - smaller */
+.orbit-ring-inner .oitem-logo{width:44px;height:44px;border-radius:12px}
+.orbit-ring-inner .oitem-icon{font-size:1.1rem}
+
+/* Center orb */
+.orbit-center{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:90px;height:90px;border-radius:50%;z-index:10;
+  background:linear-gradient(135deg,#7c3aed,#4f46e5,#06b6d4);
+  box-shadow:0 0 40px rgba(124,58,237,.6),0 0 80px rgba(124,58,237,.3),0 0 120px rgba(124,58,237,.15);
+  display:flex;align-items:center;justify-content:center;
+  font-size:2.2rem;animation:glow-pulse 3s ease-in-out infinite,logo-float 4s ease-in-out infinite;
+}
+.orbit-center::before{
+  content:'';position:absolute;inset:-8px;border-radius:50%;
+  border:1.5px solid rgba(196,181,253,.3);animation:orbit-spin 8s linear infinite;
+}
+.orbit-center::after{
+  content:'';position:absolute;inset:-18px;border-radius:50%;
+  border:1px solid rgba(124,58,237,.15);animation:orbit-spin 14s linear infinite;
+}
+
+/* Stats below orbit */
+.orbit-stats{
+  position:absolute;bottom:-3rem;left:50%;transform:translateX(-50%);
+  display:flex;gap:1.5rem;white-space:nowrap;
+}
+.orbit-stat{text-align:center}
+.orbit-stat-num{font-size:1.2rem;font-weight:900;background:var(--st-btn);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.orbit-stat-lbl{font-size:.65rem;color:var(--st-muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+
+/* ── Platform Marquee (replaces old platform section) ── */
+.splatforms-marquee{padding:4rem 0 5rem;overflow:hidden;position:relative}
+.splatforms-marquee::before,.splatforms-marquee::after{content:'';position:absolute;top:0;bottom:0;width:120px;z-index:2;pointer-events:none}
+.splatforms-marquee::before{left:0;background:linear-gradient(90deg,var(--st-bg),transparent)}
+.splatforms-marquee::after{right:0;background:linear-gradient(-90deg,var(--st-bg),transparent)}
+.marquee-track{display:flex;gap:1rem;width:max-content;animation:marquee-scroll 28s linear infinite}
+.marquee-track:hover{animation-play-state:paused}
+.mpill{
+  display:flex;align-items:center;gap:.65rem;
+  background:var(--st-card);border:1.5px solid var(--st-border);
+  border-radius:50px;padding:.55rem 1.1rem;
+  font-size:.82rem;font-weight:700;color:var(--st-text);
+  white-space:nowrap;flex-shrink:0;transition:all .2s;cursor:default;
+}
+.mpill-icon{font-size:1.15rem}
+
+/* ── CTA Plans band ── */
+.splans-cta-band{
+  padding:5rem 1.5rem;text-align:center;position:relative;overflow:hidden;
+}
+.splans-cta-band::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 70% 80% at 50% 50%,rgba(124,58,237,.1) 0%,transparent 70%);
+  pointer-events:none;
+}
+.splans-cta-band-inner{max-width:680px;margin:0 auto;position:relative;z-index:1}
+.splans-cta-num{display:flex;justify-content:center;gap:3rem;margin-bottom:2.5rem;flex-wrap:wrap}
+.splans-cta-n{text-align:center}
+.splans-cta-n-val{font-size:2.5rem;font-weight:900;background:var(--st-btn);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1}
+.splans-cta-n-lbl{font-size:.72rem;color:var(--st-muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-top:.25rem}
+
+/* Responsive hero */
+@media(max-width:900px){
+  .shero-cin-inner{grid-template-columns:1fr;padding:5rem 1.5rem 3rem;text-align:center}
+  .shero-cin-text{order:1}
+  .shero-cin-orbit{order:0;min-height:320px}
+  .orbit-container{width:300px;height:300px}
+  .shero-cin-sub{margin:0 auto 2rem}
+  .shero-cin-ctas{justify-content:center}
+  .shero-cin-tags{justify-content:center}
+}
+@media(max-width:600px){
+  .orbit-container{width:260px;height:260px}
+  .oitem-logo{width:42px;height:42px;border-radius:10px}
+  .oitem-icon{font-size:1rem}
+  .orbit-center{width:70px;height:70px;font-size:1.7rem}
+  .shero-cin-h1{font-size:2rem}
+}
 </style>
 </head>
 <body>
@@ -673,9 +905,10 @@ body::before{display:none}
     <a href="/" class="snav-logo" id="nav-logo">OTT Store</a>
     <div class="snav-links">
       <a href="/">Home</a>
-      <a href="#plans-section">Plans</a>
+      <a href="/plans">Plans</a>
       <a href="#how-it-works">How It Works</a>
       <a href="#faq">FAQ</a>
+      <a href="/blog">Blog</a>
     </div>
     <div class="snav-right">
       <button id="theme-toggle" class="snav-theme-btn" title="Toggle dark/light">🌙</button>
@@ -688,44 +921,88 @@ body::before{display:none}
 <!-- Mobile nav -->
 <div class="snav-mob" id="nav-mob">
   <a href="/">🏠 Home</a>
-  <a href="#plans-section">📦 Plans</a>
+  <a href="/plans">📦 All Plans</a>
   <a href="#how-it-works">🔧 How It Works</a>
   <a href="#faq">❓ FAQ</a>
   <a href="/blog">✍️ Blog</a>
   <a href="/my" class="snav-login" id="mob-login-btn">Login / Sign Up</a>
 </div>
 
-<!-- ── Hero ───────────────────────────────────────────────────────────────── -->
-<section class="shero" id="home">
-  <div class="shero-bg"></div>
-  <div class="shero-blob blob-1"></div>
-  <div class="shero-blob blob-2"></div>
-  <div class="shero-blob blob-3"></div>
-  <div class="shero-content">
-    <div class="shero-badge">
-      <span class="dot"></span>
-      <span id="hero-badge-text">🔥 India's Favourite OTT Subscription Store</span>
+<!-- ── Cinematic Hero ─────────────────────────────────────────────────────── -->
+<section class="shero-cinematic" id="home">
+
+  <!-- Starfield -->
+  <div class="shero-stars" id="hero-stars"></div>
+
+  <!-- Atmosphere gradients -->
+  <div class="shero-atmo"></div>
+  <div class="cblob cblob-1"></div>
+  <div class="cblob cblob-2"></div>
+  <div class="cblob cblob-3"></div>
+
+  <!-- Scan line -->
+  <div class="shero-scan"></div>
+
+  <div class="shero-cin-inner">
+
+    <!-- Left: text -->
+    <div class="shero-cin-text">
+      <div class="shero-cin-badge">
+        <span class="cin-badge-dot"></span>
+        <span>🔥 India's #1 OTT Subscription Store</span>
+      </div>
+      <h1 class="shero-cin-h1">
+        Stream Everything<br>
+        <span class="cin-h1-line2">At Lowest Prices</span>
+      </h1>
+      <p class="shero-cin-sub" id="hero-sub">Netflix, Prime Video, Hotstar, Spotify, YouTube &amp; 50+ platforms — instant WhatsApp delivery, up to 80% cheaper.</p>
+      <div class="shero-cin-ctas">
+        <a href="/plans" class="btn-cin-primary">🎬 Browse All Plans</a>
+        <a href="/my" class="btn-cin-ghost">Get Started Free →</a>
+      </div>
+      <div class="shero-cin-tags">
+        <span class="cin-tag">⚡ Instant Delivery</span>
+        <span class="cin-tag">🔒 100% Secure</span>
+        <span class="cin-tag">📱 WhatsApp Support</span>
+        <span class="cin-tag">♻️ Renewal Guarantee</span>
+      </div>
     </div>
-    <h1 class="shero-h1" id="hero-title">
-      Premium Subscriptions<br>
-      <span class="shero-grad">at Lowest Prices</span>
-    </h1>
-    <p class="shero-sub" id="hero-sub">Netflix, Prime Video, Disney+ Hotstar, Spotify, YouTube &amp; 50+ platforms — instant delivery, honest prices.</p>
-    <div class="shero-ctas">
-      <a href="#plans-section" class="btn-hero-p">Browse Plans →</a>
-      <a href="#how-it-works" class="btn-hero-g">How It Works</a>
+
+    <!-- Right: orbiting platform logos -->
+    <div class="shero-cin-orbit">
+      <div class="orbit-container">
+
+        <!-- Outer ring: 8 platforms, 30s -->
+        <div class="orbit-ring orbit-ring-outer" style="--spd:30s">
+          <div class="orbit-ring-visual"></div>
+          <!-- items placed at 45deg intervals, radius=180px -->
+          <div class="oitem" style="--orbit-pos:translate(-26px,-206px) rotate(0deg);--spd:30s"><div class="oitem-logo" style="--bg:rgba(20,2,2,.85);--glow:rgba(229,9,20,.4)"><span class="oitem-icon">🎬</span><span class="oitem-name">Netflix</span></div></div>
+          <div class="oitem" style="--orbit-pos:translate(101px,-152px) rotate(0deg);--spd:30s"><div class="oitem-logo" style="--bg:rgba(0,12,20,.85);--glow:rgba(0,168,224,.4)"><span class="oitem-icon">📦</span><span class="oitem-name">Prime</span></div></div>
+          <div class="oitem" style="--orbit-pos:translate(154px,-26px) rotate(0deg);--spd:30s"><div class="oitem-logo" style="--bg:rgba(2,8,25,.85);--glow:rgba(30,86,219,.4)"><span class="oitem-icon">⭐</span><span class="oitem-name">Hotstar</span></div></div>
+          <div class="oitem" style="--orbit-pos:translate(101px,101px) rotate(0deg);--spd:30s"><div class="oitem-logo" style="--bg:rgba(2,15,5,.85);--glow:rgba(29,185,84,.4)"><span class="oitem-icon">🎵</span><span class="oitem-name">Spotify</span></div></div>
+          <div class="oitem" style="--orbit-pos:translate(-26px,154px) rotate(0deg);--spd:30s"><div class="oitem-logo" style="--bg:rgba(20,0,0,.85);--glow:rgba(255,0,0,.35)"><span class="oitem-icon">▶️</span><span class="oitem-name">YouTube</span></div></div>
+          <div class="oitem" style="--orbit-pos:translate(-154px,101px) rotate(0deg);--spd:30s"><div class="oitem-logo" style="--bg:rgba(15,5,30,.85);--glow:rgba(123,31,162,.4)"><span class="oitem-icon">🎭</span><span class="oitem-name">Zee5</span></div></div>
+          <div class="oitem" style="--orbit-pos:translate(-206px,-26px) rotate(0deg);--spd:30s"><div class="oitem-logo" style="--bg:rgba(0,5,20,.85);--glow:rgba(0,79,204,.4)"><span class="oitem-icon">📺</span><span class="oitem-name">Sony LIV</span></div></div>
+          <div class="oitem" style="--orbit-pos:translate(-154px,-154px) rotate(0deg);--spd:30s"><div class="oitem-logo" style="--bg:rgba(0,8,18,.85);--glow:rgba(74,0,224,.4)"><span class="oitem-icon">🎥</span><span class="oitem-name">JioCinema</span></div></div>
+        </div>
+
+        <!-- Inner ring: 5 platforms, 18s reverse -->
+        <div class="orbit-ring orbit-ring-inner rev" style="--spd:18s">
+          <div class="orbit-ring-visual" style="width:220px;height:220px;top:90px;left:90px;position:absolute"></div>
+          <!-- radius=110px -->
+          <div class="oitem" style="--orbit-pos:translate(-22px,-132px) rotate(0deg);--spd:18s"><div class="oitem-logo" style="--bg:rgba(0,4,15,.85);--glow:rgba(16,163,127,.4)"><span class="oitem-icon">🤖</span><span class="oitem-name">ChatGPT</span></div></div>
+          <div class="oitem" style="--orbit-pos:translate(88px,28px) rotate(0deg);--spd:18s"><div class="oitem-logo" style="--bg:rgba(0,5,20,.85);--glow:rgba(0,196,204,.4)"><span class="oitem-icon">🎨</span><span class="oitem-name">Canva</span></div></div>
+          <div class="oitem" style="--orbit-pos:translate(-22px,88px) rotate(0deg);--spd:18s"><div class="oitem-logo" style="--bg:rgba(15,0,0,.85);--glow:rgba(250,15,0,.4)"><span class="oitem-icon">🎨</span><span class="oitem-name">Adobe</span></div></div>
+          <div class="oitem" style="--orbit-pos:translate(-132px,28px) rotate(0deg);--spd:18s"><div class="oitem-logo" style="--bg:rgba(0,5,18,.85);--glow:rgba(0,120,212,.4)"><span class="oitem-icon">💻</span><span class="oitem-name">MS365</span></div></div>
+          <div class="oitem" style="--orbit-pos:translate(-88px,-88px) rotate(0deg);--spd:18s"><div class="oitem-logo" style="--bg:rgba(5,0,15,.85);--glow:rgba(10,102,194,.4)"><span class="oitem-icon">💼</span><span class="oitem-name">LinkedIn</span></div></div>
+        </div>
+
+        <!-- Center -->
+        <div class="orbit-center" id="orbit-center-logo">🎬</div>
+
+      </div>
     </div>
-    <div class="shero-plats">
-      <div class="shero-plats-label">Platforms we offer</div>
-      <span class="shero-plat">NETFLIX</span>
-      <span class="shero-plat">PRIME VIDEO</span>
-      <span class="shero-plat">HOTSTAR</span>
-      <span class="shero-plat">SPOTIFY</span>
-      <span class="shero-plat">YOUTUBE</span>
-      <span class="shero-plat">SONY LIV</span>
-      <span class="shero-plat">ZEE5</span>
-      <span class="shero-plat">+ MORE</span>
-    </div>
+
   </div>
 </section>
 
@@ -794,32 +1071,57 @@ body::before{display:none}
   </div>
 </section>
 
-<!-- ── Plans section ──────────────────────────────────────────────────────── -->
-<section class="splans" id="plans-section">
-  <div class="splans-inner sc">
+<!-- ── Platform Marquee ────────────────────────────────────────────────────── -->
+<div class="splatforms-marquee">
+  <div class="marquee-track" id="marquee-track">
+    <div class="mpill"><span class="mpill-icon">🎬</span>Netflix</div>
+    <div class="mpill"><span class="mpill-icon">📦</span>Amazon Prime</div>
+    <div class="mpill"><span class="mpill-icon">⭐</span>Disney+ Hotstar</div>
+    <div class="mpill"><span class="mpill-icon">🎵</span>Spotify</div>
+    <div class="mpill"><span class="mpill-icon">▶️</span>YouTube Premium</div>
+    <div class="mpill"><span class="mpill-icon">📺</span>Sony LIV</div>
+    <div class="mpill"><span class="mpill-icon">🎭</span>Zee5</div>
+    <div class="mpill"><span class="mpill-icon">🍎</span>Apple TV+</div>
+    <div class="mpill"><span class="mpill-icon">🎥</span>JioCinema</div>
+    <div class="mpill"><span class="mpill-icon">🤖</span>ChatGPT Plus</div>
+    <div class="mpill"><span class="mpill-icon">🎨</span>Adobe Creative</div>
+    <div class="mpill"><span class="mpill-icon">💻</span>Microsoft 365</div>
+    <div class="mpill"><span class="mpill-icon">💼</span>LinkedIn Premium</div>
+    <div class="mpill"><span class="mpill-icon">🎨</span>Canva Pro</div>
+    <div class="mpill"><span class="mpill-icon">📱</span>Voot Select</div>
+    <div class="mpill"><span class="mpill-icon">🎬</span>MX Player</div>
+    <!-- Duplicate for seamless loop -->
+    <div class="mpill"><span class="mpill-icon">🎬</span>Netflix</div>
+    <div class="mpill"><span class="mpill-icon">📦</span>Amazon Prime</div>
+    <div class="mpill"><span class="mpill-icon">⭐</span>Disney+ Hotstar</div>
+    <div class="mpill"><span class="mpill-icon">🎵</span>Spotify</div>
+    <div class="mpill"><span class="mpill-icon">▶️</span>YouTube Premium</div>
+    <div class="mpill"><span class="mpill-icon">📺</span>Sony LIV</div>
+    <div class="mpill"><span class="mpill-icon">🎭</span>Zee5</div>
+    <div class="mpill"><span class="mpill-icon">🍎</span>Apple TV+</div>
+    <div class="mpill"><span class="mpill-icon">🎥</span>JioCinema</div>
+    <div class="mpill"><span class="mpill-icon">🤖</span>ChatGPT Plus</div>
+    <div class="mpill"><span class="mpill-icon">🎨</span>Adobe Creative</div>
+    <div class="mpill"><span class="mpill-icon">💻</span>Microsoft 365</div>
+    <div class="mpill"><span class="mpill-icon">💼</span>LinkedIn Premium</div>
+    <div class="mpill"><span class="mpill-icon">🎨</span>Canva Pro</div>
+    <div class="mpill"><span class="mpill-icon">📱</span>Voot Select</div>
+    <div class="mpill"><span class="mpill-icon">🎬</span>MX Player</div>
+  </div>
+</div>
+
+<!-- ── Plans CTA ───────────────────────────────────────────────────────────── -->
+<section class="splans-cta-band">
+  <div class="splans-cta-band-inner">
     <div class="sec-badge">OUR PLANS</div>
-    <h2 class="sec-h2">Choose Your Subscription</h2>
-    <p class="sec-sub">All durations available — 1 month, 3 months, 6 months, 1 year.</p>
-
-    <div class="splans-search">
-      <input id="search-input" placeholder="🔍 Search plans..." type="search" autocomplete="off">
+    <h2 class="sec-h2">50+ Platforms, One Store</h2>
+    <p class="sec-sub" style="margin-bottom:2rem">Every OTT, music, productivity &amp; streaming plan — at India's lowest prices with instant delivery.</p>
+    <div class="splans-cta-num">
+      <div class="splans-cta-n"><div class="splans-cta-n-val" id="stat-customers2">10,000+</div><div class="splans-cta-n-lbl">Happy Customers</div></div>
+      <div class="splans-cta-n"><div class="splans-cta-n-val" id="stat-orders2">50,000+</div><div class="splans-cta-n-lbl">Orders Delivered</div></div>
+      <div class="splans-cta-n"><div class="splans-cta-n-val" id="stat-platforms2">50+</div><div class="splans-cta-n-lbl">Platforms</div></div>
     </div>
-    <div class="splans-tabs" id="platform-chips">
-      <button class="stab active" data-platform="">All Platforms</button>
-    </div>
-
-    <div class="sgate" id="login-gate" style="display:none">
-      <h3>🔐 Login to Purchase</h3>
-      <p>Create a free account to add wallet balance and buy any plan instantly.</p>
-      <a href="/my">Login / Register Free →</a>
-    </div>
-
-    <div id="plans-loading" style="text-align:center;padding:3rem"><div class="spinner"></div></div>
-    <div class="splan-grid" id="plans-grid" style="display:none"></div>
-    <div id="no-plans" style="display:none;text-align:center;padding:3rem;color:var(--st-muted)">
-      <div style="font-size:3rem;margin-bottom:1rem">🎬</div>
-      <p>No plans found. Try a different search.</p>
-    </div>
+    <a href="/plans" class="btn-cin-primary" style="font-size:1rem;padding:.85rem 2.5rem">🎬 Browse All Plans →</a>
   </div>
 </section>
 
@@ -849,31 +1151,7 @@ body::before{display:none}
   </div>
 </section>
 
-<!-- ── Platform Showcase ──────────────────────────────────────────────────── -->
-<section class="splatforms">
-  <div class="splatforms-inner sc">
-    <div class="sec-badge">PLATFORMS</div>
-    <h2 class="sec-h2">We cover all your favourite platforms</h2>
-    <div class="splat-grid" id="all-platforms-list">
-      <div class="splat-pill">🎬 Netflix</div>
-      <div class="splat-pill">📦 Amazon Prime</div>
-      <div class="splat-pill">⭐ Disney+ Hotstar</div>
-      <div class="splat-pill">🎵 Spotify</div>
-      <div class="splat-pill">📺 YouTube Premium</div>
-      <div class="splat-pill">📱 Sony LIV</div>
-      <div class="splat-pill">🎭 Zee5</div>
-      <div class="splat-pill">🍎 Apple TV+</div>
-      <div class="splat-pill">🎮 JioCinema</div>
-      <div class="splat-pill">▶️ Voot</div>
-      <div class="splat-pill">🎬 MX Player</div>
-      <div class="splat-pill">🔷 Canva Pro</div>
-      <div class="splat-pill">💼 LinkedIn Premium</div>
-      <div class="splat-pill">🤖 ChatGPT Plus</div>
-      <div class="splat-pill">🎨 Adobe Creative</div>
-      <div class="splat-pill">+ Many More</div>
-    </div>
-  </div>
-</section>
+<!-- Platform showcase moved to marquee above Plans CTA -->
 
 <!-- ── Testimonials ───────────────────────────────────────────────────────── -->
 <section class="stests">
@@ -1143,9 +1421,19 @@ let _visibleCount = PAGE_SIZE;
 // ── Load store config ────────────────────────────────────────────────────────
 fetch('/user/api/store').then(r => r.json()).then(s => {
   _storeCfg = s;
+  if (s.logo_light_url || s.logo_dark_url) {
+    const light = s.logo_light_url || s.logo_dark_url;
+    const dark  = s.logo_dark_url  || s.logo_light_url;
+    const navEl = document.getElementById('nav-logo');
+    navEl.innerHTML = `<img src="${light}" class="logo-light" alt="${s.site_name||'Logo'}"><img src="${dark}" class="logo-dark" alt="${s.site_name||'Logo'}">`;
+    const footEl = document.getElementById('footer-name');
+    footEl.innerHTML = `<img src="${light}" class="logo-light" alt="${s.site_name||'Logo'}" style="max-height:32px;max-width:160px;object-fit:contain"><img src="${dark}" class="logo-dark" alt="${s.site_name||'Logo'}" style="max-height:32px;max-width:160px;object-fit:contain">`;
+  }
   if (s.site_name) {
-    document.getElementById('nav-logo').textContent = s.site_name;
-    document.getElementById('footer-name').textContent = s.site_name;
+    if (!s.logo_light_url && !s.logo_dark_url) {
+      document.getElementById('nav-logo').textContent = s.site_name;
+      document.getElementById('footer-name').textContent = s.site_name;
+    }
     document.getElementById('footer-copy').textContent = `© ${new Date().getFullYear()} ${s.site_name}. All rights reserved.`;
     document.getElementById('page-title').textContent = `${s.site_name} — Premium OTT Subscriptions at Best Prices`;
     document.getElementById('og-title').content = s.site_name;
@@ -1217,147 +1505,46 @@ fetch('/user/api/me', { credentials: 'include' }).then(r => {
   }
 }).catch(() => { document.getElementById('login-gate').style.display = ''; });
 
-// ── Load plans ────────────────────────────────────────────────────────────────
-fetch('/user/api/plans').then(r => r.json()).then(plans => {
-  ALL_PLANS = plans;
-  document.getElementById('plans-loading').style.display = 'none';
-  buildPlatformTabs(plans);
-  renderPlans();
-  // Update platform pills in showcase
-  const uniq = [...new Set(plans.map(p => p.platform))];
-  if (uniq.length > 4) {
-    const el = document.getElementById('all-platforms-list');
-    if (el) {
-      el.innerHTML = uniq.map(p => `<div class="splat-pill">${ICONS[p]||'📺'} ${esc(p)}</div>`).join('');
+// ── Starfield generator ───────────────────────────────────────────────────────
+(function() {
+  const container = document.getElementById('hero-stars');
+  if (!container) return;
+  const frag = document.createDocumentFragment();
+  const types = [
+    { cls: 'star star-tiny', count: 120 },
+    { cls: 'star star-sm',   count: 60  },
+    { cls: 'star star-md',   count: 25  },
+  ];
+  types.forEach(({ cls, count }) => {
+    for (let i = 0; i < count; i++) {
+      const s = document.createElement('div');
+      s.className = cls;
+      s.style.left   = Math.random() * 100 + '%';
+      s.style.top    = Math.random() * 100 + '%';
+      s.style.setProperty('--dur', (2 + Math.random() * 4).toFixed(1) + 's');
+      s.style.setProperty('--del', (Math.random() * 4).toFixed(1) + 's');
+      frag.appendChild(s);
     }
-  }
-  // Update stats
-  const statPlatforms = document.getElementById('stat-platforms');
-  if (statPlatforms && uniq.length > 0) statPlatforms.textContent = uniq.length + '+';
-}).catch(() => {
-  document.getElementById('plans-loading').innerHTML = `<p style="color:var(--st-muted)">⚠️ Failed to load plans. Please refresh.</p>`;
-});
-
-function buildPlatformTabs(plans) {
-  const platforms = [...new Set(plans.map(p => p.platform))];
-  const container = document.getElementById('platform-chips');
-  platforms.forEach(pf => {
-    const btn = document.createElement('button');
-    btn.className = 'stab';
-    btn.dataset.platform = pf;
-    btn.textContent = (ICONS[pf] || '📺') + ' ' + pf;
-    container.appendChild(btn);
   });
-  container.addEventListener('click', e => {
-    const chip = e.target.closest('.stab');
-    if (!chip) return;
-    ACTIVE_PLATFORM = chip.dataset.platform;
-    _visibleCount = PAGE_SIZE;
-    container.querySelectorAll('.stab').forEach(c => c.classList.toggle('active', c === chip));
-    renderPlans();
+  container.appendChild(frag);
+})();
+
+// ── Sync duplicate stat elements ─────────────────────────────────────────────
+function syncStats(s) {
+  ['stat-customers','stat-orders','stat-platforms'].forEach(id => {
+    const el2 = document.getElementById(id + '2');
+    const el  = document.getElementById(id);
+    if (el2 && el) el2.textContent = el.textContent;
   });
 }
 
-document.getElementById('search-input').addEventListener('input', e => {
-  SEARCH = e.target.value.toLowerCase();
-  _visibleCount = PAGE_SIZE;
-  renderPlans();
-});
-
-function renderPlans() {
-  let plans = ALL_PLANS;
-  if (ACTIVE_PLATFORM) plans = plans.filter(p => p.platform === ACTIVE_PLATFORM);
-  if (SEARCH) plans = plans.filter(p =>
-    p.name.toLowerCase().includes(SEARCH) || p.platform.toLowerCase().includes(SEARCH));
-
-  const grid = document.getElementById('plans-grid');
-  const noplans = document.getElementById('no-plans');
-  let showMore = document.getElementById('plans-show-more');
-  if (!showMore) {
-    showMore = document.createElement('div');
-    showMore.id = 'plans-show-more';
-    showMore.style.cssText = 'text-align:center;padding:1rem 0 2rem';
-    grid.parentNode.insertBefore(showMore, grid.nextSibling);
-  }
-
-  if (!plans.length) {
-    grid.style.display = 'none'; noplans.style.display = 'block';
-    showMore.innerHTML = ''; return;
-  }
-  noplans.style.display = 'none';
-  grid.style.display = 'grid';
-
-  const visible = plans.slice(0, _visibleCount);
-  grid.innerHTML = visible.map(p => planCard(p)).join('');
-  grid.querySelectorAll('.splan-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (!isLoggedIn) { window.location.href = '/my'; return; }
-      window.location.href = '/my#plans';
-    });
-  });
-
-  if (plans.length > _visibleCount) {
-    const rem = plans.length - _visibleCount;
-    showMore.innerHTML = `<button onclick="loadMorePlans()" style="background:var(--st-card);border:1.5px solid var(--st-border);color:var(--st-muted);border-radius:12px;padding:.7rem 2rem;font-size:.9rem;font-weight:600;cursor:pointer;transition:all .2s" onmouseover="this.style.borderColor='var(--st-accent)';this.style.color='var(--st-accent)'" onmouseout="this.style.borderColor='var(--st-border)';this.style.color='var(--st-muted)'">Show ${rem} more plans ↓</button>`;
-  } else {
-    showMore.innerHTML = '';
-  }
-}
-
-window.loadMorePlans = function() {
-  _visibleCount += PAGE_SIZE;
-  renderPlans();
-  // Scroll so newly loaded cards are visible
-  const grid = document.getElementById('plans-grid');
-  const cards = grid.querySelectorAll('.splan-card');
-  if (cards[_visibleCount - PAGE_SIZE]) cards[_visibleCount - PAGE_SIZE].scrollIntoView({ behavior: 'smooth', block: 'start' });
-};
-
-function planCard(p) {
-  const features = Array.isArray(p.features) ? p.features : [];
-  const origPrice = (p.original_price_inr && p.original_price_inr > p.price_inr)
-    ? `<span class="splan-orig">₹${Number(p.original_price_inr).toLocaleString('en-IN')}</span>` : '';
-  const badge = p.badge ? `<span class="splan-badge">${esc(p.badge)}</span>` : '';
-  const outOfStock = p.stock === 0;
-  const icon = ICONS[p.platform] || '📺';
-  const dur = !p.duration_days ? 'Lifetime'
-            : p.duration_days >= 365 ? `${Math.round(p.duration_days/365)} Year`
-            : p.duration_days >= 30 ? `${Math.round(p.duration_days/30)} Month`
-            : `${p.duration_days} Days`;
-  const featureItems = features.slice(0, 4).map(f => `<li>${esc(f)}</li>`).join('');
-  const delivery = p.delivery_type === 'instant' ? '<div class="splan-delivery">⚡ Instant Delivery</div>' : '';
-
-  const cols = PLATFORM_COLORS[p.platform] || PLATFORM_COLORS['default'];
-  const grad = `background:linear-gradient(135deg,${cols[0]},${cols[1]})`;
-  const headerInner = p.image_url
-    ? `<img src="${esc(p.image_url)}" alt="${esc(p.platform)}" loading="lazy"
-         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-       <div class="splan-header-bg" style="display:none;${grad}">
-         <span class="splan-header-icon">${icon}</span>
-         <span class="splan-header-plat">${esc(p.platform)}</span>
-       </div>`
-    : `<div class="splan-header-bg" style="${grad}">
-         <span class="splan-header-icon">${icon}</span>
-         <span class="splan-header-plat">${esc(p.platform)}</span>
-       </div>`;
-
-  return `<div class="splan-card${p.badge ? ' featured' : ''}${outOfStock ? ' splan-oos' : ''}">
-    <div class="splan-header">${badge}${headerInner}</div>
-    <div class="splan-body">
-      <div class="splan-name">${esc(p.name)}</div>
-      <div class="splan-dur">⏱ ${dur} validity</div>
-      <div class="splan-price-row">
-        <span class="splan-price">₹${Number(p.price_inr).toLocaleString('en-IN')}</span>
-        ${origPrice}
-      </div>
-      ${delivery}
-      ${featureItems ? `<ul class="splan-feats">${featureItems}</ul>` : ''}
-      <button class="splan-btn" ${outOfStock ? 'disabled' : ''} data-id="${p.id}">
-        ${outOfStock ? '🔴 Out of Stock' : isLoggedIn ? '🛒 Buy Now' : '🔐 Login to Buy'}
-      </button>
-    </div>
-  </div>`;
-}
+// Patch store config handler to also sync
+const _origStoreFetch = fetch('/user/api/store');
+_origStoreFetch.then(r => r.json()).then(s => {
+  if (s.stat_customers) { const e = document.getElementById('stat-customers2'); if(e) e.textContent = s.stat_customers; }
+  if (s.stat_orders)    { const e = document.getElementById('stat-orders2');    if(e) e.textContent = s.stat_orders;    }
+  if (s.stat_platforms) { const e = document.getElementById('stat-platforms2'); if(e) e.textContent = s.stat_platforms; }
+}).catch(() => {});
 
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 

@@ -354,6 +354,9 @@ function migrate(db) {
   // Alter existing tables to add new columns (safe — ignored if column exists)
   try { db.run(`ALTER TABLE topups ADD COLUMN unique_amount REAL`); } catch {}
   try { db.run(`ALTER TABLE topups ADD COLUMN payment_method_id INTEGER`); } catch {}
+  try { db.run(`ALTER TABLE topups ADD COLUMN purpose TEXT DEFAULT 'wallet'`); } catch {}
+  try { db.run(`ALTER TABLE topups ADD COLUMN plan_id INTEGER`); } catch {}
+  try { db.run(`ALTER TABLE topups ADD COLUMN order_id INTEGER`); } catch {}
   try { db.run(`ALTER TABLE orders ADD COLUMN stock_credential_id INTEGER`); } catch {}
   try { db.run(`ALTER TABLE orders ADD COLUMN renewal_reminded_at TEXT`); } catch {}
   // Plans: catalog enhancements

@@ -140,10 +140,10 @@ app.get('/blog/:slug', async (req, res) => {
     const db = await getDb();
     const post = get(db, `SELECT * FROM blog_posts WHERE slug=? AND published=1`, [req.params.slug]);
     if (!post) return res.status(404).sendFile(path.join(__dirname, '..', 'public', '404.html'));
-    const [siteName, ogImage, baseUrl] = await Promise.all([
-      getSetting('site_name'), getSetting('seo_og_image'), getSetting('base_url'),
+    const [siteName, ogImage, baseUrl, logos] = await Promise.all([
+      getSetting('site_name'), getSetting('seo_og_image'), getSetting('base_url'), getLogoUrls(),
     ]);
-    res.send(buildBlogPostPage(post, siteName || 'OTT Store', post.og_image || ogImage || '', baseUrl || cfg.baseUrl));
+    res.send(buildBlogPostPage(post, siteName || 'OTT Store', post.og_image || ogImage || '', baseUrl || cfg.baseUrl, logos));
   } catch (e) { res.status(500).send('Server error'); }
 });
 
@@ -151,10 +151,10 @@ app.get('/blog', async (req, res) => {
   try {
     const db = await getDb();
     const posts = all(db, `SELECT id,slug,title,meta_desc,created_at FROM blog_posts WHERE published=1 ORDER BY created_at DESC`);
-    const [siteName, seoDesc, baseUrl] = await Promise.all([
-      getSetting('site_name'), getSetting('seo_blog_desc'), getSetting('base_url'),
+    const [siteName, seoDesc, baseUrl, logos] = await Promise.all([
+      getSetting('site_name'), getSetting('seo_blog_desc'), getSetting('base_url'), getLogoUrls(),
     ]);
-    res.send(buildBlogIndexPage(posts, siteName || 'OTT Store', seoDesc || '', baseUrl || cfg.baseUrl));
+    res.send(buildBlogIndexPage(posts, siteName || 'OTT Store', seoDesc || '', baseUrl || cfg.baseUrl, logos));
   } catch (e) { res.status(500).send('Server error'); }
 });
 
@@ -169,19 +169,25 @@ for (const [route, slug] of Object.entries(staticRoutes)) {
     try {
       const db = await getDb();
       const page = db ? (() => { const { get: dbGet } = require('./db'); return dbGet(db, `SELECT * FROM legal_pages WHERE slug=?`, [slug]); })() : null;
-      const siteName = await getSetting('site_name') || 'OTT Store';
-      if (page) return res.send(buildLegalPage(page, siteName));
+      const [siteName, logos] = await Promise.all([getSetting('site_name'), getLogoUrls()]);
+      const name = siteName || 'OTT Store';
+      if (page) return res.send(buildLegalPage(page, name, logos));
       const filePath = path.join(__dirname, '..', 'public', 'store', `${slug}.html`);
       if (fs.existsSync(filePath)) return res.sendFile(filePath);
-      res.send(buildSimplePage(slug, siteName));
+      res.send(buildSimplePage(slug, name, logos));
     } catch {
-      res.send(buildSimplePage(slug, 'OTT Store'));
+      res.send(buildSimplePage(slug, 'OTT Store', { light: '', dark: '' }));
     }
   });
 }
 
+// ─── /plans — separate product listing page ──────────────────────────────────
+app.get('/plans', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'store', 'plans.html'));
+});
+
 // Storefront root — server-render meta tags for SEO crawlers
-app.get(['/plans', '/'], async (req, res) => {
+app.get('/', async (req, res) => {
   try {
     const [siteName, seoTitle, seoDesc, seoKw, ogImg, gscCode, bingCode, twitterCard, baseUrl] = await Promise.all([
       getSetting('site_name'), getSetting('seo_home_title'), getSetting('seo_home_desc'),
@@ -218,68 +224,110 @@ function esc(s) {
 }
 
 const SHARED_STYLES = `
-<script>(function(){var t=localStorage.getItem('theme')||(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t);})();</script>
+<script>(function(){
+  var t=localStorage.getItem('theme')||(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+  document.documentElement.setAttribute('data-theme',t);
+  document.documentElement.setAttribute('data-store-theme','midnight-purple');
+})();</script>
+<link rel="stylesheet" href="/store/themes.css">
 <style>
+:root{
+  --sp-bg:#080b14;--sp-card:rgba(255,255,255,.04);--sp-border:rgba(255,255,255,.09);
+  --sp-text:#f1f5f9;--sp-muted:#94a3b8;--sp-nav:rgba(8,11,20,.88);
+  --sp-accent:#7c3aed;--sp-accent2:#4f46e5;
+  --sp-btn:linear-gradient(135deg,#7c3aed,#4f46e5);
+}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--page-bg);color:var(--text);min-height:100vh}
-body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-gradient(ellipse 80% 50% at 20% 0%,rgba(99,102,241,.08) 0%,transparent 60%),radial-gradient(ellipse 60% 40% at 80% 100%,rgba(236,72,153,.06) 0%,transparent 60%);pointer-events:none}
-a{color:var(--blue);text-decoration:none}
-a:hover{text-decoration:underline}
-/* Page nav */
-.sp-nav{position:sticky;top:0;z-index:100;background:var(--header-bg);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:.75rem 1.25rem}
-.sp-nav-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:1rem}
-.sp-logo{font-size:1.1rem;font-weight:800;color:var(--text);text-decoration:none}
-.sp-logo:hover{text-decoration:none;color:var(--grad-1)}
-.sp-links{display:flex;gap:.5rem;margin-left:auto;align-items:center}
-.sp-links a{color:var(--muted);font-size:.875rem;font-weight:600;padding:.35rem .75rem;border-radius:8px;transition:all .15s}
-.sp-links a:hover{color:var(--text);background:rgba(99,102,241,.08);text-decoration:none}
-.sp-links .sp-cta{background:linear-gradient(135deg,var(--grad-1),var(--grad-2));color:#fff;padding:.4rem .9rem;border-radius:8px}
-.sp-links .sp-cta:hover{opacity:.9;background:linear-gradient(135deg,var(--grad-1),var(--grad-2))}
+html{background:var(--sp-bg)}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--sp-bg);color:var(--sp-text);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;z-index:-1;
+  background:radial-gradient(ellipse 80% 50% at 20% -10%,rgba(124,58,237,.18) 0%,transparent 60%),
+             radial-gradient(ellipse 60% 40% at 80% 110%,rgba(79,70,229,.12) 0%,transparent 60%);
+  pointer-events:none}
+a{color:#a78bfa;text-decoration:none}
+a:hover{color:#c4b5fd;text-decoration:underline}
+/* Cinematic nav */
+.sp-nav{position:sticky;top:0;z-index:100;background:var(--sp-nav);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--sp-border);padding:.8rem 1.5rem}
+.sp-nav-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:1.5rem}
+.sp-logo{font-size:1.35rem;font-weight:900;background:var(--sp-btn);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-decoration:none;white-space:nowrap;display:flex;align-items:center}
+.sp-logo img{max-height:40px;max-width:180px;object-fit:contain;display:block;-webkit-text-fill-color:initial;background:none}
+.sp-logo:hover{opacity:.85;text-decoration:none}
+.sp-links{display:flex;gap:.25rem;margin-left:auto;align-items:center}
+.sp-links a{color:var(--sp-muted);font-size:.875rem;font-weight:500;padding:.4rem .85rem;border-radius:8px;transition:all .15s;text-decoration:none}
+.sp-links a:hover{color:var(--sp-text);background:rgba(124,58,237,.1);text-decoration:none}
+.sp-links .sp-cta{background:var(--sp-btn);color:#fff;padding:.45rem 1.1rem;border-radius:50px;font-weight:700;font-size:.85rem}
+.sp-links .sp-cta:hover{opacity:.85;text-decoration:none;color:#fff}
+/* Theme toggle */
+.sp-theme-btn{background:var(--sp-card);border:1px solid var(--sp-border);color:var(--sp-text);border-radius:50%;width:34px;height:34px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:.5rem}
 /* Page footer */
-.sp-footer{border-top:1px solid var(--border);padding:2.5rem 1.25rem;margin-top:5rem;background:var(--card)}
+.sp-footer{border-top:1px solid var(--sp-border);padding:2.5rem 1.5rem;margin-top:5rem;background:rgba(255,255,255,.02)}
 .sp-footer-inner{max-width:1200px;margin:0 auto}
 .sp-footer-top{display:grid;grid-template-columns:1fr auto;gap:2rem;align-items:start;margin-bottom:1.5rem}
-.sp-footer-brand{font-weight:800;font-size:1.1rem;color:var(--text);margin-bottom:.5rem}
-.sp-footer-tagline{font-size:.82rem;color:var(--muted)}
+.sp-footer-brand{font-weight:900;font-size:1.15rem;background:var(--sp-btn);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.5rem}
+.sp-footer-tagline{font-size:.82rem;color:var(--sp-muted)}
 .sp-footer-links{display:flex;flex-wrap:wrap;gap:1.25rem}
-.sp-footer-links a{color:var(--muted);font-size:.82rem;font-weight:600;transition:color .15s}
-.sp-footer-links a:hover{color:var(--text);text-decoration:none}
-.sp-footer-bottom{font-size:.8rem;color:var(--muted);border-top:1px solid var(--border);padding-top:1.25rem;display:flex;flex-wrap:wrap;gap:.75rem;justify-content:space-between;align-items:center}
+.sp-footer-links a{color:var(--sp-muted);font-size:.82rem;font-weight:600;transition:color .15s}
+.sp-footer-links a:hover{color:var(--sp-text);text-decoration:none}
+.sp-footer-bottom{font-size:.8rem;color:var(--sp-muted);border-top:1px solid var(--sp-border);padding-top:1.25rem;display:flex;flex-wrap:wrap;gap:.75rem;justify-content:space-between;align-items:center}
 /* Blog styles */
-.sp-main{max-width:900px;margin:0 auto;padding:2.5rem 1.25rem 5rem}
+.sp-main{max-width:900px;margin:0 auto;padding:2.5rem 1.5rem 5rem}
+.blog-page-header{text-align:center;padding:3rem 0 2rem}
+.blog-page-header h1{font-size:2.5rem;font-weight:900;margin-bottom:.5rem}
+.blog-page-header p{color:var(--sp-muted)}
 .blog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.25rem;margin-top:1.5rem}
-.blog-card{background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:1.5rem;transition:all .2s}
-.blog-card:hover{border-color:var(--grad-1);transform:translateY(-3px);box-shadow:0 8px 24px rgba(99,102,241,.12)}
+.blog-card{background:var(--sp-card);border:1px solid var(--sp-border);border-radius:16px;padding:1.5rem;transition:all .2s}
+.blog-card:hover{border-color:var(--sp-accent);transform:translateY(-3px);box-shadow:0 8px 32px rgba(124,58,237,.18)}
 .blog-card h2{font-size:1.05rem;font-weight:700;line-height:1.4;margin-bottom:.5rem}
-.blog-card h2 a{color:var(--text);text-decoration:none}
-.blog-card h2 a:hover{color:var(--grad-1)}
-.blog-card .bc-meta{font-size:.78rem;color:var(--muted);margin-bottom:.4rem}
-.blog-card .bc-desc{font-size:.875rem;color:var(--muted);line-height:1.5}
+.blog-card h2 a{color:var(--sp-text);text-decoration:none}
+.blog-card h2 a:hover{color:#a78bfa}
+.blog-card .bc-meta{font-size:.78rem;color:var(--sp-muted);margin-bottom:.4rem}
+.blog-card .bc-desc{font-size:.875rem;color:var(--sp-muted);line-height:1.5}
+.blog-empty{text-align:center;padding:5rem 1rem;color:var(--sp-muted)}
+.blog-empty-icon{font-size:3rem;margin-bottom:1rem;opacity:.4}
 .blog-post-page{max-width:760px}
-.blog-post-page h1{font-size:2rem;font-weight:800;line-height:1.25;margin-bottom:.75rem}
-.blog-post-page time{font-size:.82rem;color:var(--muted);display:block;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}
-.blog-body{line-height:1.8;font-size:.975rem}
-.blog-body h2,.blog-body h3{font-weight:700;margin:1.5rem 0 .75rem}
-.blog-body p{margin-bottom:1rem}
+.blog-post-page h1{font-size:2rem;font-weight:800;line-height:1.25;margin-bottom:.75rem;color:var(--sp-text)}
+.blog-post-page time{font-size:.82rem;color:var(--sp-muted);display:block;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid var(--sp-border)}
+.blog-body{line-height:1.8;font-size:.975rem;color:var(--sp-text)}
+.blog-body h2,.blog-body h3{font-weight:700;margin:1.5rem 0 .75rem;color:var(--sp-text)}
+.blog-body p{margin-bottom:1rem;color:var(--sp-muted)}
 /* Legal styles */
-.legal-page h1{font-size:1.8rem;font-weight:800;margin-bottom:.75rem}
-.legal-page .legal-updated{font-size:.82rem;color:var(--muted);margin-bottom:2rem}
-.legal-page .legal-body{line-height:1.85;font-size:.925rem;color:var(--text)}
-.legal-page .legal-body h2,.legal-page .legal-body h3{font-weight:700;margin:1.75rem 0 .75rem}
-.legal-page .legal-body p{margin-bottom:1rem;color:var(--muted)}
+.legal-page h1{font-size:1.8rem;font-weight:800;margin-bottom:.75rem;color:var(--sp-text)}
+.legal-page .legal-updated{font-size:.82rem;color:var(--sp-muted);margin-bottom:2rem}
+.legal-page .legal-body{line-height:1.85;font-size:.925rem;color:var(--sp-text)}
+.legal-page .legal-body h2,.legal-page .legal-body h3{font-weight:700;margin:1.75rem 0 .75rem;color:var(--sp-text)}
+.legal-page .legal-body p{margin-bottom:1rem;color:var(--sp-muted)}
 .legal-page .legal-body ul,.legal-page .legal-body ol{padding-left:1.5rem;margin-bottom:1rem}
-.legal-page .legal-body li{margin-bottom:.35rem;color:var(--muted)}
-@media(max-width:600px){.sp-footer-top{grid-template-columns:1fr}.blog-grid{grid-template-columns:1fr}.blog-post-page h1{font-size:1.5rem}}
+.legal-page .legal-body li{margin-bottom:.35rem;color:var(--sp-muted)}
+@media(max-width:600px){.sp-footer-top{grid-template-columns:1fr}.blog-grid{grid-template-columns:1fr}.blog-post-page h1{font-size:1.5rem}.sp-links a:not(.sp-cta){display:none}}
 </style>`;
 
-function spNav(siteName) {
+function spNav(siteName, logoLight, logoDark) {
+  const logoHtml = (logoLight || logoDark)
+    ? `<img src="${esc(logoLight||logoDark)}" class="sp-logo-light" alt="${esc(siteName)}" style="max-height:40px;max-width:180px;object-fit:contain"><img src="${esc(logoDark||logoLight)}" class="sp-logo-dark" alt="${esc(siteName)}" style="max-height:40px;max-width:180px;object-fit:contain;display:none">`
+    : esc(siteName);
   return `<nav class="sp-nav"><div class="sp-nav-inner">
-<a href="/" class="sp-logo">${esc(siteName)}</a>
+<a href="/" class="sp-logo" id="sp-nav-logo">${logoHtml}</a>
 <div class="sp-links">
   <a href="/">Home</a><a href="/plans">Plans</a><a href="/blog">Blog</a>
   <a href="/my" class="sp-cta">My Account</a>
 </div>
-</div></nav>`;
+<button class="sp-theme-btn" id="sp-theme-btn" title="Toggle theme">🌙</button>
+</div></nav>
+<script>
+(function(){
+  var btn=document.getElementById('sp-theme-btn');
+  function applyTheme(t){
+    document.documentElement.setAttribute('data-theme',t);
+    localStorage.setItem('theme',t);
+    if(btn)btn.textContent=t==='dark'?'🌙':'☀️';
+    var ll=document.querySelectorAll('.sp-logo-light'), ld=document.querySelectorAll('.sp-logo-dark');
+    ll.forEach(function(el){el.style.display=t==='dark'?'none':'block'});
+    ld.forEach(function(el){el.style.display=t==='dark'?'block':'none'});
+  }
+  applyTheme(localStorage.getItem('theme')||'dark');
+  if(btn)btn.addEventListener('click',function(){applyTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark');});
+})();
+</script>`;
 }
 
 function spFooter(siteName) {
@@ -303,8 +351,17 @@ function spFooter(siteName) {
 </div></footer>`;
 }
 
+async function getLogoUrls() {
+  try {
+    const db = await getDb();
+    const light = (get(db, `SELECT value FROM settings WHERE key='logo_light_url'`) || {}).value || '';
+    const dark  = (get(db, `SELECT value FROM settings WHERE key='logo_dark_url'`)  || {}).value || '';
+    return { light, dark };
+  } catch { return { light: '', dark: '' }; }
+}
+
 // ─── Helpers: simple server-rendered pages ────────────────────────────────────
-function buildBlogPostPage(post, siteName, ogImage, baseUrl) {
+function buildBlogPostPage(post, siteName, ogImage, baseUrl, logos = {}) {
   const bodyHtml = post.body
     .replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -312,7 +369,7 @@ function buildBlogPostPage(post, siteName, ogImage, baseUrl) {
   const canonical = `${baseUrl}/blog/${post.slug}`;
   const pubDate = (post.created_at || '').replace(' ', 'T').split('T')[0];
   const ldjson = JSON.stringify({ '@context':'https://schema.org','@type':'Article','headline':post.title,'datePublished':pubDate,'description':post.meta_desc||'','url':canonical });
-  return `<!DOCTYPE html><html lang="en">
+  return `<!DOCTYPE html><html lang="en" data-theme="dark" data-store-theme="midnight-purple">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(post.title)} — ${esc(siteName)}</title>
@@ -326,20 +383,20 @@ ${SHARED_STYLES}
 <script type="application/ld+json">${ldjson}</script>
 </head>
 <body>
-${spNav(siteName)}
+${spNav(siteName, logos.light, logos.dark)}
 <main class="sp-main">
 <div class="blog-post-page">
 <h1>${esc(post.title)}</h1>
 <time datetime="${pubDate}">${pubDate}</time>
 <div class="blog-body"><p>${bodyHtml}</p></div>
-<p style="margin-top:2rem"><a href="/blog" style="color:var(--muted);font-size:.875rem">← Back to Blog</a></p>
+<p style="margin-top:2rem"><a href="/blog" style="color:var(--sp-muted);font-size:.875rem">← Back to Blog</a></p>
 </div>
 </main>
 ${spFooter(siteName)}
 </body></html>`;
 }
 
-function buildBlogIndexPage(posts, siteName, seoDesc, baseUrl) {
+function buildBlogIndexPage(posts, siteName, seoDesc, baseUrl, logos = {}) {
   const items = posts.map(p => {
     const d = (p.created_at || '').replace(' ', 'T').split('T')[0];
     return `<article class="blog-card">
@@ -349,7 +406,8 @@ function buildBlogIndexPage(posts, siteName, seoDesc, baseUrl) {
 </article>`;
   }).join('');
   const desc = seoDesc || `Read the latest articles and guides from ${siteName}.`;
-  return `<!DOCTYPE html><html lang="en">
+  const emptyHtml = `<div class="blog-empty"><div class="blog-empty-icon">✍️</div><p>No posts yet. Check back soon!</p></div>`;
+  return `<!DOCTYPE html><html lang="en" data-theme="dark" data-store-theme="midnight-purple">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Blog — ${esc(siteName)}</title>
 <meta name="description" content="${esc(desc)}">
@@ -358,26 +416,28 @@ function buildBlogIndexPage(posts, siteName, seoDesc, baseUrl) {
 ${SHARED_STYLES}
 </head>
 <body>
-${spNav(siteName)}
+${spNav(siteName, logos.light, logos.dark)}
 <main class="sp-main">
-<h1 style="font-size:2rem;font-weight:800;margin-bottom:.5rem">Blog</h1>
-<p style="color:var(--muted);font-size:.9rem;margin-bottom:0">${esc(desc)}</p>
-<div class="blog-grid">${items || '<p style="color:var(--muted);padding:2rem 0">No posts yet. Check back soon!</p>'}</div>
+<div class="blog-page-header">
+  <h1>Blog</h1>
+  <p>${esc(desc)}</p>
+</div>
+<div class="blog-grid">${items || emptyHtml}</div>
 </main>
 ${spFooter(siteName)}
 </body></html>`;
 }
 
-function buildSimplePage(name, siteName) {
+function buildSimplePage(name, siteName, logos = {}) {
   const titles = { about:'About Us', contact:'Contact', privacy:'Privacy Policy', terms:'Terms of Service', refund:'Refund Policy' };
   const title = titles[name] || name;
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  return `<!DOCTYPE html><html lang="en" data-theme="dark" data-store-theme="midnight-purple"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)} — ${esc(siteName)}</title>
 <link rel="stylesheet" href="/style.css">
 ${SHARED_STYLES}
 </head>
 <body>
-${spNav(siteName)}
+${spNav(siteName, logos.light, logos.dark)}
 <main class="sp-main">
 <div class="legal-page">
 <h1>${esc(title)}</h1>
@@ -389,9 +449,9 @@ ${spFooter(siteName)}
 }
 
 // ─── Start ────────────────────────────────────────────────────────────────────
-function buildLegalPage(page, siteName) {
+function buildLegalPage(page, siteName, logos = {}) {
   const baseUrl = cfg.baseUrl;
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  return `<!DOCTYPE html><html lang="en" data-theme="dark" data-store-theme="midnight-purple"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(page.title)} — ${esc(siteName)}</title>
 <meta name="description" content="${esc(page.title)} for ${esc(siteName)}">
 <link rel="canonical" href="${esc(baseUrl)}/${page.slug}">
@@ -399,7 +459,7 @@ function buildLegalPage(page, siteName) {
 ${SHARED_STYLES}
 </head>
 <body>
-${spNav(siteName)}
+${spNav(siteName, logos.light, logos.dark)}
 <main class="sp-main">
 <div class="legal-page">
 <h1>${esc(page.title)}</h1>
