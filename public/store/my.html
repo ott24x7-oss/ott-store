@@ -4,12 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title id="my-title">My Account — OTT Store</title>
-<link rel="stylesheet" href="/style.css">
-<link rel="stylesheet" href="/store/themes.css">
+<link rel="stylesheet" href="/store/store-theme.css">
 <style>
-/* ── Theme init ── */
-:root{--grad-1:#6366f1;--grad-2:#8b5cf6;--grad-3:#ec4899}
-
 /* ── Layout ── */
 .my-wrap{display:flex;flex-direction:column;min-height:100vh}
 .my-main{flex:1;padding:1.5rem 1rem;max-width:1100px;margin:0 auto;width:100%}
@@ -18,7 +14,7 @@
 /* ── Header ── */
 .my-nav{position:sticky;top:0;z-index:200;background:var(--header-bg);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:.8rem 1.5rem}
 .my-nav-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:.75rem}
-.my-logo{font-size:1.25rem;font-weight:900;background:linear-gradient(135deg,#7c3aed,#4f46e5);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-decoration:none;flex-shrink:0;display:flex;align-items:center}
+.my-logo{font-size:1.25rem;font-weight:900;background:linear-gradient(135deg,var(--red),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-decoration:none;flex-shrink:0;display:flex;align-items:center}
 .my-logo:hover{opacity:.85;text-decoration:none}
 .my-logo img{max-height:36px;max-width:160px;object-fit:contain;display:block}
 html .my-logo .logo-light{display:block}
@@ -27,13 +23,13 @@ html[data-theme="dark"] .my-logo .logo-light{display:none}
 html[data-theme="dark"] .my-logo .logo-dark{display:block}
 .my-nav-links{display:flex;gap:.25rem;align-items:center}
 .my-nav-links a{color:var(--muted);font-size:.875rem;font-weight:600;padding:.3rem .65rem;border-radius:7px;text-decoration:none;transition:all .15s}
-.my-nav-links a:hover{color:var(--text);background:rgba(99,102,241,.1);text-decoration:none}
+.my-nav-links a:hover{color:var(--text);background:rgba(255,43,79,.08);text-decoration:none}
 .my-nav-right{display:flex;align-items:center;gap:.5rem;margin-left:auto}
-.my-wallet-pill{display:flex;align-items:center;gap:.35rem;background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(139,92,246,.12));border:1px solid rgba(99,102,241,.25);border-radius:20px;padding:.3rem .75rem;font-size:.82rem;font-weight:700;cursor:pointer;text-decoration:none;color:var(--text)}
-.my-wallet-pill:hover{background:rgba(99,102,241,.2);text-decoration:none}
+.my-wallet-pill{display:flex;align-items:center;gap:.35rem;background:linear-gradient(135deg,rgba(255,43,79,.1),rgba(255,138,0,.1));border:1px solid rgba(255,43,79,.2);border-radius:20px;padding:.3rem .75rem;font-size:.82rem;font-weight:700;cursor:pointer;text-decoration:none;color:var(--text)}
+.my-wallet-pill:hover{background:rgba(255,43,79,.15);text-decoration:none}
 .my-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--grad-1),var(--grad-2));color:#fff;font-weight:800;font-size:.8rem;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
 .my-btn-icon{background:none;border:none;font-size:1.1rem;cursor:pointer;padding:.2rem .3rem;color:var(--muted);border-radius:6px}
-.my-btn-icon:hover{color:var(--text);background:rgba(99,102,241,.08)}
+.my-btn-icon:hover{color:var(--text);background:rgba(255,43,79,.08)}
 
 /* ── Tab nav ── */
 .my-tab-nav{display:flex;background:var(--card);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
@@ -47,12 +43,12 @@ html[data-theme="dark"] .my-logo .logo-dark{display:block}
 .my-bnav-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.1rem;padding:.3rem .5rem;border:none;background:none;color:rgba(255,255,255,.42);font-size:.6rem;font-weight:600;cursor:pointer;transition:all .15s;text-align:center}
 .my-bnav-btn .bi{font-size:1.2rem;line-height:1;display:block;margin-bottom:.05rem}
 .my-bnav-btn.active{color:#fff}
-.my-bnav-btn.active .bi{filter:drop-shadow(0 0 6px rgba(99,102,241,.9))}
+.my-bnav-btn.active .bi{filter:drop-shadow(0 0 6px rgba(255,43,79,.8))}
 
 /* ── Drawer ── */
 .my-drawer-ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:none}
 .my-drawer-ov.open{display:block}
-.my-drawer{position:fixed;right:0;top:0;bottom:0;width:min(300px,85vw);background:var(--card);border-left:1px solid var(--border);z-index:301;padding:1.25rem 1rem;transform:translateX(100%);transition:transform .22s ease;display:flex;flex-direction:column;gap:.5rem;overflow-y:auto}
+.my-drawer{position:fixed;right:0;top:0;bottom:0;width:min(300px,85vw);background:#0d0f1a;border-left:1px solid rgba(255,255,255,.1);z-index:301;padding:1.25rem 1rem;transform:translateX(100%);transition:transform .22s ease;display:flex;flex-direction:column;gap:.5rem;overflow-y:auto}
 .my-drawer.open{transform:translateX(0)}
 .my-drawer-tabs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem}
 .my-dtab{display:flex;flex-direction:column;align-items:center;gap:.3rem;padding:.7rem .4rem;border-radius:10px;border:1.5px solid var(--border);background:var(--card);cursor:pointer;font-size:.73rem;font-weight:600;color:var(--text)}
@@ -69,7 +65,7 @@ html[data-theme="dark"] .my-logo .logo-dark{display:block}
 
 /* ── Auth wrapper ── */
 .my-auth-box{width:100%;max-width:440px}
-.my-auth-card{background:var(--card);border:1.5px solid var(--border);border-radius:20px;padding:2rem;box-shadow:var(--shadow-lg)}
+.my-auth-card{background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.12);border-radius:20px;padding:2rem;box-shadow:var(--shadow-lg);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
 .my-auth-logo{text-align:center;margin-bottom:1.75rem}
 .my-auth-logo .al-icon{font-size:2.5rem;margin-bottom:.5rem}
 .my-auth-logo h1{font-size:1.4rem;font-weight:800;margin-bottom:.25rem}
@@ -127,7 +123,7 @@ html[data-theme="dark"] .my-logo .logo-dark{display:block}
 .my-stat-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;margin-bottom:.6rem}
 .my-stat-label{font-size:.7rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.2rem}
 .my-stat-val{font-size:1.5rem;font-weight:900;background:linear-gradient(135deg,var(--grad-1),var(--grad-2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.1}
-.my-stat-icon-wallet{background:linear-gradient(135deg,rgba(99,102,241,.18),rgba(139,92,246,.18))}
+.my-stat-icon-wallet{background:linear-gradient(135deg,rgba(255,43,79,.15),rgba(255,138,0,.15))}
 .my-stat-icon-active{background:linear-gradient(135deg,rgba(16,185,129,.18),rgba(5,150,105,.18))}
 .my-stat-icon-orders{background:linear-gradient(135deg,rgba(245,158,11,.18),rgba(234,88,12,.18))}
 .my-stat-icon-spent{background:linear-gradient(135deg,rgba(236,72,153,.18),rgba(219,39,119,.18))}
@@ -142,7 +138,7 @@ html[data-theme="dark"] .my-logo .logo-dark{display:block}
 .my-qa-tile:active{transform:translateY(-1px)}
 .my-qa-icon-wrap{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.25rem;position:relative;z-index:1;flex-shrink:0}
 .my-qa-lbl{font-size:.71rem;font-weight:700;color:var(--text);position:relative;z-index:1;line-height:1.3}
-.qa-plans .my-qa-icon-wrap{background:linear-gradient(135deg,#6366f1,#8b5cf6)}
+.qa-plans .my-qa-icon-wrap{background:linear-gradient(135deg,var(--grad-1),var(--grad-2))}
 .qa-orders .my-qa-icon-wrap{background:linear-gradient(135deg,#f59e0b,#ea580c)}
 .qa-topup .my-qa-icon-wrap{background:linear-gradient(135deg,#10b981,#059669)}
 .qa-referral .my-qa-icon-wrap{background:linear-gradient(135deg,#ec4899,#db2777)}
@@ -163,7 +159,7 @@ html[data-theme="dark"] .my-logo .logo-dark{display:block}
 /* ── Recent orders row ── */
 .dash-order-row{display:flex;align-items:center;gap:.85rem;padding:.85rem 1rem;border-bottom:1px solid var(--border)}
 .dash-order-row:last-child{border-bottom:none}
-.dash-order-icon{width:38px;height:38px;border-radius:9px;background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(139,92,246,.12));display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+.dash-order-icon{width:38px;height:38px;border-radius:9px;background:linear-gradient(135deg,rgba(255,43,79,.1),rgba(255,138,0,.1));display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
 .dash-order-info{flex:1;min-width:0}
 .dash-order-name{font-weight:600;font-size:.875rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dash-order-meta{font-size:.73rem;color:var(--muted);margin-top:.1rem}
@@ -175,7 +171,7 @@ html[data-theme="dark"] .my-logo .logo-dark{display:block}
 
 /* Plan card in portal */
 .my-plan-card{background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:1.25rem;display:flex;flex-direction:column;gap:.5rem;position:relative;overflow:hidden;transition:all .2s}
-.my-plan-card:hover{transform:translateY(-3px);border-color:var(--grad-1);box-shadow:0 8px 24px rgba(99,102,241,.15)}
+.my-plan-card:hover{transform:translateY(-3px);border-color:var(--grad-1);box-shadow:0 8px 24px rgba(255,43,79,.15)}
 .my-plan-card-hdr{height:6px;background:linear-gradient(90deg,var(--grad-1),var(--grad-2));position:absolute;top:0;left:0;right:0;border-radius:14px 14px 0 0;display:none}
 .my-plan-card.featured .my-plan-card-hdr{display:block}
 .my-plan-img{width:100%;height:80px;object-fit:contain;border-radius:8px;margin-bottom:.25rem;background:var(--input-bg)}
@@ -189,7 +185,7 @@ html[data-theme="dark"] .my-logo .logo-dark{display:block}
 .my-plan-orig{font-size:.8rem;color:var(--muted);text-decoration:line-through}
 .my-plan-feats{list-style:none;display:flex;flex-direction:column;gap:.3rem;font-size:.8rem;color:var(--muted)}
 .my-plan-feats li::before{content:'✓ ';color:var(--green);font-weight:700}
-.my-plan-del{font-size:.75rem;font-weight:700;color:var(--grad-1);background:rgba(99,102,241,.1);border-radius:6px;padding:.15rem .45rem;display:inline-block;width:fit-content}
+.my-plan-del{font-size:.75rem;font-weight:700;color:var(--grad-1);background:rgba(255,43,79,.1);border-radius:6px;padding:.15rem .45rem;display:inline-block;width:fit-content}
 
 /* Orders */
 .my-order{display:flex;align-items:center;gap:.9rem;padding:.85rem;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:.6rem}
@@ -233,7 +229,7 @@ html[data-theme="dark"] .my-logo .logo-dark{display:block}
 .my-ticket-meta{font-size:.75rem;color:var(--muted)}
 .my-thread{display:flex;flex-direction:column;gap:.7rem;margin-bottom:1rem}
 .my-thread-msg{padding:.7rem 1rem;border-radius:10px;max-width:85%;font-size:.875rem;line-height:1.5}
-.my-thread-msg.customer{background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(139,92,246,.12));border:1px solid rgba(99,102,241,.2);align-self:flex-end}
+.my-thread-msg.customer{background:linear-gradient(135deg,rgba(255,43,79,.1),rgba(255,138,0,.08));border:1px solid rgba(255,43,79,.18);align-self:flex-end}
 .my-thread-msg.admin{background:var(--card);border:1px solid var(--border);align-self:flex-start}
 .my-thread-sender{font-size:.7rem;font-weight:700;color:var(--muted);margin-bottom:.2rem}
 
@@ -271,43 +267,11 @@ html[data-theme="dark"] .my-logo .logo-dark{display:block}
 }
 .spinner-inline{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--grad-1);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:4px}
 
-/* ── Cinematic dark background (matches home page) ── */
-[data-theme="dark"] body{
-  background:
-    radial-gradient(circle at top left,rgba(255,43,79,.22),transparent 28%),
-    radial-gradient(circle at 70% 20%,rgba(66,232,255,.16),transparent 30%),
-    radial-gradient(circle at bottom right,rgba(155,92,255,.24),transparent 32%),
-    #05050b;
-}
-[data-theme="dark"] body::before{
-  background:
-    radial-gradient(ellipse 80% 50% at 20% 0%,rgba(99,102,241,.14) 0%,transparent 60%),
-    radial-gradient(ellipse 60% 40% at 80% 100%,rgba(236,72,153,.10) 0%,transparent 60%);
-}
-[data-theme="dark"]{
-  --page-bg:#05050b;
-  --card:#0e1018;
-  --border:rgba(255,255,255,.1);
-  --input-bg:rgba(255,255,255,.05);
-  --my-card:rgba(255,255,255,.06);
-  --my-border:rgba(255,255,255,.1);
-  --header-bg:rgba(5,5,11,.88);
-  --muted:rgba(255,255,255,.48);
-}
-[data-theme="dark"] .card{
-  background:rgba(255,255,255,.06);
-  border-color:rgba(255,255,255,.1);
-  backdrop-filter:blur(14px);
-  -webkit-backdrop-filter:blur(14px);
-}
-[data-theme="dark"] .my-drawer{background:#0d0f1a;border-color:rgba(255,255,255,.1)}
-[data-theme="dark"] .my-auth-card{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.12);backdrop-filter:blur(20px)}
 </style>
 </head>
 <body>
 <script>
 (function(){
-  // Store pages always dark — clear any saved light preference
   document.documentElement.setAttribute('data-theme','dark');
   localStorage.setItem('theme','dark');
   var st=localStorage.getItem('store_theme')||'midnight-purple';
@@ -315,6 +279,7 @@ html[data-theme="dark"] .my-logo .logo-dark{display:block}
 })();
 </script>
 
+<div class="st-noise"></div>
 <div class="my-wrap" id="my-wrap">
 <!-- ── Header ── -->
 <header class="my-nav" id="my-nav">

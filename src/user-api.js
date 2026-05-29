@@ -68,7 +68,7 @@ router.get('/store', async (req, res) => {
   try {
     const db = await getDb();
     const rows = all(db, `SELECT key, value FROM settings WHERE key IN
-      ('site_name','site_tagline','logo_url','logo_light_url','logo_dark_url','announcement','upi_id','upi_name',
+      ('site_name','site_tagline','hero_title','hero_title2','hero_subtext','logo_url','logo_light_url','logo_dark_url','announcement','upi_id','upi_name',
        'razorpay_enabled','upi_manual_enabled','support_whatsapp','support_email',
        'pwa_force_prompt','vapid_public_key','store_theme','wa_enabled','imap_enabled')`, []);
     const s = {};

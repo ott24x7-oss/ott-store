@@ -225,27 +225,26 @@ function esc(s) {
 
 const SHARED_STYLES = `
 <script>(function(){
-  var t=localStorage.getItem('theme')||(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
-  document.documentElement.setAttribute('data-theme',t);
-  document.documentElement.setAttribute('data-store-theme','midnight-purple');
+  document.documentElement.setAttribute('data-theme','dark');
+  try{localStorage.setItem('theme','dark');}catch(e){}
 })();</script>
-<link rel="stylesheet" href="/store/themes.css">
 <style>
 :root{
-  --sp-bg:#080b14;--sp-card:rgba(255,255,255,.04);--sp-border:rgba(255,255,255,.09);
-  --sp-text:#f1f5f9;--sp-muted:#94a3b8;--sp-nav:rgba(8,11,20,.88);
-  --sp-accent:#7c3aed;--sp-accent2:#4f46e5;
-  --sp-btn:linear-gradient(135deg,#7c3aed,#4f46e5);
+  --sp-bg:#05050b;--sp-card:rgba(255,255,255,.06);--sp-card2:rgba(255,255,255,.09);--sp-border:rgba(255,255,255,.12);
+  --sp-text:#f7f7ff;--sp-muted:rgba(255,255,255,.55);--sp-nav:rgba(5,5,11,.88);
+  --sp-red:#ff2b4f;--sp-orange:#ff8a00;--sp-cyan:#42e8ff;--sp-purple:#9b5cff;
+  --sp-accent:#ff2b4f;--sp-accent2:#ff8a00;
+  --sp-btn:linear-gradient(135deg,#ff2b4f,#ff8a00);
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html{background:var(--sp-bg)}
+html{background:var(--sp-bg);scroll-behavior:smooth;overflow-x:hidden}
 body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--sp-bg);color:var(--sp-text);min-height:100vh;overflow-x:hidden}
-body::before{content:'';position:fixed;inset:0;z-index:-1;
-  background:radial-gradient(ellipse 80% 50% at 20% -10%,rgba(124,58,237,.18) 0%,transparent 60%),
-             radial-gradient(ellipse 60% 40% at 80% 110%,rgba(79,70,229,.12) 0%,transparent 60%);
-  pointer-events:none}
-a{color:#a78bfa;text-decoration:none}
-a:hover{color:#c4b5fd;text-decoration:underline}
+body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(circle at top left,rgba(255,43,79,.22),transparent 28%),
+             radial-gradient(circle at 70% 20%,rgba(66,232,255,.16),transparent 30%),
+             radial-gradient(circle at bottom right,rgba(155,92,255,.24),transparent 32%)}
+a{color:var(--sp-cyan);text-decoration:none}
+a:hover{color:#8af1ff;text-decoration:underline}
 /* Cinematic nav */
 .sp-nav{position:sticky;top:0;z-index:100;background:var(--sp-nav);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--sp-border);padding:.8rem 1.5rem}
 .sp-nav-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:1.5rem}
@@ -254,9 +253,9 @@ a:hover{color:#c4b5fd;text-decoration:underline}
 .sp-logo:hover{opacity:.85;text-decoration:none}
 .sp-links{display:flex;gap:.25rem;margin-left:auto;align-items:center}
 .sp-links a{color:var(--sp-muted);font-size:.875rem;font-weight:500;padding:.4rem .85rem;border-radius:8px;transition:all .15s;text-decoration:none}
-.sp-links a:hover{color:var(--sp-text);background:rgba(124,58,237,.1);text-decoration:none}
-.sp-links .sp-cta{background:var(--sp-btn);color:#fff;padding:.45rem 1.1rem;border-radius:50px;font-weight:700;font-size:.85rem}
-.sp-links .sp-cta:hover{opacity:.85;text-decoration:none;color:#fff}
+.sp-links a:hover{color:var(--sp-text);background:rgba(255,43,79,.12);text-decoration:none}
+.sp-links .sp-cta{background:var(--sp-btn);color:#fff;padding:.45rem 1.1rem;border-radius:50px;font-weight:700;font-size:.85rem;box-shadow:0 8px 24px rgba(255,43,79,.3)}
+.sp-links .sp-cta:hover{filter:brightness(1.1);text-decoration:none;color:#fff}
 /* Theme toggle */
 .sp-theme-btn{background:var(--sp-card);border:1px solid var(--sp-border);color:var(--sp-text);border-radius:50%;width:34px;height:34px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:.5rem}
 /* Page footer */
@@ -276,10 +275,10 @@ a:hover{color:#c4b5fd;text-decoration:underline}
 .blog-page-header p{color:var(--sp-muted)}
 .blog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.25rem;margin-top:1.5rem}
 .blog-card{background:var(--sp-card);border:1px solid var(--sp-border);border-radius:16px;padding:1.5rem;transition:all .2s}
-.blog-card:hover{border-color:var(--sp-accent);transform:translateY(-3px);box-shadow:0 8px 32px rgba(124,58,237,.18)}
+.blog-card:hover{border-color:var(--sp-accent);transform:translateY(-3px);box-shadow:0 8px 32px rgba(255,43,79,.18)}
 .blog-card h2{font-size:1.05rem;font-weight:700;line-height:1.4;margin-bottom:.5rem}
 .blog-card h2 a{color:var(--sp-text);text-decoration:none}
-.blog-card h2 a:hover{color:#a78bfa}
+.blog-card h2 a:hover{color:var(--sp-cyan)}
 .blog-card .bc-meta{font-size:.78rem;color:var(--sp-muted);margin-bottom:.4rem}
 .blog-card .bc-desc{font-size:.875rem;color:var(--sp-muted);line-height:1.5}
 .blog-empty{text-align:center;padding:5rem 1rem;color:var(--sp-muted)}
@@ -298,12 +297,19 @@ a:hover{color:#c4b5fd;text-decoration:underline}
 .legal-page .legal-body p{margin-bottom:1rem;color:var(--sp-muted)}
 .legal-page .legal-body ul,.legal-page .legal-body ol{padding-left:1.5rem;margin-bottom:1rem}
 .legal-page .legal-body li{margin-bottom:.35rem;color:var(--sp-muted)}
+/* Mobile bottom nav (matches store pages) */
+.sp-bnav{display:none;position:fixed;bottom:0;left:0;right:0;height:58px;z-index:500;background:rgba(5,5,11,.96);border-top:1px solid var(--sp-border);grid-template-columns:repeat(4,1fr);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.sp-bnav-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--sp-muted);font-size:.65rem;font-weight:600;text-decoration:none;transition:color .15s;padding:.3rem .5rem}
+.sp-bnav-btn span{font-size:1.15rem;line-height:1}
+.sp-bnav-btn.active,.sp-bnav-btn:hover{color:var(--sp-accent);text-decoration:none}
 @media(max-width:600px){.sp-footer-top{grid-template-columns:1fr}.blog-grid{grid-template-columns:1fr}.blog-post-page h1{font-size:1.5rem}.sp-links a:not(.sp-cta){display:none}}
+@media(max-width:760px){.sp-bnav{display:grid}body{padding-bottom:58px}.sp-footer{margin-bottom:58px}}
 </style>`;
 
 function spNav(siteName, logoLight, logoDark) {
-  const logoHtml = (logoLight || logoDark)
-    ? `<img src="${esc(logoLight||logoDark)}" class="sp-logo-light" alt="${esc(siteName)}" style="max-height:40px;max-width:180px;object-fit:contain"><img src="${esc(logoDark||logoLight)}" class="sp-logo-dark" alt="${esc(siteName)}" style="max-height:40px;max-width:180px;object-fit:contain;display:none">`
+  const logoSrc = logoDark || logoLight;
+  const logoHtml = logoSrc
+    ? `<img src="${esc(logoSrc)}" alt="${esc(siteName)}" style="max-height:40px;max-width:180px;object-fit:contain">`
     : esc(siteName);
   return `<nav class="sp-nav"><div class="sp-nav-inner">
 <a href="/" class="sp-logo" id="sp-nav-logo">${logoHtml}</a>
@@ -311,23 +317,7 @@ function spNav(siteName, logoLight, logoDark) {
   <a href="/">Home</a><a href="/plans">Plans</a><a href="/blog">Blog</a>
   <a href="/my" class="sp-cta">My Account</a>
 </div>
-<button class="sp-theme-btn" id="sp-theme-btn" title="Toggle theme">🌙</button>
-</div></nav>
-<script>
-(function(){
-  var btn=document.getElementById('sp-theme-btn');
-  function applyTheme(t){
-    document.documentElement.setAttribute('data-theme',t);
-    localStorage.setItem('theme',t);
-    if(btn)btn.textContent=t==='dark'?'🌙':'☀️';
-    var ll=document.querySelectorAll('.sp-logo-light'), ld=document.querySelectorAll('.sp-logo-dark');
-    ll.forEach(function(el){el.style.display=t==='dark'?'none':'block'});
-    ld.forEach(function(el){el.style.display=t==='dark'?'block':'none'});
-  }
-  applyTheme(localStorage.getItem('theme')||'dark');
-  if(btn)btn.addEventListener('click',function(){applyTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark');});
-})();
-</script>`;
+</div></nav>`;
 }
 
 function spFooter(siteName) {
@@ -348,7 +338,14 @@ function spFooter(siteName) {
   <span>© ${yr} ${esc(siteName)}. All rights reserved.</span>
   <span>Made with ❤️ for streaming fans</span>
 </div>
-</div></footer>`;
+</div></footer>
+<nav class="sp-bnav">
+  <a class="sp-bnav-btn" href="/"><span>🏠</span>Home</a>
+  <a class="sp-bnav-btn" href="/plans"><span>📦</span>Plans</a>
+  <a class="sp-bnav-btn" href="/my"><span>👤</span>Account</a>
+  <a class="sp-bnav-btn" href="/contact"><span>🎧</span>Support</a>
+</nav>
+<script>(function(){var p=location.pathname;document.querySelectorAll('.sp-bnav-btn').forEach(function(a){if(a.getAttribute('href')===p)a.classList.add('active');});})();</script>`;
 }
 
 async function getLogoUrls() {

@@ -79,7 +79,9 @@ nav a:hover{border-color:var(--border);background:rgba(255,255,255,.1)}
 .nav-burger{display:none;background:none;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:.4rem .6rem;cursor:pointer;font-size:1.1rem}
 .nav-mob{display:none;position:fixed;inset:0;z-index:999;background:var(--bg);padding:5rem 1.5rem 2rem;flex-direction:column;gap:1rem}
 .nav-mob.open{display:flex}
+.nav-mob{overflow-y:auto}
 .nav-mob a{font-size:1.1rem;font-weight:600;color:var(--text);text-decoration:none;padding:.75rem 0;border-bottom:1px solid var(--border)}
+.nav-mob-label{margin-top:1rem;font-size:.72rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .nav-mob-close{position:absolute;top:1.2rem;right:1.5rem;background:var(--glass);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:.4rem .7rem;cursor:pointer;font-size:1.1rem;z-index:1000}
 
 .hero{
@@ -292,21 +294,23 @@ footer{
 
 @media(max-width:900px){
   header{padding:18px 0}
-  nav a:not(.nav-wa):not(.nav-account){display:none}
+  nav a:not(.nav-account){display:none}
   .nav-burger{display:flex}
   .hero{grid-template-columns:1fr;gap:0;margin-top:10px;min-height:auto}
-  .stage{height:520px;order:-1}
-  .phone{right:50%;transform:translateX(50%) rotateY(-12deg) rotateX(5deg);width:270px;height:500px}
+  .stage{height:480px;order:-1;width:100%;overflow:hidden}
+  .logo-cloud{display:none}
+  .phone{inset:40px auto auto 50%;right:auto;width:250px;height:460px;transform:translateX(-50%) rotateY(-8deg) rotateX(4deg)}
+  @keyframes phoneFloat{50%{transform:translateX(-50%) rotateY(-5deg) rotateX(2deg) translateY(-16px)}}
+  .ring{width:360px;height:360px}.ring.two{width:285px;height:285px}
   .stats{grid-template-columns:repeat(2,1fr)}
   .grid{grid-template-columns:repeat(2,1fr)}
   .cta{flex-direction:column;align-items:flex-start}
   h1{letter-spacing:-2px}
 }
 @media(max-width:520px){
-  .stage{height:440px}
-  .phone{width:230px;height:420px;inset:65px auto auto 50%;transform:translateX(-50%) rotateY(-10deg) rotateX(5deg)}
-  .app-icon{width:72px;height:72px;border-radius:22px;font-size:28px}
-  .ring{width:340px;height:340px}.ring.two{width:270px;height:270px}
+  .stage{height:410px}
+  .phone{width:215px;height:400px;inset:28px auto auto 50%;transform:translateX(-50%) rotateY(-6deg) rotateX(3deg)}
+  .ring{width:300px;height:300px}.ring.two{width:236px;height:236px}
   .grid{grid-template-columns:1fr}
   .stat strong{font-size:22px}
   .actions .btn{width:100%;justify-content:center}
@@ -348,7 +352,6 @@ footer{
     <a href="/blog">Blog</a>
     <a href="/contact">Support</a>
     <a class="nav-account" href="/my" id="header-login-btn">Account</a>
-    <a class="nav-wa" href="https://wa.me/" id="nav-wa-btn" target="_blank" rel="noopener">💬 WhatsApp Order</a>
   </nav>
   <button class="nav-burger" id="nav-burger" aria-label="Menu">☰</button>
 </header>
@@ -361,14 +364,18 @@ footer{
   <a href="/blog">✍️ Blog</a>
   <a href="/contact">💬 Support</a>
   <a href="/my" id="mob-login-btn">👤 Account</a>
-  <a class="nav-wa" href="https://wa.me/" id="mob-wa-btn" target="_blank" rel="noopener">💬 WhatsApp Order</a>
+  <div class="nav-mob-label">Legal</div>
+  <a href="/privacy">🔒 Privacy Policy</a>
+  <a href="/terms">📜 Terms of Service</a>
+  <a href="/refund">💸 Refund Policy</a>
+  <a href="/about">ℹ️ About Us</a>
 </div>
 
 <!-- ── Hero ── -->
 <main class="hero">
   <section>
     <div class="eyebrow"><span class="pulse"></span> Live store · Instant digital delivery</div>
-    <h1><span class="gradient">Premium digital products.</span><br>Delivered cinematic fast.</h1>
+    <h1><span class="gradient" id="hero-title">Premium digital products.</span><br><span id="hero-title2">Delivered cinematic fast.</span></h1>
     <p id="hero-sub">Buy OTT, AI tools, cloud storage, software keys and productivity products with fast WhatsApp support, secure payments and clean account delivery.</p>
     <div class="actions">
       <a class="btn primary" href="/plans">🎬 Browse Products →</a>
@@ -559,12 +566,15 @@ fetch('/user/api/store').then(r=>r.json()).then(s=>{
     document.getElementById('cta-title').textContent=`Ready to upgrade your digital access on ${s.site_name}?`;
     document.getElementById('footer-copy').textContent=`© ${new Date().getFullYear()} ${s.site_name}. All rights reserved.`;
   }
-  if(s.site_tagline) document.getElementById('hero-sub').textContent=s.site_tagline;
+  if(s.hero_title) document.getElementById('hero-title').textContent=s.hero_title;
+  if(s.hero_title2) document.getElementById('hero-title2').textContent=s.hero_title2;
+  const heroSub=s.hero_subtext||s.site_tagline;
+  if(heroSub) document.getElementById('hero-sub').textContent=heroSub;
   // WhatsApp links
   if(s.support_whatsapp){
     const phone=s.support_whatsapp.replace(/\D/g,'');
     const waUrl=`https://wa.me/${phone}`;
-    ['nav-wa-btn','mob-wa-btn','hero-wa-btn'].forEach(id=>{
+    ['hero-wa-btn'].forEach(id=>{
       const el=document.getElementById(id);
       if(el) el.href=waUrl;
     });
@@ -651,7 +661,7 @@ fetch('/user/api/bot-config').then(r=>r.json()).then(cfg=>{
   <a class="home-bnav-btn active" href="/"><span>🏠</span>Home</a>
   <a class="home-bnav-btn" href="/plans"><span>📦</span>Plans</a>
   <a class="home-bnav-btn" href="/my"><span>👤</span>Account</a>
-  <a class="home-bnav-btn" href="/blog"><span>✍️</span>Blog</a>
+  <a class="home-bnav-btn" href="/contact"><span>🎧</span>Support</a>
 </div>
 
 </body>

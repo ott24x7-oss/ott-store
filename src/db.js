@@ -636,6 +636,9 @@ function seedDefaults(db) {
   const defaults = {
     site_name: 'OTT Store',
     site_tagline: 'Premium OTT Subscriptions at Best Prices',
+    hero_title: 'Premium digital products.',
+    hero_title2: 'Delivered cinematic fast.',
+    hero_subtext: 'Buy OTT, AI tools, cloud storage, software keys and productivity products with fast WhatsApp support, secure payments and clean account delivery.',
     support_email: '',
     support_whatsapp: '',
     announcement: '',

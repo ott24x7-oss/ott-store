@@ -1219,6 +1219,13 @@ views.mystore = async function () {
   <div id="store-msg"></div>
   <div class="form-group"><label class="form-label">Store Name</label><input class="form-input" name="site_name" value="${esc(s.site_name||'')}"></div>
   <div class="form-group"><label class="form-label">Tagline</label><input class="form-input" name="site_tagline" value="${esc(s.site_tagline||'')}"></div>
+  <div class="card" style="padding:1rem;border:1px dashed var(--border);display:flex;flex-direction:column;gap:.8rem">
+    <div style="font-weight:700;display:flex;align-items:center;gap:.4rem">🎬 Homepage Hero Text</div>
+    <div style="font-size:.72rem;color:var(--muted);margin-top:-.4rem">The big headline shown on your storefront home page.</div>
+    <div class="form-group"><label class="form-label">Heading — Line 1 <span class="muted">(highlighted / gradient)</span></label><input class="form-input" name="hero_title" value="${esc(s.hero_title||'')}" placeholder="Premium digital products."></div>
+    <div class="form-group"><label class="form-label">Heading — Line 2</label><input class="form-input" name="hero_title2" value="${esc(s.hero_title2||'')}" placeholder="Delivered cinematic fast."></div>
+    <div class="form-group"><label class="form-label">Subtext</label><textarea class="form-input" name="hero_subtext" rows="2" placeholder="Leave blank to use the Tagline above">${esc(s.hero_subtext||'')}</textarea></div>
+  </div>
   <div class="form-group">
     <label class="form-label" style="margin-bottom:.6rem">Site Logo</label>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
