@@ -822,6 +822,17 @@ router.delete('/autopost/:id', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+router.post('/autopost/:id/clone', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const c = get(db, `SELECT * FROM autopost_campaigns WHERE id=?`, [req.params.id]);
+    if (!c) return res.status(404).json({ error: 'Campaign not found' });
+    const r = run(db, `INSERT INTO autopost_campaigns (title,subject,message,image_url,target,schedule_enabled,interval_hours,active) VALUES (?,?,?,?,?,?,?,0)`,
+      [c.title + ' (copy)', c.subject, c.message, c.image_url, c.target, c.schedule_enabled, c.interval_hours]);
+    res.json({ ok: true, id: r.lastInsertRowid });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 router.post('/autopost/:id/send-now', requireAdmin, async (req, res) => {
   try {
     const { sendCampaignNow } = require('./autopost-worker');

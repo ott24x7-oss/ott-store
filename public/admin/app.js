@@ -1630,6 +1630,7 @@ views.autopost = async function () {
   <td>${c.active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-grey">Paused</span>'}</td>
   <td style="display:flex;gap:.4rem;flex-wrap:wrap">
     <button class="btn btn-sm btn-secondary" onclick="editCampaign(${c.id})">Edit</button>
+    <button class="btn btn-sm btn-secondary" onclick="cloneCampaign(${c.id})">Clone</button>
     <button class="btn btn-sm btn-primary" onclick="sendNow(${c.id})">Send Now</button>
     <button class="btn btn-sm btn-red" onclick="deleteCamp(${c.id})">Delete</button>
   </td>
@@ -1734,6 +1735,13 @@ views.autopost = async function () {
         showToast(`Sent to ${r.sent} customers`);
       } catch(e) { showToast(e.message,'error'); }
       finally { btn.disabled=false; btn.textContent='Send Now'; }
+    };
+    window.cloneCampaign = async (id) => {
+      try {
+        await api(`/autopost/${id}/clone`, { method:'POST' });
+        showToast('Campaign cloned (inactive draft)');
+        views.autopost();
+      } catch(e) { showToast(e.message, 'error'); }
     };
     window.deleteCamp = async (id) => {
       if (!confirm('Delete this campaign?')) return;
