@@ -1,7 +1,7 @@
 'use strict';
 const https = require('https');
 const http = require('http');
-const { getDb, get } = require('./db');
+const { getDb, get, all } = require('./db');
 
 function request(url, opts, body) {
   return new Promise((resolve, reject) => {
@@ -95,4 +95,68 @@ async function testChannel(channelId) {
   return { ok: true, model: ch.model, reply };
 }
 
-module.exports = { chat, testChannel, getActiveChannel };
+// ─── Shared store system prompt ───────────────────────────────────────────────
+// Used by: website chat widget, WA bot AI replies, admin test panel
+async function buildStoreSystemPrompt(db) {
+  const siteRows = all(db, `SELECT key,value FROM settings WHERE key IN ('site_name','site_tagline','support_whatsapp','support_email','bot_system_prompt','base_url')`, []);
+  const s = {};
+  siteRows.forEach(r => s[r.key] = r.value);
+
+  const plans = all(db, `SELECT platform,name,duration_days,price_inr,original_price_inr,description,delivery_type,delivery_time_est FROM plans WHERE active=1 ORDER BY platform,price_inr ASC`);
+  const platforms = [...new Set(plans.map(p => p.platform))];
+  const plansText = plans.map(p => {
+    const orig = (p.original_price_inr > p.price_inr) ? ` (was ₹${p.original_price_inr})` : '';
+    const dur  = p.duration_days >= 365 ? `${Math.round(p.duration_days/365)} year`
+               : p.duration_days >= 30  ? `${Math.round(p.duration_days/30)} month`
+               : `${p.duration_days} days`;
+    const del  = p.delivery_type === 'instant' ? ' | Instant delivery'
+               : p.delivery_time_est ? ` | Delivery: ${p.delivery_time_est}` : '';
+    return `• ${p.platform} — ${p.name} | ${dur} | ₹${p.price_inr}${orig}${del}${p.description ? ` | ${p.description}` : ''}`;
+  }).join('\n');
+
+  const payMethods = all(db, `SELECT name FROM payment_methods WHERE enabled=1`).map(m => m.name).join(', ');
+  const siteUrl  = (s.base_url || '').replace(/\/$/, '');
+  const siteName = s.site_name || 'OTT Store';
+
+  return `You are ${siteName}'s friendly AI sales assistant — available on the website and WhatsApp.
+
+STORE: ${siteName}${s.site_tagline ? ` — ${s.site_tagline}` : ''}
+${siteUrl ? `WEBSITE: ${siteUrl}` : ''}
+
+AVAILABLE PLANS (live catalog):
+${plansText || 'No plans listed yet — check back soon.'}
+
+PLATFORMS WE SELL: ${platforms.join(', ') || 'Netflix, Spotify, Amazon Prime, Disney+ Hotstar and more'}
+
+PAYMENT METHODS ACCEPTED: ${payMethods || 'UPI, Bank Transfer, Razorpay'}
+
+HOW TO ORDER:
+1. Visit ${siteUrl || 'our website'} and register / login free
+2. Add wallet balance using UPI / bank transfer / Razorpay
+3. Browse plans → click "Buy Now"
+4. Receive credentials instantly via Email + WhatsApp
+
+DELIVERY: Instant after payment confirmed. Credentials sent to email and WhatsApp.
+VALIDITY: Shown clearly on each plan (days / months / year).
+${s.support_whatsapp ? `SUPPORT WHATSAPP: ${s.support_whatsapp} — human support available here` : ''}
+${s.support_email ? `SUPPORT EMAIL: ${s.support_email}` : ''}
+${s.bot_system_prompt ? `\nCUSTOM STORE INSTRUCTIONS:\n${s.bot_system_prompt}` : ''}
+
+YOUR ROLE:
+- Answer questions about our plans, pricing, and availability confidently
+- Help customers choose the right plan based on their budget and viewing habits
+- Guide step-by-step through the order process
+- Proactively suggest plans — ask what they like to watch if they're unsure
+- For order tracking → ${siteUrl ? siteUrl + '/my' : 'the website'} → My Orders
+- For wallet top-up → ${siteUrl ? siteUrl + '/my' : 'the website'} → Wallet
+- For human support → ${s.support_whatsapp ? `WhatsApp ${s.support_whatsapp}` : 'contact support'}
+- NEVER invent plans or prices that are not listed above
+
+RESPONSE FORMAT:
+- Short, conversational replies (2–4 sentences max)
+- Always use ₹ for prices
+- Add action buttons at end (website only): [BUTTONS: Option1 | Option2 | Option3] (max 4)
+- Be warm, friendly — not corporate/robotic`;
+}
+
+module.exports = { chat, testChannel, getActiveChannel, buildStoreSystemPrompt };

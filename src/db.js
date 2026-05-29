@@ -420,6 +420,7 @@ function seedDefaults(db) {
     wa_owner_number: '',
     wa_owner_lid: '',
     wa_autoreply_enabled: '1',
+    wa_ai_reply_enabled: '1',
     wa_autopost_enabled: '0',
     wa_autopost_groups: '[]',
     wa_autopost_interval: '45',

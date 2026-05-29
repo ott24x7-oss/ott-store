@@ -2061,6 +2061,7 @@ views.whatsapp = async function () {
   </div>
   <label style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem"><input type="checkbox" id="wa-enabled" ${settings.wa_enabled==='1'?'checked':''}> Start WhatsApp bot automatically on server startup</label>
   <label style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem"><input type="checkbox" id="wa-daily" ${settings.wa_daily_summary!=='0'?'checked':''}> Send daily revenue summary at 9 PM IST</label>
+  <label style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem"><input type="checkbox" id="wa-ai-reply" ${settings.wa_ai_reply_enabled!=='0'?'checked':''}> 🤖 AI auto-reply to customer messages (uses same AI + catalog as website chat bot)</label>
   <button class="btn btn-primary btn-sm mt-2" onclick="saveWaSettings()">Save Settings</button>
 </div>
 
@@ -2136,6 +2137,7 @@ views.whatsapp = async function () {
           wa_owner_lid: document.getElementById('wa-owner-lid').value,
           wa_autoreply_enabled: document.getElementById('wa-autoreply').value,
           wa_daily_summary: document.getElementById('wa-daily').checked ? '1' : '0',
+          wa_ai_reply_enabled: document.getElementById('wa-ai-reply').checked ? '1' : '0',
         })});
         msg.innerHTML='<div class="alert alert-success">Saved!</div>';
         setTimeout(()=>msg.innerHTML='',2000);

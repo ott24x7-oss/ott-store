@@ -971,7 +971,7 @@ router.get('/whatsapp/settings', requireAdmin, async (req, res) => {
     const db = await getDb();
     const keys = ['wa_enabled','wa_transport','wa_meta_phone_number_id','wa_meta_waba_id',
       'wa_meta_app_secret','wa_meta_webhook_verify_token','wa_owner_number','wa_owner_lid',
-      'wa_autoreply_enabled','wa_autopost_enabled','wa_autopost_groups','wa_autopost_interval',
+      'wa_autoreply_enabled','wa_ai_reply_enabled','wa_autopost_enabled','wa_autopost_groups','wa_autopost_interval',
       'wa_autopost_start','wa_autopost_end','wa_daily_summary'];
     const rows = all(db, `SELECT key, value FROM settings WHERE key IN (${keys.map(()=>'?').join(',')})`, keys);
     const out = {};
@@ -988,7 +988,7 @@ router.post('/whatsapp/settings', requireAdmin, async (req, res) => {
     const db = await getDb();
     const allowed = ['wa_enabled','wa_transport','wa_meta_phone_number_id','wa_meta_waba_id',
       'wa_meta_app_secret','wa_meta_webhook_verify_token','wa_owner_number','wa_owner_lid',
-      'wa_autoreply_enabled','wa_autopost_enabled','wa_autopost_groups','wa_autopost_interval',
+      'wa_autoreply_enabled','wa_ai_reply_enabled','wa_autopost_enabled','wa_autopost_groups','wa_autopost_interval',
       'wa_autopost_start','wa_autopost_end','wa_daily_summary'];
     for (const k of allowed) {
       if (!(k in req.body)) continue;
@@ -1559,13 +1559,15 @@ router.post('/api-channels/:id/set-active', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── AI Chat (test / admin use) ───────────────────────────────────────────────
+// ─── AI Chat (admin test — includes full store context) ──────────────────────
 router.post('/ai/chat', requireAdmin, async (req, res) => {
   try {
     const { messages, model, max_tokens } = req.body;
     if (!messages?.length) return res.status(400).json({ error: 'messages required' });
-    const { chat } = require('./ai');
-    const reply = await chat(messages, { model, max_tokens });
+    const db = await getDb();
+    const { chat, buildStoreSystemPrompt } = require('./ai');
+    const systemPrompt = await buildStoreSystemPrompt(db);
+    const reply = await chat(messages, { model, max_tokens, _systemOverride: systemPrompt });
     res.json({ reply });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

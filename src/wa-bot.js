@@ -12,7 +12,7 @@
 const path = require('path');
 const fs   = require('fs');
 const https = require('https');
-const { getSettingSync, setSettingSync } = require('./db');
+const { getSettingSync, setSettingSync, getDb } = require('./db');
 
 const SESSION_DIR = path.join(__dirname, '..', 'data', 'wa-session');
 
@@ -28,6 +28,92 @@ let wdLastChange     = Date.now();
 let wdLastStatus     = 'disconnected';
 const sentCache      = new Map();
 const SENT_CACHE_MAX = 500;
+
+// ─── WA AI reply sessions (per JID conversation history) ─────────────────────
+const _waSessions    = new Map(); // jid → { messages: [], lastActive: ms }
+const WA_SESSION_TTL = 30 * 60 * 1000; // 30 min inactivity resets session
+const WA_MAX_HISTORY = 8; // messages to keep per session
+
+function extractWAText(msg) {
+  const m = msg.message;
+  if (!m) return null;
+  return m.conversation
+    || m.extendedTextMessage?.text
+    || m.imageMessage?.caption
+    || m.videoMessage?.caption
+    || m.buttonsResponseMessage?.selectedDisplayText
+    || m.listResponseMessage?.title
+    || null;
+}
+
+async function processIncomingWA(msg) {
+  const jid = msg.key.remoteJid;
+  if (!jid) return;
+  if (jid.endsWith('@g.us') || jid === 'status@broadcast') return; // skip groups & status
+  if (msg.key.fromMe) return;
+
+  const text = extractWAText(msg);
+  if (!text || text.trim().length < 1) return;
+
+  // Check if WA AI reply is enabled
+  const waAiEnabled = getSettingSync('wa_ai_reply_enabled');
+  if (waAiEnabled === '0') return;
+  const botEnabled = getSettingSync('bot_enabled');
+  if (botEnabled === '0') return;
+
+  // Enforce per-JID rate limit: 10 messages / minute
+  const now = Date.now();
+  const session = _waSessions.get(jid) || { messages: [], lastActive: now, count: 0, countTs: now };
+  if (now - session.countTs > 60000) { session.count = 0; session.countTs = now; }
+  session.count = (session.count || 0) + 1;
+  if (session.count > 10) return; // silent rate limit
+
+  // Reset session if idle > TTL
+  if (now - session.lastActive > WA_SESSION_TTL) {
+    session.messages = [];
+  }
+  session.lastActive = now;
+
+  // Append user message to history
+  session.messages.push({ role: 'user', content: text.trim() });
+  if (session.messages.length > WA_MAX_HISTORY) {
+    session.messages = session.messages.slice(-WA_MAX_HISTORY);
+  }
+  _waSessions.set(jid, session);
+
+  try {
+    const db = await getDb();
+    const { chat, buildStoreSystemPrompt } = require('./ai');
+    const systemPrompt = await buildStoreSystemPrompt(db);
+
+    // WA-specific tweak: no [BUTTONS:] syntax for WhatsApp
+    const waSystemPrompt = systemPrompt.replace(
+      /- Add action buttons at end.*\[BUTTONS.*\]\(max 4\)/,
+      '- Do NOT use [BUTTONS:] syntax — this is WhatsApp. Give options as numbered list if needed.'
+    );
+
+    const rawReply = await chat(session.messages, {
+      max_tokens: 300,
+      _systemOverride: waSystemPrompt,
+    });
+
+    // Strip any [BUTTONS: ...] that slipped through
+    const reply = rawReply.replace(/\[BUTTONS:[^\]]*\]/gi, '').trim();
+    if (!reply) return;
+
+    // Append assistant reply to history
+    session.messages.push({ role: 'assistant', content: reply });
+    if (session.messages.length > WA_MAX_HISTORY) {
+      session.messages = session.messages.slice(-WA_MAX_HISTORY);
+    }
+
+    // Send reply via Baileys or Meta
+    const s = getActiveSock();
+    if (s) await s.sendMessage(jid, { text: reply });
+  } catch (e) {
+    console.error('[wa-bot] AI reply error:', e.message);
+  }
+}
 
 // Skip-reason tracking (exposed to /admin/api/whatsapp/diagnostics)
 const _lastSkip = { reason: null, at: null };
@@ -122,14 +208,19 @@ async function startBaileysBot() {
 
     sock.ev.on('creds.update', saveCreds);
 
-    sock.ev.on('messages.upsert', ({ messages }) => {
+    sock.ev.on('messages.upsert', ({ messages, type }) => {
       for (const msg of messages) {
+        // Cache own sent messages (needed for retry/re-encrypt)
         if (msg.key.fromMe && msg.key.id && msg.message) {
           sentCache.set(msg.key.id, msg.message);
           if (sentCache.size > SENT_CACHE_MAX) {
             const oldest = sentCache.keys().next().value;
             if (oldest) sentCache.delete(oldest);
           }
+        }
+        // Process incoming customer messages with AI
+        if (!msg.key.fromMe && type === 'notify') {
+          processIncomingWA(msg).catch(() => {});
         }
       }
     });
