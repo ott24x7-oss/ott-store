@@ -237,6 +237,8 @@ tr:hover td { background: rgba(99,102,241,.04); }
 .site-header nav { display: flex; gap: 1.5rem; align-items: center; }
 .site-header nav a { color: var(--muted); font-size: .9rem; font-weight: 500; }
 .site-header nav a:hover { color: var(--text); text-decoration: none; }
+.site-header nav a.btn { color: #fff; }
+.site-header nav a.btn:hover { color: #fff; text-decoration: none; }
 
 .site-footer { background: var(--card); border-top: 1px solid var(--border); padding: 2rem 0; margin-top: 4rem; }
 .site-footer p { color: var(--muted); font-size: .875rem; }
