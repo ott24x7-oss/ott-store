@@ -106,7 +106,8 @@ async function buildStoreSystemPrompt(db) {
   const platforms = [...new Set(plans.map(p => p.platform))];
   const plansText = plans.map(p => {
     const orig = (p.original_price_inr > p.price_inr) ? ` (was ₹${p.original_price_inr})` : '';
-    const dur  = p.duration_days >= 365 ? `${Math.round(p.duration_days/365)} year`
+    const dur  = !p.duration_days ? 'lifetime'
+               : p.duration_days >= 365 ? `${Math.round(p.duration_days/365)} year`
                : p.duration_days >= 30  ? `${Math.round(p.duration_days/30)} month`
                : `${p.duration_days} days`;
     const del  = p.delivery_type === 'instant' ? ' | Instant delivery'
@@ -151,10 +152,12 @@ YOUR ROLE:
 - For wallet top-up → ${siteUrl ? siteUrl + '/my' : 'the website'} → Wallet
 - For human support → ${s.support_whatsapp ? `WhatsApp ${s.support_whatsapp}` : 'contact support'}
 - NEVER invent plans or prices that are not listed above
+- NEVER use "<link>", "[link]", or any placeholder text for URLs — always use the actual URL from WEBSITE above, or say "visit our website" if no URL is configured
 
 RESPONSE FORMAT:
 - Short, conversational replies (2–4 sentences max)
 - Always use ₹ for prices
+- When sharing a link, use the real URL only: ${siteUrl || 'our website'}
 - Add action buttons at end (website only): [BUTTONS: Option1 | Option2 | Option3] (max 4)
 - Be warm, friendly — not corporate/robotic`;
 }

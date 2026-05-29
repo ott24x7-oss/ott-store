@@ -370,6 +370,7 @@ function migrate(db) {
   seedEmailTemplates(db);
   seedAutopostCampaigns(db);
   seedPlansData(db);
+  seedPlatformImages(db);
 }
 
 function seedPlansData(db) {
@@ -413,6 +414,35 @@ function seedPlansData(db) {
   for (const p of plans) {
     try {
       db.run(stmt, [p.platform,p.name,p.duration_days,p.price_inr,p.original_price_inr||null,p.badge||'',p.features,p.delivery_type,p.image_url,p.active,p.sort_order]);
+    } catch {}
+  }
+}
+
+function seedPlatformImages(db) {
+  // Update image_url for plans that have empty image_url, matched by platform name
+  const images = {
+    'Netflix':          'https://images.justwatch.com/icon/207360008/s100/netflix.webp',
+    'Amazon Prime':     'https://images.justwatch.com/icon/52449539/s100/amazon-prime-video.webp',
+    'Prime Video':      'https://images.justwatch.com/icon/52449539/s100/amazon-prime-video.webp',
+    'Disney+ Hotstar':  'https://images.justwatch.com/icon/246301700/s100/disney-hotstar.webp',
+    'Disney+':          'https://images.justwatch.com/icon/147638351/s100/disney-plus.webp',
+    'Hotstar':          'https://images.justwatch.com/icon/246301700/s100/disney-hotstar.webp',
+    'Sony LIV':         'https://images.justwatch.com/icon/232695239/s100/sony-liv.webp',
+    'ZEE5':             'https://images.justwatch.com/icon/169478387/s100/zee5.webp',
+    'Zee5':             'https://images.justwatch.com/icon/169478387/s100/zee5.webp',
+    'JioCinema':        'https://images.justwatch.com/icon/305458112/s100/jiocinema.webp',
+    'MX Player':        'https://images.justwatch.com/icon/154652170/s100/mx-player.webp',
+    'Voot':             'https://images.justwatch.com/icon/154652162/s100/voot.webp',
+    'Apple TV+':        'https://images.justwatch.com/icon/190848813/s100/apple-tv-plus.webp',
+    'Spotify':          'https://images.justwatch.com/icon/112687516/s100/spotify.webp',
+    'YouTube Premium':  'https://images.justwatch.com/icon/59562423/s100/youtube-premium.webp',
+    'YouTube':          'https://images.justwatch.com/icon/59562423/s100/youtube-premium.webp',
+    'Crunchyroll':      'https://images.justwatch.com/icon/122261067/s100/crunchyroll.webp',
+    'Mubi':             'https://images.justwatch.com/icon/118714177/s100/mubi.webp',
+  };
+  for (const [platform, url] of Object.entries(images)) {
+    try {
+      db.run(`UPDATE plans SET image_url=? WHERE platform=? AND (image_url IS NULL OR image_url='')`, [url, platform]);
     } catch {}
   }
 }

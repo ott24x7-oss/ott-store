@@ -1181,7 +1181,8 @@ function planCard(p) {
   const badge = p.badge ? `<span class="splan-badge">${esc(p.badge)}</span>` : '';
   const outOfStock = p.stock === 0;
   const icon = ICONS[p.platform] || '📺';
-  const dur = p.duration_days >= 365 ? `${Math.round(p.duration_days/365)} Year`
+  const dur = !p.duration_days ? 'Lifetime'
+            : p.duration_days >= 365 ? `${Math.round(p.duration_days/365)} Year`
             : p.duration_days >= 30 ? `${Math.round(p.duration_days/30)} Month`
             : `${p.duration_days} Days`;
   const featureItems = features.slice(0, 4).map(f => `<li>${esc(f)}</li>`).join('');
