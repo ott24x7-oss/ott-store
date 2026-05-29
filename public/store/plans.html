@@ -128,13 +128,20 @@ html[data-theme="dark"] .snav-logo .logo-dark{display:block}
   .filter-select{width:100%}
 }
 @media(max-width:360px){.splan-grid{grid-template-columns:1fr}}
+
+/* ── Mobile Bottom Nav ── */
+.plans-bnav{display:none;position:fixed;bottom:0;left:0;right:0;height:58px;z-index:500;background:var(--st-nav);border-top:1px solid var(--st-border);grid-template-columns:repeat(4,1fr)}
+.plans-bnav-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--st-muted);font-size:.65rem;font-weight:600;text-decoration:none;transition:color .15s;padding:.3rem .5rem}
+.plans-bnav-btn span{font-size:1.15rem;line-height:1}
+.plans-bnav-btn.active,.plans-bnav-btn:hover{color:var(--st-accent)}
+@media(max-width:760px){.plans-bnav{display:grid}.plans-main{padding-bottom:5rem}.pfooter{padding-bottom:5rem}}
 </style>
 </head>
 <body>
 
 <script>
 (function(){
-  var t=localStorage.getItem('theme')||(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+  var t=localStorage.getItem('theme')||'dark';
   document.documentElement.setAttribute('data-theme',t);
 })();
 </script>
@@ -232,6 +239,14 @@ html[data-theme="dark"] .snav-logo .logo-dark{display:block}
     <a href="/my">My Account</a>
   </div>
 </footer>
+
+<!-- Mobile Bottom Nav -->
+<div class="plans-bnav" id="plans-bnav">
+  <a class="plans-bnav-btn" href="/"><span>🏠</span>Home</a>
+  <a class="plans-bnav-btn active" href="/plans"><span>📦</span>Plans</a>
+  <a class="plans-bnav-btn" href="/my"><span>👤</span>Account</a>
+  <a class="plans-bnav-btn" href="/my"><span>🎧</span>Support</a>
+</div>
 
 <script>
 (function(){
@@ -348,8 +363,7 @@ function renderPlans(){
   grid.innerHTML=plans.slice(0,_visible).map(p=>planCard(p)).join('');
   grid.querySelectorAll('.splan-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
-      if(!isLoggedIn){window.location.href='/my';return;}
-      window.location.href='/my#plans';
+      window.location.href='/my?buy='+btn.dataset.id;
     });
   });
   showMore.style.display=plans.length>_visible?'block':'none';

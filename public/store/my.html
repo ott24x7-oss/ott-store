@@ -371,6 +371,7 @@ const TABS = [
   {id:'plans',label:'Plans',icon:'🎬'},
   {id:'orders',label:'Orders',icon:'📦'},
   {id:'wallet',label:'Wallet',icon:'💰'},
+  {id:'referral',label:'Referral',icon:'🎁'},
   {id:'support',label:'Support',icon:'🎧'},
   {id:'profile',label:'Profile',icon:'👤'},
 ];
@@ -438,7 +439,7 @@ function buildNav(){
 }
 function goTab(id){
   ACTIVE_TAB=id;buildNav();
-  const handlers={dashboard:renderDashboard,plans:renderPlans,orders:renderOrders,wallet:renderWallet,support:renderSupport,profile:renderProfile};
+  const handlers={dashboard:renderDashboard,plans:renderPlans,orders:renderOrders,wallet:renderWallet,referral:renderReferral,support:renderSupport,profile:renderProfile};
   (handlers[id]||renderDashboard)();
 }
 window.goTab=goTab;
@@ -893,6 +894,13 @@ async function initPortal(loginResult){
     if(location.hash.startsWith('#reset-password')){
       const tokenParam=new URLSearchParams(location.hash.replace('#reset-password?','')).get('token');
       if(tokenParam)renderResetPassword(tokenParam);return;
+    }
+    // Handle ?buy=planId redirect from plans page — open plans tab and trigger buy modal
+    const buyId=params.get('buy');
+    if(buyId){
+      await renderPlans();
+      setTimeout(()=>{const btn=document.querySelector('.buy-plan-btn[data-id="'+buyId+'"]');if(btn)btn.click();},500);
+      return;
     }
     renderDashboard();
   }catch(e){
@@ -1511,6 +1519,60 @@ async function renderProfile(){
         setTimeout(()=>msg.innerHTML='',2000);
       }catch(ex){msg.innerHTML=`<div class="alert alert-error">${esc(ex.message)}</div>`;}
     };
+  }catch(e){main.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`;}
+}
+
+// ── Referral ──────────────────────────────────────────────────────────────────
+async function renderReferral(){
+  const main=document.getElementById('portal-main');
+  main.innerHTML='<div class="spinner"></div>';
+  try{
+    const ref=await api('/referral');
+    const rewards=ref.rewards||[];
+    const rewardItems=rewards.length
+      ?`<div class="card" style="padding:1rem"><h4 style="font-size:.875rem;font-weight:700;margin-bottom:.75rem">Reward History</h4>${rewards.map(r=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid var(--border)"><div style="font-size:.8rem;color:var(--muted)">${fmtDate(r.created_at)}</div><div style="font-weight:700;color:#10b981">+${fmt(r.amount_inr)}</div></div>`).join('')}</div>`
+      :`<div class="card" style="padding:1.5rem;text-align:center"><p style="color:var(--muted);font-size:.875rem">No rewards yet. Share your code to start earning!</p></div>`;
+    main.innerHTML=`
+<h2 style="font-weight:800;margin-bottom:1rem">🎁 Referral Program</h2>
+<div style="display:flex;flex-direction:column;gap:1rem">
+<div class="card" style="padding:1.25rem">
+  <div style="color:var(--muted);font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.5rem">Your Referral Code</div>
+  <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+    <div style="font-size:1.6rem;font-weight:900;font-family:monospace;letter-spacing:.1em;background:rgba(99,102,241,.1);border:1.5px solid var(--border);border-radius:8px;padding:.5rem 1rem;flex:1;min-width:100px;text-align:center">${esc(ref.referral_code||'—')}</div>
+    <button class="btn btn-primary" onclick="copyRefCode('${esc(ref.referral_code||'')}')">📋 Copy</button>
+  </div>
+</div>
+<div class="card" style="padding:1.25rem">
+  <div style="color:var(--muted);font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.5rem">Share Link</div>
+  <div style="font-size:.8rem;word-break:break-all;background:var(--input-bg);border:1px solid var(--border);border-radius:8px;padding:.5rem .75rem;color:var(--muted);margin-bottom:.6rem">${esc(ref.share_url||'')}</div>
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+    <button class="btn btn-secondary btn-sm" onclick="copyRefLink('${esc(ref.share_url||'')}')">📋 Copy Link</button>
+    <button class="btn btn-secondary btn-sm" onclick="shareRefWA('${esc(ref.share_url||'')}','${esc(ref.referral_code||'')}')">📤 Share on WhatsApp</button>
+  </div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+  <div class="card" style="padding:1.1rem;text-align:center">
+    <div style="font-size:.75rem;color:var(--muted);text-transform:uppercase;font-weight:700;margin-bottom:.25rem">Total Earned</div>
+    <div style="font-size:1.5rem;font-weight:900">${fmt(ref.total_earned||0)}</div>
+  </div>
+  <div class="card" style="padding:1.1rem;text-align:center">
+    <div style="font-size:.75rem;color:var(--muted);text-transform:uppercase;font-weight:700;margin-bottom:.25rem">Per Referral</div>
+    <div style="font-size:1.5rem;font-weight:900">${fmt(ref.reward_per_referral||0)}</div>
+  </div>
+</div>
+<div style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);border-radius:12px;padding:1rem">
+  <div style="font-weight:700;margin-bottom:.4rem">How it works</div>
+  <ol style="color:var(--muted);font-size:.85rem;padding-left:1.25rem;margin:0;line-height:1.8">
+    <li>Share your referral code or link with friends</li>
+    <li>They sign up &amp; place their first order</li>
+    <li>You earn <strong style="color:var(--text)">${fmt(ref.reward_per_referral||0)}</strong> wallet credit automatically</li>
+  </ol>
+</div>
+${rewardItems}
+</div>`;
+    window.copyRefCode=function(c){navigator.clipboard.writeText(c).then(()=>showToast('Code copied!','success')).catch(()=>showToast('Copy failed','error'));};
+    window.copyRefLink=function(u){navigator.clipboard.writeText(u).then(()=>showToast('Link copied!','success')).catch(()=>showToast('Copy failed','error'));};
+    window.shareRefWA=function(u,c){const m='Hey! Use my referral code *'+c+'* to get a discount on OTT subscriptions: '+u;window.open('https://wa.me/?text='+encodeURIComponent(m),'_blank');};
   }catch(e){main.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`;}
 }
 

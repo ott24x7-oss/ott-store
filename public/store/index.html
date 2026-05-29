@@ -316,6 +316,12 @@ footer{
   .cta h2{font-size:26px}
   .footer-links{gap:.6rem}
 }
+/* ── Mobile Bottom Nav ── */
+.home-bnav{display:none;position:fixed;bottom:0;left:0;right:0;height:58px;z-index:200;background:rgba(5,5,11,.96);border-top:1px solid var(--border);grid-template-columns:repeat(4,1fr);backdrop-filter:blur(12px)}
+.home-bnav-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--muted);font-size:.65rem;font-weight:600;text-decoration:none;transition:color .15s;padding:.3rem .5rem}
+.home-bnav-btn span{font-size:1.15rem;line-height:1}
+.home-bnav-btn.active,.home-bnav-btn:hover{color:var(--text)}
+@media(max-width:760px){.home-bnav{display:grid}body{padding-bottom:58px}}
 </style>
 </head>
 <body>
@@ -634,6 +640,14 @@ fetch('/user/api/bot-config').then(r=>r.json()).then(cfg=>{
 }).catch(()=>{});
 })();
 </script>
+
+<!-- Mobile Bottom Nav -->
+<div class="home-bnav" id="home-bnav">
+  <a class="home-bnav-btn active" href="/"><span>🏠</span>Home</a>
+  <a class="home-bnav-btn" href="/plans"><span>📦</span>Plans</a>
+  <a class="home-bnav-btn" href="/my"><span>👤</span>Account</a>
+  <a class="home-bnav-btn" href="/blog"><span>✍️</span>Blog</a>
+</div>
 
 </body>
 </html>
