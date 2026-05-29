@@ -326,14 +326,29 @@ async function connect() {
   return startBaileysBot();
 }
 
+// Close socket WITHOUT logging out from WhatsApp — session files stay valid.
+// Use this on deploy / reconnect so session persists.
 async function disconnect() {
+  if (sock) {
+    try { sock.ev.removeAllListeners(); } catch {}
+    try { sock.end(); } catch {}
+    sock = null;
+  }
+  currentQR       = null;
+  connStatus       = 'disconnected';
+  connectedNumber  = null;
+}
+
+// Actually log out from WhatsApp (invalidates session on WA servers).
+// Only call when the user explicitly wants to un-link the device.
+async function logout() {
   if (sock) {
     try { await sock.logout(); } catch {}
     try { sock.ev.removeAllListeners(); } catch {}
     sock = null;
   }
   currentQR       = null;
-  connStatus       = 'disconnected';
+  connStatus       = 'logged_out';
   connectedNumber  = null;
 }
 
@@ -349,11 +364,30 @@ async function reconnect() {
   return startBaileysBot();
 }
 
+// Clears session files — forces fresh QR scan next connect.
 async function clearSession() {
   await disconnect();
   if (fs.existsSync(SESSION_DIR)) {
     try { fs.rmSync(SESSION_DIR, { recursive: true, force: true }); } catch {}
   }
+  connStatus = 'disconnected';
+}
+
+function getSessionInfo() {
+  try {
+    if (!fs.existsSync(SESSION_DIR)) return { exists: false, files: 0, sizeKB: 0, modifiedAt: null };
+    const files = fs.readdirSync(SESSION_DIR);
+    let totalSize = 0;
+    let lastMod = 0;
+    for (const f of files) {
+      try {
+        const st = fs.statSync(path.join(SESSION_DIR, f));
+        totalSize += st.size;
+        if (st.mtimeMs > lastMod) lastMod = st.mtimeMs;
+      } catch {}
+    }
+    return { exists: true, files: files.length, sizeKB: Math.round(totalSize / 1024), modifiedAt: lastMod ? new Date(lastMod).toISOString() : null };
+  } catch { return { exists: false, files: 0, sizeKB: 0, modifiedAt: null }; }
 }
 
 async function requestPairingCode(phoneNumber) {
@@ -470,9 +504,10 @@ function startWatchdog() {
 }
 
 module.exports = {
-  connect, disconnect, reconnect, clearSession, requestPairingCode,
+  connect, disconnect, logout, reconnect, clearSession, requestPairingCode,
   getStatus, getQR, getQRBase64, getActiveSock,
   sendToPhone, sendToGroup,
   getGroups, testMetaCreds, startWatchdog,
+  getSessionInfo,
   getDiagnostics: () => _lastSkip,
 };

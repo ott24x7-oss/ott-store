@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
+const multer = require('multer');
 const cfg = require('./config');
 const { getDb, getSetting, setSetting, all, get, run } = require('./db');
 const { loginLimiter, checkCredentialThrottle, recordFailedLogin, clearFailedLogin } = require('./security');
@@ -12,6 +13,10 @@ const { submitUrls, pingSitemap } = require('./google-index');
 const { sendOrderDelivery, sendMail } = require('./mailer');
 
 const router = express.Router();
+
+const UPLOADS_DIR = path.join(__dirname, '..', 'data', 'uploads');
+fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
 
 // ─── Admin auth middleware ────────────────────────────────────────────────────
 function requireAdmin(req, res, next) {
@@ -57,6 +62,57 @@ router.post('/login', loginLimiter, async (req, res) => {
 router.post('/logout', (req, res) => {
   res.clearCookie('adminToken', { path: '/' });
   res.json({ ok: true });
+});
+
+// ─── Platform management ──────────────────────────────────────────────────────
+const DEFAULT_PLATFORMS = [
+  'Netflix','Amazon Prime','Disney+','Sony LIV','Zee5','Hotstar','JioCinema',
+  'MX Player','Apple TV+','Voot','YouTube Premium','Spotify','Apple Music',
+  'Canva','Adobe','Microsoft 365','Google One','NordVPN','ExpressVPN',
+  'Coursera','LinkedIn Premium','ChatGPT Plus','Gemini','Other',
+];
+
+router.get('/plans/platforms', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const row = get(db, `SELECT value FROM settings WHERE key='custom_platforms'`);
+    const custom = row ? JSON.parse(row.value || '[]') : [];
+    const all_platforms = [...new Set([...DEFAULT_PLATFORMS, ...custom])].sort();
+    res.json({ platforms: all_platforms, custom });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/plans/platforms', requireAdmin, async (req, res) => {
+  try {
+    const { custom } = req.body;
+    if (!Array.isArray(custom)) return res.status(400).json({ error: 'custom array required' });
+    const db = await getDb();
+    run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, ['custom_platforms', JSON.stringify(custom)]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Plan image upload ────────────────────────────────────────────────────────
+router.post('/plans/:id/upload-image', requireAdmin, upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    const ext = (req.file.originalname.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const filename = `plan_${req.params.id}_${Date.now()}.${ext}`;
+    fs.writeFileSync(path.join(UPLOADS_DIR, filename), req.file.buffer);
+    const url = `/admin/api/plan-image/${filename}`;
+    const db = await getDb();
+    run(db, `UPDATE plans SET image_url=? WHERE id=?`, [url, req.params.id]);
+    res.json({ ok: true, url });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/plan-image/:filename', async (req, res) => {
+  try {
+    const filename = path.basename(req.params.filename);
+    const filepath = path.join(UPLOADS_DIR, filename);
+    if (!fs.existsSync(filepath)) return res.status(404).end();
+    res.sendFile(filepath);
+  } catch { res.status(404).end(); }
 });
 
 // ─── Plans ────────────────────────────────────────────────────────────────────
@@ -929,6 +985,24 @@ router.post('/whatsapp/clear-session', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Proper WA logout — sends logout packet to WhatsApp then clears session files
+router.post('/whatsapp/logout', requireAdmin, async (req, res) => {
+  try {
+    const waBot = require('./wa-bot');
+    await waBot.logout();
+    await waBot.clearSession();
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Session file info (for the dedicated session page)
+router.get('/whatsapp/session-info', requireAdmin, async (req, res) => {
+  try {
+    const waBot = require('./wa-bot');
+    res.json(waBot.getSessionInfo());
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 router.post('/whatsapp/pairing-code', requireAdmin, async (req, res) => {
   try {
     const { phone } = req.body;
@@ -1700,7 +1774,7 @@ router.post('/fulfillment/retry/:id', requireAdmin, async (req, res) => {
 router.get('/fulfillment-settings', requireAdmin, async (req, res) => {
   try {
     const db = await getDb();
-    const keys = ['fulfillment_enabled','resellkeys_api_url','resellkeys_api_key','resellkeys_email','resellkeys_password','fulfillment_poll_interval'];
+    const keys = ['fulfillment_enabled','resellkeys_api_url','resellkeys_api_key','resellkeys_email','resellkeys_password','fulfillment_poll_interval','profit_pct','usd_to_inr_rate'];
     const rows = all(db, `SELECT key,value FROM settings WHERE key IN (${keys.map(()=>'?').join(',')})`, keys);
     const s = {};
     rows.forEach(r => s[r.key] = r.value);
@@ -1713,7 +1787,7 @@ router.get('/fulfillment-settings', requireAdmin, async (req, res) => {
 router.post('/fulfillment-settings', requireAdmin, async (req, res) => {
   try {
     const db = await getDb();
-    const plain = ['fulfillment_enabled','resellkeys_api_url','resellkeys_email','fulfillment_poll_interval'];
+    const plain = ['fulfillment_enabled','resellkeys_api_url','resellkeys_email','fulfillment_poll_interval','profit_pct','usd_to_inr_rate'];
     for (const k of plain) {
       if (k in req.body) run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, [k, String(req.body[k]??'')]);
     }
@@ -1724,6 +1798,83 @@ router.post('/fulfillment-settings', requireAdmin, async (req, res) => {
       run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, ['resellkeys_password', req.body.resellkeys_password]);
     }
     res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Bulk plan actions ────────────────────────────────────────────────────────
+router.post('/plans/bulk-action', requireAdmin, async (req, res) => {
+  try {
+    const { action, ids, category, profit_pct, usd_to_inr_rate } = req.body;
+    if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'ids required' });
+    const db = await getDb();
+    const ph = ids.map(() => '?').join(',');
+    let affected = 0;
+    if (action === 'activate') {
+      db.run(`UPDATE plans SET active=1 WHERE id IN (${ph})`, ids);
+      affected = ids.length;
+    } else if (action === 'deactivate') {
+      db.run(`UPDATE plans SET active=0 WHERE id IN (${ph})`, ids);
+      affected = ids.length;
+    } else if (action === 'delete') {
+      db.run(`DELETE FROM plans WHERE id IN (${ph})`, ids);
+      affected = ids.length;
+    } else if (action === 'set-category') {
+      if (!category) return res.status(400).json({ error: 'category required' });
+      db.run(`UPDATE plans SET category=? WHERE id IN (${ph})`, [category, ...ids]);
+      affected = ids.length;
+    } else if (action === 'apply-markup') {
+      const rate = parseFloat(usd_to_inr_rate) || 84;
+      const pct = parseFloat(profit_pct) || 0;
+      const plans = all(db, `SELECT id, price_usd FROM plans WHERE id IN (${ph}) AND price_usd > 0`, ids);
+      for (const p of plans) {
+        const inr = Math.ceil(p.price_usd * rate * (1 + pct / 100));
+        db.run('UPDATE plans SET price_inr=? WHERE id=?', [inr, p.id]);
+        affected++;
+      }
+    } else if (action === 'set-image-url') {
+      const { image_url } = req.body;
+      if (!image_url) return res.status(400).json({ error: 'image_url required' });
+      db.run(`UPDATE plans SET image_url=? WHERE id IN (${ph})`, [image_url, ...ids]);
+      affected = ids.length;
+    } else if (action === 'auto-logo') {
+      const plans = all(db, `SELECT id, platform, name FROM plans WHERE id IN (${ph})`, ids);
+      for (const p of plans) {
+        const term = (p.platform || p.name || '').toLowerCase().replace(/\s+/g, '');
+        const url = `https://logo.clearbit.com/${term}.com`;
+        db.run('UPDATE plans SET image_url=? WHERE id=?', [url, p.id]);
+        affected++;
+      }
+    } else {
+      return res.status(400).json({ error: 'Unknown action' });
+    }
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: `bulk_${action}`, after: { affected, ids }, ip: req.ip });
+    res.json({ ok: true, affected });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Sync ResellKeys prices ───────────────────────────────────────────────────
+router.post('/plans/sync-resellkeys-prices', requireAdmin, async (req, res) => {
+  try {
+    const { profit_pct, usd_to_inr_rate } = req.body;
+    const rate = parseFloat(usd_to_inr_rate) || 84;
+    const pct = parseFloat(profit_pct) || 0;
+    const db = await getDb();
+    const { scrapeResellKeysProducts } = require('./fulfillment-worker');
+    const products = await scrapeResellKeysProducts(db, '');
+    if (!products.length) return res.status(400).json({ error: 'No products returned from ResellKeys. Check credentials.' });
+    const byId = {};
+    for (const p of products) { if (p.provider_product_id) byId[p.provider_product_id] = p; }
+    const plans = all(db, `SELECT id, provider_product_id, price_usd FROM plans WHERE provider_api='resellkeys' AND provider_product_id != ''`);
+    let updated = 0;
+    for (const plan of plans) {
+      const rk = byId[plan.provider_product_id];
+      const usd = rk ? parseFloat(rk.price_usd || 0) : parseFloat(plan.price_usd || 0);
+      if (!usd) continue;
+      const inr = Math.ceil(usd * rate * (1 + pct / 100));
+      db.run('UPDATE plans SET price_inr=?, price_usd=? WHERE id=?', [inr, usd, plan.id]);
+      updated++;
+    }
+    res.json({ ok: true, updated, total: plans.length });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

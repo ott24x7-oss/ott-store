@@ -20,6 +20,7 @@ const MENU = [
   { id: 'resellers',      label: 'Resellers',     icon: '🤝' },
   { id: 'referrals',      label: 'Referrals',     icon: '🔗' },
   { group: 'WHATSAPP' },
+  { id: 'wa-session',     label: 'WA Session',    icon: '📱' },
   { id: 'whatsapp',       label: 'WA Bot',        icon: '💬' },
   { id: 'wa-offers',      label: 'WA Offers',     icon: '📋' },
   { id: 'suppliers',      label: 'Suppliers',     icon: '🏭' },
@@ -285,8 +286,9 @@ function renderPlansTable(plans, catFilter) {
     cats.map(c=>`<button class="btn btn-sm ${catFilter===c?'btn-primary':'btn-secondary'}" onclick="views.plans('${esc(c)}')">${esc(c)} (${plans.filter(p=>p.category===c).length})</button>`).join('');
 
   const rows = filtered.map(p => `
-<tr>
-  <td style="width:36px">${p.image_url ? `<img src="${esc(p.image_url)}" style="width:32px;height:32px;border-radius:6px;object-fit:cover">` : '<div style="width:32px;height:32px;background:var(--input-bg);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1rem">🎬</div>'}</td>
+<tr data-pid="${p.id}">
+  <td style="width:32px;padding:4px 6px"><input type="checkbox" class="plan-cb" data-id="${p.id}" style="width:15px;height:15px;cursor:pointer"></td>
+  <td style="width:36px" onclick="quickSetImage(${p.id},'${esc(p.image_url||'')}')" title="Click to change image" style="cursor:pointer">${p.image_url ? `<img src="${esc(p.image_url)}" style="width:32px;height:32px;border-radius:6px;object-fit:cover;cursor:pointer">` : '<div style="width:32px;height:32px;background:var(--input-bg);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1rem;cursor:pointer" title="Set image">+🖼</div>'}</td>
   <td style="font-weight:600;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.name)}</td>
   <td style="font-size:.8rem;color:var(--muted)">${esc(p.category||p.platform||'—')}</td>
   <td>${fmt(p.price_inr)}${p.price_usd>0?`<br><span class="muted" style="font-size:.75rem">$${Number(p.price_usd).toFixed(2)}</span>`:''}</td>
@@ -305,15 +307,238 @@ function renderPlansTable(plans, catFilter) {
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem">
   <h2 style="font-weight:800;margin:0">Product Catalog</h2>
   <div style="display:flex;gap:.4rem;flex-wrap:wrap">
-    <button class="btn btn-sm btn-secondary" onclick="scrapeResellKeys()">🔍 Scrape ResellKeys</button>
+    <button class="btn btn-sm btn-secondary" onclick="managePlatforms()">🏷 Platforms</button>
+    <button class="btn btn-sm btn-secondary" onclick="openResellKeysPanel()">⚙ ResellKeys</button>
+    <button class="btn btn-sm btn-secondary" onclick="scrapeResellKeys()">🔍 Scrape</button>
     <button class="btn btn-sm btn-primary" onclick="openPlanModal()">+ Add Product</button>
   </div>
 </div>
 <div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:.75rem">${catBar}</div>
+<div id="bulk-bar" style="display:none;align-items:center;gap:.5rem;padding:.5rem .75rem;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;margin-bottom:.5rem;flex-wrap:wrap">
+  <span id="bulk-count" style="font-size:.85rem;font-weight:600;color:var(--primary)">0 selected</span>
+  <button class="btn btn-sm btn-secondary" onclick="bulkAction('activate')">✓ Activate</button>
+  <button class="btn btn-sm btn-secondary" onclick="bulkAction('deactivate')">✕ Deactivate</button>
+  <button class="btn btn-sm btn-secondary" onclick="bulkSetCategory()">📁 Set Category</button>
+  <button class="btn btn-sm btn-secondary" onclick="bulkApplyMarkup()">💹 Apply Markup</button>
+  <button class="btn btn-sm btn-secondary" onclick="bulkSetImage()">🖼 Set Image</button>
+  <button class="btn btn-sm btn-secondary" onclick="bulkAction('auto-logo')">🤖 Auto Logo</button>
+  <button class="btn btn-red btn-sm" onclick="bulkAction('delete')">🗑 Delete</button>
+  <button class="btn btn-sm btn-secondary" style="margin-left:auto" onclick="clearBulkSelect()">✕ Clear</button>
+</div>
 <div class="table-wrap"><table>
-  <thead><tr><th>IMG</th><th>NAME</th><th>CATEGORY</th><th>PRICE</th><th>DURATION</th><th>DELIVERY</th><th>ACTIVE</th><th>ACTIONS</th></tr></thead>
-  <tbody>${rows||'<tr><td colspan="8" class="muted" style="text-align:center;padding:2rem">No products yet.</td></tr>'}</tbody>
+  <thead><tr>
+    <th style="width:32px"><input type="checkbox" id="plan-select-all" style="width:15px;height:15px;cursor:pointer" title="Select all"></th>
+    <th>IMG</th><th>NAME</th><th>CATEGORY</th><th>PRICE</th><th>DURATION</th><th>DELIVERY</th><th>ACTIVE</th><th>ACTIONS</th>
+  </tr></thead>
+  <tbody>${rows||'<tr><td colspan="9" class="muted" style="text-align:center;padding:2rem">No products yet.</td></tr>'}</tbody>
 </table></div>`);
+
+  // ── Bulk select logic ──────────────────────────────────────────────────────
+  function getSelectedIds() { return [...document.querySelectorAll('.plan-cb:checked')].map(cb => +cb.dataset.id); }
+  function updateBulkBar() {
+    const ids = getSelectedIds();
+    const bar = document.getElementById('bulk-bar');
+    const cnt = document.getElementById('bulk-count');
+    bar.style.display = ids.length ? 'flex' : 'none';
+    if (cnt) cnt.textContent = `${ids.length} selected`;
+  }
+  document.getElementById('plan-select-all').addEventListener('change', function() {
+    document.querySelectorAll('.plan-cb').forEach(cb => { cb.checked = this.checked; });
+    updateBulkBar();
+  });
+  document.querySelectorAll('.plan-cb').forEach(cb => cb.addEventListener('change', updateBulkBar));
+
+  window.clearBulkSelect = () => {
+    document.querySelectorAll('.plan-cb').forEach(cb => cb.checked = false);
+    document.getElementById('plan-select-all').checked = false;
+    updateBulkBar();
+  };
+
+  window.bulkAction = async (action) => {
+    const ids = getSelectedIds();
+    if (!ids.length) return showToast('Select at least one product', 'error');
+    if (action === 'delete' && !confirm(`Delete ${ids.length} product(s)? This cannot be undone.`)) return;
+    try {
+      const r = await api('/plans/bulk-action', { method:'POST', body: JSON.stringify({ action, ids }) });
+      showToast(`${r.affected} product(s) updated`); views.plans(catFilter);
+    } catch(e) { showToast(e.message, 'error'); }
+  };
+
+  window.bulkSetCategory = () => {
+    const ids = getSelectedIds();
+    if (!ids.length) return showToast('Select at least one product', 'error');
+    const ov = openModal(`
+<div class="modal-header"><h3>📁 Set Category</h3><button class="btn-icon" data-close>✕</button></div>
+<div class="modal-body">
+  <p style="font-size:.85rem;color:var(--muted);margin-bottom:.75rem">Set category for <strong>${ids.length} selected product(s)</strong></p>
+  <div class="form-group"><label class="form-label">Category</label>
+    <input class="form-input" id="bulk-cat-input" placeholder="streaming, ms365, ai_writing…" list="bulk-cat-list">
+    <datalist id="bulk-cat-list">${cats.map(c=>`<option value="${esc(c)}">`).join('')}</datalist>
+  </div>
+</div>
+<div class="modal-footer">
+  <button class="btn btn-secondary" data-close>Cancel</button>
+  <button class="btn btn-primary" id="bulk-cat-save">Apply</button>
+</div>`);
+    document.getElementById('bulk-cat-save').onclick = async () => {
+      const category = document.getElementById('bulk-cat-input').value.trim();
+      if (!category) return showToast('Enter a category', 'error');
+      try {
+        const r = await api('/plans/bulk-action', { method:'POST', body: JSON.stringify({ action:'set-category', ids, category }) });
+        ov.remove(); showToast(`Category set for ${r.affected} product(s)`); views.plans(catFilter);
+      } catch(e) { showToast(e.message, 'error'); }
+    };
+  };
+
+  window.bulkApplyMarkup = async () => {
+    const ids = getSelectedIds();
+    if (!ids.length) return showToast('Select at least one product', 'error');
+    let fs = {};
+    try { fs = await api('/fulfillment-settings'); } catch {}
+    const ov = openModal(`
+<div class="modal-header"><h3>💹 Apply Price Markup</h3><button class="btn-icon" data-close>✕</button></div>
+<div class="modal-body">
+  <p style="font-size:.85rem;color:var(--muted);margin-bottom:.75rem">Recalculate INR price from USD price for <strong>${ids.length} selected product(s)</strong></p>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">USD → INR Rate</label>
+      <input class="form-input" id="markup-rate" type="number" step="0.01" value="${esc(fs.usd_to_inr_rate||'84')}" placeholder="84"></div>
+    <div class="form-group"><label class="form-label">Profit %</label>
+      <input class="form-input" id="markup-pct" type="number" step="1" value="${esc(fs.profit_pct||'30')}" placeholder="30"></div>
+  </div>
+  <p style="font-size:.8rem;color:var(--muted)">Formula: <code>INR = ceil(USD × rate × (1 + profit%))</code></p>
+  <div id="markup-msg"></div>
+</div>
+<div class="modal-footer">
+  <button class="btn btn-secondary" data-close>Cancel</button>
+  <button class="btn btn-primary" id="markup-save">Apply to Selected</button>
+</div>`);
+    document.getElementById('markup-save').onclick = async () => {
+      const profit_pct = parseFloat(document.getElementById('markup-pct').value) || 0;
+      const usd_to_inr_rate = parseFloat(document.getElementById('markup-rate').value) || 84;
+      try {
+        const r = await api('/plans/bulk-action', { method:'POST', body: JSON.stringify({ action:'apply-markup', ids, profit_pct, usd_to_inr_rate }) });
+        ov.remove(); showToast(`Markup applied to ${r.affected} product(s)`); views.plans(catFilter);
+      } catch(e) { document.getElementById('markup-msg').innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+    };
+  };
+
+  window.bulkSetImage = () => {
+    const ids = getSelectedIds();
+    if (!ids.length) return showToast('Select at least one product', 'error');
+    const ov = openModal(`
+<div class="modal-header"><h3>🖼 Set Product Image</h3><button class="btn-icon" data-close>✕</button></div>
+<div class="modal-body">
+  <p style="font-size:.85rem;color:var(--muted);margin-bottom:.75rem">Apply same image to <strong>${ids.length} selected product(s)</strong></p>
+  <div class="form-group">
+    <label class="form-label">Image URL</label>
+    <input class="form-input" id="bulk-img-url" placeholder="https://logo.clearbit.com/netflix.com" oninput="bulkImgPreviewUpdate()">
+  </div>
+  <div id="bulk-img-preview-wrap" style="margin-top:.5rem;display:none">
+    <img id="bulk-img-preview" style="height:60px;border-radius:8px;object-fit:contain;background:var(--input-bg);padding:4px">
+  </div>
+  <div style="font-size:.82rem;color:var(--muted);margin-top:.75rem">
+    💡 Tip: Use <code>https://logo.clearbit.com/DOMAIN.com</code> for auto brand logos, or paste any direct image URL.
+  </div>
+  <div id="bulk-img-msg"></div>
+</div>
+<div class="modal-footer">
+  <button class="btn btn-secondary" data-close>Cancel</button>
+  <button class="btn btn-primary" id="bulk-img-save">Apply Image</button>
+</div>`);
+    window.bulkImgPreviewUpdate = () => {
+      const url = document.getElementById('bulk-img-url').value.trim();
+      const wrap = document.getElementById('bulk-img-preview-wrap');
+      const img = document.getElementById('bulk-img-preview');
+      if (url) { img.src = url; wrap.style.display = ''; } else { wrap.style.display = 'none'; }
+    };
+    document.getElementById('bulk-img-save').onclick = async () => {
+      const image_url = document.getElementById('bulk-img-url').value.trim();
+      if (!image_url) return showToast('Enter an image URL', 'error');
+      try {
+        const r = await api('/plans/bulk-action', { method:'POST', body: JSON.stringify({ action:'set-image-url', ids, image_url }) });
+        ov.remove(); showToast(`Image set for ${r.affected} product(s)`); views.plans(catFilter);
+      } catch(e) { document.getElementById('bulk-img-msg').innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+    };
+  };
+
+  // ── ResellKeys panel ──────────────────────────────────────────────────────
+  window.openResellKeysPanel = async () => {
+    let fs = {};
+    try { fs = await api('/fulfillment-settings'); } catch {}
+    const ov = openModal(`
+<div class="modal-header"><h3>⚙ ResellKeys Config & Price Sync</h3><button class="btn-icon" data-close>✕</button></div>
+<div class="modal-body" style="max-height:70vh;overflow-y:auto">
+  <div id="rk-msg"></div>
+  <p style="font-size:.82rem;color:var(--muted);margin-bottom:1rem">Configure credentials to scrape products and sync prices from ResellKeys.</p>
+
+  <div style="font-weight:700;font-size:.85rem;margin-bottom:.5rem;color:var(--primary)">🔑 Credentials</div>
+  <div class="form-group"><label class="form-label">ResellKeys Base URL</label>
+    <input class="form-input" id="rk-url" value="${esc(fs.resellkeys_api_url||'https://www.resellkeys.com')}"></div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">API Key</label>
+      <input class="form-input" id="rk-key" type="password" value="${esc(fs.resellkeys_api_key||'')}" placeholder="Leave blank to keep current"></div>
+    <div class="form-group"><label class="form-label">Login Email</label>
+      <input class="form-input" id="rk-email" value="${esc(fs.resellkeys_email||'')}" type="email" placeholder="your@email.com"></div>
+  </div>
+  <div class="form-group"><label class="form-label">Password</label>
+    <input class="form-input" id="rk-pass" type="password" value="${esc(fs.resellkeys_password||'')}" placeholder="Leave blank to keep current"></div>
+
+  <div style="font-weight:700;font-size:.85rem;margin:.75rem 0 .5rem;color:var(--primary)">💹 Price Sync Settings</div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">USD → INR Rate</label>
+      <input class="form-input" id="rk-rate" type="number" step="0.1" value="${esc(fs.usd_to_inr_rate||'84')}" placeholder="84"></div>
+    <div class="form-group"><label class="form-label">Profit % (markup)</label>
+      <input class="form-input" id="rk-pct" type="number" step="1" value="${esc(fs.profit_pct||'30')}" placeholder="30"></div>
+  </div>
+  <p style="font-size:.8rem;color:var(--muted)">Formula: <code>₹ = ceil($ × rate × (1 + profit%))</code> — e.g. $2 × 84 × 1.30 = ₹219</p>
+
+  <div style="font-weight:700;font-size:.85rem;margin:.75rem 0 .5rem;color:var(--primary)">🔄 Sync All Prices</div>
+  <p style="font-size:.82rem;color:var(--muted);margin-bottom:.5rem">Fetches current USD prices from ResellKeys for all plans linked to a ResellKeys product ID, then recalculates INR with the profit % above.</p>
+  <div id="sync-result"></div>
+</div>
+<div class="modal-footer" style="gap:.5rem;flex-wrap:wrap">
+  <button class="btn btn-secondary" data-close>Cancel</button>
+  <button class="btn btn-secondary" id="rk-sync-btn">🔄 Sync All Prices Now</button>
+  <button class="btn btn-primary" id="rk-save-btn">💾 Save Settings</button>
+</div>`);
+
+    document.getElementById('rk-save-btn').onclick = async () => {
+      const msg = document.getElementById('rk-msg');
+      try {
+        await api('/fulfillment-settings', { method:'POST', body: JSON.stringify({
+          resellkeys_api_url: document.getElementById('rk-url').value.trim(),
+          resellkeys_api_key: document.getElementById('rk-key').value,
+          resellkeys_email: document.getElementById('rk-email').value.trim(),
+          resellkeys_password: document.getElementById('rk-pass').value,
+          usd_to_inr_rate: document.getElementById('rk-rate').value,
+          profit_pct: document.getElementById('rk-pct').value,
+        })});
+        msg.innerHTML='<div class="alert alert-success">Settings saved!</div>';
+      } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+    };
+
+    document.getElementById('rk-sync-btn').onclick = async () => {
+      const sr = document.getElementById('sync-result');
+      const msg = document.getElementById('rk-msg');
+      sr.innerHTML = '<div class="spinner"></div>';
+      try {
+        await api('/fulfillment-settings', { method:'POST', body: JSON.stringify({
+          resellkeys_api_url: document.getElementById('rk-url').value.trim(),
+          resellkeys_api_key: document.getElementById('rk-key').value,
+          resellkeys_email: document.getElementById('rk-email').value.trim(),
+          resellkeys_password: document.getElementById('rk-pass').value,
+          usd_to_inr_rate: document.getElementById('rk-rate').value,
+          profit_pct: document.getElementById('rk-pct').value,
+        })});
+        const r = await api('/plans/sync-resellkeys-prices', { method:'POST', body: JSON.stringify({
+          profit_pct: parseFloat(document.getElementById('rk-pct').value) || 0,
+          usd_to_inr_rate: parseFloat(document.getElementById('rk-rate').value) || 84,
+        })});
+        sr.innerHTML = `<div class="alert alert-success">✓ Updated ${r.updated} of ${r.total} linked products</div>`;
+        views.plans(catFilter);
+      } catch(e) { sr.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+    };
+  };
 
   window.scrapeResellKeys = () => {
     const ov = openModal(`
@@ -339,7 +564,7 @@ function renderPlansTable(plans, catFilter) {
       try {
         const r = await api('/plans/scrape-resellkeys', { method:'POST', body: JSON.stringify({ query: document.getElementById('scrape-q').value.trim() }) });
         _scraped = r.products || [];
-        if (!_scraped.length) { res.innerHTML = '<p class="muted">No products found. Check ResellKeys API credentials in Fulfillment Settings.</p>'; return; }
+        if (!_scraped.length) { res.innerHTML = '<p class="muted">No products found. Check ResellKeys credentials via ⚙ ResellKeys button.</p>'; return; }
         res.innerHTML = `<div style="font-size:.83rem;margin-bottom:.5rem;color:var(--muted)">Found ${_scraped.length} products. Check the ones to import:</div>` +
           _scraped.map((p,i)=>`<label style="display:flex;align-items:center;gap:.5rem;padding:.3rem 0;border-bottom:1px solid var(--border)">
             <input type="checkbox" class="scrape-cb" data-i="${i}" checked>
@@ -363,9 +588,69 @@ function renderPlansTable(plans, catFilter) {
   };
 }
 
-const PLATFORMS = ['Netflix', 'Amazon Prime', 'Disney+', 'Sony LIV', 'Zee5', 'Hotstar', 'JioCinema', 'MX Player', 'Apple TV+', 'Voot', 'Other'];
+let _allPlatforms = ['Netflix','Amazon Prime','Disney+','Sony LIV','Zee5','Hotstar','JioCinema','MX Player','Apple TV+','Voot','YouTube Premium','Spotify','Apple Music','Canva','Adobe','Microsoft 365','Google One','NordVPN','Other'];
 
-window.openPlanModal = function (plan = null) {
+async function loadPlatforms() {
+  try { const r = await api('/plans/platforms'); _allPlatforms = r.platforms || _allPlatforms; } catch {}
+}
+
+window.managePlatforms = async () => {
+  await loadPlatforms();
+  let customList = [];
+  try { const r = await api('/plans/platforms'); customList = r.custom || []; } catch {}
+  const ov = openModal(`
+<div class="modal-header"><h3>⚙ Manage Platforms</h3><button class="btn-icon" data-close>✕</button></div>
+<div class="modal-body">
+  <p style="font-size:.82rem;color:var(--muted);margin-bottom:.75rem">Default platforms are built-in. Add custom ones below — they appear in the Platform dropdown across all products.</p>
+  <div id="plat-msg"></div>
+  <div id="plat-list" style="max-height:220px;overflow-y:auto;margin-bottom:.75rem;border:1px solid var(--border);border-radius:8px;padding:.5rem">
+    ${customList.length ? customList.map((p,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:.3rem .5rem;border-radius:6px" id="plat-row-${i}">
+      <span style="font-size:.88rem">${esc(p)}</span>
+      <button class="btn btn-sm btn-red" style="padding:2px 8px" onclick="removePlatform(${i})">✕</button>
+    </div>`).join('') : '<p class="muted" style="text-align:center;padding:.5rem;font-size:.83rem">No custom platforms yet</p>'}
+  </div>
+  <div style="display:flex;gap:.5rem">
+    <input class="form-input" id="new-plat-input" placeholder="e.g. Crunchyroll, Canva Pro, WinZip…" style="flex:1">
+    <button class="btn btn-primary btn-sm" onclick="addPlatformEntry()">+ Add</button>
+  </div>
+</div>
+<div class="modal-footer">
+  <button class="btn btn-secondary" data-close>Cancel</button>
+  <button class="btn btn-primary" id="save-plats-btn">Save Platforms</button>
+</div>`);
+
+  let _custom = [...customList];
+  window.removePlatform = (i) => {
+    _custom.splice(i, 1);
+    const row = document.getElementById(`plat-row-${i}`);
+    if (row) row.remove();
+  };
+  window.addPlatformEntry = () => {
+    const inp = document.getElementById('new-plat-input');
+    const val = inp.value.trim();
+    if (!val) return;
+    if (_custom.includes(val)) { showToast('Already exists', 'error'); return; }
+    _custom.push(val);
+    const list = document.getElementById('plat-list');
+    const i = _custom.length - 1;
+    list.insertAdjacentHTML('beforeend', `<div style="display:flex;align-items:center;justify-content:space-between;padding:.3rem .5rem;border-radius:6px" id="plat-row-${i}">
+      <span style="font-size:.88rem">${esc(val)}</span>
+      <button class="btn btn-sm btn-red" style="padding:2px 8px" onclick="removePlatform(${i})">✕</button>
+    </div>`);
+    inp.value = '';
+  };
+  document.getElementById('new-plat-input').addEventListener('keydown', e => { if (e.key === 'Enter') window.addPlatformEntry(); });
+  document.getElementById('save-plats-btn').onclick = async () => {
+    try {
+      await api('/plans/platforms', { method:'POST', body: JSON.stringify({ custom: _custom }) });
+      await loadPlatforms();
+      ov.remove(); showToast('Platforms saved');
+    } catch(e) { document.getElementById('plat-msg').innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+  };
+};
+
+window.openPlanModal = async function (plan = null) {
+  await loadPlatforms();
   const f = plan || {};
   const features = Array.isArray(f.features) ? f.features : [];
   const isEdit = !!plan;
@@ -376,10 +661,9 @@ window.openPlanModal = function (plan = null) {
   <div id="plan-err"></div>
   <div class="form-row">
     <div class="form-group">
-      <label class="form-label">Platform *</label>
-      <select class="form-input" id="pf-platform">
-        ${PLATFORMS.map(p => `<option ${f.platform === p ? 'selected' : ''}>${p}</option>`).join('')}
-      </select>
+      <label class="form-label" style="display:flex;justify-content:space-between">Platform * <button type="button" class="btn btn-sm btn-secondary" style="padding:1px 8px;font-size:.75rem" onclick="managePlatforms()">⚙ Manage</button></label>
+      <input class="form-input" id="pf-platform" list="pf-platform-list" value="${esc(f.platform||'')}" placeholder="Select or type platform…">
+      <datalist id="pf-platform-list">${_allPlatforms.map(p=>`<option value="${esc(p)}">`).join('')}</datalist>
     </div>
     <div class="form-group">
       <label class="form-label">Badge</label>
@@ -415,7 +699,14 @@ window.openPlanModal = function (plan = null) {
   </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Price USD ($)</label><input class="form-input" id="pf-usd" type="number" step="0.01" value="${f.price_usd||''}" placeholder="0.00"></div>
-    <div class="form-group"><label class="form-label">Image URL</label><input class="form-input" id="pf-img" value="${esc(f.image_url||'')}" placeholder="https://..."></div>
+    <div class="form-group">
+      <label class="form-label">Image</label>
+      <div style="display:flex;gap:.4rem;align-items:center">
+        ${f.image_url?`<img id="pf-img-preview" src="${esc(f.image_url)}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0">`:`<div id="pf-img-preview" style="width:36px;height:36px;background:var(--input-bg);border-radius:6px;flex-shrink:0"></div>`}
+        <input class="form-input" id="pf-img" value="${esc(f.image_url||'')}" placeholder="https://logo.clearbit.com/netflix.com" style="flex:1" oninput="updateImgPreview()">
+        ${isEdit?`<label class="btn btn-sm btn-secondary" style="cursor:pointer;white-space:nowrap" title="Upload image file">📁 Upload<input type="file" accept="image/*" id="pf-img-file" style="display:none" onchange="uploadPlanImage(${f.id})"></label>`:''}
+      </div>
+    </div>
   </div>
   <div style="font-weight:600;margin:.5rem 0 .25rem;font-size:.85rem">Auto Fulfillment (ResellKeys)</div>
   <div class="form-row">
@@ -499,6 +790,75 @@ window.removeFeature = function (idx) {
 function getFeatures() {
   return [...document.querySelectorAll('.feature-tag')].map(el => el.textContent.replace('×', '').trim());
 }
+
+window.quickSetImage = function(planId, currentUrl) {
+  const ov = openModal(`
+<div class="modal-header"><h3>🖼 Set Product Image</h3><button class="btn-icon" data-close>✕</button></div>
+<div class="modal-body">
+  <div class="form-group">
+    <label class="form-label">Image URL</label>
+    <input class="form-input" id="qi-url" value="${esc(currentUrl)}" placeholder="https://logo.clearbit.com/netflix.com">
+  </div>
+  <div style="display:flex;gap:.5rem;margin-top:.35rem;flex-wrap:wrap">
+    <label class="btn btn-sm btn-secondary" style="cursor:pointer">📁 Upload File
+      <input type="file" accept="image/*" id="qi-file" style="display:none" onchange="qiUpload(${planId})">
+    </label>
+  </div>
+  <div id="qi-preview" style="margin-top:.5rem">${currentUrl?`<img src="${esc(currentUrl)}" style="height:60px;border-radius:8px;object-fit:contain">`:''}
+  </div>
+  <div id="qi-msg"></div>
+</div>
+<div class="modal-footer">
+  <button class="btn btn-secondary" data-close>Cancel</button>
+  <button class="btn btn-primary" id="qi-save">Save</button>
+</div>`);
+  document.getElementById('qi-url').addEventListener('input', function() {
+    const p = document.getElementById('qi-preview');
+    p.innerHTML = this.value ? `<img src="${esc(this.value)}" style="height:60px;border-radius:8px;object-fit:contain" onerror="this.style.display='none'">` : '';
+  });
+  window.qiUpload = async (id) => {
+    const file = document.getElementById('qi-file')?.files[0];
+    if (!file) return;
+    const fd = new FormData(); fd.append('image', file);
+    try {
+      const res = await fetch(`/admin/api/plans/${id}/upload-image`, { method:'POST', credentials:'include', body: fd });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error);
+      document.getElementById('qi-url').value = j.url;
+      document.getElementById('qi-preview').innerHTML = `<img src="${esc(j.url)}" style="height:60px;border-radius:8px;object-fit:contain">`;
+      showToast('Uploaded');
+    } catch(e) { document.getElementById('qi-msg').innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+  };
+  document.getElementById('qi-save').onclick = async () => {
+    const image_url = document.getElementById('qi-url').value.trim();
+    try {
+      await api(`/plans/bulk-action`, { method:'POST', body: JSON.stringify({ action:'set-image-url', ids:[planId], image_url }) });
+      ov.remove(); showToast('Image updated'); views.plans();
+    } catch(e) { document.getElementById('qi-msg').innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+  };
+};
+
+window.updateImgPreview = function() {
+  const url = document.getElementById('pf-img')?.value;
+  const prev = document.getElementById('pf-img-preview');
+  if (!prev) return;
+  if (url) { prev.outerHTML = `<img id="pf-img-preview" src="${esc(url)}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">`; }
+};
+
+window.uploadPlanImage = async function(planId) {
+  const file = document.getElementById('pf-img-file')?.files[0];
+  if (!file) return;
+  const fd = new FormData();
+  fd.append('image', file);
+  try {
+    const res = await fetch(`/admin/api/plans/${planId}/upload-image`, { method:'POST', credentials:'include', body: fd });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.error);
+    const inp = document.getElementById('pf-img');
+    if (inp) { inp.value = j.url; window.updateImgPreview(); }
+    showToast('Image uploaded');
+  } catch(e) { showToast(e.message, 'error'); }
+};
 
 window.editPlan = async function (id) {
   try {
@@ -1988,6 +2348,186 @@ views.payments = async function () {
       if (!confirm('Delete this payment method?')) return;
       await api(`/payment-methods/${id}`, { method:'DELETE' });
       views.payments();
+    };
+  } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
+
+// ── views['wa-session'] ───────────────────────────────────────────────────────
+views['wa-session'] = async function () {
+  setMain('<div class="spinner"></div>');
+  try {
+    const [status, sessionInfo] = await Promise.all([
+      api('/whatsapp/status'),
+      api('/whatsapp/session-info').catch(() => ({})),
+    ]);
+
+    const isConnected   = status.status === 'connected';
+    const isWaitingQR   = status.status === 'waiting_qr';
+    const isBaileys     = status.mode !== 'meta_cloud';
+    const statusColor   = isConnected ? '#22c55e' : isWaitingQR ? '#f59e0b' : '#94a3b8';
+    const statusLabel   = isConnected ? '✓ Connected' : isWaitingQR ? '⏳ Scan QR' : status.status === 'connecting' ? '⟳ Connecting…' : status.status === 'logged_out' ? '✗ Logged Out' : '● Disconnected';
+
+    setMain(`
+<div style="max-width:560px;margin:0 auto">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem">
+  <h2 style="font-weight:800;margin:0">📱 WhatsApp Session</h2>
+  <button class="btn btn-sm btn-secondary" onclick="views['wa-session']()">↻ Refresh</button>
+</div>
+
+<!-- Status card -->
+<div class="card" style="margin-bottom:1rem">
+  <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+    <div style="width:56px;height:56px;border-radius:50%;background:${statusColor}22;border:3px solid ${statusColor};display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0">
+      ${isConnected ? '✓' : isWaitingQR ? '📷' : '○'}
+    </div>
+    <div style="flex:1">
+      <div style="font-size:1.1rem;font-weight:700;color:${statusColor}">${statusLabel}</div>
+      ${status.number ? `<div style="font-size:.9rem;color:var(--muted);margin-top:.2rem">📱 +${esc(status.number)}</div>` : ''}
+      ${isConnected ? `<div style="font-size:.8rem;color:var(--muted);margin-top:.2rem">Session secured — survives deploys ✓</div>` : ''}
+    </div>
+    <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+      ${!isConnected ? `<button class="btn btn-primary btn-sm" onclick="wsConnect()">⚡ Connect</button>` : ''}
+      ${isConnected ? `<button class="btn btn-sm btn-secondary" onclick="wsReconnect()">↻ Reconnect</button>` : ''}
+      ${isConnected ? `<button class="btn btn-sm btn-secondary" onclick="wsDisconnect()">⏸ Disconnect</button>` : ''}
+    </div>
+  </div>
+</div>
+
+<!-- QR Code (shown when waiting) -->
+${isBaileys && isWaitingQR && status.qrDataUrl ? `
+<div class="card" style="text-align:center;margin-bottom:1rem">
+  <div style="font-weight:700;margin-bottom:.75rem;font-size:1rem">Scan with WhatsApp to connect</div>
+  <img src="${status.qrDataUrl}" style="width:240px;height:240px;border:3px solid var(--border);border-radius:16px" alt="QR Code">
+  <div style="margin-top:.75rem;font-size:.82rem;color:var(--muted)">Open WhatsApp → Linked Devices → Link a device → Scan this QR</div>
+  <div style="margin-top:.5rem;font-size:.78rem;color:var(--muted)">Auto-refreshes every 20s · QR expires in ~60s</div>
+  <button class="btn btn-sm btn-secondary" style="margin-top:.75rem" onclick="views['wa-session']()">🔄 Refresh QR</button>
+</div>` : ''}
+
+<!-- Not connected — show connect options -->
+${isBaileys && !isConnected && !isWaitingQR ? `
+<div class="card" style="margin-bottom:1rem">
+  <div style="font-weight:700;margin-bottom:.75rem">Connect WhatsApp</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+    <div style="border:1px solid var(--border);border-radius:10px;padding:1rem;text-align:center;cursor:pointer" onclick="wsConnect()">
+      <div style="font-size:2rem;margin-bottom:.4rem">📷</div>
+      <div style="font-weight:600;font-size:.9rem">QR Code</div>
+      <div style="font-size:.78rem;color:var(--muted);margin-top:.25rem">Scan with phone</div>
+      <button class="btn btn-primary btn-sm" style="margin-top:.6rem;width:100%" onclick="wsConnect()">Generate QR</button>
+    </div>
+    <div style="border:1px solid var(--border);border-radius:10px;padding:1rem;text-align:center">
+      <div style="font-size:2rem;margin-bottom:.4rem">🔢</div>
+      <div style="font-weight:600;font-size:.9rem">Pairing Code</div>
+      <div style="font-size:.78rem;color:var(--muted);margin-top:.25rem">Enter code on phone</div>
+      <input class="form-input" id="ws-pair-phone" placeholder="+91XXXXXXXXXX" style="margin-top:.6rem;font-size:.82rem">
+      <button class="btn btn-secondary btn-sm" style="margin-top:.4rem;width:100%" onclick="wsPairCode()">Get Code</button>
+    </div>
+  </div>
+  <div id="ws-pair-result" style="margin-top:.75rem"></div>
+</div>` : ''}
+
+<!-- Pairing code input (when waiting for QR, offer alternative) -->
+${isBaileys && isWaitingQR ? `
+<div class="card" style="margin-bottom:1rem">
+  <div style="font-weight:600;margin-bottom:.5rem;font-size:.9rem">Or use Pairing Code instead</div>
+  <div style="display:flex;gap:.5rem">
+    <input class="form-input" id="ws-pair-phone" placeholder="+91XXXXXXXXXX" style="flex:1">
+    <button class="btn btn-secondary btn-sm" onclick="wsPairCode()">Get Code</button>
+  </div>
+  <div id="ws-pair-result" style="margin-top:.5rem"></div>
+</div>` : ''}
+
+<!-- Session info -->
+<div class="card" style="margin-bottom:1rem">
+  <div style="font-weight:700;margin-bottom:.75rem">Session Files</div>
+  ${sessionInfo.exists ? `
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;margin-bottom:.75rem">
+    <div style="background:var(--input-bg);border-radius:8px;padding:.6rem;text-align:center">
+      <div style="font-size:1.2rem;font-weight:700;color:var(--primary)">${sessionInfo.files}</div>
+      <div style="font-size:.75rem;color:var(--muted)">Files</div>
+    </div>
+    <div style="background:var(--input-bg);border-radius:8px;padding:.6rem;text-align:center">
+      <div style="font-size:1.2rem;font-weight:700;color:var(--primary)">${sessionInfo.sizeKB} KB</div>
+      <div style="font-size:.75rem;color:var(--muted)">Size</div>
+    </div>
+    <div style="background:var(--input-bg);border-radius:8px;padding:.6rem;text-align:center">
+      <div style="font-size:1rem;font-weight:700;color:#22c55e">✓</div>
+      <div style="font-size:.75rem;color:var(--muted)">On Volume</div>
+    </div>
+  </div>
+  <div style="font-size:.8rem;color:var(--muted)">Last saved: ${sessionInfo.modifiedAt ? fmtDate(sessionInfo.modifiedAt) : '—'}</div>
+  <div style="font-size:.8rem;color:var(--muted);margin-top:.25rem">📁 Stored at <code>/app/data/wa-session/</code> (Railway persistent volume)</div>
+  ` : `<div style="font-size:.85rem;color:var(--muted)">No session files found. Connect WhatsApp to create a session.</div>`}
+  <div style="border-top:1px solid var(--border);margin-top:.75rem;padding-top:.75rem;font-size:.82rem;color:var(--muted)">
+    ℹ️ Session files are stored on the Railway volume and <strong>survive code deploys and restarts</strong>.
+    You only need to re-scan QR if you manually clear the session or WhatsApp logs out the device.
+  </div>
+</div>
+
+<!-- Danger zone -->
+<div class="card" style="border-color:#ef4444;margin-bottom:1rem">
+  <div style="font-weight:700;margin-bottom:.75rem;color:#ef4444">⚠ Danger Zone</div>
+  <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+    <div style="flex:1;min-width:200px">
+      <div style="font-weight:600;font-size:.85rem;margin-bottom:.25rem">Disconnect Socket</div>
+      <div style="font-size:.78rem;color:var(--muted);margin-bottom:.4rem">Closes the WA connection. Session stays valid — reconnect without QR.</div>
+      <button class="btn btn-sm btn-secondary" onclick="wsDisconnect()">⏸ Disconnect</button>
+    </div>
+    <div style="flex:1;min-width:200px">
+      <div style="font-weight:600;font-size:.85rem;margin-bottom:.25rem">Logout from WhatsApp</div>
+      <div style="font-size:.78rem;color:var(--muted);margin-bottom:.4rem">Sends logout to WA servers + clears session. Requires new QR scan.</div>
+      <button class="btn btn-sm btn-red" onclick="wsLogout()">✗ Logout</button>
+    </div>
+    <div style="flex:1;min-width:200px">
+      <div style="font-weight:600;font-size:.85rem;margin-bottom:.25rem">Clear Session Files</div>
+      <div style="font-size:.78rem;color:var(--muted);margin-bottom:.4rem">Deletes local session files only. Requires new QR scan to reconnect.</div>
+      <button class="btn btn-sm btn-red" onclick="wsClearSession()">🗑 Clear Session</button>
+    </div>
+  </div>
+</div>
+
+</div>`);
+
+    if (isWaitingQR) {
+      setTimeout(() => views['wa-session'](), 20000);
+    }
+    if (status.status === 'connecting') {
+      setTimeout(() => views['wa-session'](), 4000);
+    }
+
+    window.wsConnect = async () => {
+      try { await api('/whatsapp/connect', { method:'POST' }); showToast('Connecting…'); setTimeout(() => views['wa-session'](), 3000); }
+      catch(e) { showToast(e.message, 'error'); }
+    };
+    window.wsDisconnect = async () => {
+      if (!confirm('Disconnect the socket? Session stays valid, reconnect is instant.')) return;
+      try { await api('/whatsapp/disconnect', { method:'POST' }); showToast('Disconnected'); views['wa-session'](); }
+      catch(e) { showToast(e.message, 'error'); }
+    };
+    window.wsReconnect = async () => {
+      try { await api('/whatsapp/reconnect', { method:'POST' }); showToast('Reconnecting…'); setTimeout(() => views['wa-session'](), 3000); }
+      catch(e) { showToast(e.message, 'error'); }
+    };
+    window.wsLogout = async () => {
+      if (!confirm('This will LOGOUT from WhatsApp — you will need to scan QR again. Continue?')) return;
+      try { await api('/whatsapp/logout', { method:'POST' }); showToast('Logged out from WhatsApp'); views['wa-session'](); }
+      catch(e) { showToast(e.message, 'error'); }
+    };
+    window.wsClearSession = async () => {
+      if (!confirm('Delete local session files? You will need to scan QR again to reconnect.')) return;
+      try { await api('/whatsapp/clear-session', { method:'POST' }); showToast('Session cleared'); views['wa-session'](); }
+      catch(e) { showToast(e.message, 'error'); }
+    };
+    window.wsPairCode = async () => {
+      const phone = document.getElementById('ws-pair-phone')?.value?.trim();
+      if (!phone) return showToast('Enter phone number with country code', 'error');
+      const el = document.getElementById('ws-pair-result');
+      if (el) el.innerHTML = '<div class="spinner"></div>';
+      try {
+        if (status.status !== 'waiting_qr') await api('/whatsapp/connect', { method:'POST' });
+        await new Promise(r => setTimeout(r, 1500));
+        const r = await api('/whatsapp/pairing-code', { method:'POST', body: JSON.stringify({ phone }) });
+        if (el) el.innerHTML = `<div class="alert alert-success">Your pairing code: <strong style="font-size:1.2rem;letter-spacing:.1em">${esc(r.code)}</strong><br><span style="font-size:.8rem">Enter this in WhatsApp → Linked Devices → Link with phone number</span></div>`;
+      } catch(e) { if (el) el.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
     };
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };
