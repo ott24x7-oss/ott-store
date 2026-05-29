@@ -297,6 +297,12 @@ a:hover{color:#8af1ff;text-decoration:underline}
 .legal-page .legal-body p{margin-bottom:1rem;color:var(--sp-muted)}
 .legal-page .legal-body ul,.legal-page .legal-body ol{padding-left:1.5rem;margin-bottom:1rem}
 .legal-page .legal-body li{margin-bottom:.35rem;color:var(--sp-muted)}
+/* DB-stored tables (contact/legal pages) — force dark-theme-friendly colors, overriding any inline light backgrounds pasted into page content */
+.legal-page .legal-body table{width:100%;border-collapse:collapse;margin:1.25rem 0;border:1px solid var(--sp-border);border-radius:12px;overflow:hidden;font-size:.9rem}
+.legal-page .legal-body tr{background:transparent!important}
+.legal-page .legal-body tr:nth-child(even){background:var(--sp-card)!important}
+.legal-page .legal-body th,.legal-page .legal-body td{padding:.7rem .9rem!important;border:1px solid var(--sp-border);color:var(--sp-text)!important;text-align:left;vertical-align:top}
+.legal-page .legal-body th{font-weight:700}
 /* Mobile bottom nav (matches store pages) */
 .sp-bnav{display:none;position:fixed;bottom:0;left:0;right:0;height:58px;z-index:500;background:rgba(5,5,11,.96);border-top:1px solid var(--sp-border);grid-template-columns:repeat(4,1fr);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
 .sp-bnav-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--sp-muted);font-size:.65rem;font-weight:600;text-decoration:none;transition:color .15s;padding:.3rem .5rem}

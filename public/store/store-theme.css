@@ -1,0 +1,182 @@
+/* ─────────────────────────────────────────────────────────────────
+   store-theme.css — Unified cinematic dark theme for store pages
+   Matches index.html design: red / cyan / purple on #05050b
+   Admin pages keep using style.css — no changes there.
+───────────────────────────────────────────────────────────────── */
+
+/* ── CSS Variables ── */
+:root {
+  /* Core brand palette */
+  --bg: #05050b;
+  --text: #f7f7ff;
+  --muted: rgba(255,255,255,.48);
+  --red: #ff2b4f;
+  --orange: #ff8a00;
+  --cyan: #42e8ff;
+  --green: #37ff9b;
+  --purple: #9b5cff;
+
+  /* Surfaces */
+  --glass: rgba(255,255,255,.07);
+  --glass2: rgba(255,255,255,.12);
+  --border: rgba(255,255,255,.11);
+
+  /* Component tokens */
+  --card: rgba(255,255,255,.06);
+  --card-solid: #0e1018;
+  --input-bg: rgba(255,255,255,.05);
+  --header-bg: rgba(5,5,11,.88);
+  --page-bg: #05050b;
+
+  /* Gradient accents — brand red/orange/purple */
+  --grad-1: #ff2b4f;
+  --grad-2: #ff8a00;
+  --grad-3: #9b5cff;
+
+  /* Semantic helpers */
+  --red-bg: rgba(255,43,79,.1);
+  --green-bg: rgba(55,255,155,.1);
+  --blue: #42e8ff;
+  --blue-bg: rgba(66,232,255,.1);
+  --yellow: #f59e0b;
+  --yellow-bg: rgba(245,158,11,.12);
+  --shadow: 0 2px 16px rgba(0,0,0,.4);
+  --shadow-lg: 0 20px 60px rgba(0,0,0,.45);
+  --radius: 14px;
+  --radius-sm: 8px;
+
+  /* my-* aliases (used by JS-rendered content in my.html) */
+  --my-card: var(--card);
+  --my-border: var(--border);
+  --my-text: var(--text);
+  --my-muted: var(--muted);
+  --my-page-bg: var(--page-bg);
+  --my-shadow: var(--shadow);
+
+  /* st-* aliases for plans.html inline CSS */
+  --st-bg: #05050b;
+  --st-card: rgba(255,255,255,.07);
+  --st-card-solid: #0e1018;
+  --st-border: rgba(255,255,255,.11);
+  --st-accent: #ff2b4f;
+  --st-accent-end: #ff8a00;
+  --st-text: #f7f7ff;
+  --st-muted: rgba(255,255,255,.48);
+  --st-btn: linear-gradient(135deg,#ff2b4f,#ff8a00);
+  --st-nav: rgba(5,5,11,.88);
+}
+
+/* ── Reset ── */
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; scroll-behavior: smooth; overflow-x: hidden; }
+img { max-width: 100%; display: block; }
+button { cursor: pointer; font-family: inherit; }
+input, textarea, select { font-family: inherit; }
+a { color: inherit; text-decoration: none; }
+a:hover { text-decoration: none; }
+
+/* ── Cinematic body gradient ── */
+body {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(255,43,79,.22), transparent 28%),
+    radial-gradient(circle at 70% 20%, rgba(66,232,255,.16), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(155,92,255,.24), transparent 32%),
+    var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Suppress any aurora ::before from legacy style.css */
+body::before { display: none !important; }
+
+/* ── Noise film grain (add <div class="st-noise"></div> to body) ── */
+.st-noise {
+  position: fixed; inset: 0; pointer-events: none; opacity: .13; z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.45'/%3E%3C/svg%3E");
+}
+
+/* ── Spinner ── */
+.spinner {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 3px solid var(--border);
+  border-top-color: var(--red);
+  animation: spin .7s linear infinite;
+  margin: 2rem auto;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Glass card ── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.card-sm { padding: .875rem; border-radius: var(--radius-sm); }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+  padding: .55rem 1.2rem; border-radius: var(--radius-sm); border: none;
+  font-size: .9rem; font-weight: 600; transition: all .15s; white-space: nowrap;
+  cursor: pointer; font-family: inherit; text-decoration: none; color: var(--text);
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--red), var(--orange));
+  color: #fff; box-shadow: 0 8px 24px rgba(255,43,79,.3);
+}
+.btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.btn-secondary {
+  background: var(--card); color: var(--text); border: 1.5px solid var(--border);
+  backdrop-filter: blur(14px);
+}
+.btn-secondary:hover { background: var(--glass2); border-color: rgba(255,255,255,.22); }
+.btn-green { background: linear-gradient(135deg,#25D366,#128C7E); color: #fff; }
+.btn-green:hover { filter: brightness(1.1); }
+.btn-red { background: linear-gradient(135deg, var(--red), #c01537); color: #fff; }
+.btn-red:hover { filter: brightness(1.1); }
+.btn-sm { padding: .35rem .8rem; font-size: .8rem; }
+.btn-block { width: 100%; }
+.btn:disabled { opacity: .6; cursor: not-allowed; transform: none !important; }
+
+/* ── Form ── */
+.form-group { display: flex; flex-direction: column; gap: .3rem; }
+.form-label { font-size: .875rem; font-weight: 500; color: var(--text); }
+.form-input {
+  padding: .6rem .9rem; border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--input-bg);
+  color: var(--text); font-size: .9rem; transition: border-color .15s; width: 100%; outline: none;
+}
+.form-input:focus { border-color: var(--red); }
+.form-input::placeholder { color: var(--muted); }
+
+/* ── Badge / status ── */
+.badge-active, .badge-pending, .badge-expired, .badge-completed, .badge-failed {
+  display: inline-flex; align-items: center; gap: .3rem;
+  padding: .2rem .6rem; border-radius: 50px;
+  font-size: .72rem; font-weight: 700; border: 1px solid transparent;
+}
+.badge-active   { color: #10b981; background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.25); }
+.badge-pending  { color: var(--yellow); background: var(--yellow-bg); border-color: rgba(245,158,11,.25); }
+.badge-expired,
+.badge-failed   { color: var(--red); background: var(--red-bg); border-color: rgba(255,43,79,.25); }
+.badge-completed{ color: var(--green); background: var(--green-bg); border-color: rgba(55,255,155,.25); }
+
+/* ── Utilities ── */
+.container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+.muted { color: var(--muted); font-size: .875rem; }
+.text-center { text-align: center; }
+.flex { display: flex; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.gap-2 { gap: .5rem; }
+.gap-3 { gap: .75rem; }
+.gap-4 { gap: 1rem; }
+.mt-1 { margin-top: .25rem; } .mt-2 { margin-top: .5rem; }
+.mt-3 { margin-top: .75rem; } .mt-4 { margin-top: 1rem; }
+.mb-2 { margin-bottom: .5rem; } .mb-4 { margin-bottom: 1rem; }
+.hidden { display: none !important; }
