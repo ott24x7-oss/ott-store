@@ -21,6 +21,14 @@ app.use(apiLimiter);
 app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use('/data/uploads', express.static(path.join(__dirname, '..', 'data', 'uploads')));
 
+// ─── CORS preflight for cross-origin import endpoint ─────────────────────────
+app.options('/admin/api/wa-offers-batch-import', (req, res) => {
+  res.set('Access-Control-Allow-Origin', 'https://store.watshop.in');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, X-Import-Token');
+  res.set('Access-Control-Allow-Methods', 'POST');
+  res.status(204).end();
+});
+
 // ─── API routes ───────────────────────────────────────────────────────────────
 app.use('/user/api', require('./user-api'));
 app.use('/admin/api', require('./admin-api'));
