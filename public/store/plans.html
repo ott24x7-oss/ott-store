@@ -18,7 +18,14 @@
 }
 html{overflow-x:hidden}
 html[data-store-theme]{background:var(--st-bg);color:var(--st-text)}
-body{background:var(--st-bg);color:var(--st-text);overflow-x:hidden;-webkit-tap-highlight-color:transparent;font-family:'Inter',system-ui,-apple-system,sans-serif}
+body{
+  background:
+    radial-gradient(ellipse 70% 55% at -5% -5%,rgba(124,58,237,.22) 0%,transparent 52%),
+    radial-gradient(ellipse 55% 45% at 105% 5%,rgba(79,70,229,.18) 0%,transparent 52%),
+    radial-gradient(ellipse 75% 65% at 50% 108%,rgba(236,72,153,.14) 0%,transparent 60%),
+    var(--st-bg,#07080f);
+  color:var(--st-text);overflow-x:hidden;-webkit-tap-highlight-color:transparent;font-family:'Inter',system-ui,-apple-system,sans-serif
+}
 body::before{display:none}
 *,*::before,*::after{box-sizing:border-box}
 
@@ -158,7 +165,7 @@ html[data-theme="dark"] .snav-logo .logo-dark{display:block}
       <a href="/blog">Blog</a>
     </div>
     <div class="snav-right">
-      <button id="theme-toggle" class="snav-theme-btn" title="Toggle theme">🌙</button>
+      <button id="theme-toggle" class="snav-theme-btn" title="Toggle theme" style="display:none">🌙</button>
       <a href="/my" class="snav-login" id="header-login-btn">Login / Sign Up</a>
     </div>
     <button class="snav-burger" id="nav-burger" aria-label="Menu">☰</button>
