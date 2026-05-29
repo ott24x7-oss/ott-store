@@ -119,6 +119,20 @@ async function buildStoreSystemPrompt(db) {
   const siteUrl  = (s.base_url || '').replace(/\/$/, '');
   const siteName = s.site_name || 'OTT Store';
 
+  // Support team contacts
+  let teamRow;
+  try { teamRow = all(db, `SELECT value FROM settings WHERE key='contact_team'`, [])[0]; } catch {}
+  let contactTeam = [];
+  try { contactTeam = JSON.parse(teamRow?.value || '[]'); } catch {}
+  if (!Array.isArray(contactTeam)) contactTeam = [];
+  const teamText = contactTeam.length
+    ? contactTeam.map(c => `• ${c.role}${c.name ? ` (${c.name})` : ''} — https://wa.me/${c.phone}`).join('\n')
+    : (s.support_whatsapp ? `• Support — https://wa.me/${String(s.support_whatsapp).replace(/\D/g,'')}` : '');
+
+  const humanSupportLine = contactTeam.length
+    ? `send their wa.me link (see HUMAN SUPPORT TEAM below)`
+    : (s.support_whatsapp ? `WhatsApp ${s.support_whatsapp}` : 'contact support');
+
   return `You are ${siteName}'s friendly AI sales assistant — available on the website and WhatsApp.
 
 STORE: ${siteName}${s.site_tagline ? ` — ${s.site_tagline}` : ''}
@@ -139,8 +153,8 @@ HOW TO ORDER:
 
 DELIVERY: Instant after payment confirmed. Credentials sent to email and WhatsApp.
 VALIDITY: Shown clearly on each plan (days / months / year).
-${s.support_whatsapp ? `SUPPORT WHATSAPP: ${s.support_whatsapp} — human support available here` : ''}
 ${s.support_email ? `SUPPORT EMAIL: ${s.support_email}` : ''}
+${teamText ? `\nHUMAN SUPPORT TEAM (share these wa.me links when a customer asks to speak to a human, needs help, or has a complaint):\n${teamText}` : ''}
 ${s.bot_system_prompt ? `\nCUSTOM STORE INSTRUCTIONS:\n${s.bot_system_prompt}` : ''}
 
 YOUR ROLE:
@@ -150,7 +164,7 @@ YOUR ROLE:
 - Proactively suggest plans — ask what they like to watch if they're unsure
 - For order tracking → ${siteUrl ? siteUrl + '/my' : 'the website'} → My Orders
 - For wallet top-up → ${siteUrl ? siteUrl + '/my' : 'the website'} → Wallet
-- For human support → ${s.support_whatsapp ? `WhatsApp ${s.support_whatsapp}` : 'contact support'}
+- For human support → ${humanSupportLine}
 - NEVER invent plans or prices that are not listed above
 - NEVER use "<link>", "[link]", or any placeholder text for URLs — always use the actual URL from WEBSITE above, or say "visit our website" if no URL is configured
 

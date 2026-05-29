@@ -23,6 +23,7 @@ const MENU = [
   { id: 'wa-session',     label: 'WA Session',    icon: '📱' },
   { id: 'whatsapp',       label: 'WA Bot',        icon: '💬' },
   { id: 'wa-offers',      label: 'WA Offers',     icon: '📋' },
+  { id: 'contact-team',   label: 'Support Team',  icon: '👥' },
   { id: 'suppliers',      label: 'Suppliers',     icon: '🏭' },
   { group: 'MARKETING' },
   { id: 'broadcast',      label: 'Broadcast',     icon: '📢' },
@@ -3046,6 +3047,152 @@ views.suppliers = async function () {
     };
 
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
+
+// ── views['contact-team'] ─────────────────────────────────────────────────────
+views['contact-team'] = async function () {
+  setMain('<div class="spinner"></div>');
+  try {
+    const { team } = await api('/contact-team');
+
+    function renderTeam(list) {
+      if (!list.length) return `<p class="muted" style="padding:.5rem 0">No contacts added yet. Add your first contact below.</p>`;
+      return `<table class="data-table" style="margin-bottom:0">
+        <thead><tr><th style="width:2rem">#</th><th>Name</th><th>Role</th><th>Phone (with country code)</th><th>WhatsApp Link</th><th style="width:6rem">Actions</th></tr></thead>
+        <tbody id="team-tbody">
+        ${list.map((c, i) => `<tr>
+          <td class="muted">${i+1}</td>
+          <td>${esc(c.name)}</td>
+          <td><span style="background:var(--border);padding:.15rem .5rem;border-radius:4px;font-size:.78rem">${esc(c.role)}</span></td>
+          <td><code>+${esc(c.phone)}</code></td>
+          <td><a href="https://wa.me/${esc(c.phone)}" target="_blank" style="color:var(--accent);font-size:.83rem">wa.me/${esc(c.phone)}</a></td>
+          <td style="display:flex;gap:.4rem">
+            <button class="btn btn-xs btn-secondary" onclick="editContact(${i})">✏️</button>
+            <button class="btn btn-xs btn-red" onclick="deleteContact(${i})">✕</button>
+          </td>
+        </tr>`).join('')}
+        </tbody></table>`;
+    }
+
+    setMain(`
+<h2 style="font-weight:800;margin-bottom:1.5rem">👥 Support Team</h2>
+<div style="max-width:760px;display:flex;flex-direction:column;gap:1.25rem">
+
+<div class="card" style="border-left:3px solid #10b981">
+  <div style="font-weight:700;margin-bottom:.4rem">Human Help Contacts</div>
+  <p class="muted" style="font-size:.84rem;margin-bottom:0">These numbers are shared by the AI chatbot (website &amp; WhatsApp) when a customer asks to speak with a human, needs help, or has a complaint. The bot sends clickable <code>wa.me/...</code> links directly in the chat.</p>
+</div>
+
+<div class="card">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem">
+    <div style="font-weight:700">Team Contacts</div>
+    <button class="btn btn-sm btn-primary" onclick="openAddContact()">+ Add Contact</button>
+  </div>
+  <div id="team-msg"></div>
+  <div id="team-list">${renderTeam(team)}</div>
+</div>
+
+<div class="card" style="border-left:3px solid #f59e0b">
+  <div style="font-weight:700;margin-bottom:.5rem">How it works</div>
+  <ul style="font-size:.84rem;color:var(--muted);margin:0;padding-left:1.2rem;line-height:1.8">
+    <li>When a customer types "talk to human", "need help", "contact support" etc., the AI shares these contacts</li>
+    <li>Phone numbers must include country code — e.g. <code>919876543210</code> for India (+91)</li>
+    <li>You can add Owner, Sales, Manager, or any custom role</li>
+    <li>Order matters — the bot lists them in the order shown here</li>
+    <li>Changes take effect immediately (no restart needed)</li>
+  </ul>
+</div>
+
+</div>`);
+
+    let _team = JSON.parse(JSON.stringify(team));
+
+    async function saveTeam() {
+      const msg = document.getElementById('team-msg');
+      try {
+        const r = await api('/contact-team', { method:'POST', body: JSON.stringify({ team: _team }) });
+        _team = r.team;
+        document.getElementById('team-list').innerHTML = renderTeam(_team);
+        msg.innerHTML = '<div class="alert alert-success" style="padding:.4rem .75rem;margin-bottom:.5rem">Saved!</div>';
+        setTimeout(() => msg.innerHTML = '', 2500);
+      } catch(e) {
+        msg.innerHTML = `<div class="alert alert-error" style="padding:.4rem .75rem;margin-bottom:.5rem">${esc(e.message)}</div>`;
+      }
+    }
+
+    window.deleteContact = async (idx) => {
+      if (!confirm(`Remove ${_team[idx]?.name || 'this contact'}?`)) return;
+      _team.splice(idx, 1);
+      await saveTeam();
+    };
+
+    window.editContact = (idx) => {
+      const c = _team[idx];
+      openContactModal(c, async (updated) => {
+        _team[idx] = updated;
+        await saveTeam();
+      });
+    };
+
+    window.openAddContact = () => {
+      openContactModal(null, async (newc) => {
+        _team.push(newc);
+        await saveTeam();
+      });
+    };
+
+    function openContactModal(existing, onSave) {
+      const isEdit = !!existing;
+      const ov = document.createElement('div');
+      ov.className = 'modal-overlay';
+      ov.innerHTML = `
+<div class="modal" style="max-width:420px">
+  <div style="font-weight:700;font-size:1.1rem;margin-bottom:1rem">${isEdit ? '✏️ Edit Contact' : '+ Add Contact'}</div>
+  <div class="form-group">
+    <label class="form-label">Name <span class="muted" style="font-size:.8rem">(person's name, optional)</span></label>
+    <input class="form-input" id="ct-name" value="${esc(existing?.name||'')}" placeholder="e.g. Rahul, Owner, Sales Team">
+  </div>
+  <div class="form-group">
+    <label class="form-label">Role</label>
+    <select class="form-input" id="ct-role">
+      ${['Owner','Sales','Manager','Support','Tech Support','Customer Care'].map(r =>
+        `<option value="${r}" ${(existing?.role||'Support')===r?'selected':''}>${r}</option>`
+      ).join('')}
+      <option value="_custom" ${!['Owner','Sales','Manager','Support','Tech Support','Customer Care'].includes(existing?.role) && existing?.role ? 'selected' : ''}>Custom…</option>
+    </select>
+    <input class="form-input" id="ct-role-custom" style="margin-top:.4rem;display:${!['Owner','Sales','Manager','Support','Tech Support','Customer Care'].includes(existing?.role) && existing?.role ? 'block':'none'}" value="${esc(!['Owner','Sales','Manager','Support','Tech Support','Customer Care'].includes(existing?.role) ? (existing?.role||'') : '')}" placeholder="Custom role name">
+  </div>
+  <div class="form-group">
+    <label class="form-label">Phone Number <span style="color:var(--red)">*</span></label>
+    <input class="form-input" id="ct-phone" value="${esc(existing?.phone||'')}" placeholder="919876543210 (with country code, no +)">
+    <p class="muted" style="font-size:.78rem;margin-top:.25rem">India: 91XXXXXXXXXX &nbsp;|&nbsp; UAE: 971XXXXXXXXX &nbsp;|&nbsp; US: 1XXXXXXXXXX</p>
+  </div>
+  <div id="ct-modal-err" style="margin-bottom:.5rem"></div>
+  <div style="display:flex;gap:.75rem;justify-content:flex-end">
+    <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+    <button class="btn btn-primary" onclick="ctSave()">Save Contact</button>
+  </div>
+</div>`;
+      document.body.appendChild(ov);
+
+      document.getElementById('ct-role').addEventListener('change', function() {
+        document.getElementById('ct-role-custom').style.display = this.value === '_custom' ? 'block' : 'none';
+      });
+
+      window.ctSave = async () => {
+        const name  = document.getElementById('ct-name').value.trim();
+        const roleEl = document.getElementById('ct-role');
+        const role  = roleEl.value === '_custom' ? document.getElementById('ct-role-custom').value.trim() : roleEl.value;
+        const phone = document.getElementById('ct-phone').value.replace(/\D/g,'');
+        const err   = document.getElementById('ct-modal-err');
+        if (!role) { err.innerHTML = '<div class="alert alert-error" style="padding:.3rem .6rem">Role is required</div>'; return; }
+        if (phone.length < 7) { err.innerHTML = '<div class="alert alert-error" style="padding:.3rem .6rem">Enter a valid phone number with country code</div>'; return; }
+        ov.remove();
+        await onSave({ name, role, phone });
+      };
+    }
+
+  } catch(e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };
 
 // ── views['ai-agent'] ─────────────────────────────────────────────────────────
