@@ -71,15 +71,21 @@ router.get('/plans', requireAdmin, async (req, res) => {
 
 router.post('/plans', requireAdmin, async (req, res) => {
   try {
-    const { platform, name, duration_days, price_inr, original_price_inr, description, features, badge, stock, active, sort_order } = req.body;
+    const { platform, name, duration_days, price_inr, original_price_inr, price_usd,
+            description, features, badge, stock, active, sort_order,
+            category, image_url, provider_api, provider_product_id, delivery_type, delivery_time_est } = req.body;
     if (!platform || !name) return res.status(400).json({ error: 'Platform and name required' });
     const db = await getDb();
     const r = run(db,
-      `INSERT INTO plans (platform,name,duration_days,price_inr,original_price_inr,description,features,badge,stock,active,sort_order)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-      [platform, name, duration_days || null, price_inr || 0, original_price_inr || null,
-       description || null, JSON.stringify(features || []), badge || null,
-       stock ?? -1, active ?? 1, sort_order || 0]);
+      `INSERT INTO plans (platform,name,duration_days,price_inr,original_price_inr,price_usd,
+        description,features,badge,stock,active,sort_order,
+        category,image_url,provider_api,provider_product_id,delivery_type,delivery_time_est)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [platform, name, duration_days||null, price_inr||0, original_price_inr||null, price_usd||0,
+       description||null, JSON.stringify(features||[]), badge||null,
+       stock??-1, active??1, sort_order||0,
+       category||'', image_url||'', provider_api||'', provider_product_id||'',
+       delivery_type||'manual', delivery_time_est||'']);
     await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'create_plan', targetKind: 'plan', targetId: r.lastInsertRowid, after: req.body, ip: req.ip });
     res.json({ ok: true, id: r.lastInsertRowid });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -87,14 +93,20 @@ router.post('/plans', requireAdmin, async (req, res) => {
 
 router.put('/plans/:id', requireAdmin, async (req, res) => {
   try {
-    const { platform, name, duration_days, price_inr, original_price_inr, description, features, badge, stock, active, sort_order } = req.body;
+    const { platform, name, duration_days, price_inr, original_price_inr, price_usd,
+            description, features, badge, stock, active, sort_order,
+            category, image_url, provider_api, provider_product_id, delivery_type, delivery_time_est } = req.body;
     const db = await getDb();
     run(db,
-      `UPDATE plans SET platform=?,name=?,duration_days=?,price_inr=?,original_price_inr=?,
-       description=?,features=?,badge=?,stock=?,active=?,sort_order=? WHERE id=?`,
-      [platform, name, duration_days || null, price_inr || 0, original_price_inr || null,
-       description || null, JSON.stringify(features || []), badge || null,
-       stock ?? -1, active ?? 1, sort_order || 0, req.params.id]);
+      `UPDATE plans SET platform=?,name=?,duration_days=?,price_inr=?,original_price_inr=?,price_usd=?,
+       description=?,features=?,badge=?,stock=?,active=?,sort_order=?,
+       category=?,image_url=?,provider_api=?,provider_product_id=?,delivery_type=?,delivery_time_est=?
+       WHERE id=?`,
+      [platform, name, duration_days||null, price_inr||0, original_price_inr||null, price_usd||0,
+       description||null, JSON.stringify(features||[]), badge||null,
+       stock??-1, active??1, sort_order||0,
+       category||'', image_url||'', provider_api||'', provider_product_id||'',
+       delivery_type||'manual', delivery_time_est||'', req.params.id]);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1555,6 +1567,148 @@ router.post('/ai/chat', requireAdmin, async (req, res) => {
     const { chat } = require('./ai');
     const reply = await chat(messages, { model, max_tokens });
     res.json({ reply });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Fulfillment ──────────────────────────────────────────────────────────────
+router.get('/fulfillment', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const { status } = req.query;
+    const where = status && status !== 'all' ? `WHERE fj.status=?` : '';
+    const params = status && status !== 'all' ? [status] : [];
+    const jobs = all(db, `
+      SELECT fj.*, o.amount_inr, o.created_at as order_created,
+             c.name as customer_name, c.email as customer_email,
+             p.name as plan_name, p.platform, p.provider_product_id as plan_pid
+      FROM fulfillment_jobs fj
+      LEFT JOIN orders o ON fj.order_id = o.id
+      LEFT JOIN customers c ON fj.customer_jid = c.jid
+      LEFT JOIN plans p ON fj.plan_id = p.id
+      ${where}
+      ORDER BY fj.created_at DESC LIMIT 200`, params);
+    res.json(jobs);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/fulfillment/stats', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const rows = all(db, `SELECT status, COUNT(*) as count FROM fulfillment_jobs GROUP BY status`);
+    const stats = {};
+    rows.forEach(r => { stats[r.status] = r.count; });
+    stats.total = rows.reduce((s, r) => s + r.count, 0);
+    res.json(stats);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/fulfillment/:id/status', requireAdmin, async (req, res) => {
+  try {
+    const { status } = req.body;
+    const allowed = ['pending', 'manual_review', 'cancelled'];
+    if (!allowed.includes(status)) return res.status(400).json({ error: 'Invalid status' });
+    const db = await getDb();
+    run(db, `UPDATE fulfillment_jobs SET status=? WHERE id=?`, [status, req.params.id]);
+    if (status === 'cancelled') {
+      const job = get(db, `SELECT order_id FROM fulfillment_jobs WHERE id=?`, [req.params.id]);
+      if (job) run(db, `UPDATE orders SET status='cancelled' WHERE id=?`, [job.order_id]);
+    }
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/fulfillment/retry/:id', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    run(db, `UPDATE fulfillment_jobs SET status='pending', attempt_count=0, error_msg=NULL WHERE id=?`, [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── ResellKeys settings ──────────────────────────────────────────────────────
+router.get('/fulfillment-settings', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const keys = ['fulfillment_enabled','resellkeys_api_url','resellkeys_api_key','resellkeys_email','resellkeys_password','fulfillment_poll_interval'];
+    const rows = all(db, `SELECT key,value FROM settings WHERE key IN (${keys.map(()=>'?').join(',')})`, keys);
+    const s = {};
+    rows.forEach(r => s[r.key] = r.value);
+    if (s.resellkeys_api_key) s.resellkeys_api_key = '••••••••' + String(s.resellkeys_api_key).slice(-8);
+    if (s.resellkeys_password) s.resellkeys_password = '••••••••';
+    res.json(s);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/fulfillment-settings', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const plain = ['fulfillment_enabled','resellkeys_api_url','resellkeys_email','fulfillment_poll_interval'];
+    for (const k of plain) {
+      if (k in req.body) run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, [k, String(req.body[k]??'')]);
+    }
+    if (req.body.resellkeys_api_key && !String(req.body.resellkeys_api_key).startsWith('••••')) {
+      run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, ['resellkeys_api_key', req.body.resellkeys_api_key]);
+    }
+    if (req.body.resellkeys_password && req.body.resellkeys_password !== '••••••••') {
+      run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, ['resellkeys_password', req.body.resellkeys_password]);
+    }
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Scrape ResellKeys products ───────────────────────────────────────────────
+router.post('/plans/scrape-resellkeys', requireAdmin, async (req, res) => {
+  try {
+    const { query } = req.body;
+    const db = await getDb();
+    const { scrapeResellKeysProducts } = require('./fulfillment-worker');
+    const products = await scrapeResellKeysProducts(db, query || '');
+    res.json({ products, count: products.length });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/plans/import-scraped', requireAdmin, async (req, res) => {
+  try {
+    const { products } = req.body;
+    if (!Array.isArray(products)) return res.status(400).json({ error: 'products array required' });
+    const db = await getDb();
+    let imported = 0;
+    for (const p of products) {
+      if (!p.name) continue;
+      run(db, `INSERT INTO plans (platform,name,duration_days,price_inr,price_usd,description,category,image_url,provider_api,provider_product_id,delivery_type,active,stock)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,1,-1)`,
+        [p.platform||p.category||'Other', p.name,
+         p.duration_days||null, p.price_inr||Math.round((p.price_usd||0)*83),
+         p.price_usd||0, p.description||'',
+         p.category||'', p.image_url||'',
+         'resellkeys', p.provider_product_id||'',
+         p.delivery_type||'auto']);
+      imported++;
+    }
+    res.json({ ok: true, imported });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Autopost settings (hours) ────────────────────────────────────────────────
+router.get('/autopost-settings', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const keys = ['autopost_enabled','autopost_start_hour','autopost_end_hour'];
+    const rows = all(db, `SELECT key,value FROM settings WHERE key IN (${keys.map(()=>'?').join(',')})`, keys);
+    const s = {};
+    rows.forEach(r => s[r.key] = r.value);
+    res.json(s);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/autopost-settings', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const allowed = ['autopost_enabled','autopost_start_hour','autopost_end_hour'];
+    for (const k of allowed) {
+      if (k in req.body) run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, [k, String(req.body[k]??'')]);
+    }
+    res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

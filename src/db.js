@@ -310,6 +310,23 @@ function migrate(db) {
     sent_at TEXT DEFAULT (datetime('now'))
   )`);
 
+  db.run(`CREATE TABLE IF NOT EXISTS fulfillment_jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id INTEGER UNIQUE NOT NULL,
+    plan_id INTEGER NOT NULL,
+    customer_jid TEXT,
+    provider_api TEXT NOT NULL DEFAULT 'resellkeys',
+    provider_product_id TEXT,
+    provider_order_id TEXT,
+    status TEXT DEFAULT 'pending',
+    attempt_count INTEGER DEFAULT 0,
+    last_attempt_at TEXT,
+    error_msg TEXT,
+    raw_response TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    delivered_at TEXT
+  )`);
+
   db.run(`CREATE TABLE IF NOT EXISTS api_channels (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     label TEXT NOT NULL,
@@ -327,6 +344,14 @@ function migrate(db) {
   try { db.run(`ALTER TABLE topups ADD COLUMN payment_method_id INTEGER`); } catch {}
   try { db.run(`ALTER TABLE orders ADD COLUMN stock_credential_id INTEGER`); } catch {}
   try { db.run(`ALTER TABLE orders ADD COLUMN renewal_reminded_at TEXT`); } catch {}
+  // Plans: catalog enhancements
+  try { db.run(`ALTER TABLE plans ADD COLUMN category TEXT DEFAULT ''`); } catch {}
+  try { db.run(`ALTER TABLE plans ADD COLUMN image_url TEXT DEFAULT ''`); } catch {}
+  try { db.run(`ALTER TABLE plans ADD COLUMN provider_api TEXT DEFAULT ''`); } catch {}
+  try { db.run(`ALTER TABLE plans ADD COLUMN provider_product_id TEXT DEFAULT ''`); } catch {}
+  try { db.run(`ALTER TABLE plans ADD COLUMN delivery_type TEXT DEFAULT 'manual'`); } catch {}
+  try { db.run(`ALTER TABLE plans ADD COLUMN delivery_time_est TEXT DEFAULT ''`); } catch {}
+  try { db.run(`ALTER TABLE plans ADD COLUMN price_usd REAL DEFAULT 0`); } catch {}
 
   seedDefaults(db);
   seedLegalPages(db);
@@ -408,6 +433,15 @@ function seedDefaults(db) {
     ai_persona: '',
     ai_daily_cap: '500',
     ai_fallback_message: '',
+    // Auto Fulfillment
+    fulfillment_enabled: '0',
+    resellkeys_api_key: '',
+    resellkeys_api_url: 'https://www.resellkeys.com',
+    resellkeys_email: '',
+    resellkeys_password: '',
+    fulfillment_poll_interval: '10',
+    autopost_start_hour: '9',
+    autopost_end_hour: '22',
     // Chat Bot Widget
     bot_enabled: '1',
     bot_name: 'Store AI',

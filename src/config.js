@@ -27,4 +27,10 @@ module.exports = {
     path: '/',
   },
   uploadDir: require('path').join(__dirname, '..', 'data', 'uploads'),
+  resellkeys: {
+    apiUrl: process.env.RESELLKEYS_API_URL || 'https://www.resellkeys.com',
+    apiKey: process.env.RESELLKEYS_API_KEY || '',
+    email: process.env.RESELLKEYS_EMAIL || '',
+    password: process.env.RESELLKEYS_PASSWORD || '',
+  },
 };

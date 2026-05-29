@@ -14,6 +14,7 @@ const MENU = [
   { id: 'stock',          label: 'Stock',         icon: '📦' },
   { group: 'SALES' },
   { id: 'orders',         label: 'Orders',        icon: '🛒' },
+  { id: 'fulfillment',   label: 'Fulfillment',   icon: '🤖' },
   { id: 'topups',         label: 'Top-ups',       icon: '💳' },
   { id: 'customers',      label: 'Customers',     icon: '👥' },
   { id: 'resellers',      label: 'Resellers',     icon: '🤝' },
@@ -260,42 +261,105 @@ views.dashboard = async function () {
 };
 
 // ── views.plans ───────────────────────────────────────────────────────────────
-views.plans = async function () {
+views.plans = async function (catFilter) {
+  catFilter = catFilter || '';
   setMain('<div class="spinner"></div>');
   try {
     const plans = await api('/plans');
-    renderPlansTable(plans);
+    renderPlansTable(plans, catFilter);
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };
 
-function renderPlansTable(plans) {
-  const rows = plans.map(p => `
+function deliveryBadge(p) {
+  if (p.delivery_type === 'instant') return `<span class="badge badge-green" style="font-size:.72rem">⚡ Instant</span>`;
+  if (p.provider_api) return `<span class="badge badge-blue" style="font-size:.72rem">🤖 Auto${p.delivery_time_est?' · '+esc(p.delivery_time_est):''}</span>`;
+  return `<span class="badge badge-yellow" style="font-size:.72rem">⚠ Manual${p.delivery_time_est?' · '+esc(p.delivery_time_est):''}</span>`;
+}
+
+function renderPlansTable(plans, catFilter) {
+  const cats = [...new Set(plans.map(p=>p.category||'').filter(Boolean))];
+  const filtered = catFilter ? plans.filter(p=>(p.category||'')=== catFilter) : plans;
+
+  const catBar = `<button class="btn btn-sm ${!catFilter?'btn-primary':'btn-secondary'}" onclick="views.plans('')">All (${plans.length})</button>` +
+    cats.map(c=>`<button class="btn btn-sm ${catFilter===c?'btn-primary':'btn-secondary'}" onclick="views.plans('${esc(c)}')">${esc(c)} (${plans.filter(p=>p.category===c).length})</button>`).join('');
+
+  const rows = filtered.map(p => `
 <tr>
-  <td>${p.id}</td>
-  <td>${esc(p.platform)}</td>
-  <td style="font-weight:600">${esc(p.name)}</td>
-  <td>${p.duration_days ? p.duration_days + 'd' : '∞'}</td>
-  <td>${fmt(p.price_inr)}</td>
-  <td>${p.stock === -1 ? '∞' : p.stock}</td>
-  <td>${p.badge ? `<span class="badge badge-purple">${esc(p.badge)}</span>` : '—'}</td>
+  <td style="width:36px">${p.image_url ? `<img src="${esc(p.image_url)}" style="width:32px;height:32px;border-radius:6px;object-fit:cover">` : '<div style="width:32px;height:32px;background:var(--input-bg);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1rem">🎬</div>'}</td>
+  <td style="font-weight:600;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.name)}</td>
+  <td style="font-size:.8rem;color:var(--muted)">${esc(p.category||p.platform||'—')}</td>
+  <td>${fmt(p.price_inr)}${p.price_usd>0?`<br><span class="muted" style="font-size:.75rem">$${Number(p.price_usd).toFixed(2)}</span>`:''}</td>
+  <td style="font-size:.82rem">${p.duration_days ? (p.duration_days>=365?Math.round(p.duration_days/365)+'Y':p.duration_days>=30?Math.round(p.duration_days/30)+'M':p.duration_days+'d') : 'Lifetime'}</td>
+  <td>${deliveryBadge(p)}</td>
   <td>
-    <label class="toggle-switch"><input type="checkbox" ${p.active ? 'checked' : ''} onchange="togglePlan(${p.id})"><span class="toggle-slider"></span></label>
+    <label class="toggle-switch"><input type="checkbox" ${p.active?'checked':''} onchange="togglePlan(${p.id})"><span class="toggle-slider"></span></label>
   </td>
-  <td>
+  <td style="white-space:nowrap">
     <button class="btn btn-secondary btn-sm" onclick="editPlan(${p.id})">Edit</button>
     <button class="btn btn-red btn-sm" onclick="deletePlan(${p.id})">Del</button>
   </td>
 </tr>`).join('');
 
   setMain(`
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
-  <h2 style="font-weight:800">OTT Plans</h2>
-  <button class="btn btn-primary" onclick="openPlanModal()">+ Add Plan</button>
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem">
+  <h2 style="font-weight:800;margin:0">Product Catalog</h2>
+  <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+    <button class="btn btn-sm btn-secondary" onclick="scrapeResellKeys()">🔍 Scrape ResellKeys</button>
+    <button class="btn btn-sm btn-primary" onclick="openPlanModal()">+ Add Product</button>
+  </div>
 </div>
+<div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:.75rem">${catBar}</div>
 <div class="table-wrap"><table>
-  <thead><tr><th>ID</th><th>Platform</th><th>Name</th><th>Duration</th><th>Price</th><th>Stock</th><th>Badge</th><th>Active</th><th>Actions</th></tr></thead>
-  <tbody>${rows || '<tr><td colspan="9" class="muted" style="text-align:center;padding:2rem">No plans yet. Add your first plan!</td></tr>'}</tbody>
+  <thead><tr><th>IMG</th><th>NAME</th><th>CATEGORY</th><th>PRICE</th><th>DURATION</th><th>DELIVERY</th><th>ACTIVE</th><th>ACTIONS</th></tr></thead>
+  <tbody>${rows||'<tr><td colspan="8" class="muted" style="text-align:center;padding:2rem">No products yet.</td></tr>'}</tbody>
 </table></div>`);
+
+  window.scrapeResellKeys = () => {
+    const ov = openModal(`
+<div class="modal-header"><h3>🔍 Scrape ResellKeys Catalog</h3><button class="btn-icon" data-close>✕</button></div>
+<div class="modal-body">
+  <div id="scrape-msg"></div>
+  <div class="form-group"><label class="form-label">Search Query (optional)</label>
+    <input class="form-input" id="scrape-q" placeholder="e.g. netflix, office, antivirus"></div>
+  <div id="scrape-results" style="max-height:320px;overflow-y:auto;margin-top:.5rem"></div>
+</div>
+<div class="modal-footer">
+  <button class="btn btn-secondary" data-close>Cancel</button>
+  <button class="btn btn-secondary" id="scrape-search-btn">Search →</button>
+  <button class="btn btn-primary" id="scrape-import-btn" style="display:none">Import Selected</button>
+</div>`);
+
+    let _scraped = [];
+    document.getElementById('scrape-search-btn').onclick = async () => {
+      const msg = document.getElementById('scrape-msg');
+      const res = document.getElementById('scrape-results');
+      res.innerHTML = '<div class="spinner"></div>';
+      msg.innerHTML = '';
+      try {
+        const r = await api('/plans/scrape-resellkeys', { method:'POST', body: JSON.stringify({ query: document.getElementById('scrape-q').value.trim() }) });
+        _scraped = r.products || [];
+        if (!_scraped.length) { res.innerHTML = '<p class="muted">No products found. Check ResellKeys API credentials in Fulfillment Settings.</p>'; return; }
+        res.innerHTML = `<div style="font-size:.83rem;margin-bottom:.5rem;color:var(--muted)">Found ${_scraped.length} products. Check the ones to import:</div>` +
+          _scraped.map((p,i)=>`<label style="display:flex;align-items:center;gap:.5rem;padding:.3rem 0;border-bottom:1px solid var(--border)">
+            <input type="checkbox" class="scrape-cb" data-i="${i}" checked>
+            ${p.image_url?`<img src="${esc(p.image_url)}" style="width:24px;height:24px;border-radius:4px;object-fit:cover">`:''}
+            <span style="flex:1">${esc(p.name)}</span>
+            <span class="badge badge-blue" style="font-size:.72rem">${esc(p.category||'')}</span>
+            <span style="font-size:.8rem;color:var(--muted)">$${Number(p.price_usd||0).toFixed(2)}</span>
+          </label>`).join('');
+        document.getElementById('scrape-import-btn').style.display = '';
+      } catch(e) { res.innerHTML=''; msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+    };
+
+    document.getElementById('scrape-import-btn').onclick = async () => {
+      const selected = [...document.querySelectorAll('.scrape-cb:checked')].map(cb => _scraped[+cb.dataset.i]);
+      if (!selected.length) { showToast('Select at least one product', 'error'); return; }
+      try {
+        const r = await api('/plans/import-scraped', { method:'POST', body: JSON.stringify({ products: selected }) });
+        ov.remove(); showToast(`Imported ${r.imported} products`); views.plans();
+      } catch(e) { showToast(e.message, 'error'); }
+    };
+  };
 }
 
 const PLATFORMS = ['Netflix', 'Amazon Prime', 'Disney+', 'Sony LIV', 'Zee5', 'Hotstar', 'JioCinema', 'MX Player', 'Apple TV+', 'Voot', 'Other'];
@@ -346,10 +410,33 @@ window.openPlanModal = function (plan = null) {
   </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Sort Order</label><input class="form-input" id="pf-sort" type="number" value="${f.sort_order || 0}"></div>
-    <div class="form-group" style="justify-content:flex-end;align-items:center;flex-direction:row;gap:.75rem;padding-top:1.5rem">
-      <label class="form-label">Active</label>
-      <label class="toggle-switch"><input type="checkbox" id="pf-active" ${f.active !== 0 ? 'checked' : ''}><span class="toggle-slider"></span></label>
-    </div>
+    <div class="form-group"><label class="form-label">Category</label><input class="form-input" id="pf-cat" value="${esc(f.category||'')}" placeholder="netflix, ai_writing, etc."></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Price USD ($)</label><input class="form-input" id="pf-usd" type="number" step="0.01" value="${f.price_usd||''}" placeholder="0.00"></div>
+    <div class="form-group"><label class="form-label">Image URL</label><input class="form-input" id="pf-img" value="${esc(f.image_url||'')}" placeholder="https://..."></div>
+  </div>
+  <div style="font-weight:600;margin:.5rem 0 .25rem;font-size:.85rem">Auto Fulfillment (ResellKeys)</div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Provider</label>
+      <select class="form-input" id="pf-provider">
+        <option value="" ${!f.provider_api?'selected':''}>None (manual)</option>
+        <option value="resellkeys" ${f.provider_api==='resellkeys'?'selected':''}>ResellKeys</option>
+      </select></div>
+    <div class="form-group"><label class="form-label">Provider Product ID</label><input class="form-input" id="pf-pid" value="${esc(f.provider_product_id||'')}" placeholder="ResellKeys product ID"></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Delivery Type</label>
+      <select class="form-input" id="pf-deltype">
+        <option value="manual" ${(f.delivery_type||'manual')==='manual'?'selected':''}>Manual</option>
+        <option value="instant" ${f.delivery_type==='instant'?'selected':''}>Instant (from stock)</option>
+        <option value="auto" ${f.delivery_type==='auto'?'selected':''}>Auto (via provider)</option>
+      </select></div>
+    <div class="form-group"><label class="form-label">Delivery Time Est.</label><input class="form-input" id="pf-deltime" value="${esc(f.delivery_time_est||'')}" placeholder="10 min, 1 hr, 24 hr"></div>
+  </div>
+  <div class="form-group" style="display:flex;align-items:center;gap:.75rem;padding-top:.25rem">
+    <label class="form-label" style="margin:0">Active</label>
+    <label class="toggle-switch"><input type="checkbox" id="pf-active" ${f.active !== 0 ? 'checked' : ''}><span class="toggle-slider"></span></label>
   </div>
 </div>
 <div class="modal-footer">
@@ -366,12 +453,19 @@ window.openPlanModal = function (plan = null) {
       duration_days: parseInt(document.getElementById('pf-duration').value) || null,
       price_inr: parseFloat(document.getElementById('pf-price').value) || 0,
       original_price_inr: parseFloat(document.getElementById('pf-orig').value) || null,
+      price_usd: parseFloat(document.getElementById('pf-usd').value) || 0,
       description: document.getElementById('pf-desc').value.trim(),
       features: getFeatures(),
       badge: document.getElementById('pf-badge').value || null,
       stock: parseInt(document.getElementById('pf-stock').value) ?? -1,
       active: document.getElementById('pf-active').checked ? 1 : 0,
       sort_order: parseInt(document.getElementById('pf-sort').value) || 0,
+      category: document.getElementById('pf-cat').value.trim(),
+      image_url: document.getElementById('pf-img').value.trim(),
+      provider_api: document.getElementById('pf-provider').value,
+      provider_product_id: document.getElementById('pf-pid').value.trim(),
+      delivery_type: document.getElementById('pf-deltype').value,
+      delivery_time_est: document.getElementById('pf-deltime').value.trim(),
     };
     if (!body.name) return showToast('Name required', 'error');
     try {
@@ -1512,11 +1606,18 @@ views.broadcast = async function () {
 views.autopost = async function () {
   setMain('<div class="spinner"></div>');
   try {
-    const campaigns = await api('/autopost');
+    const [campaigns, settings] = await Promise.all([api('/autopost'), api('/autopost-settings')]);
     const renderMain = () => setMain(`
-<div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem">
-  <h2 style="font-weight:800;flex:1">Auto-Post Campaigns</h2>
+<div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem">
+  <h2 style="font-weight:800;flex:1">Email Auto-Post Campaigns</h2>
+  <button class="btn btn-secondary" onclick="openAutopostSettings()">⚙️ Schedule Settings</button>
   <button class="btn btn-primary" onclick="newCampaign()">+ New Campaign</button>
+</div>
+<div class="card" style="padding:1rem;margin-bottom:1.5rem;display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap">
+  <span style="font-weight:600">Auto-Scheduler:</span>
+  <span class="badge ${settings.autopost_enabled==='1'?'badge-green':'badge-grey'}">${settings.autopost_enabled==='1'?'Enabled':'Disabled'}</span>
+  <span class="muted" style="font-size:.85rem">Runs: <strong>${settings.autopost_start_hour||'9'}:00</strong> – <strong>${settings.autopost_end_hour||'22'}:00</strong> IST</span>
+  <button class="btn btn-sm ${settings.autopost_enabled==='1'?'btn-red':'btn-primary'}" onclick="toggleAutopost('${settings.autopost_enabled==='1'?'0':'1'}')">${settings.autopost_enabled==='1'?'Disable':'Enable'} Scheduler</button>
 </div>
 <div class="table-wrap"><table>
 <thead><tr><th>Title</th><th>Schedule</th><th>Times Sent</th><th>Last Sent</th><th>Status</th><th>Actions</th></tr></thead>
@@ -1575,6 +1676,49 @@ views.autopost = async function () {
         } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
       };
     }
+
+    window.toggleAutopost = async (val) => {
+      try {
+        await api('/autopost-settings', { method:'POST', body: JSON.stringify({ autopost_enabled: val }) });
+        views.autopost();
+      } catch(e) { showToast(e.message,'error'); }
+    };
+
+    window.openAutopostSettings = async () => {
+      const s = await api('/autopost-settings');
+      const ov = openModal(`
+<div class="modal-header"><h3>⚙️ Auto-Post Schedule Settings</h3><button class="btn-icon" onclick="this.closest('.modal-overlay').remove()">✕</button></div>
+<div class="modal-body">
+  <div id="ap-set-msg"></div>
+  <div class="form-group"><label class="form-label">Scheduler</label>
+    <select class="form-input" id="ap-enabled">
+      <option value="1" ${s.autopost_enabled==='1'?'selected':''}>Enabled</option>
+      <option value="0" ${s.autopost_enabled!=='1'?'selected':''}>Disabled</option>
+    </select>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+    <div class="form-group"><label class="form-label">Start Hour (IST, 0–23)</label>
+      <input class="form-input" id="ap-start" type="number" min="0" max="23" value="${s.autopost_start_hour||'9'}">
+    </div>
+    <div class="form-group"><label class="form-label">End Hour (IST, 0–23)</label>
+      <input class="form-input" id="ap-end" type="number" min="0" max="23" value="${s.autopost_end_hour||'22'}">
+    </div>
+  </div>
+  <p class="muted" style="font-size:.82rem;margin-top:.25rem">Campaigns will only auto-send between these IST hours. Default: 9 AM – 10 PM.</p>
+</div>
+<div class="modal-footer"><button class="btn btn-primary" onclick="saveAutopostSettings()">Save</button></div>`);
+      window.saveAutopostSettings = async () => {
+        const msg = document.getElementById('ap-set-msg');
+        try {
+          await api('/autopost-settings', { method:'POST', body: JSON.stringify({
+            autopost_enabled: document.getElementById('ap-enabled').value,
+            autopost_start_hour: document.getElementById('ap-start').value,
+            autopost_end_hour: document.getElementById('ap-end').value,
+          })});
+          ov.remove(); views.autopost();
+        } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+      };
+    };
 
     window.newCampaign = () => campaignModal({});
     window.editCampaign = async (id) => {
@@ -2385,6 +2529,112 @@ views['ai-agent'] = async function () {
     };
 
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
+
+// ── views.fulfillment ─────────────────────────────────────────────────────────
+views.fulfillment = async function (statusFilter) {
+  statusFilter = statusFilter || 'all';
+  setMain('<div class="spinner"></div>');
+  try {
+    const [jobs, stats, fSettings] = await Promise.all([
+      api('/fulfillment' + (statusFilter !== 'all' ? `?status=${statusFilter}` : '')),
+      api('/fulfillment/stats'),
+      api('/fulfillment-settings'),
+    ]);
+
+    const tabs = ['all','pending','placing','polling','delivered','failed','manual_review','cancelled'];
+    const tabBar = tabs.map(t => `<button class="btn btn-sm ${t===statusFilter?'btn-primary':'btn-secondary'}" onclick="views.fulfillment('${t}')">${t === 'manual_review' ? '⚠ Manual Review' : t.charAt(0).toUpperCase()+t.slice(1)}${stats[t]>0?` (${stats[t]})`:''}</button>`).join('');
+
+    const statusBadgeMap = { pending:'badge-yellow',placing:'badge-blue',polling:'badge-blue',delivered:'badge-green',failed:'badge-red',manual_review:'badge-yellow',cancelled:'badge-grey' };
+
+    setMain(`
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
+  <div>
+    <h2 style="font-weight:800;margin:0">Auto Fulfillment</h2>
+    <div class="muted" style="font-size:.83rem">Orders with a provider set on the plan are placed automatically on ResellKeys. Keys delivered within 15 min – 24 hr (5 AM–11 PM IST).</div>
+  </div>
+  <div style="display:flex;gap:.5rem;align-items:center">
+    ${fSettings.fulfillment_enabled==='1' ? '<span class="badge badge-green">✓ Automation ON</span>' : '<span class="badge badge-grey">Automation OFF</span>'}
+    <button class="btn btn-sm btn-secondary" onclick="views.fulfillment('${statusFilter}')">↻ Refresh</button>
+    <button class="btn btn-sm btn-secondary" onclick="openFulfillmentSettings()">⚙ Settings</button>
+  </div>
+</div>
+<div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1rem">${tabBar}</div>
+<div class="card" style="padding:0">
+${jobs.length ? `<div class="table-wrap"><table>
+  <thead><tr><th>#</th><th>Customer</th><th>Plan</th><th>Provider ID</th><th>Status</th><th>Attempts</th><th>Last Try</th><th></th></tr></thead>
+  <tbody>${jobs.map(j=>`<tr>
+    <td style="font-weight:600">#${j.order_id}</td>
+    <td style="font-size:.83rem">${esc(j.customer_name||'—')}<br><span class="muted" style="font-size:.75rem">${esc(j.customer_email||'')}</span></td>
+    <td style="font-size:.83rem">${esc(j.platform||'')} ${esc(j.plan_name||'')}</td>
+    <td style="font-family:monospace;font-size:.78rem">${esc(j.provider_order_id||j.provider_product_id||'—')}</td>
+    <td><span class="badge ${statusBadgeMap[j.status]||'badge-grey'}">${esc(j.status)}</span>${j.error_msg?`<br><span class="muted" style="font-size:.72rem" title="${esc(j.error_msg)}">⚠ ${esc(j.error_msg.slice(0,30))}…</span>`:''}</td>
+    <td style="text-align:center">${j.attempt_count}</td>
+    <td style="font-size:.78rem">${fmtDate(j.last_attempt_at||j.created_at)}</td>
+    <td style="white-space:nowrap">
+      ${j.status!=='delivered'&&j.status!=='cancelled'?`<button class="btn btn-sm btn-primary" onclick="retryFulfillment(${j.id})">↻ Retry</button>`:''}
+      ${j.status!=='cancelled'&&j.status!=='delivered'?`<button class="btn btn-sm btn-red" onclick="cancelFulfillment(${j.id})">Cancel</button>`:''}
+      ${j.status!=='manual_review'&&j.status!=='delivered'&&j.status!=='cancelled'?`<button class="btn btn-sm btn-secondary" onclick="flagManual(${j.id})">Flag</button>`:''}
+    </td>
+  </tr>`).join('')}</tbody>
+</table></div>` : `<div style="padding:2rem;text-align:center;color:var(--muted)">No fulfillment jobs yet.</div>`}
+</div>`);
+
+    window.retryFulfillment = async (id) => {
+      await api(`/fulfillment/retry/${id}`, { method:'POST' });
+      showToast('Retrying…'); views.fulfillment(statusFilter);
+    };
+    window.cancelFulfillment = async (id) => {
+      if (!confirm('Cancel this fulfillment job?')) return;
+      await api(`/fulfillment/${id}/status`, { method:'PUT', body: JSON.stringify({ status:'cancelled' }) });
+      showToast('Cancelled'); views.fulfillment(statusFilter);
+    };
+    window.flagManual = async (id) => {
+      await api(`/fulfillment/${id}/status`, { method:'PUT', body: JSON.stringify({ status:'manual_review' }) });
+      showToast('Flagged for manual review'); views.fulfillment(statusFilter);
+    };
+
+    window.openFulfillmentSettings = () => {
+      const ov = openModal(`
+<div class="modal-header"><h3>Fulfillment Settings</h3><button class="btn-icon" data-close>✕</button></div>
+<div class="modal-body">
+  <div id="fs-msg"></div>
+  <label style="display:flex;align-items:center;gap:.6rem;margin-bottom:1rem">
+    <input type="checkbox" id="fs-enabled" ${fSettings.fulfillment_enabled==='1'?'checked':''}>
+    <span style="font-weight:600">Enable Auto Fulfillment</span>
+  </label>
+  <div class="form-group"><label class="form-label">ResellKeys Base URL</label>
+    <input class="form-input" id="fs-url" value="${esc(fSettings.resellkeys_api_url||'https://www.resellkeys.com')}"></div>
+  <div class="form-group"><label class="form-label">API Key</label>
+    <input class="form-input" id="fs-key" type="password" value="${esc(fSettings.resellkeys_api_key||'')}" placeholder="Leave blank to keep current"></div>
+  <div class="form-group"><label class="form-label">Login Email (if API key not available)</label>
+    <input class="form-input" id="fs-email" value="${esc(fSettings.resellkeys_email||'')}" type="email"></div>
+  <div class="form-group"><label class="form-label">Password</label>
+    <input class="form-input" id="fs-pass" type="password" value="${esc(fSettings.resellkeys_password||'')}" placeholder="Leave blank to keep current"></div>
+  <div class="form-group"><label class="form-label">Poll Interval (minutes)</label>
+    <input class="form-input" id="fs-poll" type="number" value="${esc(fSettings.fulfillment_poll_interval||'10')}" min="2" max="60" style="width:100px"></div>
+</div>
+<div class="modal-footer">
+  <button class="btn btn-secondary" data-close>Cancel</button>
+  <button class="btn btn-primary" id="fs-save">Save</button>
+</div>`);
+      document.getElementById('fs-save').onclick = async () => {
+        const msg = document.getElementById('fs-msg');
+        try {
+          await api('/fulfillment-settings', { method:'POST', body: JSON.stringify({
+            fulfillment_enabled: document.getElementById('fs-enabled').checked?'1':'0',
+            resellkeys_api_url: document.getElementById('fs-url').value.trim(),
+            resellkeys_api_key: document.getElementById('fs-key').value,
+            resellkeys_email: document.getElementById('fs-email').value.trim(),
+            resellkeys_password: document.getElementById('fs-pass').value,
+            fulfillment_poll_interval: document.getElementById('fs-poll').value,
+          })});
+          ov.remove(); showToast('Settings saved'); views.fulfillment(statusFilter);
+        } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+      };
+    };
+
+  } catch(e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };
 
 // ── views['chat-bot'] ────────────────────────────────────────────────────────

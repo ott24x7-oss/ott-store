@@ -48,9 +48,10 @@ async function runAutopostTick() {
 
     const campaigns = all(db, `SELECT * FROM autopost_campaigns WHERE schedule_enabled=1 AND active=1`);
     for (const c of campaigns) {
-      // Check hours (default 9–23)
-      const start = 9, end = 23;
-      if (hour < start || hour > end) continue;
+      // Check hours from settings (default 9–22 IST)
+      const startH = parseInt(await getSetting('autopost_start_hour') || '9');
+      const endH   = parseInt(await getSetting('autopost_end_hour')   || '22');
+      if (hour < startH || hour > endH) continue;
 
       // Check interval
       if (c.last_sent_at) {
