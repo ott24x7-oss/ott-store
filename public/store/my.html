@@ -398,7 +398,7 @@ function showPortal(){
 // ── Auth: OTP + Password + Magic + WA ─────────────────────────────────────────
 function renderAuth(initMethod, msgHtml){
   const method=initMethod||'otp';
-  const waEnabled=STORE.wa_enabled==='1'||STORE.support_whatsapp;
+  const waEnabled=STORE.wa_enabled==='1';
   showAuthArea(`
 <div class="my-auth-box">
   ${msgHtml?`<div style="margin-bottom:1rem">${msgHtml}</div>`:''}
