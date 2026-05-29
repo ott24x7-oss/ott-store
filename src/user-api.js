@@ -10,7 +10,7 @@ const cfg = require('./config');
 const { getDb, getSetting, all, get, run } = require('./db');
 const { loginLimiter, registerLimiter, checkCredentialThrottle, recordFailedLogin, clearFailedLogin } = require('./security');
 const { audit } = require('./audit');
-const { sendPasswordReset, sendOrderDelivery } = require('./mailer');
+const { sendPasswordReset, sendOrderDelivery, sendOtpEmail, sendMagicLinkEmail } = require('./mailer');
 
 const router = express.Router();
 
@@ -213,6 +213,185 @@ router.post('/reset-password', async (req, res) => {
     const hash = await bcrypt.hash(password, cfg.bcryptRounds);
     run(db, `UPDATE customers SET password_hash=? WHERE jid=?`, [hash, r.customer_jid]);
     run(db, `UPDATE pw_resets SET used=1 WHERE token=?`, [token]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── OTP Login ────────────────────────────────────────────────────────────────
+router.post('/send-otp', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      return res.status(400).json({ error: 'Valid email required' });
+    const db = await getDb();
+    const jid = toJid(email);
+    const existing = get(db, 'SELECT jid,blocked FROM customers WHERE jid=?', [jid]);
+    if (existing?.blocked) return res.status(403).json({ error: 'Account blocked. Contact support.' });
+    // Clean expired tokens for this email
+    run(db, `DELETE FROM auth_tokens WHERE purpose='otp' AND email=? AND expires_at < datetime('now')`, [email.toLowerCase().trim()]);
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const token = crypto.randomBytes(16).toString('hex');
+    const expires = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    run(db, `INSERT INTO auth_tokens (token,purpose,code,email,expires_at) VALUES (?,?,?,?,?)`,
+      [token, 'otp', otp, email.toLowerCase().trim(), expires]);
+    const siteName = await getSetting('site_name') || 'OTT Store';
+    sendOtpEmail(email, otp, siteName).catch(() => {});
+    res.json({ ok: true, is_new: !existing });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/verify-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) return res.status(400).json({ error: 'Email and OTP required' });
+    const db = await getDb();
+    const emailNorm = email.toLowerCase().trim();
+    const record = get(db,
+      `SELECT * FROM auth_tokens WHERE purpose='otp' AND email=? AND code=? AND used=0 AND expires_at > datetime('now') ORDER BY created_at DESC LIMIT 1`,
+      [emailNorm, String(otp).trim()]);
+    if (!record) return res.status(400).json({ error: 'Invalid or expired OTP. Please request a new one.' });
+    run(db, `UPDATE auth_tokens SET used=1 WHERE token=?`, [record.token]);
+    const jid = toJid(emailNorm);
+    let customer = get(db, 'SELECT * FROM customers WHERE jid=?', [jid]);
+    const isNew = !customer;
+    if (!customer) {
+      const username = emailNorm.split('@')[0].replace(/[._+\-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim() || 'User';
+      const refCode = crypto.randomBytes(4).toString('hex').toUpperCase();
+      run(db, `INSERT INTO customers (jid,name,email,referral_code,needs_email) VALUES (?,?,?,?,0)`,
+        [jid, username, emailNorm, refCode]);
+      customer = get(db, 'SELECT * FROM customers WHERE jid=?', [jid]);
+    }
+    run(db, `UPDATE customers SET last_login_at=datetime('now') WHERE jid=?`, [jid]);
+    setCustomerCookie(res, { jid, email: customer.email, name: customer.name });
+    await audit({ actorKind:'customer', actorLabel:customer.email, action:isNew?'register_otp':'login_otp', targetKind:'customer', targetId:jid, ip:req.ip });
+    res.json({ ok:true, name:customer.name, email:customer.email, is_new:isNew, needs_phone:customer.needs_phone||0 });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Magic Link ────────────────────────────────────────────────────────────────
+router.post('/send-magic-link', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      return res.status(400).json({ error: 'Valid email required' });
+    const db = await getDb();
+    const emailNorm = email.toLowerCase().trim();
+    const jid = toJid(emailNorm);
+    const customer = get(db, 'SELECT jid,name,blocked FROM customers WHERE jid=?', [jid]);
+    if (customer?.blocked) return res.status(403).json({ error: 'Account blocked.' });
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    run(db, `INSERT INTO auth_tokens (token,purpose,email,expires_at) VALUES (?,?,?,?)`,
+      [token, 'magic_link', emailNorm, expires]);
+    const baseUrl = await getSetting('base_url') || cfg.baseUrl;
+    const siteName = await getSetting('site_name') || 'OTT Store';
+    const magicUrl = `${baseUrl}/user/api/auth/magic?token=${token}`;
+    sendMagicLinkEmail(emailNorm, customer?.name || '', magicUrl, siteName).catch(() => {});
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/auth/magic', async (req, res) => {
+  try {
+    const { token } = req.query;
+    if (!token) return res.redirect('/my?auth_error=invalid_link');
+    const db = await getDb();
+    const record = get(db,
+      `SELECT * FROM auth_tokens WHERE token=? AND purpose='magic_link' AND used=0 AND expires_at > datetime('now')`,
+      [token]);
+    if (!record) return res.redirect('/my?auth_error=expired_link');
+    run(db, `UPDATE auth_tokens SET used=1 WHERE token=?`, [token]);
+    const emailNorm = record.email;
+    const jid = toJid(emailNorm);
+    let customer = get(db, 'SELECT * FROM customers WHERE jid=?', [jid]);
+    const isNew = !customer;
+    if (!customer) {
+      const username = emailNorm.split('@')[0].replace(/[._+\-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim() || 'User';
+      const refCode = crypto.randomBytes(4).toString('hex').toUpperCase();
+      run(db, `INSERT INTO customers (jid,name,email,referral_code) VALUES (?,?,?,?)`,
+        [jid, username, emailNorm, refCode]);
+      customer = get(db, 'SELECT * FROM customers WHERE jid=?', [jid]);
+    }
+    run(db, `UPDATE customers SET last_login_at=datetime('now') WHERE jid=?`, [jid]);
+    setCustomerCookie(res, { jid, email: customer.email, name: customer.name });
+    await audit({ actorKind:'customer', actorLabel:customer.email, action:isNew?'register_magic':'login_magic', targetKind:'customer', targetId:jid, ip:req.ip });
+    res.redirect('/my?auth_success=1');
+  } catch (e) { res.redirect('/my?auth_error=server_error'); }
+});
+
+// ─── WhatsApp OTP Login ────────────────────────────────────────────────────────
+router.post('/send-wa-otp', async (req, res) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) return res.status(400).json({ error: 'Phone number required' });
+    const db = await getDb();
+    const waEnabled = await getSetting('wa_enabled');
+    if (waEnabled !== '1') return res.status(400).json({ error: 'WhatsApp login not available right now.' });
+    const phoneClean = phone.replace(/\D/g, '');
+    if (phoneClean.length < 10) return res.status(400).json({ error: 'Invalid phone number' });
+    const phoneCC = phoneClean.length >= 12 ? phoneClean : '91' + phoneClean.slice(-10);
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const token = crypto.randomBytes(16).toString('hex');
+    const expires = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    run(db, `INSERT INTO auth_tokens (token,purpose,code,phone,expires_at) VALUES (?,?,?,?,?)`,
+      [token, 'wa_otp', otp, phoneCC, expires]);
+    const siteName = await getSetting('site_name') || 'OTT Store';
+    try {
+      const { sendToPhone } = require('./wa-bot');
+      await sendToPhone(phoneCC, `🔐 *${siteName} Login Code*\n\nYour OTP: *${otp}*\n\nValid for 10 minutes. Do not share with anyone.`);
+    } catch {}
+    res.json({ ok: true, masked: '****' + phoneCC.slice(-4) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/verify-wa-otp', async (req, res) => {
+  try {
+    const { phone, otp, name: reqName } = req.body;
+    if (!phone || !otp) return res.status(400).json({ error: 'Phone and OTP required' });
+    const db = await getDb();
+    const phoneClean = phone.replace(/\D/g, '');
+    const phoneCC = phoneClean.length >= 12 ? phoneClean : '91' + phoneClean.slice(-10);
+    const record = get(db,
+      `SELECT * FROM auth_tokens WHERE purpose='wa_otp' AND phone=? AND code=? AND used=0 AND expires_at > datetime('now') ORDER BY created_at DESC LIMIT 1`,
+      [phoneCC, String(otp).trim()]);
+    if (!record) return res.status(400).json({ error: 'Invalid or expired OTP. Please request a new one.' });
+    run(db, `UPDATE auth_tokens SET used=1 WHERE token=?`, [record.token]);
+    const waJid = phoneCC + '@s.whatsapp.net';
+    let customer = get(db, 'SELECT * FROM customers WHERE jid=? OR phone=?', [waJid, phoneCC]);
+    const isNew = !customer;
+    if (!customer) {
+      const nm = reqName?.trim() || ('User ' + phoneCC.slice(-4));
+      const refCode = crypto.randomBytes(4).toString('hex').toUpperCase();
+      run(db, `INSERT INTO customers (jid,name,phone,referral_code,needs_email) VALUES (?,?,?,?,1)`,
+        [waJid, nm, phoneCC, refCode]);
+      customer = get(db, 'SELECT * FROM customers WHERE jid=?', [waJid]);
+    }
+    run(db, `UPDATE customers SET last_login_at=datetime('now') WHERE jid=?`, [customer.jid]);
+    setCustomerCookie(res, { jid:customer.jid, email:customer.email||'', name:customer.name });
+    await audit({ actorKind:'customer', actorLabel:customer.phone, action:isNew?'register_wa':'login_wa', targetKind:'customer', targetId:customer.jid, ip:req.ip });
+    res.json({ ok:true, name:customer.name, is_new:isNew, needs_email:customer.needs_email||0 });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Complete Profile ─────────────────────────────────────────────────────────
+router.put('/complete-profile', requireCustomer, async (req, res) => {
+  try {
+    const { email, phone, name } = req.body;
+    const db = await getDb();
+    const c = get(db, 'SELECT * FROM customers WHERE jid=?', [req.customer.jid]);
+    if (!c) return res.status(404).json({ error: 'Not found' });
+    const sets = []; const vals = [];
+    if (email && !c.email) {
+      const en = email.toLowerCase().trim();
+      const dup = get(db, 'SELECT jid FROM customers WHERE email=? AND jid!=?', [en, c.jid]);
+      if (dup) return res.status(409).json({ error: 'Email already registered' });
+      sets.push('email=?', 'needs_email=0'); vals.push(en);
+    }
+    if (phone) { sets.push('phone=?', 'needs_phone=0'); vals.push(phone.replace(/\D/g, '')); }
+    if (name?.trim()) { sets.push('name=?'); vals.push(name.trim()); }
+    if (sets.length) {
+      run(db, `UPDATE customers SET ${sets.join(',')} WHERE jid=?`, [...vals, c.jid]);
+    }
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

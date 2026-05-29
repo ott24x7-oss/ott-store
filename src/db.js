@@ -134,6 +134,18 @@ function migrate(db) {
     used INTEGER DEFAULT 0
   )`);
 
+  db.run(`CREATE TABLE IF NOT EXISTS auth_tokens (
+    token TEXT PRIMARY KEY,
+    customer_jid TEXT,
+    purpose TEXT NOT NULL DEFAULT 'otp',
+    code TEXT,
+    email TEXT,
+    phone TEXT,
+    expires_at TEXT NOT NULL,
+    used INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+
   // ── New tables ─────────────────────────────────────────────────────────────
   db.run(`CREATE TABLE IF NOT EXISTS payment_methods (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -357,6 +369,52 @@ function migrate(db) {
   seedLegalPages(db);
   seedEmailTemplates(db);
   seedAutopostCampaigns(db);
+  seedPlansData(db);
+}
+
+function seedPlansData(db) {
+  const existing = db.exec('SELECT COUNT(*) as c FROM plans');
+  if ((existing[0]?.values[0][0] || 0) > 0) return;
+
+  const plans = [
+    // Netflix
+    { platform:'Netflix', name:'Premium 4K UHD — 1 Month', duration_days:30,  price_inr:199,  original_price_inr:649,  badge:'🔥 Best Seller', features:JSON.stringify(['4K UHD + HDR','4 Screens Simultaneously','Downloads Supported','Watch on All Devices']), delivery_type:'manual', image_url:'', active:1, sort_order:1 },
+    { platform:'Netflix', name:'Premium 4K UHD — 3 Month', duration_days:90,  price_inr:499,  original_price_inr:1799, badge:'💎 Best Value', features:JSON.stringify(['4K UHD + HDR','4 Screens Simultaneously','Downloads Supported','Watch on All Devices']), delivery_type:'manual', image_url:'', active:1, sort_order:2 },
+    { platform:'Netflix', name:'Premium 4K UHD — 1 Year',  duration_days:365, price_inr:1499, original_price_inr:6499, badge:'🎯 1 Year Deal',features:JSON.stringify(['4K UHD + HDR','4 Screens Simultaneously','Downloads Supported','Watch on All Devices']), delivery_type:'manual', image_url:'', active:1, sort_order:3 },
+    // Amazon Prime
+    { platform:'Amazon Prime', name:'1 Month',  duration_days:30,  price_inr:89,  original_price_inr:299,  badge:'', features:JSON.stringify(['Prime Video + Music','Prime Delivery','Gaming with Prime','All Devices']), delivery_type:'manual', image_url:'', active:1, sort_order:4 },
+    { platform:'Amazon Prime', name:'3 Month',  duration_days:90,  price_inr:229, original_price_inr:799,  badge:'Popular', features:JSON.stringify(['Prime Video + Music','Prime Delivery','Gaming with Prime','All Devices']), delivery_type:'manual', image_url:'', active:1, sort_order:5 },
+    { platform:'Amazon Prime', name:'1 Year',   duration_days:365, price_inr:799, original_price_inr:2999, badge:'', features:JSON.stringify(['Prime Video + Music','Prime Delivery','Gaming with Prime','All Devices']), delivery_type:'manual', image_url:'', active:1, sort_order:6 },
+    // Disney+ Hotstar
+    { platform:'Disney+ Hotstar', name:'Super — 1 Month',  duration_days:30,  price_inr:79,  original_price_inr:299,  badge:'', features:JSON.stringify(['Disney+','Hotstar Exclusive','Live Sports','4 Screens']), delivery_type:'manual', image_url:'', active:1, sort_order:7 },
+    { platform:'Disney+ Hotstar', name:'Premium — 3 Month',duration_days:90,  price_inr:199, original_price_inr:799,  badge:'IPL Ready', features:JSON.stringify(['Disney+ Premium','4K Streaming','Live Cricket','4 Screens']), delivery_type:'manual', image_url:'', active:1, sort_order:8 },
+    { platform:'Disney+ Hotstar', name:'Premium — 1 Year', duration_days:365, price_inr:699, original_price_inr:2999, badge:'', features:JSON.stringify(['Disney+ Premium','4K Streaming','Live Cricket','4 Screens']), delivery_type:'manual', image_url:'', active:1, sort_order:9 },
+    // Spotify
+    { platform:'Spotify', name:'Premium — 1 Month',  duration_days:30,  price_inr:39,  original_price_inr:119,  badge:'🎵 Music', features:JSON.stringify(['Ad-Free Music','Offline Downloads','Unlimited Skips','High Quality Audio']), delivery_type:'manual', image_url:'', active:1, sort_order:10 },
+    { platform:'Spotify', name:'Premium — 3 Month',  duration_days:90,  price_inr:99,  original_price_inr:339,  badge:'', features:JSON.stringify(['Ad-Free Music','Offline Downloads','Unlimited Skips','High Quality Audio']), delivery_type:'manual', image_url:'', active:1, sort_order:11 },
+    { platform:'Spotify', name:'Premium — 1 Year',   duration_days:365, price_inr:349, original_price_inr:1189, badge:'Best Value', features:JSON.stringify(['Ad-Free Music','Offline Downloads','Unlimited Skips','High Quality Audio']), delivery_type:'manual', image_url:'', active:1, sort_order:12 },
+    // YouTube Premium
+    { platform:'YouTube Premium', name:'Individual — 1 Month', duration_days:30,  price_inr:59,  original_price_inr:189, badge:'', features:JSON.stringify(['No Ads','Background Play','YouTube Music','Offline Videos']), delivery_type:'manual', image_url:'', active:1, sort_order:13 },
+    { platform:'YouTube Premium', name:'Individual — 3 Month', duration_days:90,  price_inr:149, original_price_inr:539, badge:'', features:JSON.stringify(['No Ads','Background Play','YouTube Music','Offline Videos']), delivery_type:'manual', image_url:'', active:1, sort_order:14 },
+    // Sony LIV
+    { platform:'Sony LIV', name:'Premium — 1 Month', duration_days:30,  price_inr:49,  original_price_inr:299, badge:'', features:JSON.stringify(['Sony Originals','Live Sports','4K Content','Multi-Screen']), delivery_type:'manual', image_url:'', active:1, sort_order:15 },
+    { platform:'Sony LIV', name:'Premium — 1 Year',  duration_days:365, price_inr:299, original_price_inr:999, badge:'', features:JSON.stringify(['Sony Originals','Live Sports','4K Content','Multi-Screen']), delivery_type:'manual', image_url:'', active:1, sort_order:16 },
+    // ZEE5
+    { platform:'ZEE5', name:'Annual Pack', duration_days:365, price_inr:199, original_price_inr:999, badge:'', features:JSON.stringify(['ZEE Originals','Live TV','Movies & Shows','Multi-Device']), delivery_type:'manual', image_url:'', active:1, sort_order:17 },
+    // JioCinema
+    { platform:'JioCinema', name:'Premium — 1 Month', duration_days:30,  price_inr:29, original_price_inr:99, badge:'', features:JSON.stringify(['Sports','Movies','Web Series','4K UHD']), delivery_type:'manual', image_url:'', active:1, sort_order:18 },
+    // Apple TV+
+    { platform:'Apple TV+', name:'1 Month', duration_days:30,  price_inr:99, original_price_inr:299, badge:'', features:JSON.stringify(['Apple Originals','4K HDR','Dolby Vision','All Devices']), delivery_type:'manual', image_url:'', active:1, sort_order:19 },
+    // MEGA Bundle
+    { platform:'Bundle', name:'Netflix + Prime + Hotstar — 1 Month', duration_days:30, price_inr:349, original_price_inr:1199, badge:'🔥 MEGA BUNDLE', features:JSON.stringify(['Netflix Premium 4K','Amazon Prime 1 Month','Disney+ Hotstar Premium','Save ₹850!']), delivery_type:'manual', image_url:'', active:1, sort_order:20 },
+  ];
+
+  const stmt = 'INSERT INTO plans (platform,name,duration_days,price_inr,original_price_inr,badge,features,delivery_type,image_url,active,sort_order) VALUES (?,?,?,?,?,?,?,?,?,?,?)';
+  for (const p of plans) {
+    try {
+      db.run(stmt, [p.platform,p.name,p.duration_days,p.price_inr,p.original_price_inr||null,p.badge||'',p.features,p.delivery_type,p.image_url,p.active,p.sort_order]);
+    } catch {}
+  }
 }
 
 function seedLegalPages(db) {

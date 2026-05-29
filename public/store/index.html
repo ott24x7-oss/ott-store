@@ -281,8 +281,8 @@ body::before{display:none}
 
 .splan-card{
   background:var(--st-card);border:1.5px solid var(--st-border);
-  border-radius:16px;padding:1.4rem;
-  display:flex;flex-direction:column;gap:.6rem;
+  border-radius:16px;
+  display:flex;flex-direction:column;
   position:relative;overflow:hidden;
   transition:all .2s;
 }
@@ -291,23 +291,33 @@ body::before{display:none}
   border-color:var(--st-accent);
   box-shadow:0 8px 32px var(--st-glow);
 }
-.splan-card.featured{border-color:var(--st-accent)}
-.splan-card.featured::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:2px;
-  background:var(--st-btn);
-}
+.splan-card.featured{border-color:var(--st-accent);box-shadow:0 0 0 1px var(--st-accent),0 8px 32px var(--st-glow)}
 .splan-badge{
-  position:absolute;top:12px;right:12px;
-  padding:.2rem .7rem;border-radius:20px;
-  font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;
-  background:var(--st-badge);color:#fff;
+  position:absolute;top:8px;right:8px;z-index:2;
+  padding:.18rem .6rem;border-radius:20px;
+  font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;
+  background:rgba(0,0,0,.62);color:#fff;backdrop-filter:blur(6px);
 }
-.splan-plat{
-  font-size:.72rem;font-weight:800;text-transform:uppercase;
-  letter-spacing:.08em;color:var(--st-muted);
-  display:flex;align-items:center;gap:.35rem;
+.splan-header{
+  height:96px;position:relative;overflow:hidden;
+  border-radius:14px 14px 0 0;flex-shrink:0;
 }
-.splan-name{font-size:1.05rem;font-weight:700;color:var(--st-text);line-height:1.3}
+.splan-header img{
+  width:100%;height:100%;object-fit:cover;display:block;
+}
+.splan-header-bg{
+  width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:4px;
+}
+.splan-header-icon{font-size:2.1rem;line-height:1;filter:drop-shadow(0 2px 6px rgba(0,0,0,.35))}
+.splan-header-plat{
+  font-size:.6rem;font-weight:800;text-transform:uppercase;
+  letter-spacing:.12em;color:rgba(255,255,255,.88);text-shadow:0 1px 3px rgba(0,0,0,.4);
+}
+.splan-body{
+  padding:1rem 1.1rem 1.1rem;display:flex;flex-direction:column;gap:.45rem;flex:1;
+}
+.splan-name{font-size:1rem;font-weight:700;color:var(--st-text);line-height:1.3}
 .splan-dur{font-size:.8rem;color:var(--st-muted)}
 .splan-price-row{display:flex;align-items:baseline;gap:.5rem;margin-top:.2rem}
 .splan-price{
@@ -553,9 +563,10 @@ body::before{display:none}
   .shero{padding:6.5rem 1rem 3.5rem}
   .shero-h1{font-size:2rem}
   .splan-grid{grid-template-columns:repeat(2,1fr);gap:.75rem}
-  .splan-card{padding:1rem}
-  .splan-price{font-size:1.35rem}
-  .splan-name{font-size:.95rem}
+  .splan-header{height:76px}
+  .splan-body{padding:.75rem .85rem .85rem}
+  .splan-price{font-size:1.3rem}
+  .splan-name{font-size:.9rem}
   .sstats-grid{grid-template-columns:repeat(2,1fr)}
   .show-steps{grid-template-columns:1fr}
   .sfooter-grid{grid-template-columns:1fr}
@@ -993,10 +1004,35 @@ document.querySelectorAll('.sfaq-q').forEach(q => {
 // ── Platform icons map ────────────────────────────────────────────────────────
 const ICONS = {
   'Netflix':'🎬','Amazon Prime':'📦','Disney+':'⭐','Disney+ Hotstar':'⭐',
-  'Sony LIV':'📺','Zee5':'🎭','Hotstar':'🌟','JioCinema':'🎥','MX Player':'▶️',
+  'Sony LIV':'📺','Zee5':'🎭','ZEE5':'🎭','Hotstar':'🌟','JioCinema':'🎥','MX Player':'▶️',
   'Apple TV+':'🍎','HBO Max':'🎬','Voot':'📱','Spotify':'🎵',
-  'YouTube Premium':'📺','YouTube':'📺','Canva':'🎨','LinkedIn':'💼',
+  'YouTube Premium':'▶️','YouTube':'▶️','Canva':'🎨','LinkedIn':'💼',
   'ChatGPT':'🤖','Adobe':'🎨','Microsoft 365':'💻',
+};
+const PLATFORM_COLORS = {
+  'Netflix':         ['#e50914','#8b0000'],
+  'Amazon Prime':    ['#00a8e0','#005c8a'],
+  'Prime Video':     ['#00a8e0','#005c8a'],
+  'Disney+':         ['#0f2f7f','#3d5afa'],
+  'Disney+ Hotstar': ['#1a56db','#0284c7'],
+  'Hotstar':         ['#00b4ff','#0070b8'],
+  'Sony LIV':        ['#004fcc','#1a73e8'],
+  'Zee5':            ['#7b1fa2','#c026d3'],
+  'ZEE5':            ['#7b1fa2','#c026d3'],
+  'JioCinema':       ['#4a00e0','#8e2de2'],
+  'MX Player':       ['#c0392b','#e74c3c'],
+  'Voot':            ['#7c4dff','#b388ff'],
+  'Apple TV+':       ['#1c1c1e','#48484a'],
+  'Spotify':         ['#1db954','#127c38'],
+  'YouTube Premium': ['#ff0000','#b91c1c'],
+  'YouTube':         ['#ff0000','#b91c1c'],
+  'Canva':           ['#00c4cc','#0098a6'],
+  'LinkedIn':        ['#0a66c2','#004182'],
+  'ChatGPT':         ['#10a37f','#0d6b58'],
+  'OpenAI':          ['#10a37f','#0d6b58'],
+  'Adobe':           ['#fa0f00','#b30b00'],
+  'Microsoft 365':   ['#0078d4','#005a9e'],
+  'default':         ['#7c3aed','#6d28d9'],
 };
 
 let ALL_PLANS = [], ACTIVE_PLATFORM = '', SEARCH = '', isLoggedIn = false;
@@ -1150,20 +1186,36 @@ function planCard(p) {
             : `${p.duration_days} Days`;
   const featureItems = features.slice(0, 4).map(f => `<li>${esc(f)}</li>`).join('');
   const delivery = p.delivery_type === 'instant' ? '<div class="splan-delivery">⚡ Instant Delivery</div>' : '';
+
+  const cols = PLATFORM_COLORS[p.platform] || PLATFORM_COLORS['default'];
+  const grad = `background:linear-gradient(135deg,${cols[0]},${cols[1]})`;
+  const headerInner = p.image_url
+    ? `<img src="${esc(p.image_url)}" alt="${esc(p.platform)}" loading="lazy"
+         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+       <div class="splan-header-bg" style="display:none;${grad}">
+         <span class="splan-header-icon">${icon}</span>
+         <span class="splan-header-plat">${esc(p.platform)}</span>
+       </div>`
+    : `<div class="splan-header-bg" style="${grad}">
+         <span class="splan-header-icon">${icon}</span>
+         <span class="splan-header-plat">${esc(p.platform)}</span>
+       </div>`;
+
   return `<div class="splan-card${p.badge ? ' featured' : ''}${outOfStock ? ' splan-oos' : ''}">
-    ${badge}
-    <div class="splan-plat">${icon} ${esc(p.platform)}</div>
-    <div class="splan-name">${esc(p.name)}</div>
-    <div class="splan-dur">⏱ ${dur} validity</div>
-    <div class="splan-price-row">
-      <span class="splan-price">₹${Number(p.price_inr).toLocaleString('en-IN')}</span>
-      ${origPrice}
+    <div class="splan-header">${badge}${headerInner}</div>
+    <div class="splan-body">
+      <div class="splan-name">${esc(p.name)}</div>
+      <div class="splan-dur">⏱ ${dur} validity</div>
+      <div class="splan-price-row">
+        <span class="splan-price">₹${Number(p.price_inr).toLocaleString('en-IN')}</span>
+        ${origPrice}
+      </div>
+      ${delivery}
+      ${featureItems ? `<ul class="splan-feats">${featureItems}</ul>` : ''}
+      <button class="splan-btn" ${outOfStock ? 'disabled' : ''} data-id="${p.id}">
+        ${outOfStock ? '🔴 Out of Stock' : isLoggedIn ? '🛒 Buy Now' : '🔐 Login to Buy'}
+      </button>
     </div>
-    ${delivery}
-    ${featureItems ? `<ul class="splan-feats">${featureItems}</ul>` : ''}
-    <button class="splan-btn" ${outOfStock ? 'disabled' : ''} data-id="${p.id}">
-      ${outOfStock ? '🔴 Out of Stock' : isLoggedIn ? '🛒 Buy Now' : '🔐 Login to Buy'}
-    </button>
   </div>`;
 }
 

@@ -1,331 +1,327 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>My Account — OTT Store</title>
+<title id="my-title">My Account — OTT Store</title>
 <link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/store/themes.css">
 <style>
-/* ── Portal layout ── */
-.portal-wrap { display: flex; flex-direction: column; min-height: 100vh; }
+/* ── Theme init ── */
+:root{--grad-1:#6366f1;--grad-2:#8b5cf6;--grad-3:#ec4899}
 
-/* Header */
-.portal-header {
-  background: var(--header-bg); backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border); padding: .7rem 1rem;
-  display: flex; align-items: center; justify-content: space-between;
-  position: sticky; top: 0; z-index: 100; gap: .5rem;
-}
-.portal-logo { font-size: 1.1rem; font-weight: 800; color: var(--text); flex-shrink: 0; }
-.portal-header-right { display: flex; align-items: center; gap: .6rem; flex-shrink: 0; }
-.wallet-pill {
-  display: flex; align-items: center; gap: .4rem;
-  background: linear-gradient(135deg, rgba(99,102,241,.12), rgba(139,92,246,.12));
-  border: 1px solid rgba(99,102,241,.25); border-radius: 20px;
-  padding: .3rem .8rem; font-size: .85rem; font-weight: 700; cursor: pointer;
-}
-.wallet-pill:hover { background: rgba(99,102,241,.18); }
-.avatar-chip {
-  width: 34px; height: 34px; border-radius: 50%;
-  background: linear-gradient(135deg, var(--grad-1), var(--grad-2));
-  color: #fff; font-weight: 800; font-size: .85rem;
-  display: flex; align-items: center; justify-content: center; cursor: pointer;
-}
-.btn-icon-hdr { background: none; border: none; font-size: 1.15rem; cursor: pointer; padding: .2rem; color: var(--muted); }
-.btn-icon-hdr:hover { color: var(--text); }
+/* ── Layout ── */
+.my-wrap{display:flex;flex-direction:column;min-height:100vh}
+.my-main{flex:1;padding:1.5rem 1rem;max-width:1100px;margin:0 auto;width:100%}
+.my-main-auth{flex:1;display:flex;align-items:center;justify-content:center;padding:2rem 1rem}
 
-/* Tabs nav (desktop) */
-.tab-nav {
-  display: flex; background: var(--card); border-bottom: 1px solid var(--border);
-  overflow-x: auto; scrollbar-width: none;
-}
-.tab-nav::-webkit-scrollbar { display: none; }
-.tab-btn {
-  flex: none; padding: .75rem 1.25rem; font-size: .875rem; font-weight: 600;
-  color: var(--muted); background: none; border: none; border-bottom: 2.5px solid transparent;
-  cursor: pointer; white-space: nowrap; transition: all .15s;
-}
-.tab-btn.active { color: var(--grad-1); border-bottom-color: var(--grad-1); }
-.tab-btn:hover:not(.active) { color: var(--text); }
+/* ── Header ── */
+.my-nav{position:sticky;top:0;z-index:200;background:var(--header-bg);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:.7rem 1.25rem}
+.my-nav-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:.75rem}
+.my-logo{font-size:1.15rem;font-weight:800;color:var(--text);text-decoration:none;flex-shrink:0}
+.my-logo:hover{color:var(--grad-1);text-decoration:none}
+.my-nav-links{display:flex;gap:.25rem;align-items:center}
+.my-nav-links a{color:var(--muted);font-size:.875rem;font-weight:600;padding:.3rem .65rem;border-radius:7px;text-decoration:none;transition:all .15s}
+.my-nav-links a:hover{color:var(--text);background:rgba(99,102,241,.1);text-decoration:none}
+.my-nav-right{display:flex;align-items:center;gap:.5rem;margin-left:auto}
+.my-wallet-pill{display:flex;align-items:center;gap:.35rem;background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(139,92,246,.12));border:1px solid rgba(99,102,241,.25);border-radius:20px;padding:.3rem .75rem;font-size:.82rem;font-weight:700;cursor:pointer;text-decoration:none;color:var(--text)}
+.my-wallet-pill:hover{background:rgba(99,102,241,.2);text-decoration:none}
+.my-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--grad-1),var(--grad-2));color:#fff;font-weight:800;font-size:.8rem;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.my-btn-icon{background:none;border:none;font-size:1.1rem;cursor:pointer;padding:.2rem .3rem;color:var(--muted);border-radius:6px}
+.my-btn-icon:hover{color:var(--text);background:rgba(99,102,241,.08)}
 
-/* Main content */
-.portal-main { flex: 1; padding: 1.5rem 1rem; max-width: 1100px; margin: 0 auto; width: 100%; }
+/* ── Tab nav ── */
+.my-tab-nav{display:flex;background:var(--card);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
+.my-tab-nav::-webkit-scrollbar{display:none}
+.my-tab-btn{flex:none;padding:.7rem 1.2rem;font-size:.875rem;font-weight:600;color:var(--muted);background:none;border:none;border-bottom:2.5px solid transparent;cursor:pointer;white-space:nowrap;transition:all .15s}
+.my-tab-btn.active{color:var(--grad-1);border-bottom-color:var(--grad-1)}
+.my-tab-btn:hover:not(.active){color:var(--text)}
 
-/* Bottom nav (mobile) */
-.bottom-nav {
-  display: none; position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%);
-  background: var(--card); border: 1px solid var(--border); border-radius: 30px;
-  box-shadow: var(--shadow-lg); padding: .4rem .6rem;
-  z-index: 200; gap: .2rem;
-}
-.bnav-btn {
-  display: flex; flex-direction: column; align-items: center; gap: .1rem;
-  padding: .45rem .75rem; border-radius: 24px; border: none; background: none;
-  color: var(--muted); font-size: .65rem; font-weight: 600; cursor: pointer;
-  transition: all .15s;
-}
-.bnav-btn .bnav-icon { font-size: 1.2rem; }
-.bnav-btn.active { background: linear-gradient(135deg,var(--grad-1),var(--grad-2)); color: #fff; }
+/* ── Bottom nav ── */
+.my-bnav{display:none;position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:30px;box-shadow:var(--shadow-lg);padding:.4rem .5rem;z-index:200;gap:.15rem}
+.my-bnav-btn{display:flex;flex-direction:column;align-items:center;gap:.1rem;padding:.4rem .65rem;border-radius:24px;border:none;background:none;color:var(--muted);font-size:.62rem;font-weight:600;cursor:pointer;transition:all .15s}
+.my-bnav-btn .bi{font-size:1.15rem}
+.my-bnav-btn.active{background:linear-gradient(135deg,var(--grad-1),var(--grad-2));color:#fff}
 
-/* Drawer */
-.drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 300; display: none; }
-.drawer-overlay.open { display: block; }
-.drawer {
-  position: fixed; right: 0; top: 0; bottom: 0; width: min(320px, 85vw);
-  background: var(--card); border-left: 1px solid var(--border);
-  z-index: 301; padding: 1.5rem 1rem;
-  transform: translateX(100%); transition: transform .22s ease;
-  display: flex; flex-direction: column; gap: .5rem; overflow-y: auto;
-}
-.drawer.open { transform: translateX(0); }
-.drawer-tabs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .5rem; }
-.drawer-tab-btn {
-  display: flex; flex-direction: column; align-items: center; gap: .3rem;
-  padding: .75rem .5rem; border-radius: var(--radius-sm); border: 1.5px solid var(--border);
-  background: var(--card); cursor: pointer; font-size: .75rem; font-weight: 600; color: var(--text);
-}
-.drawer-tab-btn:hover { border-color: var(--grad-1); color: var(--grad-1); }
-.drawer-tab-btn .dt-icon { font-size: 1.3rem; }
-.drawer-theme-row {
-  margin-top: auto; padding-top: 1rem; border-top: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: space-between;
-}
+/* ── Drawer ── */
+.my-drawer-ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:none}
+.my-drawer-ov.open{display:block}
+.my-drawer{position:fixed;right:0;top:0;bottom:0;width:min(300px,85vw);background:var(--card);border-left:1px solid var(--border);z-index:301;padding:1.25rem 1rem;transform:translateX(100%);transition:transform .22s ease;display:flex;flex-direction:column;gap:.5rem;overflow-y:auto}
+.my-drawer.open{transform:translateX(0)}
+.my-drawer-tabs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem}
+.my-dtab{display:flex;flex-direction:column;align-items:center;gap:.3rem;padding:.7rem .4rem;border-radius:10px;border:1.5px solid var(--border);background:var(--card);cursor:pointer;font-size:.73rem;font-weight:600;color:var(--text)}
+.my-dtab:hover{border-color:var(--grad-1);color:var(--grad-1)}
+.my-dtab .di{font-size:1.25rem}
 
-/* Auth forms */
-.auth-wrap { max-width: 420px; margin: 2rem auto; }
-.auth-tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; }
-.auth-tab {
-  flex: 1; padding: .7rem; text-align: center; font-weight: 700; font-size: .9rem;
-  cursor: pointer; color: var(--muted); border-bottom: 2.5px solid transparent;
-}
-.auth-tab.active { color: var(--grad-1); border-bottom-color: var(--grad-1); }
+/* ── Footer ── */
+.my-footer{border-top:1px solid var(--border);padding:2rem 1.25rem;background:var(--card);margin-top:auto}
+.my-footer-inner{max-width:1200px;margin:0 auto;display:flex;flex-wrap:wrap;gap:1rem;align-items:center;justify-content:space-between}
+.my-footer-links{display:flex;flex-wrap:wrap;gap:1rem}
+.my-footer-links a{color:var(--muted);font-size:.8rem;font-weight:600;text-decoration:none;transition:color .15s}
+.my-footer-links a:hover{color:var(--text);text-decoration:none}
+.my-footer-copy{font-size:.8rem;color:var(--muted)}
 
-/* Stat cards */
-.stat-cards { display: grid; grid-template-columns: repeat(4,1fr); gap: 1rem; margin-bottom: 1.5rem; }
-.stat-card { text-align: center; }
-.stat-icon { font-size: 1.4rem; margin-bottom: .2rem; }
-.stat-label { font-size: .75rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
-.stat-value { font-size: 1.6rem; font-weight: 800; }
+/* ── Auth wrapper ── */
+.my-auth-box{width:100%;max-width:440px}
+.my-auth-card{background:var(--card);border:1.5px solid var(--border);border-radius:20px;padding:2rem;box-shadow:var(--shadow-lg)}
+.my-auth-logo{text-align:center;margin-bottom:1.75rem}
+.my-auth-logo .al-icon{font-size:2.5rem;margin-bottom:.5rem}
+.my-auth-logo h1{font-size:1.4rem;font-weight:800;margin-bottom:.25rem}
+.my-auth-logo p{font-size:.875rem;color:var(--muted)}
 
-/* Quick actions */
-.quick-actions { display: grid; grid-template-columns: repeat(4,1fr); gap: .75rem; margin-bottom: 1.5rem; }
-.qa-tile {
-  display: flex; flex-direction: column; align-items: center; gap: .4rem;
-  padding: 1rem .5rem; background: var(--card); border: 1.5px solid var(--border);
-  border-radius: var(--radius); cursor: pointer; transition: all .15s; text-align: center;
-}
-.qa-tile:hover { border-color: var(--grad-1); transform: translateY(-2px); }
-.qa-icon { font-size: 1.6rem; }
-.qa-label { font-size: .8rem; font-weight: 600; color: var(--muted); }
+/* Method selector pills */
+.my-auth-methods{display:flex;gap:.4rem;background:var(--input-bg);border-radius:12px;padding:.3rem;margin-bottom:1.5rem}
+.mam-btn{flex:1;padding:.45rem .35rem;border:none;border-radius:8px;background:none;font-size:.75rem;font-weight:700;color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap;text-align:center}
+.mam-btn.active{background:var(--card);color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.12)}
 
-/* Plan cards in portal */
-.portal-plans-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; }
-.portal-platform-chips { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+/* WA 1-tap button */
+.my-wa-btn{display:flex;align-items:center;justify-content:center;gap:.6rem;width:100%;background:linear-gradient(135deg,#25D366,#128C7E);color:#fff;border:none;border-radius:12px;padding:.85rem 1rem;font-size:.95rem;font-weight:700;cursor:pointer;transition:all .2s;box-shadow:0 4px 14px rgba(37,211,102,.35);margin-bottom:1rem}
+.my-wa-btn:hover{opacity:.9;transform:translateY(-1px)}
+
+/* Or divider */
+.my-or{display:flex;align-items:center;gap:.75rem;color:var(--muted);font-size:.8rem;font-weight:600;margin:.9rem 0}
+.my-or::before,.my-or::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* Steps for OTP */
+.my-otp-step{display:flex;flex-direction:column;gap:.9rem}
+.my-otp-step.hidden{display:none}
+.my-otp-input{display:flex;gap:.5rem}
+.my-otp-input input{flex:1;text-align:center;letter-spacing:.25rem;font-size:1.2rem;font-weight:700;font-family:monospace}
+.my-resend{font-size:.8rem;color:var(--muted);text-align:center;margin-top:.25rem}
+.my-resend span{color:var(--blue);cursor:pointer;font-weight:600}
+.my-resend span:hover{text-decoration:underline}
+
+/* Auth form basics */
+.my-form{display:flex;flex-direction:column;gap:.8rem}
+.my-lbl{font-size:.8rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem;display:block}
+.my-err{font-size:.82rem;color:var(--red);background:var(--red-bg);border:1px solid var(--red);border-radius:8px;padding:.5rem .75rem}
+.my-ok{font-size:.82rem;color:var(--green);background:var(--green-bg);border:1px solid var(--green);border-radius:8px;padding:.5rem .75rem}
+
+/* Portal stats / cards (reuse existing style.css classes, add portal-specific) */
+.my-stat-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem}
+.my-stat-card{text-align:center}
+.my-stat-icon{font-size:1.4rem;margin-bottom:.2rem}
+.my-stat-label{font-size:.72rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.my-stat-val{font-size:1.55rem;font-weight:800;background:linear-gradient(135deg,var(--grad-1),var(--grad-2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+
+.my-qa{display:grid;grid-template-columns:repeat(4,1fr);gap:.7rem;margin-bottom:1.5rem}
+.my-qa-tile{display:flex;flex-direction:column;align-items:center;gap:.4rem;padding:.9rem .5rem;background:var(--card);border:1.5px solid var(--border);border-radius:12px;cursor:pointer;transition:all .15s;text-align:center}
+.my-qa-tile:hover{border-color:var(--grad-1);transform:translateY(-2px)}
+.my-qa-icon{font-size:1.5rem}
+.my-qa-lbl{font-size:.78rem;font-weight:600;color:var(--muted)}
+
+.my-plans-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}
+.my-plat-chips{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem}
+
+/* Plan card in portal */
+.my-plan-card{background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:1.25rem;display:flex;flex-direction:column;gap:.5rem;position:relative;overflow:hidden;transition:all .2s}
+.my-plan-card:hover{transform:translateY(-3px);border-color:var(--grad-1);box-shadow:0 8px 24px rgba(99,102,241,.15)}
+.my-plan-card-hdr{height:6px;background:linear-gradient(90deg,var(--grad-1),var(--grad-2));position:absolute;top:0;left:0;right:0;border-radius:14px 14px 0 0;display:none}
+.my-plan-card.featured .my-plan-card-hdr{display:block}
+.my-plan-img{width:100%;height:80px;object-fit:contain;border-radius:8px;margin-bottom:.25rem;background:var(--input-bg)}
+.my-plan-plat-row{display:flex;align-items:center;gap:.5rem}
+.my-plan-plat{font-size:.8rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.my-plan-badge{font-size:.7rem;font-weight:700;padding:.1rem .5rem;border-radius:20px;background:linear-gradient(135deg,var(--grad-1),var(--grad-2));color:#fff;margin-left:auto}
+.my-plan-name{font-weight:700;font-size:.95rem;line-height:1.3}
+.my-plan-dur{font-size:.78rem;color:var(--muted)}
+.my-plan-price-row{display:flex;align-items:baseline;gap:.5rem}
+.my-plan-price{font-size:1.5rem;font-weight:900;background:linear-gradient(135deg,var(--grad-1),var(--grad-2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.my-plan-orig{font-size:.8rem;color:var(--muted);text-decoration:line-through}
+.my-plan-feats{list-style:none;display:flex;flex-direction:column;gap:.3rem;font-size:.8rem;color:var(--muted)}
+.my-plan-feats li::before{content:'✓ ';color:var(--green);font-weight:700}
+.my-plan-del{font-size:.75rem;font-weight:700;color:var(--grad-1);background:rgba(99,102,241,.1);border-radius:6px;padding:.15rem .45rem;display:inline-block;width:fit-content}
 
 /* Orders */
-.order-item {
-  display: flex; align-items: center; gap: 1rem;
-  padding: .9rem; background: var(--card); border: 1px solid var(--border);
-  border-radius: var(--radius-sm); margin-bottom: .6rem;
-}
-.order-platform-icon { font-size: 1.8rem; flex-shrink: 0; }
-.order-info { flex: 1; min-width: 0; }
-.order-name { font-weight: 600; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.order-meta { font-size: .78rem; color: var(--muted); }
-.order-right { display: flex; flex-direction: column; align-items: flex-end; gap: .3rem; flex-shrink: 0; }
-.order-amount { font-weight: 700; font-size: .9rem; }
+.my-order{display:flex;align-items:center;gap:.9rem;padding:.85rem;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:.6rem}
+.my-order-icon{font-size:1.7rem;flex-shrink:0}
+.my-order-info{flex:1;min-width:0}
+.my-order-name{font-weight:600;font-size:.875rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.my-order-meta{font-size:.75rem;color:var(--muted);margin-top:.15rem}
+.my-order-right{display:flex;flex-direction:column;align-items:flex-end;gap:.3rem;flex-shrink:0}
+.my-order-amt{font-weight:700;font-size:.875rem}
 
 /* Wallet */
-.wallet-balance-card {
-  background: linear-gradient(135deg, var(--grad-1), var(--grad-2));
-  border-radius: var(--radius); padding: 1.75rem; color: #fff; margin-bottom: 1.5rem;
-  position: relative; overflow: hidden;
-}
-.wallet-balance-card::after {
-  content: '₹'; position: absolute; right: -10px; top: -20px;
-  font-size: 7rem; opacity: .08; font-weight: 900;
-}
-.wb-label { font-size: .85rem; opacity: .85; margin-bottom: .3rem; }
-.wb-amount { font-size: 2.5rem; font-weight: 900; }
-.topup-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
-.topup-method {
-  padding: 1.25rem; background: var(--card); border: 1.5px solid var(--border);
-  border-radius: var(--radius); cursor: pointer; transition: all .15s; text-align: center;
-}
-.topup-method:hover, .topup-method.active { border-color: var(--grad-1); }
-.topup-icon { font-size: 1.8rem; margin-bottom: .4rem; }
-.topup-name { font-weight: 700; font-size: .9rem; }
-.topup-sub { font-size: .78rem; color: var(--muted); }
+.my-wallet-card{background:linear-gradient(135deg,var(--grad-1),var(--grad-2));border-radius:16px;padding:1.75rem;color:#fff;margin-bottom:1.5rem;position:relative;overflow:hidden}
+.my-wallet-card::after{content:'₹';position:absolute;right:-10px;top:-20px;font-size:7rem;opacity:.1;font-weight:900}
+.my-wallet-lbl{font-size:.85rem;opacity:.85;margin-bottom:.25rem}
+.my-wallet-amt{font-size:2.5rem;font-weight:900}
+.my-topup-methods{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem}
+.my-topup-m{padding:1.2rem;background:var(--card);border:1.5px solid var(--border);border-radius:12px;cursor:pointer;transition:all .15s;text-align:center}
+.my-topup-m:hover,.my-topup-m.active{border-color:var(--grad-1)}
+.my-topup-icon{font-size:1.8rem;margin-bottom:.35rem}
+.my-topup-name{font-weight:700;font-size:.875rem}
+.my-topup-sub{font-size:.75rem;color:var(--muted)}
+.my-txn{display:flex;align-items:center;justify-content:space-between;padding:.7rem .9rem;border-bottom:1px solid var(--border);font-size:.875rem}
+.my-txn:last-child{border-bottom:none}
+.my-txn-pos{color:var(--green);font-weight:700}
+.my-txn-neg{color:var(--red);font-weight:700}
 
-/* Txn history */
-.txn-item {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: .75rem .9rem; border-bottom: 1px solid var(--border); font-size: .875rem;
-}
-.txn-item:last-child { border-bottom: none; }
-.txn-plus { color: var(--green); font-weight: 700; }
-.txn-minus { color: var(--red); font-weight: 700; }
+/* Profile completion banner */
+.my-profile-banner{background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(251,191,36,.12));border:1.5px solid rgba(245,158,11,.4);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:.9rem}
+.my-profile-banner button{flex-shrink:0}
 
-/* Credentials modal */
-.creds-box {
-  background: var(--input-bg); border: 1px solid var(--border); border-radius: var(--radius-sm);
-  padding: 1rem; display: flex; flex-direction: column; gap: .6rem;
-}
-.cred-row { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
-.cred-label { font-size: .8rem; color: var(--muted); font-weight: 600; text-transform: uppercase; }
-.cred-value { font-weight: 600; font-size: .9rem; font-family: monospace; flex: 1; word-break: break-all; }
-.copy-btn { font-size: .75rem; padding: .2rem .5rem; }
+/* Creds */
+.my-creds-box{background:var(--input-bg);border:1px solid var(--border);border-radius:10px;padding:1rem;display:flex;flex-direction:column;gap:.6rem}
+.my-cred-row{display:flex;justify-content:space-between;align-items:center;gap:.5rem}
+.my-cred-label{font-size:.78rem;color:var(--muted);font-weight:600;text-transform:uppercase}
+.my-cred-val{font-weight:600;font-size:.875rem;font-family:monospace;flex:1;word-break:break-all}
 
-/* Support */
-.ticket-item {
-  padding: .9rem 1rem; background: var(--card); border: 1px solid var(--border);
-  border-radius: var(--radius-sm); margin-bottom: .6rem; cursor: pointer;
-  transition: border-color .15s;
-}
-.ticket-item:hover { border-color: var(--grad-1); }
-.ticket-subject { font-weight: 600; font-size: .9rem; margin-bottom: .25rem; }
-.ticket-meta { font-size: .78rem; color: var(--muted); }
+/* Tickets */
+.my-ticket{padding:.85rem 1rem;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:.6rem;cursor:pointer;transition:border-color .15s}
+.my-ticket:hover{border-color:var(--grad-1)}
+.my-ticket-subj{font-weight:600;font-size:.875rem;margin-bottom:.2rem}
+.my-ticket-meta{font-size:.75rem;color:var(--muted)}
+.my-thread{display:flex;flex-direction:column;gap:.7rem;margin-bottom:1rem}
+.my-thread-msg{padding:.7rem 1rem;border-radius:10px;max-width:85%;font-size:.875rem;line-height:1.5}
+.my-thread-msg.customer{background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(139,92,246,.12));border:1px solid rgba(99,102,241,.2);align-self:flex-end}
+.my-thread-msg.admin{background:var(--card);border:1px solid var(--border);align-self:flex-start}
+.my-thread-sender{font-size:.7rem;font-weight:700;color:var(--muted);margin-bottom:.2rem}
 
-.ticket-thread { display: flex; flex-direction: column; gap: .75rem; margin-bottom: 1rem; }
-.thread-msg {
-  padding: .75rem 1rem; border-radius: var(--radius-sm); max-width: 85%;
-  font-size: .875rem; line-height: 1.5;
+@media(max-width:760px){
+  .my-tab-nav{display:none}
+  .my-bnav{display:flex}
+  .my-nav-links{display:none}
+  .my-stat-cards{grid-template-columns:repeat(2,1fr);gap:.7rem}
+  .my-stat-val{font-size:1.2rem}
+  .my-qa{grid-template-columns:repeat(2,1fr)}
+  .my-plans-grid{grid-template-columns:repeat(2,1fr)}
+  .my-topup-methods{grid-template-columns:1fr}
+  .my-main{padding:1rem .75rem 6rem}
+  .my-auth-card{padding:1.5rem 1.25rem}
 }
-.thread-msg.customer {
-  background: linear-gradient(135deg, rgba(99,102,241,.12), rgba(139,92,246,.12));
-  border: 1px solid rgba(99,102,241,.2); align-self: flex-end;
-}
-.thread-msg.admin {
-  background: var(--card); border: 1px solid var(--border); align-self: flex-start;
-}
-.thread-msg .msg-sender { font-size: .73rem; font-weight: 700; color: var(--muted); margin-bottom: .2rem; }
-
-/* Expiry alert */
-.expiry-alert {
-  background: var(--yellow-bg); border: 1px solid var(--yellow);
-  border-radius: var(--radius-sm); padding: .75rem 1rem; margin-bottom: 1rem;
-  font-size: .875rem; color: var(--yellow);
-}
-
-/* Announcement */
-.announcement {
-  background: linear-gradient(135deg, rgba(99,102,241,.08), rgba(139,92,246,.08));
-  border: 1px solid rgba(99,102,241,.2); border-radius: var(--radius-sm);
-  padding: .75rem 1rem; margin-bottom: 1rem; font-size: .875rem;
-}
-
-@media (max-width: 760px) {
-  .tab-nav { display: none; }
-  .bottom-nav { display: flex; }
-  .stat-cards { grid-template-columns: repeat(3,1fr); gap: .6rem; }
-  .stat-value { font-size: 1.2rem; }
-  .quick-actions { grid-template-columns: repeat(2,1fr); }
-  .portal-plans-grid { grid-template-columns: repeat(2,1fr); }
-  .topup-methods { grid-template-columns: 1fr; }
-  .portal-main { padding: 1rem .75rem 6rem; }
-}
-@media (max-width: 480px) {
-  .portal-plans-grid { grid-template-columns: repeat(2,1fr); }
+@media(max-width:480px){
+  .my-plans-grid{grid-template-columns:1fr}
+  .mam-btn{font-size:.68rem;padding:.4rem .25rem}
 }
 </style>
 </head>
 <body>
 <script>
 (function(){
-  var t = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
-  document.documentElement.setAttribute('data-theme', t);
+  var t=localStorage.getItem('theme')||(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+  document.documentElement.setAttribute('data-theme',t);
 })();
 </script>
 
-<div class="portal-wrap">
-<!-- Header -->
-<header class="portal-header">
-  <a href="/" class="portal-logo" id="portal-logo">OTT Store</a>
-  <div class="portal-header-right">
-    <div class="wallet-pill hide-mobile" id="hdr-wallet" style="display:none">
-      <span>💰</span><span id="hdr-wallet-val">₹0</span>
+<div class="my-wrap" id="my-wrap">
+<!-- ── Header ── -->
+<header class="my-nav" id="my-nav">
+  <div class="my-nav-inner">
+    <a href="/" class="my-logo" id="my-logo">OTT Store</a>
+    <div class="my-nav-links">
+      <a href="/">Home</a>
+      <a href="/#plans">Plans</a>
+      <a href="/blog">Blog</a>
+      <a href="/contact">Support</a>
     </div>
-    <button class="btn-icon-hdr" id="theme-toggle-hdr" title="Toggle theme">🌙</button>
-    <div class="avatar-chip hide-mobile" id="hdr-avatar" style="display:none">?</div>
-    <button class="btn-icon-hdr" id="hamburger-btn" style="display:none;font-size:1.4rem">☰</button>
+    <div class="my-nav-right">
+      <a class="my-wallet-pill" id="hdr-wallet" href="#" style="display:none" onclick="event.preventDefault();goTab('wallet')">
+        <span>💰</span><span id="hdr-wallet-val">₹0</span>
+      </a>
+      <button class="my-btn-icon" id="theme-toggle-hdr" title="Toggle theme">🌙</button>
+      <div class="my-avatar" id="hdr-avatar" style="display:none">?</div>
+      <button class="my-btn-icon" id="hamburger-btn" style="display:none;font-size:1.3rem">☰</button>
+    </div>
   </div>
 </header>
 
-<!-- Tab nav -->
-<nav class="tab-nav" id="tab-nav"></nav>
+<!-- ── Tab nav ── -->
+<nav class="my-tab-nav" id="tab-nav" style="display:none"></nav>
 
-<!-- Content -->
-<main class="portal-main" id="portal-main"></main>
+<!-- ── Content ── -->
+<main class="my-main" id="portal-main" style="display:none"></main>
+<div class="my-main-auth" id="auth-area" style="display:none"></div>
 </div>
 
-<!-- Bottom nav -->
-<div class="bottom-nav" id="bottom-nav">
-  <button class="bnav-btn" data-tab="dashboard"><span class="bnav-icon">🏠</span>Home</button>
-  <button class="bnav-btn" data-tab="plans"><span class="bnav-icon">🎬</span>Plans</button>
-  <button class="bnav-btn" data-tab="orders"><span class="bnav-icon">📦</span>Orders</button>
-  <button class="bnav-btn" data-tab="wallet"><span class="bnav-icon">💰</span>Wallet</button>
-  <button class="bnav-btn" data-tab="__more"><span class="bnav-icon">⋯</span>More</button>
+<!-- ── Bottom nav ── -->
+<div class="my-bnav" id="bottom-nav">
+  <button class="my-bnav-btn" data-tab="dashboard"><span class="bi">🏠</span>Home</button>
+  <button class="my-bnav-btn" data-tab="plans"><span class="bi">🎬</span>Plans</button>
+  <button class="my-bnav-btn" data-tab="orders"><span class="bi">📦</span>Orders</button>
+  <button class="my-bnav-btn" data-tab="wallet"><span class="bi">💰</span>Wallet</button>
+  <button class="my-bnav-btn" data-tab="__more"><span class="bi">⋯</span>More</button>
 </div>
 
-<!-- Drawer overlay -->
-<div class="drawer-overlay" id="drawer-overlay"></div>
-<div class="drawer" id="side-drawer">
+<!-- ── Drawer overlay ── -->
+<div class="my-drawer-ov" id="drawer-ov"></div>
+<div class="my-drawer" id="side-drawer">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
-    <span style="font-weight:800;font-size:1rem">Menu</span>
-    <button class="btn-icon" id="close-drawer">✕</button>
+    <span style="font-weight:800">Menu</span>
+    <button class="my-btn-icon" id="close-drawer">✕</button>
   </div>
-  <div class="drawer-tabs" id="drawer-tabs"></div>
-  <div class="drawer-theme-row">
+  <div class="my-drawer-tabs" id="drawer-tabs"></div>
+  <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
     <span style="font-size:.875rem;font-weight:600">Dark Mode</span>
     <button class="btn btn-secondary btn-sm" id="theme-toggle-drawer">🌙 Toggle</button>
   </div>
 </div>
 
+<!-- ── Footer ── -->
+<footer class="my-footer" id="my-footer" style="display:none">
+  <div class="my-footer-inner">
+    <div class="my-footer-links">
+      <a href="/privacy">Privacy Policy</a>
+      <a href="/terms">Terms of Service</a>
+      <a href="/refund">Refund Policy</a>
+      <a href="/about">About Us</a>
+      <a href="/contact">Contact</a>
+      <a href="/blog">Blog</a>
+    </div>
+    <span class="my-footer-copy" id="footer-copy">© 2025 OTT Store</span>
+  </div>
+</footer>
+
 <script>
 (function(){
 'use strict';
 
-// ── State ─────────────────────────────────────────────────────────────────
+// ── State ────────────────────────────────────────────────────────────────────
 let CUSTOMER = null, STORE = {}, ACTIVE_TAB = 'dashboard';
 let ALL_PLANS = [], ORDERS = [], TXNS = [], TICKETS = [];
 const PLATFORM_ICONS = {
-  'Netflix':'🎬','Amazon Prime':'📦','Disney+':'🏰','Sony LIV':'📺',
-  'Zee5':'🎭','Hotstar':'🌟','JioCinema':'🎥','MX Player':'▶️',
-  'Apple TV+':'🍎','Voot':'📱',
+  'Netflix':'🎬','Amazon Prime':'🛒','Disney+ Hotstar':'🏰','Disney+':'🏰',
+  'Spotify':'🎵','YouTube Premium':'▶️','Apple TV+':'🍎',
+  'Sony LIV':'📺','JioCinema':'🎥','ZEE5':'🎭','MX Player':'📱',
+  'Bundle':'🎁',
+};
+const PLATFORM_COLORS = {
+  'Netflix':'#e50914','Amazon Prime':'#00a8e0','Disney+ Hotstar':'#0063e5','Disney+':'#0063e5',
+  'Spotify':'#1DB954','YouTube Premium':'#ff0000','Apple TV+':'#555','Sony LIV':'#003cff',
+  'JioCinema':'#7b2ff7','ZEE5':'#8B2FC9','Bundle':'linear-gradient(135deg,#e50914,#0063e5,#1DB954)',
 };
 const TABS = [
-  { id:'dashboard', label:'Dashboard', icon:'🏠' },
-  { id:'plans',     label:'Plans',     icon:'🎬' },
-  { id:'orders',    label:'Orders',    icon:'📦' },
-  { id:'wallet',    label:'Wallet',    icon:'💰' },
-  { id:'support',   label:'Support',   icon:'🎧' },
-  { id:'profile',   label:'Profile',   icon:'👤' },
+  {id:'dashboard',label:'Dashboard',icon:'🏠'},
+  {id:'plans',label:'Plans',icon:'🎬'},
+  {id:'orders',label:'Orders',icon:'📦'},
+  {id:'wallet',label:'Wallet',icon:'💰'},
+  {id:'support',label:'Support',icon:'🎧'},
+  {id:'profile',label:'Profile',icon:'👤'},
 ];
 
-// ── Helpers ───────────────────────────────────────────────────────────────
-function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function fmt(n){ return '₹' + Number(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-function fmtDate(s){ if(!s) return '—'; try{ return new Date(s).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); } catch{ return s; } }
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function fmt(n){return '₹'+Number(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function fmtDate(s){if(!s)return '—';try{return new Date(s).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}catch{return s}}
 function statusBadge(s){
   const map={pending:'badge-yellow',processing:'badge-blue',delivered:'badge-green',expired:'badge-grey',cancelled:'badge-red',open:'badge-blue',closed:'badge-grey',approved:'badge-green',rejected:'badge-red'};
   return `<span class="badge ${map[s]||'badge-grey'}">${s||''}</span>`;
 }
-async function api(path, opts={}){
-  const r = await fetch('/user/api'+path, {credentials:'include',headers:{'Content-Type':'application/json'},...opts});
-  const j = await r.json();
-  if(!r.ok) throw new Error(j.error||'Request failed');
+async function api(path,opts={}){
+  const r=await fetch('/user/api'+path,{credentials:'include',headers:{'Content-Type':'application/json'},...opts});
+  const j=await r.json();
+  if(!r.ok)throw new Error(j.error||'Request failed');
   return j;
 }
-function showToast(msg, type='success'){
-  const t = document.createElement('div');
-  t.className = `alert alert-${type}`;
-  Object.assign(t.style,{position:'fixed',bottom:'5rem',left:'50%',transform:'translateX(-50%)',zIndex:9999,whiteSpace:'nowrap',minWidth:'200px',textAlign:'center',boxShadow:'var(--shadow-lg)'});
-  t.textContent = msg;
+function showToast(msg,type='success'){
+  const t=document.createElement('div');
+  t.className=`alert alert-${type}`;
+  Object.assign(t.style,{position:'fixed',bottom:'5.5rem',left:'50%',transform:'translateX(-50%)',zIndex:9999,whiteSpace:'nowrap',minWidth:'200px',textAlign:'center',boxShadow:'var(--shadow-lg)',fontSize:'.875rem'});
+  t.textContent=msg;
   document.body.appendChild(t);
-  setTimeout(()=>t.remove(), 2800);
+  setTimeout(()=>t.remove(),2800);
 }
 function openModal(html){
-  const ov = document.createElement('div');
+  const ov=document.createElement('div');
   ov.className='modal-overlay';
   ov.innerHTML=`<div class="modal">${html}</div>`;
   ov.querySelector('.modal').addEventListener('click',e=>e.stopPropagation());
@@ -334,210 +330,539 @@ function openModal(html){
   ov.querySelector('[data-close]')?.addEventListener('click',()=>ov.remove());
   return ov;
 }
+function setLoading(btn,loading,text=''){if(loading){btn._orig=btn.textContent;btn.disabled=true;btn.textContent='⏳ '+text}else{btn.disabled=false;btn.textContent=btn._orig||text}}
 
-// ── Theme ─────────────────────────────────────────────────────────────────
+// ── Theme ────────────────────────────────────────────────────────────────────
 function applyTheme(t){
   document.documentElement.setAttribute('data-theme',t);
   ['theme-toggle-hdr','theme-toggle-drawer'].forEach(id=>{
     const el=document.getElementById(id);
-    if(el) el.textContent = t==='dark'?'☀️ Light':'🌙 Dark';
+    if(el)el.textContent=t==='dark'?'☀️ Light':'🌙 Dark';
   });
 }
 function toggleTheme(){
-  const next = document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
-  localStorage.setItem('theme',next); applyTheme(next);
+  const next=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  localStorage.setItem('theme',next);applyTheme(next);
 }
 document.getElementById('theme-toggle-hdr').addEventListener('click',toggleTheme);
 document.getElementById('theme-toggle-drawer').addEventListener('click',toggleTheme);
-applyTheme(document.documentElement.getAttribute('data-theme')||'light');
+applyTheme(document.documentElement.getAttribute('data-theme')||'dark');
 
-// ── Navigation ────────────────────────────────────────────────────────────
+// ── Navigation ────────────────────────────────────────────────────────────────
 function buildNav(){
-  const nav = document.getElementById('tab-nav');
-  nav.innerHTML = TABS.map(t=>`<button class="tab-btn${ACTIVE_TAB===t.id?' active':''}" data-tab="${t.id}">${t.icon} ${t.label}</button>`).join('');
-  nav.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click',()=>goTab(b.dataset.tab)));
-
-  const bn = document.getElementById('bottom-nav');
-  bn.querySelectorAll('.bnav-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===ACTIVE_TAB));
-
-  const dt = document.getElementById('drawer-tabs');
-  dt.innerHTML = TABS.map(t=>`<button class="drawer-tab-btn" data-tab="${t.id}"><span class="dt-icon">${t.icon}</span>${t.label}</button>`).join('');
-  dt.querySelectorAll('.drawer-tab-btn').forEach(b=>b.addEventListener('click',()=>{closeDrawer();goTab(b.dataset.tab);}));
+  const nav=document.getElementById('tab-nav');
+  nav.innerHTML=TABS.map(t=>`<button class="my-tab-btn${ACTIVE_TAB===t.id?' active':''}" data-tab="${t.id}">${t.icon} ${t.label}</button>`).join('');
+  nav.querySelectorAll('.my-tab-btn').forEach(b=>b.addEventListener('click',()=>goTab(b.dataset.tab)));
+  const bn=document.getElementById('bottom-nav');
+  bn.querySelectorAll('.my-bnav-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===ACTIVE_TAB));
+  const dt=document.getElementById('drawer-tabs');
+  dt.innerHTML=TABS.map(t=>`<button class="my-dtab" data-tab="${t.id}"><span class="di">${t.icon}</span>${t.label}</button>`).join('');
+  dt.querySelectorAll('.my-dtab').forEach(b=>b.addEventListener('click',()=>{closeDrawer();goTab(b.dataset.tab);}));
 }
-
 function goTab(id){
-  ACTIVE_TAB=id; buildNav();
-  const handlers={
-    dashboard: renderDashboard, plans: renderPlans, orders: renderOrders,
-    wallet: renderWallet, support: renderSupport, profile: renderProfile,
-  };
+  ACTIVE_TAB=id;buildNav();
+  const handlers={dashboard:renderDashboard,plans:renderPlans,orders:renderOrders,wallet:renderWallet,support:renderSupport,profile:renderProfile};
   (handlers[id]||renderDashboard)();
 }
 
-// ── Drawer ────────────────────────────────────────────────────────────────
+// ── Drawer ────────────────────────────────────────────────────────────────────
 document.getElementById('hamburger-btn').addEventListener('click',openDrawer);
-document.getElementById('drawer-overlay').addEventListener('click',closeDrawer);
+document.getElementById('drawer-ov').addEventListener('click',closeDrawer);
 document.getElementById('close-drawer').addEventListener('click',closeDrawer);
-function openDrawer(){ document.getElementById('side-drawer').classList.add('open'); document.getElementById('drawer-overlay').classList.add('open'); }
-function closeDrawer(){ document.getElementById('side-drawer').classList.remove('open'); document.getElementById('drawer-overlay').classList.remove('open'); }
-
+function openDrawer(){document.getElementById('side-drawer').classList.add('open');document.getElementById('drawer-ov').classList.add('open')}
+function closeDrawer(){document.getElementById('side-drawer').classList.remove('open');document.getElementById('drawer-ov').classList.remove('open')}
 document.getElementById('bottom-nav').addEventListener('click',e=>{
-  const btn=e.target.closest('.bnav-btn'); if(!btn) return;
-  if(btn.dataset.tab==='__more'){ openDrawer(); return; }
+  const btn=e.target.closest('.my-bnav-btn');if(!btn)return;
+  if(btn.dataset.tab==='__more'){openDrawer();return;}
   goTab(btn.dataset.tab);
 });
 
-// ── Auth flow ─────────────────────────────────────────────────────────────
-function renderAuth(tab='login'){
-  const main=document.getElementById('portal-main');
-  main.innerHTML=`
-<div class="auth-wrap">
-  <div class="card">
-    <div style="text-align:center;margin-bottom:1.5rem">
-      <div style="font-size:2rem;margin-bottom:.5rem">🎬</div>
-      <h2 style="font-size:1.3rem;font-weight:800">Welcome to <span id="auth-store-name">OTT Store</span></h2>
-      <p class="muted">Login or create account to continue</p>
-    </div>
-    <div class="auth-tabs">
-      <div class="auth-tab${tab==='login'?' active':''}" id="at-login" onclick="authTab('login')">Login</div>
-      <div class="auth-tab${tab==='register'?' active':''}" id="at-reg" onclick="authTab('register')">Sign Up</div>
-    </div>
-    <div id="auth-body"></div>
-  </div>
-  <p class="muted text-center mt-3"><a href="/">← Back to store</a></p>
-</div>`;
-  authTab(tab);
+// ── Auth rendering ────────────────────────────────────────────────────────────
+function showAuthArea(html){
+  document.getElementById('auth-area').style.display='flex';
+  document.getElementById('portal-main').style.display='none';
+  document.getElementById('tab-nav').style.display='none';
+  document.getElementById('bottom-nav').style.display='none';
+  document.getElementById('my-footer').style.display='';
+  document.getElementById('auth-area').innerHTML=html;
+}
+function showPortal(){
+  document.getElementById('auth-area').style.display='none';
+  document.getElementById('portal-main').style.display='';
+  document.getElementById('tab-nav').style.display='';
+  document.getElementById('bottom-nav').style.display='';
+  document.getElementById('hamburger-btn').style.display='';
+  document.getElementById('my-footer').style.display='';
 }
 
-window.authTab=function(t){
-  document.getElementById('at-login')?.classList.toggle('active',t==='login');
-  document.getElementById('at-reg')?.classList.toggle('active',t==='register');
-  const body=document.getElementById('auth-body');
-  if(t==='login'){
-    body.innerHTML=`
-<form id="login-form" style="display:flex;flex-direction:column;gap:.9rem">
-  <div id="login-err"></div>
-  <div class="form-group"><label class="form-label">Email</label><input class="form-input" name="email" type="email" required placeholder="you@example.com"></div>
-  <div class="form-group"><label class="form-label">Password</label><input class="form-input" name="password" type="password" required placeholder="••••••••"></div>
-  <button type="submit" class="btn btn-primary btn-block">Login</button>
-  <p class="muted text-center" style="font-size:.8rem"><span style="cursor:pointer;color:var(--blue)" onclick="showForgot()">Forgot password?</span></p>
-</form>`;
-    document.getElementById('login-form').onsubmit=async e=>{
-      e.preventDefault();
-      const fd=new FormData(e.target);
-      const err=document.getElementById('login-err');
-      try{
-        const r=await api('/login',{method:'POST',body:JSON.stringify({email:fd.get('email'),password:fd.get('password')})});
-        await initPortal();
-      }catch(ex){ err.innerHTML=`<div class="alert alert-error">${esc(ex.message)}</div>`; }
-    };
-  } else {
-    body.innerHTML=`
-<form id="reg-form" style="display:flex;flex-direction:column;gap:.9rem">
-  <div id="reg-err"></div>
-  <div class="form-group"><label class="form-label">Full Name</label><input class="form-input" name="name" required placeholder="Raj Kumar"></div>
-  <div class="form-group"><label class="form-label">Email</label><input class="form-input" name="email" type="email" required placeholder="you@example.com"></div>
-  <div class="form-group"><label class="form-label">Password</label><input class="form-input" name="password" type="password" required placeholder="Min. 6 characters"></div>
-  <div class="form-group"><label class="form-label">Phone (optional)</label><input class="form-input" name="phone" type="tel" placeholder="+91 9876543210"></div>
-  <button type="submit" class="btn btn-primary btn-block">Create Account</button>
-</form>`;
-    document.getElementById('reg-form').onsubmit=async e=>{
-      e.preventDefault();
-      const fd=new FormData(e.target);
-      const err=document.getElementById('reg-err');
-      try{
-        await api('/register',{method:'POST',body:JSON.stringify({name:fd.get('name'),email:fd.get('email'),password:fd.get('password'),phone:fd.get('phone')||undefined})});
-        await initPortal();
-      }catch(ex){ err.innerHTML=`<div class="alert alert-error">${esc(ex.message)}</div>`; }
-    };
-  }
+// ── Auth: OTP + Password + Magic + WA ─────────────────────────────────────────
+function renderAuth(initMethod, msgHtml){
+  const method=initMethod||'otp';
+  const waEnabled=STORE.wa_enabled==='1'||STORE.support_whatsapp;
+  showAuthArea(`
+<div class="my-auth-box">
+  ${msgHtml?`<div style="margin-bottom:1rem">${msgHtml}</div>`:''}
+  <div class="my-auth-card">
+    <div class="my-auth-logo">
+      <div class="al-icon">🎬</div>
+      <h1>Welcome to <span id="al-name">${esc(STORE.site_name||'OTT Store')}</span></h1>
+      <p>Sign in to access your subscriptions</p>
+    </div>
+    ${waEnabled?`<button class="my-wa-btn" id="wa-1tap-btn" onclick="setMethod('whatsapp')">
+      <span style="font-size:1.3rem">💬</span>
+      <span>1-Tap WhatsApp Login</span>
+    </button>
+    <div class="my-or">— OR CHOOSE METHOD —</div>`:''}
+    <div class="my-auth-methods" id="auth-methods">
+      <button class="mam-btn${method==='otp'?' active':''}" onclick="setMethod('otp')">📱 OTP</button>
+      <button class="mam-btn${method==='password'?' active':''}" onclick="setMethod('password')">🔑 Password</button>
+      <button class="mam-btn${method==='magic'?' active':''}" onclick="setMethod('magic')">✉️ Magic</button>
+      ${waEnabled?`<button class="mam-btn${method==='whatsapp'?' active':''}" onclick="setMethod('whatsapp')">💬 WhatsApp</button>`:''}
+    </div>
+    <div id="auth-form-area"></div>
+  </div>
+  <p style="text-align:center;font-size:.82rem;color:var(--muted);margin-top:1rem">
+    By signing in you agree to our <a href="/terms">Terms</a> &amp; <a href="/privacy">Privacy Policy</a>
+  </p>
+</div>`);
+  setMethod(method);
+}
+
+window.setMethod=function(m){
+  document.querySelectorAll('.mam-btn').forEach(b=>b.classList.remove('active'));
+  const activeBtn=document.querySelector(`.mam-btn[onclick="setMethod('${m}')"]`);
+  if(activeBtn)activeBtn.classList.add('active');
+  const area=document.getElementById('auth-form-area');
+  if(m==='otp')renderOtpForm(area);
+  else if(m==='password')renderPasswordForm(area);
+  else if(m==='magic')renderMagicForm(area);
+  else if(m==='whatsapp')renderWaForm(area);
 };
 
+// ── OTP Form (2-step) ─────────────────────────────────────────────────────────
+function renderOtpForm(area){
+  area.innerHTML=`
+<div id="otp-step1" class="my-otp-step">
+  <div id="otp-err1" style="display:none" class="my-err"></div>
+  <div class="form-group">
+    <label class="my-lbl">Email address</label>
+    <input class="form-input" id="otp-email" type="email" placeholder="you@example.com" autocomplete="email">
+  </div>
+  <button class="btn btn-primary btn-block" id="otp-send-btn" onclick="otpSend()">Send OTP →</button>
+  <p style="text-align:center;font-size:.8rem;color:var(--muted)">New here? An account is created automatically.</p>
+</div>
+<div id="otp-step2" class="my-otp-step hidden">
+  <div id="otp-err2" style="display:none" class="my-err"></div>
+  <p style="font-size:.85rem;color:var(--muted);text-align:center;margin-bottom:.5rem">Enter the 6-digit code sent to <strong id="otp-email-display"></strong></p>
+  <div class="my-otp-input">
+    <input class="form-input" id="otp-code" type="text" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code" style="text-align:center;letter-spacing:.3rem;font-size:1.25rem;font-weight:800">
+  </div>
+  <button class="btn btn-primary btn-block" id="otp-verify-btn" onclick="otpVerify()">Verify &amp; Login</button>
+  <p class="my-resend">Didn't get it? <span onclick="otpBack()">Try again</span> or <span onclick="otpSendNew()">Resend OTP</span></p>
+</div>`;
+  document.getElementById('otp-email').addEventListener('keypress',e=>{if(e.key==='Enter')otpSend();});
+  document.getElementById('otp-code').addEventListener('keypress',e=>{if(e.key==='Enter')otpVerify();});
+  const savedEmail=localStorage.getItem('my_last_email');
+  if(savedEmail)document.getElementById('otp-email').value=savedEmail;
+}
+
+window.otpSend=async function(){
+  const email=document.getElementById('otp-email').value.trim();
+  const err=document.getElementById('otp-err1');
+  const btn=document.getElementById('otp-send-btn');
+  if(!email){err.textContent='Please enter your email address.';err.style.display='';return;}
+  setLoading(btn,true,'Sending...');
+  try{
+    await api('/send-otp',{method:'POST',body:JSON.stringify({email})});
+    localStorage.setItem('my_last_email',email);
+    document.getElementById('otp-step1').classList.add('hidden');
+    document.getElementById('otp-step2').classList.remove('hidden');
+    document.getElementById('otp-email-display').textContent=email;
+    setTimeout(()=>document.getElementById('otp-code').focus(),100);
+  }catch(ex){err.textContent=ex.message;err.style.display='';setLoading(btn,false);}
+};
+
+window.otpBack=function(){
+  document.getElementById('otp-step1').classList.remove('hidden');
+  document.getElementById('otp-step2').classList.add('hidden');
+};
+window.otpSendNew=async function(){
+  const email=localStorage.getItem('my_last_email')||'';
+  if(!email)return otpBack();
+  try{await api('/send-otp',{method:'POST',body:JSON.stringify({email})});showToast('New OTP sent!','success');}catch(ex){showToast(ex.message,'error');}
+};
+
+window.otpVerify=async function(){
+  const email=localStorage.getItem('my_last_email')||'';
+  const otp=document.getElementById('otp-code').value.trim();
+  const err=document.getElementById('otp-err2');
+  const btn=document.getElementById('otp-verify-btn');
+  if(!otp){err.textContent='Enter the 6-digit code.';err.style.display='';return;}
+  setLoading(btn,true,'Verifying...');
+  try{
+    const r=await api('/verify-otp',{method:'POST',body:JSON.stringify({email,otp})});
+    await initPortal(r);
+  }catch(ex){err.textContent=ex.message;err.style.display='';setLoading(btn,false);}
+};
+
+// ── Password Form ─────────────────────────────────────────────────────────────
+function renderPasswordForm(area){
+  area.innerHTML=`
+<div class="my-form">
+  <div id="pw-err" style="display:none" class="my-err"></div>
+  <div class="form-group"><label class="my-lbl">Email</label>
+    <input class="form-input" id="pw-email" type="email" placeholder="you@example.com" autocomplete="email"></div>
+  <div class="form-group"><label class="my-lbl">Password</label>
+    <input class="form-input" id="pw-pass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
+  <button class="btn btn-primary btn-block" id="pw-login-btn" onclick="pwLogin()">Login</button>
+  <p style="text-align:center;font-size:.8rem">
+    <span style="color:var(--blue);cursor:pointer" onclick="showForgot()">Forgot password?</span>
+    &nbsp;·&nbsp; New user? <span style="color:var(--blue);cursor:pointer" onclick="showRegister()">Create account</span>
+  </p>
+</div>`;
+  document.getElementById('pw-pass').addEventListener('keypress',e=>{if(e.key==='Enter')pwLogin();});
+  const savedEmail=localStorage.getItem('my_last_email');
+  if(savedEmail)document.getElementById('pw-email').value=savedEmail;
+}
+
+window.pwLogin=async function(){
+  const email=document.getElementById('pw-email').value.trim();
+  const password=document.getElementById('pw-pass').value;
+  const err=document.getElementById('pw-err');
+  const btn=document.getElementById('pw-login-btn');
+  if(!email||!password){err.textContent='Email and password required.';err.style.display='';return;}
+  setLoading(btn,true,'Logging in...');
+  try{
+    await api('/login',{method:'POST',body:JSON.stringify({email,password})});
+    await initPortal();
+  }catch(ex){err.textContent=ex.message;err.style.display='';setLoading(btn,false);}
+};
+
+window.showRegister=function(){
+  const area=document.getElementById('auth-form-area');
+  area.innerHTML=`
+<div class="my-form">
+  <div id="reg-err" style="display:none" class="my-err"></div>
+  <div class="form-group"><label class="my-lbl">Full Name</label>
+    <input class="form-input" id="reg-name" placeholder="Raj Kumar" autocomplete="name"></div>
+  <div class="form-group"><label class="my-lbl">Email</label>
+    <input class="form-input" id="reg-email" type="email" placeholder="you@example.com"></div>
+  <div class="form-group"><label class="my-lbl">Password</label>
+    <input class="form-input" id="reg-pass" type="password" placeholder="Min. 6 characters"></div>
+  <div class="form-group"><label class="my-lbl">WhatsApp Number (optional)</label>
+    <input class="form-input" id="reg-phone" type="tel" placeholder="+91 98765 43210"></div>
+  <button class="btn btn-primary btn-block" id="reg-btn" onclick="doRegister()">Create Account →</button>
+  <p style="text-align:center;font-size:.8rem">Already have an account? <span style="color:var(--blue);cursor:pointer" onclick="setMethod('password')">Login</span></p>
+</div>`;
+};
+
+window.doRegister=async function(){
+  const name=document.getElementById('reg-name').value.trim();
+  const email=document.getElementById('reg-email').value.trim();
+  const password=document.getElementById('reg-pass').value;
+  const phone=document.getElementById('reg-phone').value.trim();
+  const err=document.getElementById('reg-err');
+  const btn=document.getElementById('reg-btn');
+  if(!name||!email||!password){err.textContent='Name, email and password are required.';err.style.display='';return;}
+  if(password.length<6){err.textContent='Password must be at least 6 characters.';err.style.display='';return;}
+  setLoading(btn,true,'Creating account...');
+  try{
+    await api('/register',{method:'POST',body:JSON.stringify({name,email,password,phone:phone||undefined})});
+    await initPortal();
+  }catch(ex){err.textContent=ex.message;err.style.display='';setLoading(btn,false);}
+};
+
+// ── Magic Link Form ───────────────────────────────────────────────────────────
+function renderMagicForm(area){
+  area.innerHTML=`
+<div class="my-form">
+  <div id="ml-msg" style="display:none"></div>
+  <div class="form-group"><label class="my-lbl">Email address</label>
+    <input class="form-input" id="ml-email" type="email" placeholder="you@example.com"></div>
+  <button class="btn btn-primary btn-block" id="ml-btn" onclick="sendMagic()">Send Magic Link →</button>
+  <p style="text-align:center;font-size:.8rem;color:var(--muted)">We'll email you a one-click login link — no password needed.</p>
+</div>`;
+  document.getElementById('ml-email').addEventListener('keypress',e=>{if(e.key==='Enter')sendMagic();});
+  const savedEmail=localStorage.getItem('my_last_email');
+  if(savedEmail)document.getElementById('ml-email').value=savedEmail;
+}
+
+window.sendMagic=async function(){
+  const email=document.getElementById('ml-email').value.trim();
+  const msg=document.getElementById('ml-msg');
+  const btn=document.getElementById('ml-btn');
+  if(!email){msg.innerHTML='<div class="my-err">Please enter your email.</div>';msg.style.display='';return;}
+  setLoading(btn,true,'Sending...');
+  try{
+    await api('/send-magic-link',{method:'POST',body:JSON.stringify({email})});
+    msg.innerHTML='<div class="my-ok">✉️ Magic link sent! Check your inbox and spam folder. Link expires in 15 minutes.</div>';
+    msg.style.display='';
+    btn.textContent='Resend Magic Link';btn.disabled=false;
+  }catch(ex){msg.innerHTML=`<div class="my-err">${esc(ex.message)}</div>`;msg.style.display='';setLoading(btn,false);}
+};
+
+// ── WhatsApp OTP Form ─────────────────────────────────────────────────────────
+function renderWaForm(area){
+  area.innerHTML=`
+<div id="wa-step1" class="my-otp-step">
+  <div id="wa-err1" style="display:none" class="my-err"></div>
+  <div class="form-group">
+    <label class="my-lbl">WhatsApp Number</label>
+    <input class="form-input" id="wa-phone" type="tel" placeholder="+91 98765 43210" autocomplete="tel">
+  </div>
+  <button class="my-wa-btn" id="wa-send-btn" onclick="waSend()" style="margin-bottom:0">
+    <span>💬</span> Send OTP to WhatsApp
+  </button>
+</div>
+<div id="wa-step2" class="my-otp-step hidden">
+  <div id="wa-err2" style="display:none" class="my-err"></div>
+  <p style="font-size:.85rem;color:var(--muted);text-align:center;margin-bottom:.5rem">Enter the OTP sent to your WhatsApp <strong id="wa-masked"></strong></p>
+  <div class="my-otp-input">
+    <input class="form-input" id="wa-otp" type="text" inputmode="numeric" maxlength="6" placeholder="000000" style="text-align:center;letter-spacing:.3rem;font-size:1.25rem;font-weight:800">
+  </div>
+  <div id="wa-name-row" class="form-group" style="display:none">
+    <label class="my-lbl">Your Name (new account)</label>
+    <input class="form-input" id="wa-name" placeholder="Raj Kumar">
+  </div>
+  <button class="btn btn-primary btn-block" id="wa-verify-btn" onclick="waVerify()">Verify &amp; Login</button>
+  <p class="my-resend"><span onclick="document.getElementById('wa-step1').classList.remove('hidden');document.getElementById('wa-step2').classList.add('hidden')">← Change number</span></p>
+</div>`;
+  document.getElementById('wa-otp').addEventListener('keypress',e=>{if(e.key==='Enter')waVerify();});
+  const savedPhone=localStorage.getItem('my_last_phone');
+  if(savedPhone)document.getElementById('wa-phone').value=savedPhone;
+}
+
+window.waSend=async function(){
+  const phone=document.getElementById('wa-phone').value.trim();
+  const err=document.getElementById('wa-err1');
+  const btn=document.getElementById('wa-send-btn');
+  if(!phone){err.textContent='Please enter your WhatsApp number.';err.style.display='';return;}
+  setLoading(btn,true,'Sending OTP...');
+  try{
+    const r=await api('/send-wa-otp',{method:'POST',body:JSON.stringify({phone})});
+    localStorage.setItem('my_last_phone',phone);
+    document.getElementById('wa-step1').classList.add('hidden');
+    document.getElementById('wa-step2').classList.remove('hidden');
+    document.getElementById('wa-masked').textContent=r.masked||'****';
+    setTimeout(()=>document.getElementById('wa-otp').focus(),100);
+  }catch(ex){err.textContent=ex.message;err.style.display='';setLoading(btn,false);}
+};
+
+window.waVerify=async function(){
+  const phone=localStorage.getItem('my_last_phone')||'';
+  const otp=document.getElementById('wa-otp').value.trim();
+  const name=document.getElementById('wa-name')?.value.trim()||'';
+  const err=document.getElementById('wa-err2');
+  const btn=document.getElementById('wa-verify-btn');
+  if(!otp){err.textContent='Enter the OTP from WhatsApp.';err.style.display='';return;}
+  setLoading(btn,true,'Verifying...');
+  try{
+    const r=await api('/verify-wa-otp',{method:'POST',body:JSON.stringify({phone,otp,name})});
+    if(r.is_new){
+      const nameRow=document.getElementById('wa-name-row');
+      if(nameRow&&nameRow.style.display==='none'){
+        nameRow.style.display='';
+        setLoading(btn,false);
+        showToast('Please enter your name to complete registration','success');
+        return;
+      }
+    }
+    await initPortal(r);
+  }catch(ex){err.textContent=ex.message;err.style.display='';setLoading(btn,false);}
+};
+
+// ── Forgot Password ────────────────────────────────────────────────────────────
 window.showForgot=function(){
-  const body=document.getElementById('auth-body');
-  body.innerHTML=`
-<form id="forgot-form" style="display:flex;flex-direction:column;gap:.9rem">
-  <div id="forgot-err"></div>
-  <p class="muted" style="font-size:.875rem">Enter your email to receive a password reset link.</p>
-  <div class="form-group"><label class="form-label">Email</label><input class="form-input" name="email" type="email" required></div>
-  <button type="submit" class="btn btn-primary btn-block">Send Reset Link</button>
-  <button type="button" class="btn btn-secondary btn-block" onclick="authTab('login')">Back to Login</button>
-</form>`;
-  document.getElementById('forgot-form').onsubmit=async e=>{
-    e.preventDefault();
-    const fd=new FormData(e.target);
-    try{
-      await api('/forgot-password',{method:'POST',body:JSON.stringify({email:fd.get('email')})});
-      document.getElementById('forgot-err').innerHTML='<div class="alert alert-success">Reset link sent if account exists.</div>';
-    }catch(ex){ document.getElementById('forgot-err').innerHTML=`<div class="alert alert-error">${esc(ex.message)}</div>`; }
-  };
+  const area=document.getElementById('auth-form-area');
+  area.innerHTML=`
+<div class="my-form">
+  <div id="fp-msg" style="display:none"></div>
+  <p style="font-size:.875rem;color:var(--muted)">Enter your email to get a reset link via magic link.</p>
+  <div class="form-group"><label class="my-lbl">Email</label>
+    <input class="form-input" id="fp-email" type="email" placeholder="you@example.com"></div>
+  <button class="btn btn-primary btn-block" id="fp-btn" onclick="sendReset()">Send Reset Link</button>
+  <button class="btn btn-secondary btn-block" onclick="setMethod('password')">← Back to Login</button>
+</div>`;
 };
 
-// ── Init ──────────────────────────────────────────────────────────────────
-async function initPortal(){
-  try {
-    [STORE, CUSTOMER] = await Promise.all([
-      api('/store'),
-      api('/me'),
-    ]);
+window.sendReset=async function(){
+  const email=document.getElementById('fp-email').value.trim();
+  const msg=document.getElementById('fp-msg');
+  const btn=document.getElementById('fp-btn');
+  if(!email)return;
+  setLoading(btn,true,'Sending...');
+  try{
+    await api('/forgot-password',{method:'POST',body:JSON.stringify({email})});
+    msg.innerHTML='<div class="my-ok">✉️ Reset link sent! Check your inbox (check spam too).</div>';
+    msg.style.display='';btn.textContent='Resend';btn.disabled=false;
+  }catch(ex){msg.innerHTML=`<div class="my-err">${esc(ex.message)}</div>`;msg.style.display='';setLoading(btn,false);}
+};
+
+// ── Reset Password (from URL token) ───────────────────────────────────────────
+function renderResetPassword(token){
+  showAuthArea(`
+<div class="my-auth-box">
+  <div class="my-auth-card">
+    <div class="my-auth-logo">
+      <div class="al-icon">🔐</div>
+      <h1>Set New Password</h1>
+      <p>Create a strong password for your account</p>
+    </div>
+    <div class="my-form">
+      <div id="rp-msg" style="display:none"></div>
+      <div class="form-group"><label class="my-lbl">New Password</label>
+        <input class="form-input" id="rp-pass" type="password" placeholder="Min. 6 characters"></div>
+      <div class="form-group"><label class="my-lbl">Confirm Password</label>
+        <input class="form-input" id="rp-pass2" type="password" placeholder="Repeat password"></div>
+      <button class="btn btn-primary btn-block" id="rp-btn" onclick="doReset('${token}')">Update Password</button>
+    </div>
+  </div>
+</div>`);
+}
+
+window.doReset=async function(token){
+  const pass=document.getElementById('rp-pass').value;
+  const pass2=document.getElementById('rp-pass2').value;
+  const msg=document.getElementById('rp-msg');
+  const btn=document.getElementById('rp-btn');
+  if(pass!==pass2){msg.innerHTML='<div class="my-err">Passwords do not match.</div>';msg.style.display='';return;}
+  if(pass.length<6){msg.innerHTML='<div class="my-err">Password must be at least 6 characters.</div>';msg.style.display='';return;}
+  setLoading(btn,true,'Updating...');
+  try{
+    await api('/reset-password',{method:'POST',body:JSON.stringify({token,password:pass})});
+    msg.innerHTML='<div class="my-ok">✅ Password updated! You can now log in.</div>';
+    msg.style.display='';
+    setTimeout(()=>renderAuth('password'),2000);
+  }catch(ex){msg.innerHTML=`<div class="my-err">${esc(ex.message)}</div>`;msg.style.display='';setLoading(btn,false);}
+};
+
+// ── Profile Completion Banner ──────────────────────────────────────────────────
+function showProfileBanner(){
+  const main=document.getElementById('portal-main');
+  if(!CUSTOMER)return;
+  const needsEmail=CUSTOMER.needs_email||(!CUSTOMER.email);
+  const needsPhone=!CUSTOMER.phone;
+  if(!needsEmail&&!needsPhone)return;
+  const existing=document.getElementById('profile-banner');
+  if(existing)existing.remove();
+  const banner=document.createElement('div');
+  banner.id='profile-banner';
+  banner.className='my-profile-banner';
+  if(needsEmail){
+    banner.innerHTML=`<span>⚠️</span><div style="flex:1"><strong>Add your email</strong> to receive order updates and login via email.<br><input class="form-input" id="pb-email" type="email" placeholder="your@email.com" style="margin-top:.5rem;margin-bottom:.25rem"><div id="pb-err" class="my-err" style="display:none"></div></div><button class="btn btn-primary btn-sm" onclick="saveProfileEmail()">Save Email</button>`;
+  } else if(needsPhone){
+    banner.innerHTML=`<span>💬</span><div style="flex:1"><strong>Add your WhatsApp</strong> for support & notifications (optional).<br><input class="form-input" id="pb-phone" type="tel" placeholder="+91 98765 43210" style="margin-top:.5rem"></div><div style="display:flex;gap:.5rem"><button class="btn btn-primary btn-sm" onclick="saveProfilePhone()">Save</button><button class="btn btn-secondary btn-sm" onclick="document.getElementById('profile-banner').remove()">Skip</button></div>`;
+  }
+  main.insertBefore(banner,main.firstChild);
+}
+
+window.saveProfileEmail=async function(){
+  const email=document.getElementById('pb-email')?.value.trim();
+  const err=document.getElementById('pb-err');
+  if(!email){err.textContent='Enter a valid email.';err.style.display='';return;}
+  try{
+    await api('/complete-profile',{method:'PUT',body:JSON.stringify({email})});
+    CUSTOMER=await api('/me');
+    document.getElementById('profile-banner')?.remove();
+    showToast('Email added!','success');
+  }catch(ex){err.textContent=ex.message;err.style.display='';}
+};
+
+window.saveProfilePhone=async function(){
+  const phone=document.getElementById('pb-phone')?.value.trim();
+  if(!phone)return;
+  try{
+    await api('/complete-profile',{method:'PUT',body:JSON.stringify({phone})});
+    CUSTOMER=await api('/me');
+    document.getElementById('profile-banner')?.remove();
+    showToast('WhatsApp number saved!','success');
+  }catch(ex){showToast(ex.message,'error');}
+};
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function initPortal(loginResult){
+  try{
+    [STORE,CUSTOMER]=await Promise.all([api('/store'),api('/me')]);
+    const siteName=STORE.site_name||'OTT Store';
+    document.getElementById('my-logo').textContent=siteName;
+    document.title=`My Account — ${siteName}`;
+    document.getElementById('my-title').textContent=`My Account — ${siteName}`;
+    document.getElementById('footer-copy').textContent=`© ${new Date().getFullYear()} ${siteName}`;
+    if(STORE.store_theme) document.documentElement.setAttribute('data-store-theme',STORE.store_theme);
     updateHeaderUI();
-    document.getElementById('portal-logo').textContent = STORE.site_name || 'OTT Store';
-    document.getElementById('portal-main').style.display='';
-    document.getElementById('tab-nav').style.display='';
-    document.getElementById('hamburger-btn').style.display='';
+    showPortal();
     buildNav();
+    // Handle URL params
+    const params=new URLSearchParams(location.search);
+    if(params.get('auth_success')==='1'){showToast('Welcome! You\'re now logged in.','success');}
+    // Handle hash routing (reset-password)
+    if(location.hash.startsWith('#reset-password')){
+      const tokenParam=new URLSearchParams(location.hash.replace('#reset-password?','')).get('token');
+      if(tokenParam)renderResetPassword(tokenParam);return;
+    }
     renderDashboard();
-  } catch(e) {
-    // Not logged in
-    document.getElementById('tab-nav').style.display='none';
-    document.getElementById('bottom-nav').style.display='none';
-    renderAuth();
+  }catch(e){
+    // Not logged in or API error
+    try{STORE=await api('/store');}catch{}
+    const siteName=STORE?.site_name||'OTT Store';
+    document.getElementById('my-logo').textContent=siteName;
+    document.title=`Login — ${siteName}`;
+    document.getElementById('footer-copy').textContent=`© ${new Date().getFullYear()} ${siteName}`;
+    if(STORE?.store_theme) document.documentElement.setAttribute('data-store-theme',STORE.store_theme);
+    // Handle URL error/success params
+    const params=new URLSearchParams(location.search);
+    let msgHtml='';
+    if(params.get('auth_error')==='expired_link') msgHtml='<div class="my-err">⚠️ This magic link has expired or already been used. Please request a new one.</div>';
+    else if(params.get('auth_error')==='invalid_link') msgHtml='<div class="my-err">⚠️ Invalid login link.</div>';
+    else if(params.get('auth_error')==='server_error') msgHtml='<div class="my-err">⚠️ A server error occurred. Please try again.</div>';
+    // Reset password from hash
+    if(location.hash.startsWith('#reset-password')){
+      const tokenParam=new URLSearchParams(location.hash.replace('#reset-password?','')).get('token');
+      if(tokenParam){renderResetPassword(tokenParam);return;}
+    }
+    renderAuth('otp',msgHtml);
   }
 }
 
 function updateHeaderUI(){
-  if(!CUSTOMER) return;
+  if(!CUSTOMER)return;
   const av=document.getElementById('hdr-avatar');
-  if(av){ av.textContent=(CUSTOMER.name||'?')[0].toUpperCase(); av.style.display=''; }
+  if(av){av.textContent=(CUSTOMER.name||'?')[0].toUpperCase();av.style.display='';}
   const w=document.getElementById('hdr-wallet');
-  if(w){ w.style.display=''; document.getElementById('hdr-wallet-val').textContent=fmt(CUSTOMER.wallet_inr); }
-  w?.addEventListener('click',()=>goTab('wallet'),{once:false});
+  if(w){w.style.display='';document.getElementById('hdr-wallet-val').textContent=fmt(CUSTOMER.wallet_inr);}
 }
 
-// ── Dashboard ─────────────────────────────────────────────────────────────
+// ── Dashboard ─────────────────────────────────────────────────────────────────
 async function renderDashboard(){
   const main=document.getElementById('portal-main');
   main.innerHTML=`<div class="spinner"></div>`;
   try{
-    [ORDERS,TXNS] = await Promise.all([api('/orders'),api('/wallet/transactions')]);
+    [ORDERS,TXNS]=await Promise.all([api('/orders'),api('/wallet/transactions')]);
     const active=ORDERS.filter(o=>o.status==='delivered'&&o.expires_at&&new Date(o.expires_at)>new Date()).length;
     const totalSpent=ORDERS.filter(o=>o.status!=='cancelled').reduce((s,o)=>s+Number(o.amount_inr||0),0);
-    const expiring=ORDERS.filter(o=>o.status==='delivered'&&o.expires_at){
-      const d=new Date(o.expires_at)-new Date(); return d>0&&d<7*86400000;
-    });
-
+    const expiring=ORDERS.filter(o=>{if(o.status!=='delivered'||!o.expires_at)return false;const d=new Date(o.expires_at)-new Date();return d>0&&d<7*86400000;});
     main.innerHTML=`
-${STORE.announcement?`<div class="announcement">📢 ${esc(STORE.announcement)}</div>`:''}
-${expiring.length?`<div class="expiry-alert">⚠️ ${expiring.length} subscription${expiring.length>1?'s':''} expiring within 7 days!</div>`:''}
-<div class="stat-cards">
-  <div class="card stat-card"><div class="stat-icon">💰</div><div class="stat-label">Wallet</div><div class="stat-value grad-text">${fmt(CUSTOMER.wallet_inr)}</div></div>
-  <div class="card stat-card"><div class="stat-icon">▶️</div><div class="stat-label">Active</div><div class="stat-value grad-text">${active}</div></div>
-  <div class="card stat-card"><div class="stat-icon">📦</div><div class="stat-label">Orders</div><div class="stat-value grad-text">${ORDERS.length}</div></div>
-  <div class="card stat-card"><div class="stat-icon">💸</div><div class="stat-label">Spent</div><div class="stat-value grad-text">${fmt(totalSpent)}</div></div>
+${STORE.announcement?`<div class="alert alert-info" style="margin-bottom:1rem">📢 ${esc(STORE.announcement)}</div>`:''}
+${expiring.length?`<div class="alert alert-warn" style="margin-bottom:1rem">⚠️ ${expiring.length} subscription${expiring.length>1?'s':''} expiring within 7 days! <span style="cursor:pointer;color:var(--blue)" onclick="goTab('orders')">View →</span></div>`:''}
+<div class="my-stat-cards">
+  <div class="card my-stat-card"><div class="my-stat-icon">💰</div><div class="my-stat-label">Wallet</div><div class="my-stat-val">${fmt(CUSTOMER.wallet_inr)}</div></div>
+  <div class="card my-stat-card"><div class="my-stat-icon">▶️</div><div class="my-stat-label">Active</div><div class="my-stat-val">${active}</div></div>
+  <div class="card my-stat-card"><div class="my-stat-icon">📦</div><div class="my-stat-label">Orders</div><div class="my-stat-val">${ORDERS.length}</div></div>
+  <div class="card my-stat-card"><div class="my-stat-icon">💸</div><div class="my-stat-label">Spent</div><div class="my-stat-val">${fmt(totalSpent)}</div></div>
 </div>
-<div class="quick-actions">
-  <div class="qa-tile" onclick="goTab('plans')"><div class="qa-icon">🎬</div><div class="qa-label">Browse Plans</div></div>
-  <div class="qa-tile" onclick="goTab('orders')"><div class="qa-icon">📦</div><div class="qa-label">My Orders</div></div>
-  <div class="qa-tile" onclick="goTab('wallet')"><div class="qa-icon">💳</div><div class="qa-label">Top Up</div></div>
-  <div class="qa-tile" onclick="goTab('support')"><div class="qa-icon">🎧</div><div class="qa-label">Support</div></div>
+<div class="my-qa">
+  <div class="my-qa-tile" onclick="goTab('plans')"><div class="my-qa-icon">🎬</div><div class="my-qa-lbl">Browse Plans</div></div>
+  <div class="my-qa-tile" onclick="goTab('orders')"><div class="my-qa-icon">📦</div><div class="my-qa-lbl">My Orders</div></div>
+  <div class="my-qa-tile" onclick="goTab('wallet')"><div class="my-qa-icon">💳</div><div class="my-qa-lbl">Top Up</div></div>
+  <div class="my-qa-tile" onclick="goTab('support')"><div class="my-qa-icon">🎧</div><div class="my-qa-lbl">Support</div></div>
 </div>
 <h3 style="font-weight:700;margin-bottom:.75rem">Recent Orders</h3>
-${ORDERS.slice(0,5).map(orderItem).join('') || '<p class="muted">No orders yet. <span style="color:var(--blue);cursor:pointer" onclick="goTab(\'plans\')">Browse plans →</span></p>'}
-`;
-  }catch(e){ main.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+${ORDERS.slice(0,5).map(orderItem).join('')||'<p style="color:var(--muted)">No orders yet. <span style="color:var(--blue);cursor:pointer" onclick="goTab(\'plans\')">Browse plans →</span></p>'}`;
+    showProfileBanner();
+  }catch(e){main.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`;}
 }
 
-// ── Plans ─────────────────────────────────────────────────────────────────
+// ── Plans ─────────────────────────────────────────────────────────────────────
 async function renderPlans(){
   const main=document.getElementById('portal-main');
   main.innerHTML=`<div class="spinner"></div>`;
@@ -547,15 +872,15 @@ async function renderPlans(){
     function renderFiltered(){
       const filtered=activePlat?ALL_PLANS.filter(p=>p.platform===activePlat):ALL_PLANS;
       document.getElementById('plans-content').innerHTML=filtered.length
-        ?`<div class="portal-plans-grid">${filtered.map(portalPlanCard).join('')}</div>`
-        :'<p class="muted">No plans available.</p>';
-      bindPlanBuyBtns();
+        ?`<div class="my-plans-grid">${filtered.map(portalPlanCard).join('')}</div>`
+        :'<p style="color:var(--muted)">No plans available.</p>';
+      bindPlanBtns();
     }
     const platforms=[...new Set(ALL_PLANS.map(p=>p.platform))];
     main.innerHTML=`
 <h2 style="font-weight:800;margin-bottom:1rem">OTT Plans</h2>
-<div class="portal-platform-chips">
-  <button class="platform-chip active" data-plat="">All</button>
+<div class="my-plat-chips">
+  <button class="platform-chip active" data-plat="">All Platforms</button>
   ${platforms.map(p=>`<button class="platform-chip" data-plat="${esc(p)}">${PLATFORM_ICONS[p]||'📺'} ${esc(p)}</button>`).join('')}
 </div>
 <div id="plans-content"></div>`;
@@ -565,76 +890,82 @@ async function renderPlans(){
       renderFiltered();
     }));
     renderFiltered();
-  }catch(e){ main.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+  }catch(e){main.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`;}
 }
 
 function portalPlanCard(p){
   const features=Array.isArray(p.features)?p.features:[];
   const origPrice=p.original_price_inr&&p.original_price_inr>p.price_inr
-    ?`<span style="font-size:.8rem;color:var(--muted);text-decoration:line-through">₹${Number(p.original_price_inr).toLocaleString('en-IN')}</span>`:'';
+    ?`<span class="my-plan-orig">₹${Number(p.original_price_inr).toLocaleString('en-IN')}</span>`:'';
   const out=p.stock===0;
-  return `<div class="plan-card${out?' stock-out':''}">
-${p.badge?`<span class="plan-badge ${badgeClass(p.badge)}">${p.badge}</span>`:''}
-<div class="plan-platform">${PLATFORM_ICONS[p.platform]||'📺'} ${esc(p.platform)}</div>
-<div class="plan-name">${esc(p.name)}</div>
-<div class="plan-duration">⏱ ${p.duration_days?p.duration_days+' days':'Lifetime'}</div>
-<div class="plan-price-row"><span class="plan-price grad-text">₹${Number(p.price_inr).toLocaleString('en-IN')}</span>${origPrice}</div>
-${features.length?`<ul class="plan-features">${features.slice(0,4).map(f=>`<li>${esc(f)}</li>`).join('')}</ul>`:''}
-<div class="plan-buy-btn"><button class="btn btn-primary btn-block buy-plan-btn" data-id="${p.id}" data-price="${p.price_inr}" data-name="${esc(p.name)}" ${out?'disabled':''}>
-${out?'🔴 Out of Stock':'🛒 Buy — ₹'+Number(p.price_inr).toLocaleString('en-IN')}
-</button></div>
+  const color=PLATFORM_COLORS[p.platform]||'linear-gradient(135deg,#6366f1,#8b5cf6)';
+  const isGrad=color.includes('gradient');
+  const headerStyle=isGrad?`background:${color}`:`background:${color}`;
+  const dur=p.duration_days>=365?`${Math.round(p.duration_days/365)} Year`:p.duration_days>=30?`${Math.round(p.duration_days/30)} Month`:`${p.duration_days} Days`;
+  return `<div class="my-plan-card${p.badge?' featured':''}${out?' stock-out':''}">
+<div class="my-plan-card-hdr"></div>
+${p.image_url?`<img class="my-plan-img" src="${esc(p.image_url)}" alt="${esc(p.platform)}" loading="lazy" onerror="this.style.display='none'">`
+  :`<div style="height:52px;border-radius:8px;${headerStyle};display:flex;align-items:center;justify-content:center;font-size:1.5rem;margin-bottom:.25rem;opacity:.85">${PLATFORM_ICONS[p.platform]||'📺'}</div>`}
+<div class="my-plan-plat-row">
+  <span class="my-plan-plat">${esc(p.platform)}</span>
+  ${p.badge?`<span class="my-plan-badge">${esc(p.badge)}</span>`:''}
+</div>
+<div class="my-plan-name">${esc(p.name)}</div>
+<div class="my-plan-dur">⏱ ${dur} validity</div>
+<div class="my-plan-price-row">
+  <span class="my-plan-price">₹${Number(p.price_inr).toLocaleString('en-IN')}</span>
+  ${origPrice}
+</div>
+${p.delivery_type==='instant'?'<div class="my-plan-del">⚡ Instant Delivery</div>':''}
+${features.length?`<ul class="my-plan-feats">${features.slice(0,4).map(f=>`<li>${esc(f)}</li>`).join('')}</ul>`:''}
+<div style="margin-top:auto;padding-top:.75rem">
+  <button class="btn btn-primary btn-block buy-plan-btn" data-id="${p.id}" data-price="${p.price_inr}" data-name="${esc(p.name)}" ${out?'disabled':''}>
+    ${out?'🔴 Out of Stock':'🛒 Buy — ₹'+Number(p.price_inr).toLocaleString('en-IN')}
+  </button>
+</div>
 </div>`;
 }
 
-function bindPlanBuyBtns(){
+function bindPlanBtns(){
   document.querySelectorAll('.buy-plan-btn').forEach(btn=>{
-    btn.addEventListener('click',()=>confirmBuy(btn.dataset.id, btn.dataset.name, btn.dataset.price));
+    btn.addEventListener('click',()=>confirmBuy(btn.dataset.id,btn.dataset.name,btn.dataset.price));
   });
 }
 
-function confirmBuy(planId, planName, price){
+function confirmBuy(planId,planName,price){
   const balance=Number(CUSTOMER?.wallet_inr||0);
   const cost=Number(price);
   const enough=balance>=cost;
   const ov=openModal(`
 <div class="modal-header"><h3>Confirm Purchase</h3><button class="btn-icon" data-close>✕</button></div>
 <div class="modal-body">
-  ${!enough?`<div class="alert alert-warn">⚠️ Insufficient balance. You need ${fmt(cost)}, you have ${fmt(balance)}. <span style="color:var(--blue);cursor:pointer" onclick="closeModalAndGo()">Top up wallet →</span></div>`:''}
+  ${!enough?`<div class="alert alert-warn">⚠️ Insufficient balance. You need ${fmt(cost)}, have ${fmt(balance)}. <span style="color:var(--blue);cursor:pointer" onclick="window._closeAndWallet()">Top up wallet →</span></div>`:''}
   <div style="background:var(--input-bg);border-radius:var(--radius-sm);padding:1rem">
     <div style="font-size:.8rem;color:var(--muted)">Plan</div>
     <div style="font-weight:700">${esc(planName)}</div>
     <div style="font-size:1.3rem;font-weight:800;margin-top:.5rem" class="grad-text">${fmt(cost)}</div>
   </div>
-  <p style="font-size:.8rem;color:var(--muted)">Amount will be deducted from your wallet balance.</p>
+  <p style="font-size:.8rem;color:var(--muted);margin-top:.5rem">Amount will be deducted from your wallet balance.</p>
 </div>
 <div class="modal-footer">
   <button class="btn btn-secondary" data-close>Cancel</button>
   <button class="btn btn-primary" id="confirm-buy-btn" ${!enough?'disabled':''}>Confirm Purchase</button>
 </div>`);
-  window.closeModalAndGo=()=>{ ov.remove(); goTab('wallet'); };
+  window._closeAndWallet=()=>{ov.remove();goTab('wallet');};
   document.getElementById('confirm-buy-btn')?.addEventListener('click',async()=>{
     const btn=document.getElementById('confirm-buy-btn');
-    btn.disabled=true; btn.textContent='Processing...';
+    setLoading(btn,true,'Processing...');
     try{
-      const r=await api('/orders',{method:'POST',body:JSON.stringify({plan_id:Number(planId)})});
+      await api('/orders',{method:'POST',body:JSON.stringify({plan_id:Number(planId)})});
       ov.remove();
-      // refresh wallet
-      const me=await api('/me');
-      CUSTOMER=me; updateHeaderUI();
+      CUSTOMER=await api('/me');updateHeaderUI();
       showToast('Order placed! Check Orders tab.','success');
       goTab('orders');
-    }catch(e){ btn.disabled=false; btn.textContent='Confirm Purchase'; showToast(e.message,'error'); }
+    }catch(e){setLoading(btn,false);showToast(e.message,'error');}
   });
 }
 
-function badgeClass(b){
-  const l=(b||'').toLowerCase();
-  if(l.includes('popular')) return 'badge-popular';
-  if(l.includes('best')||l.includes('value')) return 'badge-best';
-  return 'badge-new';
-}
-
-// ── Orders ────────────────────────────────────────────────────────────────
+// ── Orders ─────────────────────────────────────────────────────────────────────
 async function renderOrders(){
   const main=document.getElementById('portal-main');
   main.innerHTML=`<div class="spinner"></div>`;
@@ -645,20 +976,20 @@ ${ORDERS.length?ORDERS.map(orderItem).join(''):'<div class="card text-center" st
     main.querySelectorAll('.view-creds-btn').forEach(btn=>{
       btn.addEventListener('click',()=>viewCredentials(btn.dataset.id));
     });
-  }catch(e){ main.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+  }catch(e){main.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`;}
 }
 
 function orderItem(o){
   const icon=PLATFORM_ICONS[o.platform]||'📺';
-  return `<div class="order-item">
-<div class="order-platform-icon">${icon}</div>
-<div class="order-info">
-  <div class="order-name">${esc(o.plan_name||'Plan')}</div>
-  <div class="order-meta">${fmtDate(o.created_at)} ${o.expires_at?'· Exp: '+fmtDate(o.expires_at):''}</div>
+  return `<div class="my-order">
+<div class="my-order-icon">${icon}</div>
+<div class="my-order-info">
+  <div class="my-order-name">${esc(o.plan_name||'Plan')}</div>
+  <div class="my-order-meta">${fmtDate(o.created_at)}${o.expires_at?' · Exp: '+fmtDate(o.expires_at):''}</div>
 </div>
-<div class="order-right">
+<div class="my-order-right">
   ${statusBadge(o.status)}
-  <div class="order-amount">${fmt(o.amount_inr)}</div>
+  <div class="my-order-amt">${fmt(o.amount_inr)}</div>
   ${o.status==='delivered'?`<button class="btn btn-sm btn-secondary view-creds-btn" data-id="${o.id}">🔑 Credentials</button>`:''}
 </div>
 </div>`;
@@ -669,29 +1000,29 @@ async function viewCredentials(orderId){
     const o=await api(`/orders/${orderId}`);
     const c=o.credentials||{};
     const rows=Object.entries(c).filter(([k])=>k!=='').map(([k,v])=>`
-<div class="cred-row">
-  <span class="cred-label">${esc(k)}</span>
-  <span class="cred-value" id="cv-${esc(k)}">${esc(v)}</span>
-  <button class="btn btn-secondary btn-sm copy-btn" onclick="copyVal('cv-${esc(k)}','${esc(k)}')">Copy</button>
+<div class="my-cred-row">
+  <span class="my-cred-label">${esc(k)}</span>
+  <span class="my-cred-val" id="cv-${esc(k)}">${esc(v)}</span>
+  <button class="btn btn-secondary btn-sm" onclick="copyVal('cv-${esc(k)}','${esc(k)}')">Copy</button>
 </div>`).join('');
     openModal(`
 <div class="modal-header"><h3>🔑 Credentials</h3><button class="btn-icon" data-close>✕</button></div>
 <div class="modal-body">
-  <div class="creds-box">${rows||'<p class="muted">No credentials yet.</p>'}</div>
-  ${o.delivery_note?`<div class="alert alert-info">📝 ${esc(o.delivery_note)}</div>`:''}
-  ${o.expires_at?`<p class="muted" style="font-size:.8rem">Expires: ${fmtDate(o.expires_at)}</p>`:''}
+  <div class="my-creds-box">${rows||'<p style="color:var(--muted)">No credentials yet.</p>'}</div>
+  ${o.delivery_note?`<div class="alert alert-info" style="margin-top:.75rem">📝 ${esc(o.delivery_note)}</div>`:''}
+  ${o.expires_at?`<p style="font-size:.8rem;color:var(--muted);margin-top:.5rem">Expires: ${fmtDate(o.expires_at)}</p>`:''}
 </div>
 <div class="modal-footer"><button class="btn btn-secondary" data-close>Close</button></div>`);
-  }catch(e){ showToast(e.message,'error'); }
+  }catch(e){showToast(e.message,'error');}
 }
 
 window.copyVal=function(elId,label){
   const el=document.getElementById(elId);
-  if(!el) return;
+  if(!el)return;
   navigator.clipboard.writeText(el.textContent).then(()=>showToast(label+' copied!','success')).catch(()=>{});
 };
 
-// ── Wallet ────────────────────────────────────────────────────────────────
+// ── Wallet ─────────────────────────────────────────────────────────────────────
 async function renderWallet(){
   const main=document.getElementById('portal-main');
   main.innerHTML=`<div class="spinner"></div>`;
@@ -700,79 +1031,59 @@ async function renderWallet(){
     updateHeaderUI();
     main.innerHTML=`
 <h2 style="font-weight:800;margin-bottom:1rem">Wallet</h2>
-<div class="wallet-balance-card">
-  <div class="wb-label">Available Balance</div>
-  <div class="wb-amount">${fmt(CUSTOMER.wallet_inr)}</div>
+<div class="my-wallet-card">
+  <div class="my-wallet-lbl">Available Balance</div>
+  <div class="my-wallet-amt">${fmt(CUSTOMER.wallet_inr)}</div>
 </div>
 <h3 style="font-weight:700;margin-bottom:.75rem">Add Money</h3>
-<div class="topup-methods" id="topup-methods">
-  ${STORE.razorpay_enabled==='1'?`<div class="topup-method" id="tm-razorpay" onclick="selectTopup('razorpay')">
-    <div class="topup-icon">💳</div><div class="topup-name">Card / UPI</div><div class="topup-sub">via Razorpay • Instant</div>
-  </div>`:''}
-  ${STORE.upi_manual_enabled!=='0'?`<div class="topup-method" id="tm-upi" onclick="selectTopup('upi')">
-    <div class="topup-icon">📱</div><div class="topup-name">Manual UPI</div><div class="topup-sub">Upload screenshot • Pending approval</div>
-  </div>`:''}
+<div class="my-topup-methods" id="topup-methods">
+  ${STORE.razorpay_enabled==='1'?`<div class="my-topup-m" id="tm-razorpay" onclick="selectTopup('razorpay')"><div class="my-topup-icon">💳</div><div class="my-topup-name">Card / UPI</div><div class="my-topup-sub">via Razorpay · Instant</div></div>`:''}
+  ${STORE.upi_manual_enabled!=='0'?`<div class="my-topup-m" id="tm-upi" onclick="selectTopup('upi')"><div class="my-topup-icon">📱</div><div class="my-topup-name">Manual UPI</div><div class="my-topup-sub">Screenshot · Pending approval</div></div>`:''}
 </div>
 <div id="topup-form-area"></div>
 <h3 style="font-weight:700;margin:1.5rem 0 .75rem">Transaction History</h3>
 <div class="card" style="padding:0;overflow:hidden">
-${TXNS.length?TXNS.map(txnItem).join(''):'<p class="muted text-center" style="padding:1.5rem">No transactions yet.</p>'}
+${TXNS.length?TXNS.map(txnItem).join(''):'<p style="color:var(--muted);text-align:center;padding:1.5rem">No transactions yet.</p>'}
 </div>`;
-  }catch(e){ main.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+  }catch(e){main.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`;}
 }
 
 window.selectTopup=function(type){
-  document.querySelectorAll('.topup-method').forEach(m=>m.classList.toggle('active',m.id===`tm-${type}`));
+  document.querySelectorAll('.my-topup-m').forEach(m=>m.classList.toggle('active',m.id===`tm-${type}`));
   const area=document.getElementById('topup-form-area');
-  if(type==='razorpay') renderRazorpayForm(area);
-  else if(type==='upi') renderUpiForm(area);
+  if(type==='razorpay')renderRazorpayForm(area);
+  else if(type==='upi')renderUpiForm(area);
 };
 
 function renderRazorpayForm(area){
-  area.innerHTML=`
-<div class="card mt-3">
-<h4 style="font-weight:700;margin-bottom:1rem">Pay via Razorpay</h4>
+  area.innerHTML=`<div class="card mt-3"><h4 style="font-weight:700;margin-bottom:1rem">Pay via Razorpay</h4>
 <div id="rz-err"></div>
-<div class="form-group mb-4"><label class="form-label">Amount (₹)</label>
-  <input class="form-input" id="rz-amount" type="number" min="1" max="100000" placeholder="Enter amount" value="100">
-</div>
-<button class="btn btn-primary btn-block" onclick="initiateRazorpay()">Pay Now</button>
-</div>`;
+<div class="form-group mb-4"><label class="my-lbl">Amount (₹)</label>
+  <input class="form-input" id="rz-amount" type="number" min="1" max="100000" placeholder="Enter amount" value="100"></div>
+<button class="btn btn-primary btn-block" onclick="initiateRazorpay()">Pay Now</button></div>`;
 }
 
 window.initiateRazorpay=async function(){
   const amt=Number(document.getElementById('rz-amount')?.value||0);
-  if(amt<1) return showToast('Enter valid amount','error');
+  if(amt<1)return showToast('Enter valid amount','error');
   try{
     const r=await api('/topup/razorpay',{method:'POST',body:JSON.stringify({amount:amt})});
-    const options={
-      key:r.key, amount:r.amount, currency:'INR', name:STORE.site_name||'OTT Store',
-      description:'Wallet Top Up',
-      order_id:r.order_id,
-      handler:async function(resp){
-        try{
-          await api('/topup/razorpay/verify',{method:'POST',body:JSON.stringify(resp)});
-          showToast('Wallet topped up!','success');
-          renderWallet();
-        }catch(e){ showToast(e.message,'error'); }
-      },
-      theme:{color:'#6366f1'},
-    };
+    const options={key:r.key,amount:r.amount,currency:'INR',name:STORE.site_name||'OTT Store',description:'Wallet Top Up',order_id:r.order_id,
+      handler:async function(resp){try{await api('/topup/razorpay/verify',{method:'POST',body:JSON.stringify(resp)});showToast('Wallet topped up!','success');renderWallet();}catch(e){showToast(e.message,'error');}},
+      theme:{color:'#6366f1'}};
     new Razorpay(options).open();
-  }catch(e){ showToast(e.message,'error'); }
+  }catch(e){showToast(e.message,'error');}
 };
 
 function renderUpiForm(area){
-  const upiId=STORE.upi_id||''; const upiName=STORE.upi_name||'Store';
-  area.innerHTML=`
-<div class="card mt-3">
-<h4 style="font-weight:700;margin-bottom:.75rem">Manual UPI Payment</h4>
+  const upiId=STORE.upi_id||'';const upiName=STORE.upi_name||'Store';
+  area.innerHTML=`<div class="card mt-3"><h4 style="font-weight:700;margin-bottom:.75rem">Manual UPI Payment</h4>
 ${upiId?`<div class="alert alert-info">Send to UPI ID: <strong>${esc(upiId)}</strong> (${esc(upiName)})</div>`:''}
 <form id="upi-form" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:.9rem">
 <div id="upi-err"></div>
-<div class="form-group"><label class="form-label">Amount (₹)</label><input class="form-input" name="amount" type="number" min="1" required placeholder="Amount you paid"></div>
-<div class="form-group"><label class="form-label">UTR / Reference Number</label><input class="form-input" name="reference" placeholder="Transaction reference"></div>
-<div class="form-group"><label class="form-label">Screenshot (optional)</label><input class="form-input" name="screenshot" type="file" accept="image/*"></div>
+<div class="form-group"><label class="my-lbl">Amount (₹)</label><input class="form-input" name="amount" type="number" min="1" required placeholder="Amount you paid"></div>
+<div class="form-group"><label class="my-lbl">UTR / Reference Number</label><input class="form-input" name="reference" placeholder="Transaction reference"></div>
+<div class="form-group"><label class="my-lbl">Screenshot (optional)</label><input class="form-input" name="screenshot" type="file" accept="image/*"></div>
 <button type="submit" class="btn btn-primary btn-block">Submit for Approval</button>
 </form></div>`;
   document.getElementById('upi-form').onsubmit=async e=>{
@@ -781,46 +1092,47 @@ ${upiId?`<div class="alert alert-info">Send to UPI ID: <strong>${esc(upiId)}</st
     try{
       const r=await fetch('/user/api/topup/upi',{method:'POST',credentials:'include',body:fd});
       const j=await r.json();
-      if(!r.ok) throw new Error(j.error||'Failed');
+      if(!r.ok)throw new Error(j.error||'Failed');
       showToast('Submitted! Awaiting admin approval.','success');
       renderWallet();
-    }catch(ex){ document.getElementById('upi-err').innerHTML=`<div class="alert alert-error">${esc(ex.message)}</div>`; }
+    }catch(ex){document.getElementById('upi-err').innerHTML=`<div class="alert alert-error">${esc(ex.message)}</div>`;}
   };
 }
 
 function txnItem(t){
   const pos=Number(t.amount_inr||0)>0;
-  return `<div class="txn-item">
-<div><div style="font-weight:600;font-size:.875rem">${esc(t.label||t.type)}</div><div class="muted" style="font-size:.75rem">${fmtDate(t.created_at)}</div></div>
-<div class="${pos?'txn-plus':'txn-minus'}">${pos?'+':''}${fmt(Math.abs(t.amount_inr))}</div>
+  return `<div class="my-txn">
+<div><div style="font-weight:600;font-size:.875rem">${esc(t.label||t.type)}</div><div style="color:var(--muted);font-size:.75rem">${fmtDate(t.created_at)}</div></div>
+<div class="${pos?'my-txn-pos':'my-txn-neg'}">${pos?'+':''}${fmt(Math.abs(t.amount_inr))}</div>
 </div>`;
 }
 
-// ── Support ───────────────────────────────────────────────────────────────
+// ── Support ────────────────────────────────────────────────────────────────────
 async function renderSupport(ticketId){
   const main=document.getElementById('portal-main');
   main.innerHTML=`<div class="spinner"></div>`;
   try{
     TICKETS=await api('/tickets');
-    if(ticketId) return renderTicketDetail(ticketId);
+    if(ticketId)return renderTicketDetail(ticketId);
     main.innerHTML=`
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
 <h2 style="font-weight:800">Support</h2>
 <button class="btn btn-primary btn-sm" onclick="showNewTicket()">+ New Ticket</button>
 </div>
+${STORE.support_whatsapp?`<div class="alert alert-info" style="margin-bottom:1rem">💬 Need help fast? <a href="https://wa.me/${STORE.support_whatsapp.replace(/\D/g,'')}" target="_blank" rel="noopener">Chat on WhatsApp →</a></div>`:''}
 <div id="support-content">
-${TICKETS.length?TICKETS.map(ticketItem).join(''):'<div class="card text-center" style="padding:2rem"><p class="muted">No tickets yet.</p></div>'}
+${TICKETS.length?TICKETS.map(ticketItem).join(''):'<div class="card text-center" style="padding:2rem"><p style="color:var(--muted)">No tickets yet.</p></div>'}
 </div>`;
-    main.querySelectorAll('.ticket-item').forEach(t=>{
+    main.querySelectorAll('.my-ticket').forEach(t=>{
       t.addEventListener('click',()=>renderTicketDetail(t.dataset.id));
     });
-  }catch(e){ main.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+  }catch(e){main.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`;}
 }
 
 function ticketItem(t){
-  return `<div class="ticket-item" data-id="${t.id}">
-<div class="ticket-subject">${esc(t.subject)}</div>
-<div class="ticket-meta">${fmtDate(t.created_at)} · ${statusBadge(t.status)}</div>
+  return `<div class="my-ticket" data-id="${t.id}">
+<div class="my-ticket-subj">${esc(t.subject)}</div>
+<div class="my-ticket-meta">${fmtDate(t.created_at)} · ${statusBadge(t.status)}</div>
 </div>`;
 }
 
@@ -829,8 +1141,8 @@ window.showNewTicket=function(){
 <div class="modal-header"><h3>New Support Ticket</h3><button class="btn-icon" data-close>✕</button></div>
 <div class="modal-body">
 <div id="nt-err"></div>
-<div class="form-group"><label class="form-label">Subject</label><input class="form-input" id="nt-subject" placeholder="Describe your issue briefly"></div>
-<div class="form-group"><label class="form-label">Message</label><textarea class="form-input" id="nt-body" rows="4" placeholder="Provide details..."></textarea></div>
+<div class="form-group"><label class="my-lbl">Subject</label><input class="form-input" id="nt-subject" placeholder="Describe your issue briefly"></div>
+<div class="form-group"><label class="my-lbl">Message</label><textarea class="form-input" id="nt-body" rows="4" placeholder="Provide details..."></textarea></div>
 </div>
 <div class="modal-footer">
 <button class="btn btn-secondary" data-close>Cancel</button>
@@ -839,13 +1151,13 @@ window.showNewTicket=function(){
   document.getElementById('submit-ticket-btn').addEventListener('click',async()=>{
     const sub=document.getElementById('nt-subject').value.trim();
     const body=document.getElementById('nt-body').value.trim();
-    if(!sub||!body) return showToast('Subject and message required','error');
+    if(!sub||!body)return showToast('Subject and message required','error');
     try{
       await api('/tickets',{method:'POST',body:JSON.stringify({subject:sub,body})});
       document.querySelector('.modal-overlay')?.remove();
       showToast('Ticket submitted!','success');
       renderSupport();
-    }catch(e){ document.getElementById('nt-err').innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+    }catch(e){document.getElementById('nt-err').innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`;}
   });
 };
 
@@ -859,28 +1171,27 @@ async function renderTicketDetail(id){
 <h2 style="font-weight:800;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.subject)}</h2>
 ${statusBadge(t.status)}
 </div>
-<div class="ticket-thread" id="ticket-thread">
-  <div class="thread-msg customer"><div class="msg-sender">You · ${fmtDate(t.created_at)}</div>${esc(t.body)}</div>
-  ${(t.replies||[]).map(r=>`<div class="thread-msg ${r.sender}"><div class="msg-sender">${r.sender==='admin'?'Support':'You'} · ${fmtDate(r.created_at)}</div>${esc(r.body)}</div>`).join('')}
+<div class="my-thread" id="ticket-thread">
+  <div class="my-thread-msg customer"><div class="my-thread-sender">You · ${fmtDate(t.created_at)}</div>${esc(t.body)}</div>
+  ${(t.replies||[]).map(r=>`<div class="my-thread-msg ${r.sender}"><div class="my-thread-sender">${r.sender==='admin'?'Support':'You'} · ${fmtDate(r.created_at)}</div>${esc(r.body)}</div>`).join('')}
 </div>
-${t.status!=='closed'?`
-<div class="card" style="padding:.9rem">
+${t.status!=='closed'?`<div class="card" style="padding:.9rem">
 <div class="form-group mb-2"><textarea class="form-input" id="reply-body" rows="3" placeholder="Write your reply..."></textarea></div>
 <button class="btn btn-primary" onclick="sendReply(${id})">Send Reply</button>
-</div>`:'<p class="muted text-center" style="padding:1rem">This ticket is closed.</p>'}`;
-  }catch(e){ main.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+</div>`:'<p style="color:var(--muted);text-align:center;padding:1rem">This ticket is closed.</p>'}`;
+  }catch(e){main.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`;}
 }
 
 window.sendReply=async function(id){
   const body=document.getElementById('reply-body')?.value.trim();
-  if(!body) return;
+  if(!body)return;
   try{
     await api(`/tickets/${id}/reply`,{method:'POST',body:JSON.stringify({body})});
     renderTicketDetail(id);
-  }catch(e){ showToast(e.message,'error'); }
+  }catch(e){showToast(e.message,'error');}
 };
 
-// ── Profile ───────────────────────────────────────────────────────────────
+// ── Profile ────────────────────────────────────────────────────────────────────
 async function renderProfile(){
   const main=document.getElementById('portal-main');
   main.innerHTML=`<div class="spinner"></div>`;
@@ -891,19 +1202,19 @@ async function renderProfile(){
 <div class="card" style="max-width:500px">
 <form id="profile-form" style="display:flex;flex-direction:column;gap:.9rem">
 <div id="pf-msg"></div>
-<div class="form-group"><label class="form-label">Full Name</label><input class="form-input" name="name" value="${esc(CUSTOMER.name||'')}" required></div>
-<div class="form-group"><label class="form-label">Email</label><input class="form-input" name="email" type="email" value="${esc(CUSTOMER.email||'')}"></div>
-<div class="form-group"><label class="form-label">Phone</label><input class="form-input" name="phone" type="tel" value="${esc(CUSTOMER.phone||'')}"></div>
+<div class="form-group"><label class="my-lbl">Full Name</label><input class="form-input" name="name" value="${esc(CUSTOMER.name||'')}" required></div>
+<div class="form-group"><label class="my-lbl">Email</label><input class="form-input" name="email" type="email" value="${esc(CUSTOMER.email||'')}"></div>
+<div class="form-group"><label class="my-lbl">WhatsApp Number</label><input class="form-input" name="phone" type="tel" value="${esc(CUSTOMER.phone||'')}"></div>
 <hr style="border-color:var(--border)">
 <p style="font-size:.875rem;font-weight:700">Change Password</p>
-<div class="form-group"><label class="form-label">Current Password</label><input class="form-input" name="current_password" type="password" placeholder="Leave blank to keep unchanged"></div>
-<div class="form-group"><label class="form-label">New Password</label><input class="form-input" name="password" type="password" placeholder="Min. 6 characters"></div>
+<div class="form-group"><label class="my-lbl">Current Password</label><input class="form-input" name="current_password" type="password" placeholder="Leave blank to keep unchanged"></div>
+<div class="form-group"><label class="my-lbl">New Password</label><input class="form-input" name="password" type="password" placeholder="Min. 6 characters"></div>
 <button type="submit" class="btn btn-primary btn-block">Save Changes</button>
 </form>
 <hr style="border-color:var(--border);margin:1rem 0">
 <div style="display:flex;gap:.75rem">
   <div style="flex:1;background:var(--input-bg);border-radius:var(--radius-sm);padding:.75rem;text-align:center">
-    <div class="muted" style="font-size:.75rem">Referral Code</div>
+    <div style="color:var(--muted);font-size:.75rem">Referral Code</div>
     <div style="font-weight:800;font-size:1.1rem;font-family:monospace">${esc(CUSTOMER.referral_code||'—')}</div>
   </div>
 </div>
@@ -915,15 +1226,15 @@ async function renderProfile(){
       const fd=new FormData(e.target);
       const msg=document.getElementById('pf-msg');
       const body={name:fd.get('name'),email:fd.get('email'),phone:fd.get('phone')};
-      if(fd.get('password')) { body.password=fd.get('password'); body.current_password=fd.get('current_password'); }
+      if(fd.get('password')){body.password=fd.get('password');body.current_password=fd.get('current_password');}
       try{
         await api('/me',{method:'PUT',body:JSON.stringify(body)});
-        CUSTOMER=await api('/me'); updateHeaderUI();
+        CUSTOMER=await api('/me');updateHeaderUI();
         msg.innerHTML='<div class="alert alert-success">Saved!</div>';
         setTimeout(()=>msg.innerHTML='',2000);
-      }catch(ex){ msg.innerHTML=`<div class="alert alert-error">${esc(ex.message)}</div>`; }
+      }catch(ex){msg.innerHTML=`<div class="alert alert-error">${esc(ex.message)}</div>`;}
     };
-  }catch(e){ main.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+  }catch(e){main.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`;}
 }
 
 window.logout=async function(){
@@ -931,35 +1242,24 @@ window.logout=async function(){
   CUSTOMER=null;
   document.getElementById('hdr-avatar').style.display='none';
   document.getElementById('hdr-wallet').style.display='none';
-  document.getElementById('tab-nav').style.display='none';
-  document.getElementById('bottom-nav').style.display='none';
-  renderAuth();
+  renderAuth('otp');
 };
 
-// ── Boot ──────────────────────────────────────────────────────────────────
+// ── Boot ──────────────────────────────────────────────────────────────────────
 initPortal();
 
 })();
 </script>
-<!-- Razorpay SDK loaded on demand -->
+
+<!-- Razorpay SDK (auto-loaded if enabled) -->
 <script>
-window.addEventListener('message', function(e) {
-  if (e.data === 'load-razorpay' && !document.getElementById('rzp-sdk')) {
-    var s = document.createElement('script');
-    s.id = 'rzp-sdk';
-    s.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    document.head.appendChild(s);
-  }
-});
-// Auto-load if Razorpay is configured
 fetch('/user/api/store').then(r=>r.json()).then(s=>{
-  if (s.razorpay_enabled === '1' && s.razorpay_key) {
-    var sc = document.createElement('script');
-    sc.id = 'rzp-sdk';
-    sc.src = 'https://checkout.razorpay.com/v1/checkout.js';
+  if(s.razorpay_enabled==='1'&&s.razorpay_key){
+    var sc=document.createElement('script');sc.id='rzp-sdk';
+    sc.src='https://checkout.razorpay.com/v1/checkout.js';
     document.head.appendChild(sc);
   }
-});
+}).catch(()=>{});
 </script>
 </body>
 </html>

@@ -204,14 +204,106 @@ app.get(['/plans', '/'], async (req, res) => {
   }
 });
 
+// ─── Shared premium page shell ────────────────────────────────────────────────
+function esc(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+const SHARED_STYLES = `
+<script>(function(){var t=localStorage.getItem('theme')||(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t);})();</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--page-bg);color:var(--text);min-height:100vh}
+body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-gradient(ellipse 80% 50% at 20% 0%,rgba(99,102,241,.08) 0%,transparent 60%),radial-gradient(ellipse 60% 40% at 80% 100%,rgba(236,72,153,.06) 0%,transparent 60%);pointer-events:none}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+/* Page nav */
+.sp-nav{position:sticky;top:0;z-index:100;background:var(--header-bg);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:.75rem 1.25rem}
+.sp-nav-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:1rem}
+.sp-logo{font-size:1.1rem;font-weight:800;color:var(--text);text-decoration:none}
+.sp-logo:hover{text-decoration:none;color:var(--grad-1)}
+.sp-links{display:flex;gap:.5rem;margin-left:auto;align-items:center}
+.sp-links a{color:var(--muted);font-size:.875rem;font-weight:600;padding:.35rem .75rem;border-radius:8px;transition:all .15s}
+.sp-links a:hover{color:var(--text);background:rgba(99,102,241,.08);text-decoration:none}
+.sp-links .sp-cta{background:linear-gradient(135deg,var(--grad-1),var(--grad-2));color:#fff;padding:.4rem .9rem;border-radius:8px}
+.sp-links .sp-cta:hover{opacity:.9;background:linear-gradient(135deg,var(--grad-1),var(--grad-2))}
+/* Page footer */
+.sp-footer{border-top:1px solid var(--border);padding:2.5rem 1.25rem;margin-top:5rem;background:var(--card)}
+.sp-footer-inner{max-width:1200px;margin:0 auto}
+.sp-footer-top{display:grid;grid-template-columns:1fr auto;gap:2rem;align-items:start;margin-bottom:1.5rem}
+.sp-footer-brand{font-weight:800;font-size:1.1rem;color:var(--text);margin-bottom:.5rem}
+.sp-footer-tagline{font-size:.82rem;color:var(--muted)}
+.sp-footer-links{display:flex;flex-wrap:wrap;gap:1.25rem}
+.sp-footer-links a{color:var(--muted);font-size:.82rem;font-weight:600;transition:color .15s}
+.sp-footer-links a:hover{color:var(--text);text-decoration:none}
+.sp-footer-bottom{font-size:.8rem;color:var(--muted);border-top:1px solid var(--border);padding-top:1.25rem;display:flex;flex-wrap:wrap;gap:.75rem;justify-content:space-between;align-items:center}
+/* Blog styles */
+.sp-main{max-width:900px;margin:0 auto;padding:2.5rem 1.25rem 5rem}
+.blog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.25rem;margin-top:1.5rem}
+.blog-card{background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:1.5rem;transition:all .2s}
+.blog-card:hover{border-color:var(--grad-1);transform:translateY(-3px);box-shadow:0 8px 24px rgba(99,102,241,.12)}
+.blog-card h2{font-size:1.05rem;font-weight:700;line-height:1.4;margin-bottom:.5rem}
+.blog-card h2 a{color:var(--text);text-decoration:none}
+.blog-card h2 a:hover{color:var(--grad-1)}
+.blog-card .bc-meta{font-size:.78rem;color:var(--muted);margin-bottom:.4rem}
+.blog-card .bc-desc{font-size:.875rem;color:var(--muted);line-height:1.5}
+.blog-post-page{max-width:760px}
+.blog-post-page h1{font-size:2rem;font-weight:800;line-height:1.25;margin-bottom:.75rem}
+.blog-post-page time{font-size:.82rem;color:var(--muted);display:block;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}
+.blog-body{line-height:1.8;font-size:.975rem}
+.blog-body h2,.blog-body h3{font-weight:700;margin:1.5rem 0 .75rem}
+.blog-body p{margin-bottom:1rem}
+/* Legal styles */
+.legal-page h1{font-size:1.8rem;font-weight:800;margin-bottom:.75rem}
+.legal-page .legal-updated{font-size:.82rem;color:var(--muted);margin-bottom:2rem}
+.legal-page .legal-body{line-height:1.85;font-size:.925rem;color:var(--text)}
+.legal-page .legal-body h2,.legal-page .legal-body h3{font-weight:700;margin:1.75rem 0 .75rem}
+.legal-page .legal-body p{margin-bottom:1rem;color:var(--muted)}
+.legal-page .legal-body ul,.legal-page .legal-body ol{padding-left:1.5rem;margin-bottom:1rem}
+.legal-page .legal-body li{margin-bottom:.35rem;color:var(--muted)}
+@media(max-width:600px){.sp-footer-top{grid-template-columns:1fr}.blog-grid{grid-template-columns:1fr}.blog-post-page h1{font-size:1.5rem}}
+</style>`;
+
+function spNav(siteName) {
+  return `<nav class="sp-nav"><div class="sp-nav-inner">
+<a href="/" class="sp-logo">${esc(siteName)}</a>
+<div class="sp-links">
+  <a href="/">Home</a><a href="/plans">Plans</a><a href="/blog">Blog</a>
+  <a href="/my" class="sp-cta">My Account</a>
+</div>
+</div></nav>`;
+}
+
+function spFooter(siteName) {
+  const yr = new Date().getFullYear();
+  return `<footer class="sp-footer"><div class="sp-footer-inner">
+<div class="sp-footer-top">
+  <div><div class="sp-footer-brand">${esc(siteName)}</div><div class="sp-footer-tagline">Premium OTT Subscriptions · Instant Delivery</div></div>
+  <div class="sp-footer-links">
+    <a href="/privacy">Privacy Policy</a>
+    <a href="/terms">Terms of Service</a>
+    <a href="/refund">Refund Policy</a>
+    <a href="/about">About Us</a>
+    <a href="/contact">Contact</a>
+    <a href="/blog">Blog</a>
+  </div>
+</div>
+<div class="sp-footer-bottom">
+  <span>© ${yr} ${esc(siteName)}. All rights reserved.</span>
+  <span>Made with ❤️ for streaming fans</span>
+</div>
+</div></footer>`;
+}
+
 // ─── Helpers: simple server-rendered pages ────────────────────────────────────
 function buildBlogPostPage(post, siteName, ogImage, baseUrl) {
   const bodyHtml = post.body
-    .replace(/\n/g, '<br>')
+    .replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>');
   const canonical = `${baseUrl}/blog/${post.slug}`;
   const pubDate = (post.created_at || '').replace(' ', 'T').split('T')[0];
+  const ldjson = JSON.stringify({ '@context':'https://schema.org','@type':'Article','headline':post.title,'datePublished':pubDate,'description':post.meta_desc||'','url':canonical });
   return `<!DOCTYPE html><html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -222,28 +314,31 @@ function buildBlogPostPage(post, siteName, ogImage, baseUrl) {
 ${ogImage ? `<meta property="og:image" content="${esc(ogImage)}">` : ''}
 <link rel="canonical" href="${esc(canonical)}">
 <link rel="stylesheet" href="/style.css">
-<script type="application/ld+json">${JSON.stringify({ "@context":"https://schema.org","@type":"Article","headline":post.title,"datePublished":pubDate,"description":post.meta_desc||"","url":canonical })}</script>
+${SHARED_STYLES}
+<script type="application/ld+json">${ldjson}</script>
 </head>
 <body>
-<header class="site-header"><div class="container"><a href="/" class="logo-link">${esc(siteName)}</a><nav><a href="/plans">Plans</a><a href="/blog">Blog</a><a href="/my">My Account</a></nav></div></header>
-<main class="blog-post-page container">
-<article>
+${spNav(siteName)}
+<main class="sp-main">
+<div class="blog-post-page">
 <h1>${esc(post.title)}</h1>
 <time datetime="${pubDate}">${pubDate}</time>
-<div class="blog-body">${bodyHtml}</div>
-</article>
-<p><a href="/blog">← Back to Blog</a></p>
+<div class="blog-body"><p>${bodyHtml}</p></div>
+<p style="margin-top:2rem"><a href="/blog" style="color:var(--muted);font-size:.875rem">← Back to Blog</a></p>
+</div>
 </main>
-<footer class="site-footer"><div class="container"><p>© ${new Date().getFullYear()} ${esc(siteName)}</p></div></footer>
+${spFooter(siteName)}
 </body></html>`;
 }
 
 function buildBlogIndexPage(posts, siteName, seoDesc, baseUrl) {
   const items = posts.map(p => {
     const d = (p.created_at || '').replace(' ', 'T').split('T')[0];
-    return `<article class="blog-card"><h2><a href="/blog/${esc(p.slug)}">${esc(p.title)}</a></h2>
-     <p class="muted">${d}</p>
-     <p>${esc(p.meta_desc || '')}</p></article>`;
+    return `<article class="blog-card">
+<div class="bc-meta">${d}</div>
+<h2><a href="/blog/${esc(p.slug)}">${esc(p.title)}</a></h2>
+<div class="bc-desc">${esc(p.meta_desc || '')}</div>
+</article>`;
   }).join('');
   const desc = seoDesc || `Read the latest articles and guides from ${siteName}.`;
   return `<!DOCTYPE html><html lang="en">
@@ -251,27 +346,38 @@ function buildBlogIndexPage(posts, siteName, seoDesc, baseUrl) {
 <title>Blog — ${esc(siteName)}</title>
 <meta name="description" content="${esc(desc)}">
 <link rel="canonical" href="${esc(baseUrl)}/blog">
-<link rel="stylesheet" href="/style.css"></head>
+<link rel="stylesheet" href="/style.css">
+${SHARED_STYLES}
+</head>
 <body>
-<header class="site-header"><div class="container"><a href="/" class="logo-link">${esc(siteName)}</a><nav><a href="/plans">Plans</a><a href="/blog">Blog</a><a href="/my">My Account</a></nav></div></header>
-<main class="container"><h1>Blog</h1><div class="blog-grid">${items || '<p>No posts yet.</p>'}</div></main>
-<footer class="site-footer"><div class="container"><p>© ${new Date().getFullYear()} ${esc(siteName)}</p></div></footer>
+${spNav(siteName)}
+<main class="sp-main">
+<h1 style="font-size:2rem;font-weight:800;margin-bottom:.5rem">Blog</h1>
+<p style="color:var(--muted);font-size:.9rem;margin-bottom:0">${esc(desc)}</p>
+<div class="blog-grid">${items || '<p style="color:var(--muted);padding:2rem 0">No posts yet. Check back soon!</p>'}</div>
+</main>
+${spFooter(siteName)}
 </body></html>`;
 }
 
 function buildSimplePage(name, siteName) {
-  const titles = { about: 'About Us', contact: 'Contact', privacy: 'Privacy Policy', terms: 'Terms of Service', refund: 'Refund Policy' };
+  const titles = { about:'About Us', contact:'Contact', privacy:'Privacy Policy', terms:'Terms of Service', refund:'Refund Policy' };
   const title = titles[name] || name;
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${title} — ${esc(siteName)}</title><link rel="stylesheet" href="/style.css"></head>
-<body><header class="site-header"><div class="container"><a href="/" class="logo-link">${esc(siteName)}</a></div></header>
-<main class="container"><h1>${title}</h1><p>Content coming soon.</p></main>
-<footer class="site-footer"><div class="container"><p>© ${new Date().getFullYear()} ${esc(siteName)}</p></div></footer>
+<title>${esc(title)} — ${esc(siteName)}</title>
+<link rel="stylesheet" href="/style.css">
+${SHARED_STYLES}
+</head>
+<body>
+${spNav(siteName)}
+<main class="sp-main">
+<div class="legal-page">
+<h1>${esc(title)}</h1>
+<div class="legal-body"><p>Content coming soon. Please check back later.</p></div>
+</div>
+</main>
+${spFooter(siteName)}
 </body></html>`;
-}
-
-function esc(s) {
-  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 // ─── Start ────────────────────────────────────────────────────────────────────
@@ -281,13 +387,19 @@ function buildLegalPage(page, siteName) {
 <title>${esc(page.title)} — ${esc(siteName)}</title>
 <meta name="description" content="${esc(page.title)} for ${esc(siteName)}">
 <link rel="canonical" href="${esc(baseUrl)}/${page.slug}">
-<link rel="stylesheet" href="/style.css"></head>
-<body><header class="site-header"><div class="container"><a href="/" class="logo-link">${esc(siteName)}</a><nav><a href="/plans">Plans</a><a href="/my">My Account</a></nav></div></header>
-<main class="container" style="max-width:800px;padding:2rem 20px">
+<link rel="stylesheet" href="/style.css">
+${SHARED_STYLES}
+</head>
+<body>
+${spNav(siteName)}
+<main class="sp-main">
+<div class="legal-page">
 <h1>${esc(page.title)}</h1>
-<div style="line-height:1.8;margin-top:1.5rem">${page.body || ''}</div>
+<div class="legal-updated">Last updated: ${(page.updated_at||'').split(' ')[0] || 'N/A'}</div>
+<div class="legal-body">${page.body || '<p>Content coming soon.</p>'}</div>
+</div>
 </main>
-<footer class="site-footer"><div class="container"><p>© ${new Date().getFullYear()} ${esc(siteName)}</p></div></footer>
+${spFooter(siteName)}
 </body></html>`;
 }
 
