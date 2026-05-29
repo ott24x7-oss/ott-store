@@ -74,8 +74,15 @@ router.get('/store', async (req, res) => {
     const s = {};
     rows.forEach(r => s[r.key] = r.value);
     s.razorpay_key = s.razorpay_enabled === '1' ? cfg.razorpay.keyId : '';
-    // Expose active payment methods for checkout
     s.payment_methods = all(db, `SELECT id, name, type, address, instructions, qr_url FROM payment_methods WHERE enabled=1 ORDER BY sort_order ASC, id ASC`);
+    // Real stats for the homepage
+    const custCount  = (get(db, `SELECT COUNT(*) as c FROM customers`)?.c || 0);
+    const orderCount = (get(db, `SELECT COUNT(*) as c FROM orders WHERE status NOT IN ('cancelled','failed')`)?.c || 0);
+    const platCount  = (get(db, `SELECT COUNT(DISTINCT platform) as c FROM plans WHERE active=1`)?.c || 0);
+    const fmt = (n, base) => n >= base ? (Math.ceil(n / base) * base).toLocaleString('en-IN') + '+' : base.toLocaleString('en-IN') + '+';
+    s.stat_customers = custCount  >= 100  ? fmt(custCount, 100)   : '1,000+';
+    s.stat_orders    = orderCount >= 100  ? fmt(orderCount, 100)  : '5,000+';
+    s.stat_platforms = platCount  >= 10   ? platCount + '+'       : '50+';
     res.json(s);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

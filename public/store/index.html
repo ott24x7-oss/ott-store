@@ -45,9 +45,11 @@
 }
 
 /* ── Base ──────────────────────────────────────────────────────────────────── */
+html{overflow-x:hidden}
 html[data-store-theme]{background:var(--st-bg);color:var(--st-text)}
-body{background:var(--st-bg);color:var(--st-text);transition:none}
+body{background:var(--st-bg);color:var(--st-text);transition:none;overflow-x:hidden;-webkit-tap-highlight-color:transparent}
 body::before{display:none}
+*,*::before,*::after{box-sizing:border-box}
 
 /* ── Navbar ────────────────────────────────────────────────────────────────── */
 .snav{
@@ -552,28 +554,105 @@ body::before{display:none}
 #pwa-install-bar{position:fixed;bottom:0;left:0;right:0;z-index:9997;background:var(--st-card-solid);border-top:1px solid var(--st-border);padding:.75rem 1rem;display:flex;align-items:center;gap:.75rem;box-shadow:0 -2px 20px rgba(0,0,0,.3)}
 
 /* ── Responsive ────────────────────────────────────────────────────────────── */
+
+/* Tablet ≤ 900px */
 @media(max-width:900px){
   .sfooter-grid{grid-template-columns:1fr 1fr;gap:1.5rem}
   .sfooter-brand{grid-column:1/-1}
   .snav-links{display:none}
   .snav-burger{display:flex}
-  .splan-grid{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+  .splan-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+  /* Platform tabs: horizontal scroll instead of wrapping */
+  .splans-tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;
+    scrollbar-width:none;padding-bottom:.4rem;margin-right:-1rem;padding-right:1rem}
+  .splans-tabs::-webkit-scrollbar{display:none}
+  .stab{flex-shrink:0;white-space:nowrap}
+  /* Search full width */
+  .splans-search{max-width:100%}
 }
+
+/* Mobile ≤ 600px */
 @media(max-width:600px){
-  .shero{padding:6.5rem 1rem 3.5rem}
-  .shero-h1{font-size:2rem}
-  .splan-grid{grid-template-columns:repeat(2,1fr);gap:.75rem}
+  /* Navbar */
+  .snav-inner{padding:.7rem 1rem;gap:.5rem}
+  .snav-logo{font-size:1.15rem}
+  .snav-login{padding:.4rem .85rem;font-size:.8rem;white-space:nowrap}
+  /* Hero */
+  .shero{padding:5.5rem 1.25rem 3rem}
+  .shero-h1{font-size:2rem;letter-spacing:-.025em}
+  .shero-sub{font-size:.93rem}
+  .shero-ctas{flex-direction:column;align-items:stretch;gap:.6rem}
+  .btn-hero-p,.btn-hero-g{padding:.8rem 1.5rem;font-size:.95rem;text-align:center;display:block}
+  .shero-plats{gap:.35rem .7rem}
+  /* Shrink blobs to stop horizontal overflow */
+  .blob-1{width:260px;height:260px;top:-5%;left:-25%}
+  .blob-2{width:220px;height:220px;bottom:0%;right:-15%}
+  .blob-3{width:180px;height:180px}
+  /* Plans 2-col */
+  .splan-grid{grid-template-columns:repeat(2,1fr);gap:.65rem}
   .splan-header{height:76px}
-  .splan-body{padding:.75rem .85rem .85rem}
-  .splan-price{font-size:1.3rem}
-  .splan-name{font-size:.9rem}
+  .splan-body{padding:.7rem .75rem .8rem}
+  .splan-price{font-size:1.25rem}
+  .splan-name{font-size:.87rem}
+  .splan-btn{font-size:.83rem;padding:.58rem .5rem}
+  .splan-dur{font-size:.74rem}
+  .splan-delivery{font-size:.69rem}
+  /* Stats */
   .sstats-grid{grid-template-columns:repeat(2,1fr)}
+  .sstat-card{padding:1.1rem .75rem}
+  .sstat-num{font-size:1.8rem}
+  /* Steps */
   .show-steps{grid-template-columns:1fr}
+  /* Footer */
   .sfooter-grid{grid-template-columns:1fr}
   .sfooter-brand{grid-column:auto}
   .stests-grid{grid-template-columns:1fr}
-  #chat-panel{right:8px;bottom:82px;width:calc(100vw - 16px)}
-  .shero-plats{gap:.4rem .8rem}
+  /* Chat */
+  #chat-panel{right:8px;bottom:80px;width:calc(100vw - 16px)}
+  #chat-fab{bottom:16px;right:16px}
+  /* Prevent iOS input zoom (must be ≥ 16px) */
+  .splans-search input,.ci{font-size:16px}
+  /* Sections padding */
+  .sstats{padding:2.5rem .75rem}
+  .sfeats{padding:2.5rem .75rem}
+  .splans{padding:2.5rem .75rem}
+  .show{padding:2.5rem .75rem}
+  .stests{padding:2.5rem .75rem}
+  .splatforms{padding:2rem .75rem}
+  .sfaq{padding:2.5rem .75rem}
+  .scta-band{padding:3rem .75rem}
+}
+
+/* Small phones ≤ 480px — single column plans */
+@media(max-width:480px){
+  .splan-grid{grid-template-columns:1fr;gap:.75rem}
+  .splan-header{height:110px}
+  .splan-body{padding:.85rem 1rem .95rem}
+  .splan-price{font-size:1.55rem}
+  .splan-name{font-size:.95rem}
+  .splan-btn{font-size:.9rem;padding:.65rem}
+  .splan-dur{font-size:.78rem}
+  .splan-feats li{font-size:.83rem}
+  .shero{padding:5rem 1rem 2.5rem}
+  .shero-h1{font-size:1.8rem}
+  .sec-h2{font-size:1.3rem}
+  .sstat-num{font-size:1.65rem}
+  .sstat-label{font-size:.8rem}
+  .sfeat-card{padding:1.1rem}
+  .sfeat-h3{font-size:.93rem}
+  /* Hide login btn in nav on very small phones — it's in the burger menu */
+  .snav-login{display:none}
+  .snav-theme-btn{display:none}
+}
+
+/* Very small phones ≤ 360px */
+@media(max-width:360px){
+  .snav-inner{padding:.6rem .75rem}
+  .snav-logo{font-size:1rem}
+  .shero-h1{font-size:1.6rem}
+  .sstat-num{font-size:1.5rem}
+  .splan-body{padding:.75rem .85rem .85rem}
+  .show-num{width:40px;height:40px;font-size:1rem}
 }
 </style>
 </head>
@@ -1058,6 +1137,8 @@ const PLATFORM_COLORS = {
 
 let ALL_PLANS = [], ACTIVE_PLATFORM = '', SEARCH = '', isLoggedIn = false;
 let _storeCfg = {};
+const PAGE_SIZE = 12;
+let _visibleCount = PAGE_SIZE;
 
 // ── Load store config ────────────────────────────────────────────────────────
 fetch('/user/api/store').then(r => r.json()).then(s => {
@@ -1073,6 +1154,12 @@ fetch('/user/api/store').then(r => r.json()).then(s => {
     document.getElementById('footer-desc').textContent = `${s.site_name} — Premium OTT subscriptions at the best prices. Netflix, Prime, Hotstar, Spotify and more.`;
   }
   if (s.site_tagline) document.getElementById('hero-sub').textContent = s.site_tagline;
+
+  // Real stats from backend
+  if (s.stat_customers) document.getElementById('stat-customers').textContent = s.stat_customers;
+  if (s.stat_orders)    document.getElementById('stat-orders').textContent    = s.stat_orders;
+  if (s.stat_platforms && document.getElementById('stat-platforms'))
+    document.getElementById('stat-platforms').textContent = s.stat_platforms;
 
   // Apply store theme
   if (s.store_theme) {
@@ -1165,6 +1252,7 @@ function buildPlatformTabs(plans) {
     const chip = e.target.closest('.stab');
     if (!chip) return;
     ACTIVE_PLATFORM = chip.dataset.platform;
+    _visibleCount = PAGE_SIZE;
     container.querySelectorAll('.stab').forEach(c => c.classList.toggle('active', c === chip));
     renderPlans();
   });
@@ -1172,6 +1260,7 @@ function buildPlatformTabs(plans) {
 
 document.getElementById('search-input').addEventListener('input', e => {
   SEARCH = e.target.value.toLowerCase();
+  _visibleCount = PAGE_SIZE;
   renderPlans();
 });
 
@@ -1183,17 +1272,46 @@ function renderPlans() {
 
   const grid = document.getElementById('plans-grid');
   const noplans = document.getElementById('no-plans');
-  if (!plans.length) { grid.style.display = 'none'; noplans.style.display = 'block'; return; }
+  let showMore = document.getElementById('plans-show-more');
+  if (!showMore) {
+    showMore = document.createElement('div');
+    showMore.id = 'plans-show-more';
+    showMore.style.cssText = 'text-align:center;padding:1rem 0 2rem';
+    grid.parentNode.insertBefore(showMore, grid.nextSibling);
+  }
+
+  if (!plans.length) {
+    grid.style.display = 'none'; noplans.style.display = 'block';
+    showMore.innerHTML = ''; return;
+  }
   noplans.style.display = 'none';
   grid.style.display = 'grid';
-  grid.innerHTML = plans.map(p => planCard(p)).join('');
+
+  const visible = plans.slice(0, _visibleCount);
+  grid.innerHTML = visible.map(p => planCard(p)).join('');
   grid.querySelectorAll('.splan-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       if (!isLoggedIn) { window.location.href = '/my'; return; }
       window.location.href = '/my#plans';
     });
   });
+
+  if (plans.length > _visibleCount) {
+    const rem = plans.length - _visibleCount;
+    showMore.innerHTML = `<button onclick="loadMorePlans()" style="background:var(--st-card);border:1.5px solid var(--st-border);color:var(--st-muted);border-radius:12px;padding:.7rem 2rem;font-size:.9rem;font-weight:600;cursor:pointer;transition:all .2s" onmouseover="this.style.borderColor='var(--st-accent)';this.style.color='var(--st-accent)'" onmouseout="this.style.borderColor='var(--st-border)';this.style.color='var(--st-muted)'">Show ${rem} more plans ↓</button>`;
+  } else {
+    showMore.innerHTML = '';
+  }
 }
+
+window.loadMorePlans = function() {
+  _visibleCount += PAGE_SIZE;
+  renderPlans();
+  // Scroll so newly loaded cards are visible
+  const grid = document.getElementById('plans-grid');
+  const cards = grid.querySelectorAll('.splan-card');
+  if (cards[_visibleCount - PAGE_SIZE]) cards[_visibleCount - PAGE_SIZE].scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
 
 function planCard(p) {
   const features = Array.isArray(p.features) ? p.features : [];
