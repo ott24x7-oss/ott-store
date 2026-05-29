@@ -147,6 +147,8 @@ function buildSidebar() {
 
 function goView(id) {
   ACTIVE_VIEW = id;
+  // Update URL hash so refresh restores the current page
+  if (location.hash !== '#' + id) history.pushState(null, '', '#' + id);
   document.getElementById('topbar-title').textContent = MENU.find(m => m.id === id)?.label || id;
   buildSidebar();
   const fn = views[id];
@@ -208,7 +210,10 @@ async function initAdmin() {
       PENDING_ORDERS = dash.pending_orders || 0;
     } catch {}
     buildSidebar();
-    goView('dashboard');
+    // Restore view from URL hash, fallback to dashboard
+    const hashView = location.hash.replace('#', '').trim();
+    const validViews = MENU.filter(m => m.id).map(m => m.id);
+    goView(validViews.includes(hashView) ? hashView : 'dashboard');
   } catch { renderLogin(); }
 }
 
@@ -3167,6 +3172,19 @@ views['pwa-manager'] = async function (tab) {
 // ── expose goView globally ────────────────────────────────────────────────────
 window.goView = goView;
 window.views = views;
+
+// ── Hash-based routing: handle browser back/forward ───────────────────────────
+window.addEventListener('popstate', () => {
+  const id = location.hash.replace('#', '').trim();
+  const validViews = MENU.filter(m => m.id).map(m => m.id);
+  if (validViews.includes(id) && id !== ACTIVE_VIEW) {
+    ACTIVE_VIEW = id;
+    document.getElementById('topbar-title').textContent = MENU.find(m => m.id === id)?.label || id;
+    buildSidebar();
+    const fn = views[id];
+    if (fn) fn();
+  }
+});
 
 // ── Kick off ──────────────────────────────────────────────────────────────────
 initAdmin();
