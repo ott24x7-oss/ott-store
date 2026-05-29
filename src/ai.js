@@ -39,9 +39,13 @@ async function chat(messages, opts = {}) {
   const baseUrl = ch.url.startsWith('http') ? ch.url : `https://${ch.url}`;
   const endpoint = `${baseUrl.replace(/\/$/, '')}/v1/chat/completions`;
 
+  const finalMessages = opts._systemOverride
+    ? [{ role: 'system', content: opts._systemOverride }, ...messages]
+    : messages;
+
   const payload = {
     model: opts.model || ch.model || 'gpt-4o-mini',
-    messages,
+    messages: finalMessages,
     max_tokens: opts.max_tokens || 1024,
     temperature: opts.temperature ?? 0.7,
     stream: false,

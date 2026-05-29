@@ -408,6 +408,14 @@ function seedDefaults(db) {
     ai_persona: '',
     ai_daily_cap: '500',
     ai_fallback_message: '',
+    // Chat Bot Widget
+    bot_enabled: '1',
+    bot_name: 'Store AI',
+    bot_tagline: 'Online · Replies instantly',
+    bot_avatar: '',
+    bot_accent: '#7c3aed',
+    bot_greeting: "👋 Hi! I'm your *{site_name}* AI.\nWhat would you like to do?",
+    bot_system_prompt: '',
     // PWA / App Manager
     pwa_name: '',
     pwa_short_name: '',

@@ -27,6 +27,7 @@ const MENU = [
   { id: 'autopost',       label: 'Email Auto-Post', icon: '🤖' },
   { id: 'ai-agent',       label: 'AI Agent',      icon: '🧠' },
   { id: 'api-channels',  label: 'API Channels',  icon: '🔌' },
+  { id: 'chat-bot',      label: 'Chat Bot',      icon: '💬' },
   { group: 'EMAIL & APP' },
   { id: 'email-marketing', label: 'Email Marketing', icon: '📧' },
   { id: 'pwa-manager',   label: 'App Manager',   icon: '📱' },
@@ -2379,6 +2380,125 @@ views['ai-agent'] = async function () {
     };
 
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
+
+// ── views['chat-bot'] ────────────────────────────────────────────────────────
+views['chat-bot'] = async function () {
+  setMain('<div class="spinner"></div>');
+  try {
+    const s = await api('/bot-settings');
+
+    setMain(`
+<h2 style="font-weight:800;margin-bottom:1.5rem">Chat Bot Widget</h2>
+<div style="max-width:720px;display:flex;flex-direction:column;gap:1.25rem">
+
+<div class="card" style="border-left:3px solid #7c3aed">
+  <div style="display:flex;gap:.75rem;align-items:flex-start">
+    <div style="font-size:2rem">💬</div>
+    <div>
+      <div style="font-weight:700">AI-Powered Store Chat Widget</div>
+      <div class="muted" style="font-size:.84rem;margin-top:.25rem">A floating chat button on your store. The AI is auto-trained with your live product catalogue &amp; pricing. Requires an active <b>API Channel</b>.</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div style="font-weight:700;margin-bottom:.9rem">Widget Settings</div>
+  <div id="bot-msg"></div>
+
+  <label style="display:flex;align-items:center;gap:.6rem;margin-bottom:1rem">
+    <input type="checkbox" id="bot-enabled" ${s.bot_enabled==='1'?'checked':''}>
+    <span style="font-weight:600">Enable Chat Widget on Store</span>
+  </label>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+    <div class="form-group"><label class="form-label">Bot Name</label>
+      <input class="form-input" id="bot-name" value="${esc(s.bot_name||'Store AI')}" placeholder="Store AI"></div>
+    <div class="form-group"><label class="form-label">Status Text</label>
+      <input class="form-input" id="bot-tagline" value="${esc(s.bot_tagline||'Online · Replies instantly')}" placeholder="Online · Replies instantly"></div>
+  </div>
+
+  <div class="form-group"><label class="form-label">Accent Color</label>
+    <div style="display:flex;align-items:center;gap:.75rem">
+      <input type="color" class="form-input" id="bot-accent" value="${esc(s.bot_accent||'#7c3aed')}" style="width:60px;height:40px;padding:.2rem;cursor:pointer">
+      <span class="muted" style="font-size:.83rem">Used for button color and chat bubble</span>
+    </div>
+  </div>
+
+  <div class="form-group"><label class="form-label">Greeting Message <span class="muted">(use <code>{site_name}</code> for dynamic store name, use *bold*)</span></label>
+    <textarea class="form-input" id="bot-greeting" rows="2">${esc(s.bot_greeting||"👋 Hi! I'm your *{site_name}* AI.\nWhat would you like to do?")}</textarea></div>
+
+  <div class="form-group"><label class="form-label">Bot Avatar (PNG/JPG, optional)</label>
+    <input type="file" accept="image/*" id="bot-av-file" onchange="loadBotAvatar(this)">
+    ${s.bot_avatar && s.bot_avatar.length>10 ? `<div style="margin-top:.5rem"><img src="data:image/png;base64,${s.bot_avatar}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid var(--border)"></div>` : '<p class="muted mt-1" style="font-size:.8rem">No avatar set — bot uses 🤖 emoji.</p>'}
+    <input type="hidden" id="bot-av-b64">
+  </div>
+
+  <button class="btn btn-primary" onclick="saveBotSettings()">Save Widget Settings</button>
+</div>
+
+<div class="card">
+  <div style="font-weight:700;margin-bottom:.5rem">Custom AI Instructions <span class="muted" style="font-weight:400;font-size:.83rem">(optional)</span></div>
+  <p class="muted" style="font-size:.83rem;margin-bottom:.75rem">The bot is auto-trained with your live products &amp; pricing. Use this field to add extra rules — tone, special offers, things to avoid, etc.</p>
+  <textarea class="form-input" id="bot-sys" rows="5" placeholder="E.g: Always upsell annual plans. Mention free delivery on all orders. Do not discuss competitor pricing.">${esc(s.bot_system_prompt||'')}</textarea>
+  <button class="btn btn-secondary btn-sm mt-2" onclick="saveBotSettings()">Save Instructions</button>
+</div>
+
+<div class="card">
+  <div style="font-weight:700;margin-bottom:.75rem">Preview & Test</div>
+  <p class="muted" style="font-size:.83rem;margin-bottom:.75rem">Test the AI with a message below. Uses your live product data and the active API Channel.</p>
+  <div id="bot-test-msg"></div>
+  <div class="form-group"><input class="form-input" id="bot-test-in" placeholder="Ask something like: What Netflix plans do you have?" onkeydown="if(event.key==='Enter')testBotChat()"></div>
+  <button class="btn btn-primary btn-sm" onclick="testBotChat()">Send Test Message →</button>
+  <div id="bot-test-reply" style="margin-top:.75rem"></div>
+</div>
+
+</div>`);
+
+    window.loadBotAvatar = (inp) => {
+      const file = inp.files[0];
+      if (!file) return;
+      const r = new FileReader();
+      r.onload = e => { document.getElementById('bot-av-b64').value = e.target.result.split(',')[1]; };
+      r.readAsDataURL(file);
+    };
+
+    window.saveBotSettings = async () => {
+      const msg = document.getElementById('bot-msg');
+      const body = {
+        bot_enabled: document.getElementById('bot-enabled').checked ? '1' : '0',
+        bot_name: document.getElementById('bot-name').value.trim(),
+        bot_tagline: document.getElementById('bot-tagline').value.trim(),
+        bot_accent: document.getElementById('bot-accent').value,
+        bot_greeting: document.getElementById('bot-greeting').value,
+        bot_system_prompt: document.getElementById('bot-sys').value,
+      };
+      const av = document.getElementById('bot-av-b64').value;
+      if (av) body.bot_avatar = av;
+      try {
+        await api('/bot-settings', { method: 'POST', body: JSON.stringify(body) });
+        msg.innerHTML = '<div class="alert alert-success">Saved!</div>';
+        setTimeout(() => msg.innerHTML = '', 2500);
+      } catch(e) { msg.innerHTML = `<div class="alert alert-error">${esc(e.message)}</div>`; }
+    };
+
+    window.testBotChat = async () => {
+      const q = document.getElementById('bot-test-in').value.trim();
+      if (!q) return;
+      const reply = document.getElementById('bot-test-reply');
+      const msg = document.getElementById('bot-test-msg');
+      reply.innerHTML = '<div style="display:flex;gap:.3rem;padding:.4rem 0"><span style="animation:tdot .9s infinite;background:#9f75ff;width:8px;height:8px;border-radius:50%;display:inline-block"></span><span style="animation:tdot .9s .18s infinite;background:#9f75ff;width:8px;height:8px;border-radius:50%;display:inline-block"></span><span style="animation:tdot .9s .36s infinite;background:#9f75ff;width:8px;height:8px;border-radius:50%;display:inline-block"></span></div>';
+      msg.innerHTML = '';
+      try {
+        const r = await api('/ai/chat', { method: 'POST', body: JSON.stringify({ messages: [{ role: 'user', content: q }] }) });
+        reply.innerHTML = `<div style="background:var(--input-bg);border-radius:10px;padding:.75rem 1rem;white-space:pre-wrap;font-size:.9rem;border-left:3px solid #7c3aed">${esc(r.reply)}</div>`;
+      } catch(e) {
+        reply.innerHTML = '';
+        msg.innerHTML = `<div class="alert alert-error">${esc(e.message)}</div>`;
+      }
+    };
+
+  } catch(e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };
 
 // ── views['api-channels'] ─────────────────────────────────────────────────────

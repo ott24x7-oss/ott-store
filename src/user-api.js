@@ -472,4 +472,98 @@ router.post('/tickets/:id/reply', requireCustomer, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── Chat Bot config (public) ─────────────────────────────────────────────────
+router.get('/bot-config', async (req, res) => {
+  try {
+    const db = await getDb();
+    const keys = ['bot_enabled','bot_name','bot_tagline','bot_avatar','bot_accent','bot_greeting','site_name'];
+    const rows = all(db, `SELECT key, value FROM settings WHERE key IN (${keys.map(()=>'?').join(',')})`, keys);
+    const s = {};
+    rows.forEach(r => s[r.key] = r.value);
+    res.json(s);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── AI Chat (public — powers store chat widget) ──────────────────────────────
+const _chatLog = new Map(); // simple IP rate-limiter: ip → {count, ts}
+router.post('/ai-chat', async (req, res) => {
+  try {
+    // rate limit: 20 messages per minute per IP
+    const ip = req.ip || 'unknown';
+    const now = Date.now();
+    const entry = _chatLog.get(ip) || { count: 0, ts: now };
+    if (now - entry.ts > 60000) { entry.count = 0; entry.ts = now; }
+    entry.count++;
+    _chatLog.set(ip, entry);
+    if (entry.count > 20) return res.status(429).json({ error: 'Too many messages. Please wait a moment.' });
+
+    const { messages } = req.body;
+    if (!Array.isArray(messages) || !messages.length) return res.status(400).json({ error: 'messages required' });
+
+    const db = await getDb();
+
+    // build auto system prompt from live product data
+    const siteRows = all(db, `SELECT key,value FROM settings WHERE key IN ('site_name','site_tagline','support_whatsapp','support_email','bot_system_prompt')`, []);
+    const s = {};
+    siteRows.forEach(r => s[r.key] = r.value);
+
+    const plans = all(db, `SELECT platform,name,duration_days,price_inr,original_price_inr,description,features FROM plans WHERE active=1 ORDER BY platform,price_inr ASC`);
+    const platforms = [...new Set(plans.map(p => p.platform))];
+    const plansText = plans.map(p => {
+      const orig = p.original_price_inr > p.price_inr ? ` (was ₹${p.original_price_inr})` : '';
+      const dur = p.duration_days >= 365 ? `${Math.round(p.duration_days/365)} year` : p.duration_days >= 30 ? `${Math.round(p.duration_days/30)} month` : `${p.duration_days} days`;
+      return `• ${p.platform} — ${p.name} | ${dur} | ₹${p.price_inr}${orig}${p.description ? ` | ${p.description}` : ''}`;
+    }).join('\n');
+    const payMethods = all(db, `SELECT name FROM payment_methods WHERE enabled=1`).map(m => m.name).join(', ');
+
+    const systemPrompt = `You are ${s.site_name || 'OTT Store'}'s friendly AI sales assistant on their OTT subscription store website.
+
+AVAILABLE PLANS:
+${plansText || 'No plans listed yet.'}
+
+PLATFORMS WE OFFER: ${platforms.join(', ') || 'Various OTT platforms'}
+
+PAYMENT METHODS: ${payMethods || 'UPI, Bank Transfer, Razorpay'}
+
+HOW TO ORDER (step by step):
+1. Register / Login free at /my
+2. Add wallet balance (UPI / bank transfer / Razorpay)
+3. Browse plans → click "Buy Now"
+4. Receive login credentials instantly via Email & WhatsApp
+
+DELIVERY: Instant after payment is confirmed. Credentials sent to your email and WhatsApp.
+VALIDITY: Each plan clearly shows duration (days/months/year).
+${s.support_whatsapp ? `SUPPORT WHATSAPP: ${s.support_whatsapp}` : ''}
+${s.support_email ? `SUPPORT EMAIL: ${s.support_email}` : ''}
+${s.bot_system_prompt ? `\nADDITIONAL INSTRUCTIONS:\n${s.bot_system_prompt}` : ''}
+
+YOUR ROLE:
+- Help customers find the right plan based on needs and budget
+- Explain pricing, validity and features clearly in simple language
+- Guide them through the buying process step by step
+- For order tracking: tell them to visit /my → My Orders
+- For wallet: tell them to visit /my → Wallet
+
+RESPONSE FORMAT (VERY IMPORTANT):
+- Keep replies SHORT (2-4 sentences max)
+- Always use ₹ for prices
+- When suggesting next steps or actions, add a line at the end with buttons like this:
+  [BUTTONS: Label 1 | Label 2 | Label 3]
+- Max 4 buttons. Example:
+  "We have Netflix plans starting from ₹199/month! Which plan suits you?\\n[BUTTONS: Netflix 1 Month | Netflix 3 Months | Netflix 1 Year | View All Plans]"
+- Be warm, friendly and helpful — not robotic.`;
+
+    const { chat } = require('./ai');
+    const fullMessages = [{ role: 'system', content: systemPrompt }, ...messages.slice(-10)];
+    const rawReply = await chat(fullMessages.slice(1), { model: undefined, max_tokens: 400, _systemOverride: systemPrompt });
+
+    // parse [BUTTONS: ...] from reply
+    const btnMatch = rawReply.match(/\[BUTTONS:\s*([^\]]+)\]/i);
+    const buttons = btnMatch ? btnMatch[1].split('|').map(b => b.trim()).filter(Boolean).slice(0, 4) : [];
+    const text = rawReply.replace(/\[BUTTONS:[^\]]*\]/i, '').trim();
+
+    res.json({ text, buttons });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 module.exports = router;

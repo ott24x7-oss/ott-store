@@ -1558,6 +1558,29 @@ router.post('/ai/chat', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── Chat Bot Settings ────────────────────────────────────────────────────────
+router.get('/bot-settings', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const keys = ['bot_enabled','bot_name','bot_tagline','bot_avatar','bot_accent','bot_greeting','bot_system_prompt'];
+    const rows = all(db, `SELECT key,value FROM settings WHERE key IN (${keys.map(()=>'?').join(',')})`, keys);
+    const s = {};
+    rows.forEach(r => s[r.key] = r.value);
+    res.json(s);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/bot-settings', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const allowed = ['bot_enabled','bot_name','bot_tagline','bot_avatar','bot_accent','bot_greeting','bot_system_prompt'];
+    for (const k of allowed) {
+      if (k in req.body) run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, [k, String(req.body[k] ?? '')]);
+    }
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── Check auth status ────────────────────────────────────────────────────────
 router.get('/me', requireAdmin, (req, res) => res.json({ ok: true, role: 'admin' }));
 
