@@ -441,6 +441,7 @@ function goTab(id){
   const handlers={dashboard:renderDashboard,plans:renderPlans,orders:renderOrders,wallet:renderWallet,support:renderSupport,profile:renderProfile};
   (handlers[id]||renderDashboard)();
 }
+window.goTab=goTab;
 
 // ── Drawer ────────────────────────────────────────────────────────────────────
 document.getElementById('hamburger-btn').addEventListener('click',openDrawer);
