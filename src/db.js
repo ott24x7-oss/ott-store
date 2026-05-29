@@ -369,7 +369,7 @@ function migrate(db) {
   seedLegalPages(db);
   seedEmailTemplates(db);
   seedAutopostCampaigns(db);
-  seedPlansData(db);
+  seedOtt24x7Products(db);
   seedPlatformImages(db);
 }
 
@@ -416,6 +416,174 @@ function seedPlansData(db) {
       db.run(stmt, [p.platform,p.name,p.duration_days,p.price_inr,p.original_price_inr||null,p.badge||'',p.features,p.delivery_type,p.image_url,p.active,p.sort_order]);
     } catch {}
   }
+}
+
+function seedOtt24x7Products(db) {
+  const existing = db.exec('SELECT COUNT(*) as c FROM plans');
+  if ((existing[0]?.values[0][0] || 0) > 0) return;
+
+  function dur(s) {
+    if (!s || s.toLowerCase() === 'lifetime') return null;
+    const m = s.match(/^(\d+)\s*(month|year|months|years)/i);
+    if (!m) return null;
+    const n = parseInt(m[1]);
+    return m[2].toLowerCase().startsWith('year') ? n * 365 : n * 30;
+  }
+
+  function img(domain) {
+    return `https://logo.clearbit.com/${domain}`;
+  }
+
+  const CAT = {
+    access:       'MS Access',
+    ai_writing:   'AI Tools',
+    cloud:        'Cloud Services',
+    design:       'Design',
+    devtech:      'Development & Tech',
+    learning:     'Learning',
+    ms365:        'Microsoft 365',
+    music:        'Music',
+    office:       'MS Office',
+    other:        'Security',
+    professional: 'Professional Tools',
+    project:      'MS Project',
+    server:       'Windows Server',
+    streaming:    'Streaming',
+    visio:        'MS Visio',
+    visual_studio:'Visual Studio',
+    windows:      'Windows',
+  };
+
+  // name, cat, price, duration_str, domain
+  const raw = [
+    // access
+    ['Access 2021 2PC [Retail Online]',                   'access',       81.48,   'Lifetime',  'microsoft.com'],
+    ['Access 2024 1PC [BIND]',                            'access',     1425.90,   'Lifetime',  'microsoft.com'],
+    ['MS Access',                                         'access',      999.00,   'Lifetime',  'microsoft.com'],
+    // ai_writing
+    ['Quillbot 1M Key',                                   'ai_writing',  150.00,   '1 Month',   'quillbot.com'],
+    ['iAsk AI Pro 1Y',                                    'ai_writing',  299.00,   '1 Year',    'iask.ai'],
+    ['Beautiful AI 1Y',                                   'ai_writing',  299.00,   '1 Year',    'beautiful.ai'],
+    ['InVideo Studio 1Y',                                 'ai_writing', 1250.00,   '1 Year',    'invideo.io'],
+    ['NoteGPT 1M Edu Pro',                                'ai_writing',   99.00,   '1 Month',   'notegpt.io'],
+    // cloud
+    ['Google One 100GB 6M',                               'cloud',       299.00,   '6 Months',  'one.google.com'],
+    ['GG AI Pro 5TB G-Drive 18M',                         'cloud',      2200.00,   '18 Months', 'one.google.com'],
+    ['Outlook',                                           'cloud',       999.00,   'Lifetime',  'outlook.com'],
+    ['LinkedIn Career Premium 3M',                        'cloud',       499.00,   '3 Months',  'linkedin.com'],
+    ['Nord VPN 3 Month Key',                              'cloud',       450.00,   '3 Months',  'nordvpn.com'],
+    // design
+    ['Picsart Pro 1 Year Key',                            'design',      550.00,   '1 Year',    'picsart.com'],
+    ['Canva Pro Edu Student Lifetime',                    'design',      299.00,   'Lifetime',  'canva.com'],
+    ['Canva Pro Staff Access All Features',               'design',      499.00,   'Lifetime',  'canva.com'],
+    ['Adobe Express Premium 1Y Code',                     'design',      199.00,   '1 Year',    'adobe.com'],
+    ['CorelDraw Graphic Suite 2024 Lifetime',             'design',     1499.00,   'Lifetime',  'coreldraw.com'],
+    ['CorelDraw Technical/Graphic Suite 2025',            'design',     1999.00,   'Lifetime',  'coreldraw.com'],
+    ['Autodesk All Apps Bundle 1Y',                       'design',     1499.00,   '1 Year',    'autodesk.com'],
+    // devtech
+    ['Outlook 2021 5PC [Retail Online]',                  'devtech',     230.86,   'Lifetime',  'outlook.com'],
+    ['Outlook 2019 5PC [Retail Online]',                  'devtech',     149.38,   'Lifetime',  'outlook.com'],
+    ['Outlook 2024 1PC [BIND]',                           'devtech',    1425.90,   'Lifetime',  'outlook.com'],
+    ['Word 2024 1PC [BIND]',                              'devtech',    1371.58,   'Lifetime',  'microsoft.com'],
+    ['Excel 2024 1PC [BIND]',                             'devtech',    1425.90,   'Lifetime',  'microsoft.com'],
+    ['PowerPoint 2024 1PC [BIND]',                        'devtech',    1643.18,   'Lifetime',  'microsoft.com'],
+    ['Notion Business 3M with AI',                        'devtech',     250.00,   '3 Months',  'notion.so'],
+    // learning
+    ['Coursera Plus 1Y',                                  'learning',   2400.00,   '1 Year',    'coursera.org'],
+    ['EDX Courses 1Y',                                    'learning',    350.00,   '1 Year',    'edx.org'],
+    // ms365
+    ['Office 365 A3 Account 1Y',                          'ms365',       299.00,   '1 Year',    'microsoft.com'],
+    // music
+    ['Apple Music+ 6M',                                   'music',       299.00,   '6 Months',  'music.apple.com'],
+    ['YouTube Premium 6M',                                'music',       550.00,   '6 Months',  'youtube.com'],
+    // office
+    ['Office 2010 Pro Plus 5PC [Retail Online]',          'office',      746.90,   'Lifetime',  'office.com'],
+    ['Office 2013 Pro Plus 5PC [Retail Online]',          'office',      746.90,   'Lifetime',  'office.com'],
+    ['Office 2016 Home & Business for 1 MAC [BIND]',      'office',     1127.14,   'Lifetime',  'office.com'],
+    ['Office 2016 Home & Student 1PC [Retail Online]',    'office',      420.98,   'Lifetime',  'office.com'],
+    ['Office 2016 Pro Plus 5PC [Retail Online]',          'office',     1195.04,   'Lifetime',  'office.com'],
+    ['Office 2016 Pro Plus 1PC [Activate by Phone]',      'office',       54.32,   'Lifetime',  'office.com'],
+    ['Office 2016 Pro Plus 1PC [BIND]',                   'office',     1276.52,   'Lifetime',  'office.com'],
+    ['Office 2019 Home & Business for 1 MAC [BIND]',      'office',     1167.88,   'Lifetime',  'office.com'],
+    ['Office 2019 Home & Business 1PC [Activate by Phone]','office',     230.86,   'Lifetime',  'office.com'],
+    ['Office 2019 Home & Student 1PC [Activate by Phone]','office',      230.86,   'Lifetime',  'office.com'],
+    ['Office 2019 Pro Plus 5PC [Retail Online]',          'office',     1004.92,   'Lifetime',  'office.com'],
+    ['Office 2019 Pro Plus 1PC [BIND]',                   'office',     1195.04,   'Lifetime',  'office.com'],
+    ['Office 2019 Pro Plus 1PC [Activate by Phone]',      'office',       81.48,   'Lifetime',  'office.com'],
+    ['Office 2019 Pro Plus',                              'office',      599.00,   'Lifetime',  'office.com'],
+    ['Office 2021 Home & Business 1 MAC [BIND]',          'office',     1086.40,   'Lifetime',  'office.com'],
+    ['Office 2021 Pro Plus',                              'office',     2499.00,   'Lifetime',  'office.com'],
+    ['Office 2021 Pro Plus 1PC [BIND]',                   'office',     2240.70,   'Lifetime',  'office.com'],
+    ['Office 2021 Pro Plus 5PC [Retail Online]',          'office',     1004.92,   'Lifetime',  'office.com'],
+    ['Office 2021 Pro Plus 1PC [Activate by Phone]',      'office',       95.06,   'Lifetime',  'office.com'],
+    ['Office 2024 Home & Business 1 PC/MAC [BIND]',       'office',     5350.52,   'Lifetime',  'office.com'],
+    ['Office 2024 Pro Plus LTSC 1PC [Activate by Phone]', 'office',      149.38,   'Lifetime',  'office.com'],
+    ['Office 2024',                                       'office',     5600.00,   'Lifetime',  'office.com'],
+    // other / security
+    ['McAfee Total Protection 5Y Warranty',               'other',       999.00,   '5 Years',   'mcafee.com'],
+    // professional
+    ['Notion Edu Account',                                'professional',499.00,   'Lifetime',  'notion.so'],
+    ['Miro 100 License Lifetime',                         'professional',1999.00,  'Lifetime',  'miro.com'],
+    ['Google Gemini 500GB On Mail Invite',                'professional',499.00,   '1 Year',    'google.com'],
+    // project
+    ['Project 2019 Professional 2PC [Retail Online]',    'project',      81.48,   'Lifetime',  'microsoft.com'],
+    ['Project 2021 Professional 2PC [Retail Online]',    'project',     122.22,   'Lifetime',  'microsoft.com'],
+    ['Project 2019 Professional 1PC [BIND]',             'project',     380.24,   'Lifetime',  'microsoft.com'],
+    ['Project 2019 Standard 5PC [Retail Online]',        'project',     122.22,   'Lifetime',  'microsoft.com'],
+    ['Project 2024 Professional 1PC [BIND]',             'project',    1425.90,   'Lifetime',  'microsoft.com'],
+    ['Project 2024 Standard 1PC [BIND]',                 'project',    1425.90,   'Lifetime',  'microsoft.com'],
+    ['MS Project',                                       'project',     999.00,   'Lifetime',  'microsoft.com'],
+    // server
+    ['SQL Server 2019 Standard 1PC [Retail Online]',     'server',      448.14,   'Lifetime',  'microsoft.com'],
+    ['SQL Server 2017 Standard 1PC [Retail Online]',     'server',      448.14,   'Lifetime',  'microsoft.com'],
+    ['Windows Server 2022 Standard 2PC',                 'server',       95.06,   'Lifetime',  'microsoft.com'],
+    ['Windows Server 2022 Standard 5PC',                 'server',      597.52,   'Lifetime',  'microsoft.com'],
+    ['Windows Server 2022 Datacenter 2PC',               'server',       81.48,   'Lifetime',  'microsoft.com'],
+    ['Windows Server 2022 Datacenter 5PC',               'server',      230.86,   'Lifetime',  'microsoft.com'],
+    ['Windows Server 2022 Datacenter 1000PC [MAK:Volume]','server',     597.52,   'Lifetime',  'microsoft.com'],
+    ['Windows Server 2022 RDS User CAL (50)',             'server',     1276.52,   'Lifetime',  'microsoft.com'],
+    ['Windows Server 2022 RDS Device CAL (50)',           'server',      380.24,   'Lifetime',  'microsoft.com'],
+    ['Windows Server 2025 Datacenter 1000PC [MAK:Volume]','server',     597.52,   'Lifetime',  'microsoft.com'],
+    ['Windows Server 2025 Datacenter 5PC',               'server',      230.86,   'Lifetime',  'microsoft.com'],
+    ['Windows Server 2025 Standard 100PC [MAK:Volume]',  'server',     1195.04,   'Lifetime',  'microsoft.com'],
+    ['Windows Server 2025 Standard 5PC',                 'server',      597.52,   'Lifetime',  'microsoft.com'],
+    // streaming
+    ['Apple TV+ 12M',                                    'streaming',   550.00,   '12 Months', 'apple.com'],
+    ['ZEE5 Premium HD 1Y',                               'streaming',   399.00,   '1 Year',    'zee5.com'],
+    ['SonyLiv Premium 6M Code',                          'streaming',   199.00,   '6 Months',  'sonyliv.com'],
+    // visio
+    ['Visio 2021 Professional 2PC [Retail Online]',      'visio',        81.48,   'Lifetime',  'microsoft.com'],
+    ['Visio 2021 Professional 5PC [Retail Online]',      'visio',       298.76,   'Lifetime',  'microsoft.com'],
+    ['Visio 2019 Standard 5PC [Retail Online]',          'visio',       122.22,   'Lifetime',  'microsoft.com'],
+    ['Visio 2024 Professional 1PC [BIND]',               'visio',      1425.90,   'Lifetime',  'microsoft.com'],
+    ['Visio 2024 Standard 1PC [BIND]',                   'visio',      1425.90,   'Lifetime',  'microsoft.com'],
+    // visual_studio
+    ['Visual Studio 2022 Professional 5PC [Retail Online]', 'visual_studio', 746.90, 'Lifetime', 'microsoft.com'],
+    ['Visual Studio 2019 Professional 5PC [Retail Online]', 'visual_studio', 230.86, 'Lifetime', 'microsoft.com'],
+    ['Visual Studio 2022 Enterprise 2PC [Retail Online]',   'visual_studio', 122.22, 'Lifetime', 'microsoft.com'],
+    ['Visual Studio 2026 Enterprise 5PC [Retail Online]',   'visual_studio', 380.24, 'Lifetime', 'microsoft.com'],
+    // windows
+    ['Windows 10 / 11 Pro 1PC [Activate by Phone]',      'windows',      54.32,   'Lifetime',  'microsoft.com'],
+    ['Windows 10 / 11 Home 1PC [Activate by Phone]',     'windows',      54.32,   'Lifetime',  'microsoft.com'],
+    ['Windows 8 5PC [Retail Online]',                    'windows',      81.48,   'Lifetime',  'microsoft.com'],
+    ['Windows 8 Pro 5PC [Retail Online]',                'windows',      81.48,   'Lifetime',  'microsoft.com'],
+    ['Windows 10 / 11 Home 1PC [OEM]',                   'windows',     122.22,   'Lifetime',  'microsoft.com'],
+    ['Windows 8.1 Pro N 5PC [Retail Online]',            'windows',     122.22,   'Lifetime',  'microsoft.com'],
+    ['Windows 10 / 11 Pro 1PC [OEM]',                    'windows',     149.38,   'Lifetime',  'microsoft.com'],
+    ['Windows 10 / 11 Enterprise 1PC [MAK:Volume]',      'windows',     230.86,   'Lifetime',  'microsoft.com'],
+    ['Windows 10 / 11 Pro N 5PC [Retail Online]',        'windows',     298.76,   'Lifetime',  'microsoft.com'],
+    ['Windows 10 / 11 Pro 5PC [Retail Online]',          'windows',    1018.50,   'Lifetime',  'microsoft.com'],
+    ['Windows 10 / 11 Pro 20PC [MAK:Volume]',            'windows',    1167.88,   'Lifetime',  'microsoft.com'],
+    ['Windows 10 / 11 Home 5PC [Retail Online]',         'windows',    1344.42,   'Lifetime',  'microsoft.com'],
+    ['Windows 10 / 11 Enterprise 20PC [MAK:Volume]',     'windows',    1385.16,   'Lifetime',  'microsoft.com'],
+  ];
+
+  const stmt = 'INSERT INTO plans (platform,name,duration_days,price_inr,original_price_inr,badge,features,delivery_type,image_url,active,sort_order,category) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)';
+  raw.forEach(([name, cat, price, durStr, domain], i) => {
+    try {
+      db.run(stmt, [CAT[cat], name, dur(durStr), price, null, '', '[]', 'manual', img(domain), 1, i + 1, cat]);
+    } catch {}
+  });
 }
 
 function seedPlatformImages(db) {
