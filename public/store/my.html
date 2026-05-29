@@ -1325,6 +1325,9 @@ async function renderWallet(){
   try{
     [CUSTOMER,TXNS]=await Promise.all([api('/me'),api('/wallet/transactions')]);
     updateHeaderUI();
+    const rzOn=STORE.razorpay_enabled==='1';
+    const upiOn=(STORE.upi_manual_enabled!=='0'||!!STORE.upi_id);
+    const hasTopup=rzOn||upiOn;
     main.innerHTML=`
 <h2 style="font-weight:800;margin-bottom:1rem">Wallet</h2>
 <div class="my-wallet-card">
@@ -1332,10 +1335,10 @@ async function renderWallet(){
   <div class="my-wallet-amt">${fmt(CUSTOMER.wallet_inr)}</div>
 </div>
 <h3 style="font-weight:700;margin-bottom:.75rem">Add Money</h3>
-<div class="my-topup-methods" id="topup-methods">
-  ${STORE.razorpay_enabled==='1'?`<div class="my-topup-m" id="tm-razorpay" onclick="selectTopup('razorpay')"><div class="my-topup-icon">💳</div><div class="my-topup-name">Card / UPI</div><div class="my-topup-sub">via Razorpay · Instant</div></div>`:''}
-  ${STORE.upi_manual_enabled!=='0'?`<div class="my-topup-m" id="tm-upi" onclick="selectTopup('upi')"><div class="my-topup-icon">📱</div><div class="my-topup-name">Manual UPI</div><div class="my-topup-sub">Screenshot · Pending approval</div></div>`:''}
-</div>
+${hasTopup?`<div class="my-topup-methods" id="topup-methods">
+  ${rzOn?`<div class="my-topup-m" id="tm-razorpay" onclick="selectTopup('razorpay')"><div class="my-topup-icon">💳</div><div class="my-topup-name">Card / UPI</div><div class="my-topup-sub">via Razorpay · Instant</div></div>`:''}
+  ${upiOn?`<div class="my-topup-m" id="tm-upi" onclick="selectTopup('upi')"><div class="my-topup-icon">📱</div><div class="my-topup-name">UPI</div><div class="my-topup-sub">${STORE.imap_enabled==='1'?'Auto-verified · Instant':'Screenshot · Pending approval'}</div></div>`:''}
+</div>`:`<div class="alert alert-info">Online top-up isn't enabled yet. Please contact support to add money.${STORE.support_whatsapp?` <a href="https://wa.me/${STORE.support_whatsapp.replace(/\D/g,'')}" target="_blank" rel="noopener">Chat on WhatsApp →</a>`:''}</div>`}
 <div id="topup-form-area"></div>
 <h3 style="font-weight:700;margin:1.5rem 0 .75rem">Transaction History</h3>
 <div class="card" style="padding:0;overflow:hidden">
@@ -1372,15 +1375,18 @@ window.initiateRazorpay=async function(){
 };
 
 function renderUpiForm(area){
-  const upiId=STORE.upi_id||'';const upiName=STORE.upi_name||'Store';
-  area.innerHTML=`<div class="card mt-3"><h4 style="font-weight:700;margin-bottom:.75rem">Manual UPI Payment</h4>
+  const upiId=STORE.upi_id||'';const upiName=STORE.upi_name||'Store';const qr=STORE.upi_qr_url||'';
+  const imapOn=STORE.imap_enabled==='1';
+  area.innerHTML=`<div class="card mt-3"><h4 style="font-weight:700;margin-bottom:.75rem">UPI Payment</h4>
 ${upiId?`<div class="alert alert-info">Send to UPI ID: <strong>${esc(upiId)}</strong> (${esc(upiName)})</div>`:''}
+${qr?`<div style="text-align:center;margin:.5rem 0"><img src="${esc(qr)}" alt="UPI QR" style="max-width:200px;width:100%;border-radius:12px" loading="lazy" onerror="this.style.display='none'"></div>`:''}
+<div id="upi-result"></div>
 <form id="upi-form" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:.9rem">
 <div id="upi-err"></div>
-<div class="form-group"><label class="my-lbl">Amount (₹)</label><input class="form-input" name="amount" type="number" min="1" required placeholder="Amount you paid"></div>
-<div class="form-group"><label class="my-lbl">UTR / Reference Number</label><input class="form-input" name="reference" placeholder="Transaction reference"></div>
-<div class="form-group"><label class="my-lbl">Screenshot (optional)</label><input class="form-input" name="screenshot" type="file" accept="image/*"></div>
-<button type="submit" class="btn btn-primary btn-block">Submit for Approval</button>
+<div class="form-group"><label class="my-lbl">Amount (₹)</label><input class="form-input" name="amount" type="number" min="1" required placeholder="${imapOn?'Amount to add':'Amount you paid'}"></div>
+${imapOn?'':`<div class="form-group"><label class="my-lbl">UTR / Reference Number</label><input class="form-input" name="reference" placeholder="Transaction reference"></div>
+<div class="form-group"><label class="my-lbl">Screenshot (optional)</label><input class="form-input" name="screenshot" type="file" accept="image/*"></div>`}
+<button type="submit" class="btn btn-primary btn-block">${imapOn?'Get Payment Details':'Submit for Approval'}</button>
 </form></div>`;
   document.getElementById('upi-form').onsubmit=async e=>{
     e.preventDefault();
@@ -1389,8 +1395,13 @@ ${upiId?`<div class="alert alert-info">Send to UPI ID: <strong>${esc(upiId)}</st
       const r=await fetch('/user/api/topup/upi',{method:'POST',credentials:'include',body:fd});
       const j=await r.json();
       if(!r.ok)throw new Error(j.error||'Failed');
-      showToast('Submitted! Awaiting admin approval.','success');
-      renderWallet();
+      if(j.method==='upi_imap'){
+        document.getElementById('upi-form').style.display='none';
+        document.getElementById('upi-result').innerHTML=`<div class="alert alert-success" style="line-height:1.7">Pay <strong>exactly ₹${esc(String(j.unique_amount))}</strong> to <strong>${esc(j.upi_id||upiId)}</strong>.<br>The exact paise let us auto-match your payment — please don't round it off.<br>✅ Your wallet is credited automatically within ~30 seconds.</div><button class="btn btn-secondary btn-block" onclick="renderWallet()">Refresh Wallet</button>`;
+      }else{
+        showToast('Submitted! Awaiting admin approval.','success');
+        renderWallet();
+      }
     }catch(ex){document.getElementById('upi-err').innerHTML=`<div class="alert alert-error">${esc(ex.message)}</div>`;}
   };
 }

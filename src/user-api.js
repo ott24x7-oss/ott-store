@@ -17,6 +17,27 @@ const router = express.Router();
 // Strip trailing slash(es) so we never build URLs like https://site.com//path
 const stripSlash = (u) => (u || '').replace(/\/+$/, '');
 
+// Resolve the UPI address customers should pay to. Prefer the upi_id setting,
+// but fall back to the first enabled UPI-type payment method — admins often
+// configure UPI there (Payment Methods table) and leave the setting blank,
+// which otherwise leaves checkout/top-up with an empty UPI ID.
+async function getEffectiveUpi(db) {
+  let id   = (await getSetting('upi_id')     || '').trim();
+  let name = (await getSetting('upi_name')   || '').trim();
+  let qr   = (await getSetting('upi_qr_url') || '').trim();
+  if (!id) {
+    const pm = get(db, `SELECT name,address,qr_url FROM payment_methods
+      WHERE enabled=1 AND type LIKE 'upi%' AND address IS NOT NULL AND address != ''
+      ORDER BY sort_order ASC, id ASC LIMIT 1`);
+    if (pm) {
+      id = (pm.address || '').trim();
+      if (!name) name = (pm.name || '').trim();
+      if (!qr)   qr   = (pm.qr_url || '').trim();
+    }
+  }
+  return { upi_id: id, upi_name: name, qr_url: qr };
+}
+
 // multer for UPI screenshot uploads
 fs.mkdirSync(cfg.uploadDir, { recursive: true });
 const upload = multer({
@@ -78,6 +99,13 @@ router.get('/store', async (req, res) => {
     rows.forEach(r => s[r.key] = r.value);
     s.razorpay_key = s.razorpay_enabled === '1' ? cfg.razorpay.keyId : '';
     s.payment_methods = all(db, `SELECT id, name, type, address, instructions, qr_url FROM payment_methods WHERE enabled=1 ORDER BY sort_order ASC, id ASC`);
+    // Resolve effective UPI (setting, else configured UPI payment method) so the
+    // storefront shows a real UPI ID/QR even when the upi_id setting is blank.
+    const eupi = await getEffectiveUpi(db);
+    s.upi_id = eupi.upi_id;
+    s.upi_name = eupi.upi_name;
+    s.upi_qr_url = eupi.qr_url;
+    s.upi_available = eupi.upi_id ? '1' : '0';
     // Real stats for the homepage
     const custCount  = (get(db, `SELECT COUNT(*) as c FROM customers`)?.c || 0);
     const orderCount = (get(db, `SELECT COUNT(*) as c FROM orders WHERE status NOT IN ('cancelled','failed')`)?.c || 0);
@@ -559,7 +587,7 @@ router.post('/topup/upi', requireCustomer, upload.single('screenshot'), async (r
       [req.customer.jid, parseFloat(amount), uniqueAmount, method, reference || null, 'pending', screenshotUrl, pmId]);
 
     if (method === 'upi_imap') {
-      const upiId = await getSetting('upi_id') || '';
+      const upiId = (await getEffectiveUpi(db)).upi_id;
       res.json({ ok: true, method: 'upi_imap', unique_amount: uniqueAmount, upi_id: upiId,
         message: `Pay exactly ₹${uniqueAmount} to ${upiId}. Auto-verified within 30 seconds.` });
     } else {
@@ -613,8 +641,9 @@ router.post('/checkout/upi-direct', requireCustomer, async (req, res) => {
 
     const { generateUniqueAmount } = require('./imap-verify');
     const uniqueAmount = generateUniqueAmount(price);
-    const upiId = await getSetting('upi_id') || '';
-    const upiName = (await getSetting('upi_name') || '').replace(/[^a-zA-Z0-9 ]/g, '');
+    const eupi = await getEffectiveUpi(db);
+    const upiId = eupi.upi_id;
+    const upiName = (eupi.upi_name || '').replace(/[^a-zA-Z0-9 ]/g, '');
 
     const r = run(db, `INSERT INTO topups (customer_jid,amount_inr,unique_amount,method,status,purpose,plan_id) VALUES (?,?,?,?,?,?,?)`,
       [c.jid, price, uniqueAmount, 'upi_imap', 'pending', 'order', plan_id]);
