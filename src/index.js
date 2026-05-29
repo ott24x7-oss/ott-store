@@ -46,7 +46,8 @@ app.get('/sitemap.xml', async (req, res) => {
       xml += `\n  <url><loc>${baseUrl}${p}</loc><changefreq>weekly</changefreq></url>`;
     }
     for (const post of posts) {
-      xml += `\n  <url><loc>${baseUrl}/blog/${post.slug}</loc><lastmod>${post.created_at?.split('T')[0] || ''}</lastmod><changefreq>monthly</changefreq></url>`;
+      const lastmod = (post.created_at || '').replace(' ', 'T').split('T')[0];
+      xml += `\n  <url><loc>${baseUrl}/blog/${post.slug}</loc><lastmod>${lastmod}</lastmod><changefreq>monthly</changefreq></url>`;
     }
     xml += '\n</urlset>';
     res.type('application/xml').send(xml);
@@ -59,9 +60,10 @@ app.get('/blog/:slug', async (req, res) => {
     const db = await getDb();
     const post = get(db, `SELECT * FROM blog_posts WHERE slug=? AND published=1`, [req.params.slug]);
     if (!post) return res.status(404).sendFile(path.join(__dirname, '..', 'public', '404.html'));
-    const siteName = await getSetting('site_name') || 'OTT Store';
-    const ogImage = post.og_image || await getSetting('seo_og_image') || '';
-    res.send(buildBlogPostPage(post, siteName, ogImage));
+    const [siteName, ogImage, baseUrl] = await Promise.all([
+      getSetting('site_name'), getSetting('seo_og_image'), getSetting('base_url'),
+    ]);
+    res.send(buildBlogPostPage(post, siteName || 'OTT Store', post.og_image || ogImage || '', baseUrl || cfg.baseUrl));
   } catch (e) { res.status(500).send('Server error'); }
 });
 
@@ -69,8 +71,10 @@ app.get('/blog', async (req, res) => {
   try {
     const db = await getDb();
     const posts = all(db, `SELECT id,slug,title,meta_desc,created_at FROM blog_posts WHERE published=1 ORDER BY created_at DESC`);
-    const siteName = await getSetting('site_name') || 'OTT Store';
-    res.send(buildBlogIndexPage(posts, siteName));
+    const [siteName, seoDesc, baseUrl] = await Promise.all([
+      getSetting('site_name'), getSetting('seo_blog_desc'), getSetting('base_url'),
+    ]);
+    res.send(buildBlogIndexPage(posts, siteName || 'OTT Store', seoDesc || '', baseUrl || cfg.baseUrl));
   } catch (e) { res.status(500).send('Server error'); }
 });
 
@@ -89,34 +93,64 @@ for (const [route, name] of Object.entries(staticRoutes)) {
   });
 }
 
-// Storefront root
-app.get(['/plans', '/'], (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'store', 'index.html'));
+// Storefront root — server-render meta tags for SEO crawlers
+app.get(['/plans', '/'], async (req, res) => {
+  try {
+    const [siteName, seoTitle, seoDesc, seoKw, ogImg, gscCode, bingCode, twitterCard, baseUrl] = await Promise.all([
+      getSetting('site_name'), getSetting('seo_home_title'), getSetting('seo_home_desc'),
+      getSetting('seo_home_keywords'), getSetting('seo_og_image'), getSetting('seo_gsc_verification'),
+      getSetting('seo_bing_verification'), getSetting('seo_twitter_card'), getSetting('base_url'),
+    ]);
+    const name = siteName || 'OTT Store';
+    const base = baseUrl || cfg.baseUrl;
+    let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'store', 'index.html'), 'utf8');
+    html = html
+      .replace(/<title id="page-title">[^<]*<\/title>/, `<title id="page-title">${esc(seoTitle || name + ' — Buy Premium Subscriptions Online')}</title>`)
+      .replace(/(<meta name="description" id="meta-desc" content=")[^"]*"/, `$1${esc(seoDesc || 'Get Netflix, Amazon Prime, Disney+ and more at lowest prices. Instant delivery.')}"`)
+      .replace(/(<meta id="meta-kw" name="keywords" content=")[^"]*"/, `$1${esc(seoKw || 'ott subscription, netflix, amazon prime, disney plus')}"`)
+      .replace(/(<meta id="og-title" property="og:title" content=")[^"]*"/, `$1${esc(name)}"`)
+      .replace(/(<meta id="og-img" property="og:image" content=")[^"]*"/, `$1${esc(ogImg || '')}"`)
+      .replace(/(<meta name="twitter:card" content=")[^"]*"/, `$1${esc(twitterCard || 'summary_large_image')}"`)
+      .replace(/<script id="ld-org"[^>]*>[^<]*<\/script>/,
+        `<script id="ld-org" type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', '@type': 'Store', name, url: base })}</script>`);
+    const inject = [
+      `<link rel="canonical" href="${esc(base)}/">`,
+      gscCode ? `<meta name="google-site-verification" content="${esc(gscCode)}">` : '',
+      bingCode ? `<meta name="msvalidate.01" content="${esc(bingCode)}">` : '',
+    ].filter(Boolean).join('\n');
+    html = html.replace('</head>', inject + '\n</head>');
+    res.type('text/html').send(html);
+  } catch {
+    res.sendFile(path.join(__dirname, '..', 'public', 'store', 'index.html'));
+  }
 });
 
 // ─── Helpers: simple server-rendered pages ────────────────────────────────────
-function buildBlogPostPage(post, siteName, ogImage) {
+function buildBlogPostPage(post, siteName, ogImage, baseUrl) {
   const bodyHtml = post.body
     .replace(/\n/g, '<br>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>');
+  const canonical = `${baseUrl}/blog/${post.slug}`;
+  const pubDate = (post.created_at || '').replace(' ', 'T').split('T')[0];
   return `<!DOCTYPE html><html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(post.title)} — ${esc(siteName)}</title>
 <meta name="description" content="${esc(post.meta_desc || '')}">
-${ogImage ? `<meta property="og:image" content="${esc(ogImage)}">` : ''}
 <meta property="og:title" content="${esc(post.title)}">
 <meta property="og:type" content="article">
+${ogImage ? `<meta property="og:image" content="${esc(ogImage)}">` : ''}
+<link rel="canonical" href="${esc(canonical)}">
 <link rel="stylesheet" href="/style.css">
-<script type="application/ld+json">${JSON.stringify({ "@context":"https://schema.org","@type":"Article","headline":post.title,"datePublished":post.created_at,"description":post.meta_desc })}</script>
+<script type="application/ld+json">${JSON.stringify({ "@context":"https://schema.org","@type":"Article","headline":post.title,"datePublished":pubDate,"description":post.meta_desc||"","url":canonical })}</script>
 </head>
 <body>
 <header class="site-header"><div class="container"><a href="/" class="logo-link">${esc(siteName)}</a><nav><a href="/plans">Plans</a><a href="/blog">Blog</a><a href="/my">My Account</a></nav></div></header>
 <main class="blog-post-page container">
 <article>
 <h1>${esc(post.title)}</h1>
-<time>${post.created_at?.split('T')[0] || ''}</time>
+<time datetime="${pubDate}">${pubDate}</time>
 <div class="blog-body">${bodyHtml}</div>
 </article>
 <p><a href="/blog">← Back to Blog</a></p>
@@ -125,14 +159,19 @@ ${ogImage ? `<meta property="og:image" content="${esc(ogImage)}">` : ''}
 </body></html>`;
 }
 
-function buildBlogIndexPage(posts, siteName) {
-  const items = posts.map(p =>
-    `<article class="blog-card"><h2><a href="/blog/${esc(p.slug)}">${esc(p.title)}</a></h2>
-     <p class="muted">${p.created_at?.split('T')[0] || ''}</p>
-     <p>${esc(p.meta_desc || '')}</p></article>`).join('');
+function buildBlogIndexPage(posts, siteName, seoDesc, baseUrl) {
+  const items = posts.map(p => {
+    const d = (p.created_at || '').replace(' ', 'T').split('T')[0];
+    return `<article class="blog-card"><h2><a href="/blog/${esc(p.slug)}">${esc(p.title)}</a></h2>
+     <p class="muted">${d}</p>
+     <p>${esc(p.meta_desc || '')}</p></article>`;
+  }).join('');
+  const desc = seoDesc || `Read the latest articles and guides from ${siteName}.`;
   return `<!DOCTYPE html><html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Blog — ${esc(siteName)}</title>
+<meta name="description" content="${esc(desc)}">
+<link rel="canonical" href="${esc(baseUrl)}/blog">
 <link rel="stylesheet" href="/style.css"></head>
 <body>
 <header class="site-header"><div class="container"><a href="/" class="logo-link">${esc(siteName)}</a><nav><a href="/plans">Plans</a><a href="/blog">Blog</a><a href="/my">My Account</a></nav></div></header>

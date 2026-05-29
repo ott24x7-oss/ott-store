@@ -1009,7 +1009,7 @@ views.googleindex = async function () {
     const siteName = (await api('/settings')).site_name || 'OTT Store';
     const baseUrl = (await api('/settings')).base_url || window.location.origin;
 
-    const urlList = ['/', '/plans', '/blog', '/about', '/contact', '/privacy', '/terms', '/refund', '/my', '/sitemap.xml'].map(u =>
+    const urlList = ['/', '/plans', '/blog', '/about', '/contact', '/privacy', '/terms', '/refund'].map(u =>
       `<label style="display:flex;align-items:center;gap:.5rem;font-size:.875rem">
         <input type="checkbox" class="gi-url-chk" value="${baseUrl}${u}"> ${baseUrl}${u}
       </label>`).join('');
