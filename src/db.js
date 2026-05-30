@@ -362,6 +362,8 @@ function migrate(db) {
   try { db.run(`ALTER TABLE topups ADD COLUMN amount_usdt REAL`); } catch {}
   try { db.run(`ALTER TABLE topups ADD COLUMN unique_amount_usdt REAL`); } catch {}
   try { db.run(`ALTER TABLE topups ADD COLUMN expires_at TEXT`); } catch {}
+  // Admin-only customer note (visible in the Edit Customer modal)
+  try { db.run(`ALTER TABLE customers ADD COLUMN admin_notes TEXT DEFAULT ''`); } catch {}
   try { db.run(`ALTER TABLE orders ADD COLUMN stock_credential_id INTEGER`); } catch {}
   try { db.run(`ALTER TABLE orders ADD COLUMN renewal_reminded_at TEXT`); } catch {}
   // Plans: catalog enhancements

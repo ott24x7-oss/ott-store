@@ -1074,7 +1074,10 @@ views.customers = async function (q = '') {
   <td>${c.blocked ? '<span class="badge badge-red">Blocked</span>' : '<span class="badge badge-green">Active</span>'}</td>
   <td>${fmtDateShort(c.created_at)}</td>
   <td>
-    <button class="btn btn-secondary btn-sm" onclick="openCustomerModal('${esc(c.jid)}')">Edit</button>
+    <div style="display:flex;gap:.35rem;justify-content:flex-end;flex-wrap:wrap">
+      <button class="btn btn-secondary btn-sm" onclick="openCustomerModal('${esc(c.jid)}')">Edit</button>
+      <button class="btn btn-green btn-sm" onclick="loginAsCustomer('${esc(c.jid)}')" title="Open /my as this customer">Login As</button>
+    </div>
   </td>
 </tr>`).join('');
 
@@ -1100,14 +1103,62 @@ window.searchCustomers = function (q) {
 
 window.openCustomerModal = async function (jid) {
   try {
-    const customers = await api(`/customers?q=${encodeURIComponent(jid)}`);
-    const c = customers.find(x => x.jid === jid);
-    if (!c) return showToast('Customer not found', 'error');
+    // Single-customer fetch (the old search-by-q lookup failed for JIDs).
+    const c = await api(`/customers/${encodeURIComponent(jid)}`);
+    const recent = Array.isArray(c.recent_orders) ? c.recent_orders : [];
+    const phoneClean = String(c.phone || '').replace(/\D/g, '');
+    const waUrl = phoneClean ? `https://wa.me/${phoneClean}` : '';
+    const mailUrl = c.email ? `mailto:${c.email}` : '';
+    const fmtInr = n => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+    const fmtDt = s => { if (!s) return '—'; try { return new Date(s).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch { return s; } };
+    const statBadge = s => {
+      const map = { delivered: 'badge-green', pending: 'badge-yellow', processing: 'badge-blue', cancelled: 'badge-red', failed: 'badge-red', expired: 'badge-grey' };
+      return `<span class="badge ${map[s] || 'badge-grey'}">${esc(s || '')}</span>`;
+    };
+    const orderRows = recent.length ? recent.map(o => `
+<tr>
+  <td>#${o.id}</td>
+  <td style="font-size:.85rem">${esc(o.platform || '—')} ${esc(o.plan_name || '')}</td>
+  <td style="font-weight:700">${fmtInr(o.amount_inr)}</td>
+  <td>${statBadge(o.status)}</td>
+  <td style="font-size:.78rem;color:var(--muted)">${fmtDt(o.created_at)}</td>
+</tr>`).join('') : `<tr><td colspan="5" class="muted" style="text-align:center;padding:1rem">No orders yet</td></tr>`;
 
     const ov = openModal(`
-<div class="modal-header"><h3>Edit Customer</h3><button class="btn-icon" data-close>✕</button></div>
-<div class="modal-body" style="max-height:75vh;overflow-y:auto">
+<div class="modal-header"><h3>Edit Customer · ${esc(c.name || 'Unknown')}</h3><button class="btn-icon" data-close>✕</button></div>
+<div class="modal-body" style="max-height:80vh;overflow-y:auto">
   <div id="cust-err"></div>
+
+  <!-- Quick actions row -->
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem">
+    <button class="btn btn-green btn-sm" id="cm-login-as">👤 Login As Customer</button>
+    ${waUrl ? `<a class="btn btn-secondary btn-sm" href="${waUrl}" target="_blank" rel="noopener" style="text-decoration:none">💬 WhatsApp</a>` : ''}
+    ${mailUrl ? `<a class="btn btn-secondary btn-sm" href="${mailUrl}" target="_blank" rel="noopener" style="text-decoration:none">✉️ Email</a>` : ''}
+    <button class="btn btn-secondary btn-sm" id="cm-copy-jid">📋 Copy JID</button>
+  </div>
+
+  <!-- Stats row -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.5rem;margin-bottom:1.25rem">
+    <div style="background:var(--input-bg);border-radius:8px;padding:.6rem .75rem">
+      <div style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Joined</div>
+      <div style="font-weight:700;font-size:.88rem;margin-top:2px">${fmtDateShort(c.created_at)}</div>
+    </div>
+    <div style="background:var(--input-bg);border-radius:8px;padding:.6rem .75rem">
+      <div style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Last login</div>
+      <div style="font-weight:700;font-size:.88rem;margin-top:2px">${c.last_login_at ? fmtDt(c.last_login_at) : 'Never'}</div>
+    </div>
+    <div style="background:var(--input-bg);border-radius:8px;padding:.6rem .75rem">
+      <div style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Orders</div>
+      <div style="font-weight:800;font-size:1rem;margin-top:2px">${c.order_count || 0}</div>
+    </div>
+    <div style="background:var(--input-bg);border-radius:8px;padding:.6rem .75rem">
+      <div style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Total spent</div>
+      <div style="font-weight:800;font-size:1rem;margin-top:2px">${fmtInr(c.total_spent_inr)}</div>
+    </div>
+  </div>
+
+  <!-- Profile fields -->
+  <div style="font-weight:700;margin-bottom:.5rem">Profile</div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Name</label><input class="form-input" id="cm-name" value="${esc(c.name||'')}"></div>
     <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="cm-email" value="${esc(c.email||'')}"></div>
@@ -1115,34 +1166,63 @@ window.openCustomerModal = async function (jid) {
   <div class="form-row">
     <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="cm-phone" value="${esc(c.phone||'')}"></div>
     <div class="form-group"><label class="form-label">Discount %</label><input class="form-input" id="cm-disc" type="number" min="0" max="100" value="${c.discount_percent||0}"></div>
-    <div class="form-group" style="justify-content:center;align-items:center;flex-direction:row;gap:.75rem;padding-top:1.3rem">
-      <label class="form-label">Blocked</label>
-      <label class="toggle-switch"><input type="checkbox" id="cm-blocked" ${c.blocked?'checked':''}><span class="toggle-slider"></span></label>
-    </div>
   </div>
-  <hr style="border-color:var(--border);margin:.5rem 0">
-  <div class="form-group"><label class="form-label">Reset Password</label>
-    <div style="display:flex;gap:.5rem">
-      <input class="form-input" id="cm-newpass" type="password" placeholder="New password (leave blank to skip)">
-      <button class="btn btn-secondary btn-sm" onclick="resetCustPass('${esc(jid)}')">Set</button>
-    </div>
+  <div style="display:flex;gap:1.25rem;align-items:center;margin:.5rem 0 1rem">
+    <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+      <input type="checkbox" id="cm-reseller" ${c.is_reseller?'checked':''}> <span style="font-size:.88rem">Reseller</span>
+    </label>
+    <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+      <input type="checkbox" id="cm-blocked" ${c.blocked?'checked':''}> <span style="font-size:.88rem;color:${c.blocked?'var(--red)':'inherit'}">Blocked</span>
+    </label>
   </div>
-  <p style="font-size:.78rem;color:var(--muted)">JID: ${esc(c.jid)}</p>
+
+  <hr style="border-color:var(--border);margin:.5rem 0 1rem">
+
+  <!-- Internal notes -->
+  <div style="font-weight:700;margin-bottom:.5rem">Internal notes <span style="font-weight:400;color:var(--muted);font-size:.78rem">(visible only to admins)</span></div>
+  <textarea class="form-input" id="cm-notes" rows="3" placeholder="e.g. paid via WhatsApp, prefers Hotstar, VIP customer..." style="resize:vertical">${esc(c.admin_notes||'')}</textarea>
+
+  <hr style="border-color:var(--border);margin:1rem 0">
+
+  <!-- Recent orders -->
+  <div style="font-weight:700;margin-bottom:.5rem">Recent orders <span style="font-weight:400;color:var(--muted);font-size:.78rem">(last 10)</span></div>
+  <div class="table-wrap" style="margin-bottom:1rem"><table style="font-size:.85rem">
+    <thead><tr><th>ID</th><th>Plan</th><th>Amount</th><th>Status</th><th>Created</th></tr></thead>
+    <tbody>${orderRows}</tbody>
+  </table></div>
+
+  <hr style="border-color:var(--border);margin:.5rem 0 1rem">
+
+  <!-- Password reset -->
+  <div style="font-weight:700;margin-bottom:.5rem">Reset password</div>
+  <div style="display:flex;gap:.5rem;margin-bottom:1rem">
+    <input class="form-input" id="cm-newpass" type="password" placeholder="New password (leave blank to skip)" autocomplete="new-password">
+    <button class="btn btn-secondary btn-sm" id="cm-resetpass">Set password</button>
+  </div>
+
+  <p style="font-size:.72rem;color:var(--muted);margin:0">JID: <code>${esc(c.jid)}</code> · Referral code: <code>${esc(c.referral_code||'—')}</code></p>
 </div>
 <div class="modal-footer">
   <button class="btn btn-secondary" data-close>Cancel</button>
-  <button class="btn btn-green btn-sm" onclick="loginAsCustomer('${esc(jid)}')">Login As</button>
-  <button class="btn btn-primary" id="save-cust-btn">Save</button>
+  <button class="btn btn-primary" id="save-cust-btn">💾 Save changes</button>
 </div>`);
 
+    // Wire up actions
+    document.getElementById('cm-login-as').addEventListener('click', () => window.loginAsCustomer(c.jid));
+    document.getElementById('cm-copy-jid').addEventListener('click', () => {
+      try { navigator.clipboard.writeText(c.jid); showToast('JID copied'); } catch { showToast('Copy failed', 'error'); }
+    });
+    document.getElementById('cm-resetpass').addEventListener('click', () => window.resetCustPass(c.jid));
     document.getElementById('save-cust-btn').addEventListener('click', async () => {
       try {
-        await api(`/customers/${encodeURIComponent(jid)}`, { method: 'PUT', body: JSON.stringify({
+        await api(`/customers/${encodeURIComponent(c.jid)}`, { method: 'PUT', body: JSON.stringify({
           name: document.getElementById('cm-name').value,
           email: document.getElementById('cm-email').value,
           phone: document.getElementById('cm-phone').value,
-          discount_percent: parseFloat(document.getElementById('cm-disc').value),
+          discount_percent: parseFloat(document.getElementById('cm-disc').value) || 0,
+          is_reseller: document.getElementById('cm-reseller').checked ? 1 : 0,
           blocked: document.getElementById('cm-blocked').checked ? 1 : 0,
+          admin_notes: document.getElementById('cm-notes').value,
         }) });
         ov.remove(); showToast('Customer updated'); views.customers();
       } catch (ex) { document.getElementById('cust-err').innerHTML = `<div class="alert alert-error">${esc(ex.message)}</div>`; }

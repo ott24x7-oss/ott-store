@@ -300,16 +300,36 @@ router.get('/customers', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Single-customer detail endpoint. The list view's GET /customers?q=… only
+// searches by email/name/phone (LIKE), so re-fetching by JID from there
+// returned nothing and the Edit button failed silently with "Customer not
+// found". This is the canonical place to fetch one customer + their stats.
+router.get('/customers/:jid', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const c = get(db, `SELECT c.*,
+      (SELECT COUNT(*) FROM orders WHERE customer_jid=c.jid) as order_count,
+      (SELECT COALESCE(SUM(amount_inr),0) FROM orders WHERE customer_jid=c.jid AND status NOT IN ('cancelled','failed')) as total_spent_inr
+      FROM customers c WHERE c.jid=?`, [req.params.jid]);
+    if (!c) return res.status(404).json({ error: 'Customer not found' });
+    const recentOrders = all(db, `SELECT o.id, o.amount_inr, o.status, o.created_at, o.expires_at, p.platform, p.name as plan_name
+      FROM orders o LEFT JOIN plans p ON o.plan_id=p.id
+      WHERE o.customer_jid=? ORDER BY o.created_at DESC LIMIT 10`, [c.jid]);
+    res.json({ ...c, recent_orders: recentOrders });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 router.put('/customers/:jid', requireAdmin, async (req, res) => {
   try {
-    const { name, email, phone, blocked, discount_percent, is_reseller } = req.body;
+    const { name, email, phone, blocked, discount_percent, is_reseller, admin_notes } = req.body;
     const db = await getDb();
     const c = get(db, `SELECT * FROM customers WHERE jid=?`, [req.params.jid]);
     if (!c) return res.status(404).json({ error: 'Customer not found' });
-    run(db, `UPDATE customers SET name=?,email=?,phone=?,blocked=?,discount_percent=?,is_reseller=? WHERE jid=?`,
+    run(db, `UPDATE customers SET name=?,email=?,phone=?,blocked=?,discount_percent=?,is_reseller=?,admin_notes=? WHERE jid=?`,
       [name ?? c.name, email ?? c.email, phone ?? c.phone,
        blocked ?? c.blocked,
        discount_percent ?? c.discount_percent, is_reseller ?? c.is_reseller,
+       admin_notes ?? c.admin_notes,
        req.params.jid]);
     await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'edit_customer', targetKind: 'customer', targetId: req.params.jid, ip: req.ip });
     res.json({ ok: true });
