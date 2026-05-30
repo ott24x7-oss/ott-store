@@ -411,6 +411,61 @@ router.post('/verify-wa-otp', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── WhatsApp Magic Link (1-tap login, mirrors email magic-link) ──────────────
+router.post('/send-wa-magic', async (req, res) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) return res.status(400).json({ error: 'Phone number required' });
+    const db = await getDb();
+    const waEnabled = await getSetting('wa_enabled');
+    if (waEnabled !== '1') return res.status(400).json({ error: 'WhatsApp login not available right now.' });
+    const phoneClean = phone.replace(/\D/g, '');
+    if (phoneClean.length < 10) return res.status(400).json({ error: 'Invalid phone number' });
+    const phoneCC = phoneClean.length >= 12 ? phoneClean : '91' + phoneClean.slice(-10);
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    run(db, `INSERT INTO auth_tokens (token,purpose,phone,expires_at) VALUES (?,?,?,?)`,
+      [token, 'wa_magic', phoneCC, expires]);
+    const baseUrl = stripSlash(await getSetting('base_url')) || `${req.protocol}://${req.get('host')}`;
+    const siteName = await getSetting('site_name') || 'OTT Store';
+    const magicUrl = `${baseUrl}/user/api/auth/wa-magic?token=${token}`;
+    try {
+      const { sendToPhone } = require('./wa-bot');
+      await sendToPhone(phoneCC,
+        `🔐 *${siteName} — Tap to Login*\n\nTap this link to sign in instantly:\n${magicUrl}\n\nLink expires in 15 minutes. Do not share with anyone.`);
+    } catch {}
+    res.json({ ok: true, masked: '****' + phoneCC.slice(-4) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/auth/wa-magic', async (req, res) => {
+  try {
+    const { token } = req.query;
+    if (!token) return res.redirect('/my?auth_error=invalid_link');
+    const db = await getDb();
+    const record = get(db,
+      `SELECT * FROM auth_tokens WHERE token=? AND purpose='wa_magic' AND used=0 AND expires_at > datetime('now')`,
+      [token]);
+    if (!record) return res.redirect('/my?auth_error=expired_link');
+    run(db, `UPDATE auth_tokens SET used=1 WHERE token=?`, [token]);
+    const phoneCC = record.phone;
+    const waJid = phoneCC + '@s.whatsapp.net';
+    let customer = get(db, 'SELECT * FROM customers WHERE jid=? OR phone=?', [waJid, phoneCC]);
+    const isNew = !customer;
+    if (!customer) {
+      const nm = 'User ' + phoneCC.slice(-4);
+      const refCode = crypto.randomBytes(4).toString('hex').toUpperCase();
+      run(db, `INSERT INTO customers (jid,name,phone,referral_code,needs_email) VALUES (?,?,?,?,1)`,
+        [waJid, nm, phoneCC, refCode]);
+      customer = get(db, 'SELECT * FROM customers WHERE jid=?', [waJid]);
+    }
+    run(db, `UPDATE customers SET last_login_at=datetime('now') WHERE jid=?`, [customer.jid]);
+    setCustomerCookie(res, { jid: customer.jid, email: customer.email || '', name: customer.name });
+    await audit({ actorKind:'customer', actorLabel:customer.phone, action:isNew?'register_wa_magic':'login_wa_magic', targetKind:'customer', targetId:customer.jid, ip:req.ip });
+    res.redirect('/my?auth_success=1');
+  } catch (e) { res.redirect('/my?auth_error=server_error'); }
+});
+
 // ─── Complete Profile ─────────────────────────────────────────────────────────
 router.put('/complete-profile', requireCustomer, async (req, res) => {
   try {

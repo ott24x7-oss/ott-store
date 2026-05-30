@@ -680,7 +680,7 @@ window.sendMagic=async function(){
   }catch(ex){msg.innerHTML=`<div class="my-err">${esc(ex.message)}</div>`;msg.style.display='';setLoading(btn,false);}
 };
 
-// ── WhatsApp OTP Form ─────────────────────────────────────────────────────────
+// ── WhatsApp Tap-to-Login (mirrors email magic-link) ─────────────────────────
 function renderWaForm(area){
   area.innerHTML=`
 <div id="wa-step1" class="my-otp-step">
@@ -690,77 +690,52 @@ function renderWaForm(area){
     <input class="form-input" id="wa-phone" type="tel" placeholder="+91 98765 43210" autocomplete="tel">
   </div>
   <button class="my-wa-btn" id="wa-send-btn" onclick="waSend()" style="margin-bottom:0">
-    <span>💬</span> Send OTP to WhatsApp
+    <span>💬</span> Send Login Link to WhatsApp
   </button>
+  <p style="font-size:.75rem;color:var(--muted);text-align:center;margin-top:.6rem">
+    We'll send a 1-tap login link to your WhatsApp. No OTP to type.
+  </p>
 </div>
-<div id="wa-step2" class="my-otp-step hidden">
+<div id="wa-step2" class="my-otp-step hidden" style="text-align:center">
   <div id="wa-err2" style="display:none" class="my-err"></div>
-  <p style="font-size:.85rem;color:var(--muted);text-align:center;margin-bottom:.5rem">Enter the OTP sent to your WhatsApp <strong id="wa-masked"></strong></p>
-  <div class="my-otp-input">
-    <input class="form-input" id="wa-otp" type="text" inputmode="numeric" maxlength="6" placeholder="000000" style="text-align:center;letter-spacing:.3rem;font-size:1.25rem;font-weight:800">
+  <div style="font-size:3rem;margin-bottom:.5rem">💬</div>
+  <h3 style="font-weight:800;margin-bottom:.5rem">Check your WhatsApp</h3>
+  <p style="font-size:.95rem;color:var(--muted);margin-bottom:1rem">
+    We've sent a login link to <strong id="wa-masked" style="color:var(--text)"></strong>.<br>
+    Tap the link in the message to sign in instantly.
+  </p>
+  <div style="background:var(--green-bg);border:1px solid rgba(55,255,155,.25);border-radius:8px;padding:.7rem;margin-bottom:.75rem;font-size:.85rem;color:var(--text)">
+    🔒 Link expires in 15 minutes. Do not share with anyone.
   </div>
-  <div id="wa-name-row" class="form-group" style="display:none">
-    <label class="my-lbl">Your Name (new account)</label>
-    <input class="form-input" id="wa-name" placeholder="Raj Kumar">
-  </div>
-  <button class="btn btn-primary btn-block" id="wa-verify-btn" onclick="waVerify()">Verify &amp; Login</button>
-  <p class="my-resend"><span onclick="document.getElementById('wa-step1').classList.remove('hidden');document.getElementById('wa-step2').classList.add('hidden')">← Change number</span></p>
+  <p class="my-resend" style="margin-top:.75rem">
+    Didn't receive it? <span id="wa-resend-link" style="cursor:pointer">Resend</span> ·
+    <span onclick="document.getElementById('wa-step1').classList.remove('hidden');document.getElementById('wa-step2').classList.add('hidden')" style="cursor:pointer">Change number</span>
+  </p>
 </div>`;
-  document.getElementById('wa-otp').addEventListener('keypress',e=>{if(e.key==='Enter')waVerify();});
   const savedPhone=localStorage.getItem('my_last_phone');
   if(savedPhone)document.getElementById('wa-phone').value=savedPhone;
+  document.getElementById('wa-phone').addEventListener('keypress',e=>{if(e.key==='Enter')waSend();});
+  document.getElementById('wa-resend-link').addEventListener('click',()=>waSend(true));
 }
 
-window.waSend=async function(){
+window.waSend=async function(isResend){
   const phone=document.getElementById('wa-phone').value.trim();
   const err=document.getElementById('wa-err1');
   const btn=document.getElementById('wa-send-btn');
   if(!phone){err.textContent='Please enter your WhatsApp number.';err.style.display='';return;}
-  setLoading(btn,true,'Sending OTP...');
+  if(btn)setLoading(btn,true,'Sending link...');
   try{
-    const r=await api('/send-wa-otp',{method:'POST',body:JSON.stringify({phone})});
+    const r=await api('/send-wa-magic',{method:'POST',body:JSON.stringify({phone})});
     localStorage.setItem('my_last_phone',phone);
     document.getElementById('wa-step1').classList.add('hidden');
     document.getElementById('wa-step2').classList.remove('hidden');
     document.getElementById('wa-masked').textContent=r.masked||'****';
-    setTimeout(()=>document.getElementById('wa-otp').focus(),100);
-  }catch(ex){err.textContent=ex.message;err.style.display='';setLoading(btn,false);}
-};
-
-let _waLoginResult=null;
-window.waVerify=async function(){
-  const phone=localStorage.getItem('my_last_phone')||'';
-  const otp=document.getElementById('wa-otp').value.trim();
-  const nameInput=document.getElementById('wa-name');
-  const name=nameInput?.value.trim()||'';
-  const err=document.getElementById('wa-err2');
-  const btn=document.getElementById('wa-verify-btn');
-  if(!otp){err.textContent='Enter the OTP from WhatsApp.';err.style.display='';return;}
-  // If name row is already showing, user is completing registration — no need to re-verify OTP
-  const nameRow=document.getElementById('wa-name-row');
-  if(_waLoginResult&&nameRow&&nameRow.style.display!=='none'){
-    if(!name){err.textContent='Please enter your name.';err.style.display='';return;}
-    setLoading(btn,true,'Completing...');
-    try{
-      await api('/complete-profile',{method:'PUT',body:JSON.stringify({name})});
-    }catch(ex){/* non-fatal */}
-    await initPortal(_waLoginResult);
-    return;
+    if(isResend)showToast('Login link sent again to your WhatsApp.','success');
+  }catch(ex){
+    if(err){err.textContent=ex.message;err.style.display='';}
+    if(btn)setLoading(btn,false);
+    if(isResend)showToast(ex.message,'error');
   }
-  setLoading(btn,true,'Verifying...');
-  try{
-    const r=await api('/verify-wa-otp',{method:'POST',body:JSON.stringify({phone,otp,name})});
-    if(r.is_new&&nameRow&&nameRow.style.display==='none'){
-      _waLoginResult=r;
-      nameRow.style.display='';
-      setLoading(btn,false);
-      btn.textContent='Complete Registration →';
-      showToast('OTP verified! Enter your name to finish.','success');
-      return;
-    }
-    _waLoginResult=null;
-    await initPortal(r);
-  }catch(ex){err.textContent=ex.message;err.style.display='';setLoading(btn,false);}
 };
 
 // ── Forgot Password ────────────────────────────────────────────────────────────
