@@ -336,6 +336,7 @@ function renderPlansTable(plans, catFilter) {
   <button class="btn btn-sm btn-secondary" onclick="bulkSetCategory()">📁 Set Category</button>
   <button class="btn btn-sm btn-secondary" onclick="bulkApplyMarkup()">💹 Apply Markup</button>
   <button class="btn btn-sm btn-secondary" onclick="bulkSetImage()">🖼 Set Image</button>
+  <button class="btn btn-sm btn-secondary" onclick="bulkUploadImages()">📤 Bulk Upload</button>
   <button class="btn btn-sm btn-secondary" onclick="bulkAction('auto-logo')">🤖 Auto Logo</button>
   <button class="btn btn-red btn-sm" onclick="bulkAction('delete')">🗑 Delete</button>
   <button class="btn btn-sm btn-secondary" style="margin-left:auto" onclick="clearBulkSelect()">✕ Clear</button>
@@ -474,6 +475,216 @@ function renderPlansTable(plans, catFilter) {
         ov.remove(); showToast(`Image set for ${r.affected} product(s)`); views.plans(catFilter);
       } catch(e) { document.getElementById('bulk-img-msg').innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
     };
+  };
+
+  // ── Bulk image FILE upload (one image per product) ────────────────────────
+  // Companion to bulkSetImage (single URL → all). This one:
+  //  1. Admin drops/picks N image files
+  //  2. We auto-pair each file with a selected product by filename↔name
+  //     token overlap (Jaccard). Confident match = green; weak match = grey.
+  //  3. Admin can manually re-pair via dropdown
+  //  4. Click Upload — each file POSTs to /plans/:id/upload-image with a
+  //     live progress bar; failures show inline so a single bad file doesn't
+  //     abort the rest.
+  window.bulkUploadImages = () => {
+    const ids = getSelectedIds();
+    if (!ids.length) return showToast('Select at least one product', 'error');
+    // Build a lightweight view-model from the rendered table — we already
+    // have name + current image in the DOM so no extra API roundtrip needed.
+    const products = ids.map(id => {
+      const tr = document.querySelector(`tr[data-pid="${id}"]`)
+              || document.querySelector(`input.plan-cb[data-id="${id}"]`)?.closest('tr');
+      const name = tr?.querySelector('td:nth-child(3)')?.textContent?.trim() || `#${id}`;
+      const img  = tr?.querySelector('td:nth-child(2) img')?.src || '';
+      return { id: Number(id), name, img };
+    });
+    let queue = []; // [{file, productId, matchScore, status, error}]
+
+    const ov = openModal(`
+<div class="modal-header"><h3>📤 Bulk Upload Product Images</h3><button class="btn-icon" data-close>✕</button></div>
+<div class="modal-body" style="max-height:75vh;overflow-y:auto">
+  <p style="font-size:.85rem;color:var(--muted);margin-bottom:.75rem">
+    Upload one unique image per product. <strong>${ids.length} product(s) selected.</strong>
+    Drop multiple files at once — we'll auto-match each file to the closest product by filename.
+  </p>
+
+  <label id="bui-drop" style="display:block;border:2px dashed var(--border);border-radius:10px;padding:1.5rem;text-align:center;cursor:pointer;transition:all .15s">
+    <div style="font-size:2rem;margin-bottom:.35rem">📁</div>
+    <div style="font-weight:700">Drop images here or click to pick files</div>
+    <div style="font-size:.78rem;color:var(--muted);margin-top:.25rem">JPG / PNG / WebP / SVG · 2 MB each · select many at once</div>
+    <input type="file" id="bui-input" accept="image/*" multiple style="display:none">
+  </label>
+
+  <div id="bui-summary" style="margin-top:.85rem;font-size:.85rem;color:var(--muted)"></div>
+  <div id="bui-msg"></div>
+  <div id="bui-list" style="margin-top:.5rem"></div>
+  <div id="bui-progress" style="display:none;margin-top:.85rem">
+    <div style="height:6px;background:var(--input-bg);border-radius:3px;overflow:hidden">
+      <div id="bui-bar" style="height:100%;width:0;background:var(--primary);transition:width .15s"></div>
+    </div>
+    <div id="bui-progress-text" style="font-size:.78rem;color:var(--muted);margin-top:.35rem;text-align:center"></div>
+  </div>
+</div>
+<div class="modal-footer">
+  <button class="btn btn-secondary" data-close id="bui-cancel">Close</button>
+  <button class="btn btn-primary" id="bui-upload" disabled>Upload 0 Images</button>
+</div>`);
+
+    const drop = document.getElementById('bui-drop');
+    const input = document.getElementById('bui-input');
+    const list = document.getElementById('bui-list');
+    const summary = document.getElementById('bui-summary');
+    const uploadBtn = document.getElementById('bui-upload');
+    const msg = document.getElementById('bui-msg');
+
+    // Token overlap (Jaccard) — strip extension, lowercase, split on non-alnum.
+    // Score 0..1. Same tokens "outlook 2024" vs "Outlook 2024 1PC [BIND]" → ~0.5.
+    const tokens = s => new Set(String(s||'').toLowerCase().replace(/\.[a-z0-9]+$/,'').split(/[^a-z0-9]+/).filter(t => t && t.length > 1));
+    const matchScore = (a, b) => {
+      const ta = tokens(a), tb = tokens(b);
+      if (!ta.size || !tb.size) return 0;
+      let inter = 0;
+      ta.forEach(t => { if (tb.has(t)) inter++; });
+      return inter / new Set([...ta, ...tb]).size;
+    };
+
+    function autoPair(files) {
+      // Greedy assignment: for each file, pick the highest-scoring product
+      // that isn't already paired with a stronger file.
+      const usedIds = new Set(queue.map(q => q.productId));
+      files.forEach(file => {
+        let best = { score: 0, id: null };
+        products.forEach(p => {
+          if (usedIds.has(p.id)) return;
+          const s = matchScore(file.name, p.name);
+          if (s > best.score) best = { score: s, id: p.id };
+        });
+        const pid = best.id || products.find(p => !usedIds.has(p.id))?.id || products[0].id;
+        usedIds.add(pid);
+        queue.push({ file, productId: pid, matchScore: best.score, status: 'pending', error: '' });
+      });
+    }
+
+    function renderList() {
+      summary.textContent = queue.length
+        ? `${queue.length} file(s) queued · ${queue.filter(q => q.matchScore >= .15).length} auto-matched`
+        : '';
+      uploadBtn.textContent = `Upload ${queue.length} Image${queue.length===1?'':'s'}`;
+      uploadBtn.disabled = !queue.length;
+      if (!queue.length) { list.innerHTML = ''; return; }
+      list.innerHTML = queue.map((q, i) => {
+        const prod = products.find(p => p.id === q.productId);
+        const previewUrl = URL.createObjectURL(q.file);
+        const matchColor = q.matchScore >= .4 ? 'var(--green,#22c55e)'
+                         : q.matchScore >= .15 ? '#f59e0b'
+                         : 'var(--muted)';
+        const matchLabel = q.matchScore >= .4 ? 'Strong match'
+                         : q.matchScore >= .15 ? 'Weak match'
+                         : 'No match — verify';
+        const opts = products.map(p =>
+          `<option value="${p.id}" ${p.id===q.productId?'selected':''}>${esc(p.name)}</option>`
+        ).join('');
+        const statusIcon = q.status === 'done' ? '✅'
+                         : q.status === 'error' ? '⚠️'
+                         : q.status === 'uploading' ? '⏳' : '';
+        return `<div class="bui-row" data-idx="${i}" style="display:flex;align-items:center;gap:.6rem;padding:.5rem;border-bottom:1px solid var(--border)">
+          <img src="${previewUrl}" style="width:40px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:.78rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(q.file.name)}">${esc(q.file.name)} · ${(q.file.size/1024).toFixed(0)} KB</div>
+            <div style="display:flex;align-items:center;gap:.4rem;margin-top:.15rem">
+              <span style="font-size:.7rem;color:${matchColor};font-weight:600;flex-shrink:0">${matchLabel}</span>
+              <span style="font-size:.7rem;color:var(--muted)">→</span>
+              <select class="form-input bui-pair" data-idx="${i}" style="flex:1;font-size:.78rem;padding:.25rem .45rem;min-width:0">${opts}</select>
+            </div>
+            ${q.error ? `<div style="font-size:.7rem;color:#ef4444;margin-top:.15rem">${esc(q.error)}</div>` : ''}
+          </div>
+          <div style="font-size:1rem;width:22px;text-align:center">${statusIcon}</div>
+          <button class="btn-icon bui-remove" data-idx="${i}" title="Remove" ${q.status==='uploading'?'disabled':''}>✕</button>
+        </div>`;
+      }).join('');
+      list.querySelectorAll('.bui-pair').forEach(sel => sel.onchange = e => {
+        const i = Number(e.target.dataset.idx);
+        const newId = Number(e.target.value);
+        // Free the product that was previously paired with file `i` (no-op).
+        queue[i].productId = newId;
+        queue[i].matchScore = matchScore(queue[i].file.name, products.find(p=>p.id===newId)?.name || '');
+        renderList();
+      });
+      list.querySelectorAll('.bui-remove').forEach(btn => btn.onclick = e => {
+        const i = Number(e.currentTarget.dataset.idx);
+        queue.splice(i, 1);
+        renderList();
+      });
+    }
+
+    function addFiles(fileList) {
+      const fresh = Array.from(fileList || []).filter(f => f.type.startsWith('image/'));
+      if (!fresh.length) return;
+      if (queue.length + fresh.length > products.length) {
+        msg.innerHTML = `<div class="alert alert-error">You picked more files than selected products (${products.length}). Only the first ${products.length - queue.length} will be queued.</div>`;
+        fresh.splice(products.length - queue.length);
+      } else {
+        msg.innerHTML = '';
+      }
+      autoPair(fresh);
+      renderList();
+    }
+
+    drop.addEventListener('click', () => input.click());
+    drop.addEventListener('dragover', e => { e.preventDefault(); drop.style.borderColor = 'var(--primary)'; drop.style.background = 'var(--input-bg)'; });
+    drop.addEventListener('dragleave', () => { drop.style.borderColor = 'var(--border)'; drop.style.background = ''; });
+    drop.addEventListener('drop', e => {
+      e.preventDefault();
+      drop.style.borderColor = 'var(--border)';
+      drop.style.background = '';
+      addFiles(e.dataTransfer.files);
+    });
+    input.addEventListener('change', e => addFiles(e.target.files));
+
+    uploadBtn.onclick = async () => {
+      if (!queue.length) return;
+      uploadBtn.disabled = true;
+      document.getElementById('bui-cancel').textContent = 'Done';
+      document.getElementById('bui-progress').style.display = '';
+      const bar = document.getElementById('bui-bar');
+      const ptxt = document.getElementById('bui-progress-text');
+      let done = 0, fails = 0;
+      for (let i = 0; i < queue.length; i++) {
+        const q = queue[i];
+        if (q.status === 'done') { done++; continue; }
+        q.status = 'uploading'; q.error = '';
+        renderList();
+        try {
+          const fd = new FormData();
+          fd.append('image', q.file);
+          const res = await fetch(`/admin/api/plans/${q.productId}/upload-image`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'X-CSRF-Token': getCsrfToken() },
+            body: fd,
+          });
+          const j = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
+          q.status = 'done';
+          done++;
+        } catch (ex) {
+          q.status = 'error';
+          q.error = ex.message || 'Upload failed';
+          fails++;
+        }
+        const pct = Math.round(((i + 1) / queue.length) * 100);
+        bar.style.width = pct + '%';
+        ptxt.textContent = `Uploading ${i + 1}/${queue.length}… ${done} done · ${fails} failed`;
+        renderList();
+      }
+      ptxt.textContent = `Finished · ${done} uploaded · ${fails} failed`;
+      showToast(`${done} image(s) uploaded${fails ? `, ${fails} failed` : ''}`, fails ? 'error' : 'success');
+      // Refresh table in background so new images show; keep modal open so
+      // the admin can read the per-row results.
+      views.plans(catFilter);
+    };
+
+    renderList();
   };
 
   // ── ResellKeys panel ──────────────────────────────────────────────────────
