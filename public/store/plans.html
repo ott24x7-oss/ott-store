@@ -115,14 +115,10 @@ html[data-theme="dark"] .snav-logo .logo-dark{display:block}
 /* ── Responsive ── */
 @media(max-width:1100px){.splan-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:760px){
-  /* Switch nav from sticky to fixed: html+body have overflow-x:hidden,
-     which breaks position:sticky on Android Chrome (snav scrolled away
-     instead of staying pinned). Fixed at top:0 + body padding-top is
-     the reliable cross-browser pattern. */
-  body{padding-top:58px}
-  .snav{position:fixed;left:0;right:0;top:0;width:100%;
-    background:rgba(5,5,11,.92);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
-  .snav-inner{padding:.65rem 1rem}
+  /* position:fixed and body padding-top handled by store-theme.css
+     (CSS variable --mobile-header-h:52px). Removed the duplicate
+     body{padding-top:58px} that was overriding the variable. */
+  .snav-inner{padding:0}
   .splan-grid{grid-template-columns:repeat(2,1fr)}
   .snav-links,.snav-theme-btn{display:none}
   .snav-burger{display:block}

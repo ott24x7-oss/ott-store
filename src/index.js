@@ -386,7 +386,8 @@ a:hover{color:#8af1ff;text-decoration:underline}
 @media(max-width:760px){
   /* Match home/plans/my fixed-header pattern across all server-rendered
      pages (contact, privacy, terms, refund, blog, blog post). */
-  body{padding-top:54px;padding-bottom:58px}
+  /* padding-top handled by store-theme.css CSS variable --mobile-header-h */
+  body{padding-bottom:58px}
   .sp-nav{position:fixed;left:0;right:0;top:0;width:100%;padding:.55rem 1rem}
   .sp-nav-inner{gap:.75rem}
   .sp-logo img{max-height:30px;max-width:130px}

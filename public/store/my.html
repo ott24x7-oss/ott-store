@@ -56,6 +56,14 @@ html[data-theme="dark"] .my-logo .logo-dark{display:block}
 .my-dtab:hover{border-color:var(--grad-1);color:var(--grad-1)}
 .my-dtab .di{font-size:1.25rem}
 
+/* ── Auth bottom nav (shown only on login/register page) ── */
+.my-auth-bnav{display:none;position:fixed;bottom:0;left:0;right:0;height:58px;z-index:200;background:rgba(5,5,11,.96);border-top:1px solid rgba(255,255,255,.1);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);grid-template-columns:repeat(4,1fr)}
+.my-auth-bnav a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.1rem;padding:.3rem .5rem;color:rgba(255,255,255,.42);font-size:.6rem;font-weight:600;text-decoration:none;transition:color .15s;text-align:center}
+.my-auth-bnav a:hover{color:#fff;text-decoration:none}
+.my-auth-bnav a.active{color:#fff}
+.my-auth-bnav a span{font-size:1.2rem;line-height:1;display:block;margin-bottom:.05rem}
+@media(max-width:760px){.my-auth-bnav{display:grid}.my-main-auth{padding:.5rem 1rem 5rem}}
+
 /* ── Footer ── */
 .my-footer{border-top:1px solid var(--border);padding:2rem 1.25rem;background:var(--card);margin-top:auto}
 .my-footer-inner{max-width:1200px;margin:0 auto;display:flex;flex-wrap:wrap;gap:1rem;align-items:center;justify-content:space-between}
@@ -315,6 +323,14 @@ html[data-theme="dark"] .my-logo .logo-dark{display:block}
 <div class="my-main-auth" id="auth-area" style="display:none"></div>
 </div>
 
+<!-- ── Auth bottom nav (login/register state only) ── -->
+<div class="my-auth-bnav" id="auth-bottom-nav" style="display:none">
+  <a href="/"><span>🏠</span>Home</a>
+  <a href="/plans"><span>🎬</span>Plans</a>
+  <a href="/my" class="active"><span>👤</span>Account</a>
+  <a href="/contact"><span>🎧</span>Support</a>
+</div>
+
 <!-- ── Bottom nav ── -->
 <div class="my-bnav" id="bottom-nav">
   <button class="my-bnav-btn" data-tab="dashboard"><span class="bi">🏠</span>Home</button>
@@ -507,11 +523,13 @@ function showAuthArea(html){
   document.getElementById('portal-main').style.display='none';
   document.getElementById('tab-nav').style.display='none';
   document.getElementById('bottom-nav').style.display='none';
-  document.getElementById('my-footer').style.display='';
+  document.getElementById('auth-bottom-nav').style.display='';
+  document.getElementById('my-footer').style.display='none';
   document.getElementById('auth-area').innerHTML=html;
 }
 function showPortal(){
   document.getElementById('auth-area').style.display='none';
+  document.getElementById('auth-bottom-nav').style.display='none';
   document.getElementById('portal-main').style.display='';
   document.getElementById('tab-nav').style.display='';
   document.getElementById('bottom-nav').style.display='';
