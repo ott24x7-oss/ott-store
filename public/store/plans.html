@@ -99,6 +99,13 @@ html[data-theme="dark"] .snav-logo .logo-dark{display:block}
 .splan-btn{margin-top:auto;padding:.6rem 1rem;background:var(--st-btn);color:#fff;border:none;border-radius:10px;font-size:.85rem;font-weight:700;cursor:pointer;width:100%;transition:opacity .15s}
 .splan-btn:hover:not(:disabled){opacity:.85}
 .splan-btn:disabled{background:var(--st-card);color:var(--st-muted);cursor:not-allowed}
+/* Clickable product link (card image/header + name) → opens the product URL */
+.splan-link{text-decoration:none;color:inherit;display:block;cursor:pointer}
+a.splan-name{color:var(--st-text);transition:color .15s}
+a.splan-name:hover{color:var(--st-accent)}
+/* Deep-linked / selected product highlight (ring + brief pulse) */
+@keyframes splanFocusPulse{0%{box-shadow:0 0 0 0 rgba(255,43,79,.5)}70%{box-shadow:0 0 0 12px rgba(255,43,79,0)}100%{box-shadow:0 0 0 0 rgba(255,43,79,0)}}
+.splan-card.splan-focus{border-color:var(--st-accent)!important;box-shadow:0 0 0 2px var(--st-accent);animation:splanFocusPulse 1.3s ease-out 2}
 
 /* ── Empty / loading ── */
 .plans-empty{text-align:center;padding:4rem 1rem;color:var(--st-muted)}
@@ -331,15 +338,18 @@ fetch('/user/api/plans').then(r=>r.json()).then(plans=>{
   buildPlatformChips(plans);
   if(window._prefillSearch)_prefillSearch();
   renderPlans();
-  // Deep-link scroll — supports three sources:
-  //   1. Server injected __PLAN_SLUG__ via /plans/:slug route
-  //   2. URL hash #plan-{slug} e.g. /plans#plan-amazon-prime-6m
-  //   3. URL hash #plan-{id}  e.g. /plans#plan-42 (legacy)
-  const targetId = (window.__PLAN_SLUG__ ? 'plan-'+window.__PLAN_SLUG__ : null)
-    || (location.hash.startsWith('#plan-') ? location.hash.slice(1) : null);
-  if(targetId){
-    const el=document.getElementById(targetId);
-    if(el)setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'center'}),120);
+  // Deep-link focus — show the exact product when the page is opened via a
+  // product URL. Sources, in priority order:
+  //   1. Server-injected __PLAN_SLUG__ / __PLAN_ID__ (from the /plans/:slug route)
+  //   2. URL hash #plan-{slug}  e.g. /plans#plan-amazon-prime-6m
+  //   3. URL hash #plan-{id}    e.g. /plans#plan-42 (legacy)
+  const target=resolveDeepLinkTarget();
+  if(target){
+    revealProduct(target);
+  } else if(/^\/plans\/.+/.test(location.pathname)){
+    // A product URL was requested but no matching active plan exists.
+    const c=document.getElementById('results-count');
+    if(c)c.textContent='Product not found — showing all plans';
   }
 }).catch(()=>{
   document.getElementById('plans-loading').innerHTML='<p style="color:var(--st-muted)">⚠️ Failed to load plans.</p>';
@@ -371,7 +381,29 @@ document.getElementById('duration-filter').addEventListener('change',e=>{DURATIO
 document.getElementById('sort-filter').addEventListener('change',e=>{SORT=e.target.value;renderPlans();});
 document.getElementById('show-more-btn').addEventListener('click',()=>{_visible+=PAGE_SIZE;renderPlans();});
 
-function renderPlans(){
+// ── Deep-link / product-focus helpers ─────────────────────────────────────────
+function planCardId(p){return p.slug?('plan-'+p.slug):('plan-'+p.id);}
+
+// Resolve the deep-link target plan from server-injected globals or the URL hash.
+function resolveDeepLinkTarget(){
+  if(window.__PLAN_SLUG__){
+    const bySlug=ALL_PLANS.find(p=>p.slug===window.__PLAN_SLUG__);
+    if(bySlug)return bySlug;
+  }
+  if(window.__PLAN_ID__){
+    const byId=ALL_PLANS.find(p=>p.id===Number(window.__PLAN_ID__));
+    if(byId)return byId;
+  }
+  if(location.hash.startsWith('#plan-')){
+    const key=location.hash.slice(6); // drop "#plan-"
+    return ALL_PLANS.find(p=>p.slug===key)||ALL_PLANS.find(p=>String(p.id)===key)||null;
+  }
+  return null;
+}
+
+// Apply the active platform / search / duration filters + sort. Shared by
+// renderPlans() and the deep-link logic so both see the same ordered list.
+function getFilteredPlans(){
   let plans=[...ALL_PLANS];
   if(ACTIVE_PLATFORM)plans=plans.filter(p=>p.platform===ACTIVE_PLATFORM);
   if(SEARCH)plans=plans.filter(p=>p.name.toLowerCase().includes(SEARCH)||p.platform.toLowerCase().includes(SEARCH));
@@ -388,6 +420,57 @@ function renderPlans(){
   if(SORT==='price_asc')plans.sort((a,b)=>a.price_inr-b.price_inr);
   else if(SORT==='price_desc')plans.sort((a,b)=>b.price_inr-a.price_inr);
   else if(SORT==='name_asc')plans.sort((a,b)=>a.name.localeCompare(b.name));
+  return plans;
+}
+
+// Reset all filters + sync the filter UI back to defaults. Used when a deep link
+// points at a product that the current filters would otherwise hide.
+function clearFilters(){
+  SEARCH='';ACTIVE_PLATFORM='';DURATION='';SORT='';_visible=PAGE_SIZE;
+  const si=document.getElementById('search-input'); if(si)si.value='';
+  const df=document.getElementById('duration-filter'); if(df)df.value='';
+  const sf=document.getElementById('sort-filter'); if(sf)sf.value='';
+  document.querySelectorAll('#platform-chips .plat-chip').forEach(c=>c.classList.toggle('active',!c.dataset.platform));
+}
+
+// Scroll to a product card and flash a highlight on it. If the card isn't in the
+// DOM yet — because it's past the "show more" cut-off or hidden by a filter — we
+// render enough cards (or clear the filter) so it exists first. This is what
+// makes a product URL actually land on the exact product.
+function revealProduct(plan,opts){
+  if(!plan)return;
+  const smooth=!opts||opts.smooth!==false;
+  const resetIfHidden=!opts||opts.resetIfHidden!==false;
+  let el=document.getElementById(planCardId(plan));
+  if(!el){
+    let list=getFilteredPlans();
+    let idx=list.findIndex(p=>p.id===plan.id);
+    if(idx===-1&&resetIfHidden){clearFilters();list=getFilteredPlans();idx=list.findIndex(p=>p.id===plan.id);}
+    if(idx===-1)return; // plan is inactive / not in the list at all
+    if(idx>=_visible)_visible=Math.ceil((idx+1)/PAGE_SIZE)*PAGE_SIZE;
+    renderPlans();
+    el=document.getElementById(planCardId(plan));
+  }
+  if(!el)return;
+  setTimeout(()=>{
+    el.scrollIntoView({behavior:smooth?'smooth':'auto',block:'center'});
+    document.querySelectorAll('.splan-card.splan-focus').forEach(c=>{if(c!==el)c.classList.remove('splan-focus');});
+    el.classList.remove('splan-focus');void el.offsetWidth;el.classList.add('splan-focus');
+  },120);
+}
+
+// Click handler for a product (image/header or name): push the clean product URL
+// into the address bar (so it's shareable and reflects the exact product) and
+// focus the card — no full page reload.
+function selectProduct(plan){
+  const url=plan.slug?('/plans/'+plan.slug):('/plans#'+planCardId(plan));
+  try{history.pushState({id:plan.id,slug:plan.slug||null},'',url);}catch(e){}
+  if(plan.platform&&plan.name)document.title=`${plan.platform} — ${plan.name}`;
+  revealProduct(plan,{resetIfHidden:false});
+}
+
+function renderPlans(){
+  const plans=getFilteredPlans();
 
   const grid=document.getElementById('plans-grid');
   const noPlans=document.getElementById('no-plans');
@@ -407,6 +490,17 @@ function renderPlans(){
       const plan=ALL_PLANS.find(p=>p.id===Number(btn.dataset.id));
       if(!plan)return;
       openBuyChoice(plan);
+    });
+  });
+  // Clicking the product image/header or its name opens the product URL
+  // (/plans/{slug}) and focuses the exact product — without a full reload.
+  // Modifier / middle clicks fall through so the link opens in a new tab.
+  grid.querySelectorAll('.splan-link').forEach(a=>{
+    a.addEventListener('click',e=>{
+      if(e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
+      e.preventDefault();
+      const plan=ALL_PLANS.find(p=>p.id===Number(a.dataset.id));
+      if(plan)selectProduct(plan);
     });
   });
   showMore.style.display=plans.length>_visible?'block':'none';
@@ -661,10 +755,13 @@ function planCard(p){
   // Use slug as the card ID for clean deep links (/plans/amazon-prime-6m)
   // Fall back to numeric ID for plans that have no slug yet.
   const cardId = p.slug ? `plan-${p.slug}` : `plan-${p.id}`;
-  return `<div id="${cardId}" class="splan-card${p.badge?' featured':''}${outOfStock?' splan-oos':''}">`+`
-<div class="splan-header">${badge}${headerInner}</div>
+  // Real product URL so the card is shareable + crawlable and opens in a new
+  // tab on middle/ctrl-click. A normal click is upgraded to in-page focus by JS.
+  const href = p.slug ? `/plans/${p.slug}` : `/plans#${cardId}`;
+  return `<div id="${cardId}" class="splan-card${p.badge?' featured':''}${outOfStock?' splan-oos':''}" data-id="${p.id}">`+`
+<a class="splan-header splan-link" href="${href}" data-id="${p.id}" aria-label="${esc(p.name)}">${badge}${headerInner}</a>
 <div class="splan-body">
-  <div class="splan-name">${esc(p.name)}</div>
+  <a class="splan-name splan-link" href="${href}" data-id="${p.id}">${esc(p.name)}</a>
   <div class="splan-dur">⏱ ${dur} validity</div>
   <div class="splan-price-row"><span class="splan-price">₹${Number(p.price_inr).toLocaleString('en-IN')}</span>${origPrice}</div>
   ${p.delivery_type==='instant'?'<div class="splan-delivery">⚡ Instant Delivery</div>':''}
@@ -675,6 +772,17 @@ function planCard(p){
 }
 
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// Back/forward between /plans and /plans/{slug} re-focuses (or un-focuses) the
+// matching product without a reload.
+window.addEventListener('popstate',()=>{
+  const m=location.pathname.match(/^\/plans\/([a-z0-9-]+)\/?$/i);
+  if(m){
+    const plan=ALL_PLANS.find(p=>p.slug===m[1]);
+    if(plan){revealProduct(plan,{resetIfHidden:false});return;}
+  }
+  document.querySelectorAll('.splan-card.splan-focus').forEach(el=>el.classList.remove('splan-focus'));
+});
 })();
 </script>
 <script src="/store/chat-widget.js"></script>
