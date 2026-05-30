@@ -769,47 +769,135 @@ function renderPlansTable(plans, catFilter) {
   window.scrapeResellKeys = () => {
     const ov = openModal(`
 <div class="modal-header"><h3>🔍 Scrape ResellKeys Catalog</h3><button class="btn-icon" data-close>✕</button></div>
-<div class="modal-body">
+<div class="modal-body" style="max-height:75vh;overflow-y:auto">
   <div id="scrape-msg"></div>
-  <div class="form-group"><label class="form-label">Search Query (optional)</label>
-    <input class="form-input" id="scrape-q" placeholder="e.g. netflix, office, antivirus"></div>
-  <div id="scrape-results" style="max-height:320px;overflow-y:auto;margin-top:.5rem"></div>
+  <p style="font-size:.82rem;color:var(--muted);margin-bottom:.75rem">
+    Fetches HTML pages from <code>resellkeys.com/index.php?route=product/catalog&amp;fq=…&amp;page=N</code>,
+    parses every product card, applies your <strong>Profit % + USD→INR rate</strong> from
+    ⚙ ResellKeys settings, and shows a preview to import.
+  </p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.6rem;margin-bottom:.65rem">
+    <div class="form-group" style="margin:0">
+      <label class="form-label" style="font-size:.75rem">Search (optional)</label>
+      <input class="form-input" id="scrape-q" placeholder="e.g. netflix, office">
+    </div>
+    <div class="form-group" style="margin:0">
+      <label class="form-label" style="font-size:.75rem">Category (fq=)</label>
+      <input class="form-input" id="scrape-fq" value="11" placeholder="11">
+    </div>
+    <div class="form-group" style="margin:0">
+      <label class="form-label" style="font-size:.75rem">Max pages</label>
+      <input class="form-input" id="scrape-pages" type="number" min="1" max="50" value="15">
+    </div>
+  </div>
+  <label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem;margin-bottom:.5rem">
+    <input type="checkbox" id="scrape-instock" checked>
+    Only in-stock products (drops “Out Of Stock” cards)
+  </label>
+
+  <div style="display:flex;gap:.5rem;align-items:center;margin-top:.25rem;margin-bottom:.75rem">
+    <button class="btn btn-secondary" id="scrape-search-btn">🔍 Fetch Catalog</button>
+    <span id="scrape-progress" style="font-size:.78rem;color:var(--muted)"></span>
+  </div>
+
+  <div id="scrape-results"></div>
 </div>
 <div class="modal-footer">
   <button class="btn btn-secondary" data-close>Cancel</button>
-  <button class="btn btn-secondary" id="scrape-search-btn">Search →</button>
-  <button class="btn btn-primary" id="scrape-import-btn" style="display:none">Import Selected</button>
+  <button class="btn btn-secondary" id="scrape-toggle-all" style="display:none">Toggle all</button>
+  <button class="btn btn-primary" id="scrape-import-btn" style="display:none">Import Selected (0)</button>
 </div>`);
 
     let _scraped = [];
+
+    function updateImportBtn() {
+      const n = document.querySelectorAll('.scrape-cb:checked').length;
+      const btn = document.getElementById('scrape-import-btn');
+      btn.textContent = `Import Selected (${n})`;
+      btn.disabled = !n;
+    }
+
+    function renderResults(r) {
+      const res = document.getElementById('scrape-results');
+      _scraped = r.products || [];
+      if (!_scraped.length) {
+        res.innerHTML = '<p class="muted" style="padding:.75rem 0">No products found. If you see this even on a known-good category, the markup may have changed — check Base URL in ⚙ ResellKeys settings.</p>';
+        document.getElementById('scrape-import-btn').style.display = 'none';
+        document.getElementById('scrape-toggle-all').style.display = 'none';
+        return;
+      }
+      const inStockN = _scraped.filter(p => p.in_stock).length;
+      const head = `<div style="font-size:.82rem;margin-bottom:.5rem;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem;align-items:center">
+        <span><strong>${_scraped.length}</strong> products scanned across ${r.pages} page(s)
+          · <span style="color:var(--green,#22c55e)">${inStockN} in stock</span>
+          · Markup: ${r.profit_pct}% · Rate: $1 = ₹${r.usd_to_inr}</span>
+      </div>`;
+      const rows = _scraped.map((p,i)=>`<label style="display:flex;align-items:center;gap:.5rem;padding:.45rem .25rem;border-bottom:1px solid var(--border);${p.in_stock?'':'opacity:.55'}">
+        <input type="checkbox" class="scrape-cb" data-i="${i}" ${p.in_stock?'checked':''}>
+        ${p.image_url?`<img src="${esc(p.image_url)}" style="width:34px;height:34px;border-radius:6px;object-fit:cover;flex-shrink:0;background:#0a0a14" onerror="this.style.display='none'">`:'<div style="width:34px;height:34px;background:var(--input-bg);border-radius:6px;flex-shrink:0"></div>'}
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(p.name)}">${esc(p.name)}</div>
+          <div style="font-size:.7rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">ID ${esc(p.provider_product_id)} · ${esc(p.product_url||'').replace(/^https?:\/\/[^/]+/,'')||'—'}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-weight:700;font-size:.85rem">₹${Number(p.price_inr||0).toLocaleString('en-IN')}</div>
+          <div style="font-size:.7rem;color:var(--muted)">$${Number(p.price_usd||0).toFixed(2)}</div>
+        </div>
+        <span style="font-size:.65rem;font-weight:700;padding:.15rem .4rem;border-radius:4px;flex-shrink:0;${p.in_stock?'background:rgba(34,197,94,.18);color:#22c55e':'background:rgba(239,68,68,.18);color:#ef4444'}">${p.in_stock?'IN STOCK':'OUT'}</span>
+      </label>`).join('');
+      res.innerHTML = head + rows;
+      document.getElementById('scrape-toggle-all').style.display = '';
+      document.getElementById('scrape-import-btn').style.display = '';
+      res.querySelectorAll('.scrape-cb').forEach(cb => cb.addEventListener('change', updateImportBtn));
+      updateImportBtn();
+    }
+
     document.getElementById('scrape-search-btn').onclick = async () => {
       const msg = document.getElementById('scrape-msg');
       const res = document.getElementById('scrape-results');
+      const prog = document.getElementById('scrape-progress');
+      const btn = document.getElementById('scrape-search-btn');
       res.innerHTML = '<div class="spinner"></div>';
       msg.innerHTML = '';
+      prog.textContent = 'Fetching… this can take 30–60 seconds for 15 pages';
+      btn.disabled = true;
       try {
-        const r = await api('/plans/scrape-resellkeys', { method:'POST', body: JSON.stringify({ query: document.getElementById('scrape-q').value.trim() }) });
-        _scraped = r.products || [];
-        if (!_scraped.length) { res.innerHTML = '<p class="muted">No products found. Check ResellKeys credentials via ⚙ ResellKeys button.</p>'; return; }
-        res.innerHTML = `<div style="font-size:.83rem;margin-bottom:.5rem;color:var(--muted)">Found ${_scraped.length} products. Check the ones to import:</div>` +
-          _scraped.map((p,i)=>`<label style="display:flex;align-items:center;gap:.5rem;padding:.3rem 0;border-bottom:1px solid var(--border)">
-            <input type="checkbox" class="scrape-cb" data-i="${i}" checked>
-            ${p.image_url?`<img src="${esc(p.image_url)}" style="width:24px;height:24px;border-radius:4px;object-fit:cover">`:''}
-            <span style="flex:1">${esc(p.name)}</span>
-            <span class="badge badge-blue" style="font-size:.72rem">${esc(p.category||'')}</span>
-            <span style="font-size:.8rem;color:var(--muted)">$${Number(p.price_usd||0).toFixed(2)}</span>
-          </label>`).join('');
-        document.getElementById('scrape-import-btn').style.display = '';
-      } catch(e) { res.innerHTML=''; msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+        const r = await api('/plans/scrape-resellkeys', { method:'POST', body: JSON.stringify({
+          query:          document.getElementById('scrape-q').value.trim(),
+          categoryFilter: document.getElementById('scrape-fq').value.trim() || '11',
+          pages:          parseInt(document.getElementById('scrape-pages').value, 10) || 15,
+          inStockOnly:    document.getElementById('scrape-instock').checked,
+        })});
+        prog.textContent = '';
+        renderResults(r);
+      } catch(e) {
+        res.innerHTML = '';
+        prog.textContent = '';
+        msg.innerHTML = `<div class="alert alert-error">${esc(e.message)}</div>`;
+      } finally { btn.disabled = false; }
+    };
+
+    document.getElementById('scrape-toggle-all').onclick = () => {
+      const cbs = [...document.querySelectorAll('.scrape-cb')];
+      const allChecked = cbs.every(cb => cb.checked);
+      cbs.forEach(cb => cb.checked = !allChecked);
+      updateImportBtn();
     };
 
     document.getElementById('scrape-import-btn').onclick = async () => {
       const selected = [...document.querySelectorAll('.scrape-cb:checked')].map(cb => _scraped[+cb.dataset.i]);
       if (!selected.length) { showToast('Select at least one product', 'error'); return; }
+      const btn = document.getElementById('scrape-import-btn');
+      btn.disabled = true;
+      btn.textContent = `Importing ${selected.length}…`;
       try {
         const r = await api('/plans/import-scraped', { method:'POST', body: JSON.stringify({ products: selected }) });
         ov.remove(); showToast(`Imported ${r.imported} products`); views.plans();
-      } catch(e) { showToast(e.message, 'error'); }
+      } catch(e) {
+        btn.disabled = false; updateImportBtn();
+        showToast(e.message, 'error');
+      }
     };
   };
 }

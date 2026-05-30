@@ -1950,11 +1950,17 @@ router.post('/plans/sync-resellkeys-prices', requireAdmin, async (req, res) => {
 // ─── Scrape ResellKeys products ───────────────────────────────────────────────
 router.post('/plans/scrape-resellkeys', requireAdmin, async (req, res) => {
   try {
-    const { query } = req.body;
+    const { query, categoryFilter, pages, inStockOnly } = req.body || {};
     const db = await getDb();
     const { scrapeResellKeysProducts } = require('./fulfillment-worker');
-    const products = await scrapeResellKeysProducts(db, query || '');
-    res.json({ products, count: products.length });
+    const r = await scrapeResellKeysProducts(db, {
+      query: query || '',
+      categoryFilter: categoryFilter || '11',
+      pages: pages || 15,
+      inStockOnly: inStockOnly !== false,
+    });
+    // r = { products, pages, profit_pct, usd_to_inr }
+    res.json({ ...r, count: r.products.length });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
