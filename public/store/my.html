@@ -484,10 +484,13 @@ function renderAuth(initMethod, msgHtml){
       <h1>Welcome to <span id="al-name">${esc(STORE.site_name||'OTT Store')}</span></h1>
       <p>Sign in to access your subscriptions</p>
     </div>
-    ${waEnabled?`<button class="my-wa-btn" id="wa-1tap-btn" onclick="setMethod('whatsapp')">
+    ${waEnabled?`<a class="my-wa-btn" id="wa-1tap-btn" href="#" rel="noopener" style="text-decoration:none">
       <span style="font-size:1.3rem">💬</span>
       <span>1-Tap WhatsApp Login</span>
-    </button>
+    </a>
+    <p style="font-size:.72rem;color:var(--muted);text-align:center;margin:.35rem 0 .25rem;line-height:1.4">
+      Opens WhatsApp · Send the pre-filled message · We reply with your login link
+    </p>
     <div class="my-or">— OR CHOOSE METHOD —</div>`:''}
     <div class="my-auth-methods" id="auth-methods">
       <button class="mam-btn${method==='otp'?' active':''}" onclick="setMethod('otp')">📱 OTP</button>
@@ -501,6 +504,23 @@ function renderAuth(initMethod, msgHtml){
     By signing in you agree to our <a href="/terms">Terms</a> &amp; <a href="/privacy">Privacy Policy</a>
   </p>
 </div>`);
+  // Wire the 1-Tap WhatsApp Login button: opens wa.me to the brand's bot
+  // number with a pre-filled "Help me login to <Brand>" message. The bot's
+  // processIncomingWA hook in src/wa-bot.js detects that phrase and replies
+  // with a 10-minute magic-link.
+  const wa1tap=document.getElementById('wa-1tap-btn');
+  if(wa1tap){
+    const botPhone=String(STORE.support_whatsapp||'').replace(/\D/g,'');
+    const brand=STORE.site_name||'OTT Store';
+    if(botPhone){
+      const text=`Help me login to ${brand}`;
+      wa1tap.href=`https://wa.me/${botPhone}?text=${encodeURIComponent(text)}`;
+      wa1tap.target='_blank';
+    }else{
+      // No bot number configured — fall back to the manual phone-input form
+      wa1tap.addEventListener('click',e=>{e.preventDefault();setMethod('whatsapp');});
+    }
+  }
   setMethod(method);
 }
 

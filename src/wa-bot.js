@@ -46,6 +46,69 @@ function extractWAText(msg) {
     || null;
 }
 
+// ─── 1-tap WhatsApp login trigger ────────────────────────────────────────────
+// Customer taps "1-Tap WhatsApp Login" on the website → wa.me link prefills the
+// message "Help me login to <Brand>" → they hit Send → this handler picks the
+// incoming message up, creates a wa_magic token (10-min TTL), and replies with
+// a tap-to-login URL. Mirrors the existing /send-wa-magic flow but driven from
+// the user's WhatsApp instead of the website form.
+function isLoginTrigger(text) {
+  const t = String(text || '').trim().toLowerCase();
+  if (!t) return false;
+  // Match the canonical phrase + a few common variants. We anchor on the start
+  // of the message to avoid false positives in general chat.
+  return /^(help\s*me\s*login|login(\s*link)?|send\s*(me\s*)?login|magic\s*link|i\s*want\s*to\s*login)\b/i.test(t);
+}
+
+async function handleLoginTrigger(msg, jid, text) {
+  if (!isLoginTrigger(text)) return false;
+  try {
+    const waEnabled = getSettingSync('wa_enabled');
+    if (waEnabled === '0') return false; // bot not active for logins
+    const crypto = require('crypto');
+    const { run } = require('./db');
+    const db = await getDb();
+
+    const phoneCC = String(jid).split('@')[0].replace(/[^0-9]/g, '');
+    if (!phoneCC || phoneCC.length < 10) return false;
+
+    // Rate-limit login requests to 1 per 30s per JID so a curious user can't
+    // spam-create tokens by tapping the link repeatedly.
+    const last = _waLoginLast.get(jid) || 0;
+    const now  = Date.now();
+    if (now - last < 30 * 1000) {
+      const s = getActiveSock();
+      if (s) await s.sendMessage(jid, { text: '⏳ Please wait a few seconds before requesting another login link.' });
+      return true; // handled — suppress AI reply
+    }
+    _waLoginLast.set(jid, now);
+
+    const token   = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(now + 10 * 60 * 1000).toISOString();
+    run(db, `INSERT INTO auth_tokens (token,purpose,phone,expires_at) VALUES (?,?,?,?)`,
+      [token, 'wa_magic', phoneCC, expires]);
+
+    const baseUrl  = (getSettingSync('base_url') || '').replace(/\/+$/, '') || 'https://ott24x7.com';
+    const siteName = getSettingSync('site_name') || 'OTT Store';
+    const magicUrl = `${baseUrl}/user/api/auth/wa-magic?token=${token}`;
+
+    const s = getActiveSock();
+    if (s) {
+      await s.sendMessage(jid, {
+        text:
+          `🔐 *${siteName} — Tap to Login*\n\n` +
+          `Tap this link to sign in instantly:\n${magicUrl}\n\n` +
+          `Valid for 10 minutes. Do not share with anyone.`,
+      });
+    }
+    return true; // handled — suppress AI reply
+  } catch (e) {
+    console.error('[wa-bot] login trigger error:', e.message);
+    return false;
+  }
+}
+const _waLoginLast = new Map(); // jid → last-login-link timestamp (ms)
+
 async function processIncomingWA(msg) {
   const jid = msg.key.remoteJid;
   if (!jid) return;
@@ -54,6 +117,10 @@ async function processIncomingWA(msg) {
 
   const text = extractWAText(msg);
   if (!text || text.trim().length < 1) return;
+
+  // 1-tap login trigger runs BEFORE rate-limit + AI checks so the magic link
+  // still goes out even if the AI bot is disabled.
+  if (await handleLoginTrigger(msg, jid, text)) return;
 
   // Check if WA AI reply is enabled
   const waAiEnabled = getSettingSync('wa_ai_reply_enabled');
