@@ -298,7 +298,10 @@ footer{
   header{padding:18px 0}
   nav a:not(.nav-account){display:none}
   .nav-burger{display:flex}
-  .hero{grid-template-columns:1fr;gap:0;margin-top:10px;min-height:auto}
+  /* Kill the 10px top margin on mobile — with the fixed header at top:0
+     plus body padding-top:58 clearing it, that margin became a visible
+     dead-space strip below the header. */
+  .hero{grid-template-columns:1fr;gap:0;margin-top:0;padding-top:6px;min-height:auto}
   .stage{height:480px;order:-1;width:100%;overflow:hidden}
   .logo-cloud{display:none}
   .phone{inset:40px auto auto 50%;right:auto;width:250px;height:460px;transform:translateX(-50%) rotateY(-8deg) rotateX(4deg)}

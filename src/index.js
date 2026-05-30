@@ -392,8 +392,8 @@ a:hover{color:#8af1ff;text-decoration:underline}
   .sp-logo img{max-height:30px;max-width:130px}
   .sp-bnav{display:grid}
   .sp-footer{margin-bottom:58px;padding:1.75rem 1rem}
-  .sp-main{padding:1.5rem 1rem 3rem}
-  .blog-page-header{padding:1.5rem 0 1.25rem}
+  .sp-main{padding:.5rem 1rem 3rem}
+  .blog-page-header{padding:.75rem 0 1.25rem}
   .blog-page-header h1{font-size:1.7rem}
 }
 </style>`;

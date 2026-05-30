@@ -249,8 +249,10 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
   .logo{width:36px;height:36px;border-radius:12px;font-size:16px}
   .brand img{max-height:30px;max-width:130px}
 
-  /* Hero — tighter typography, single column */
-  .hero{grid-template-columns:1fr;gap:0;padding:26px 0 18px;min-height:auto}
+  /* Hero — tighter typography, single column.
+     padding-top:8px instead of 26px so there's no visible gap between the
+     fixed header (top:0, h≈56px) and the start of the badge. */
+  .hero{grid-template-columns:1fr;gap:0;padding:8px 0 18px;min-height:auto}
   .badge{font-size:11.5px;padding:7px 11px}
   h1{font-size:clamp(34px,9vw,46px);line-height:.96;letter-spacing:-1.6px;margin:14px 0 12px}
   .hero p{font-size:14.5px;line-height:1.6;margin:0 0 18px;max-width:none}
