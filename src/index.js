@@ -144,16 +144,34 @@ app.get('/sitemap.xml', async (req, res) => {
   } catch (e) { res.status(500).send('Error generating sitemap'); }
 });
 
+// ─── Active theme helper ─────────────────────────────────────────────────────
+// Allowed list mirrors the 23 themes defined in public/store/themes.css and the
+// admin Store Themes picker. Anything not in this list falls back to default
+// so a malformed setting can never put pages into an undefined state.
+const ALLOWED_THEMES = new Set([
+  'midnight-purple','neon-dark','ocean-deep','cosmic','sunset-glow','forest-dark',
+  'royal-gold','rose-noir','arctic-light','sakura','slate-minimal','cyberpunk',
+  'aurora-teal','volcano','lavender-mist','navy-classic','emerald-city',
+  'crystal-clean','obsidian-gold','electric-blue','crimson-tide','teal-ocean',
+  'movieverse',
+]);
+async function getActiveTheme() {
+  try {
+    const t = await getSetting('store_theme');
+    return (t && ALLOWED_THEMES.has(t)) ? t : 'midnight-purple';
+  } catch { return 'midnight-purple'; }
+}
+
 // ─── Public storefront pages ──────────────────────────────────────────────────
 app.get('/blog/:slug', async (req, res) => {
   try {
     const db = await getDb();
     const post = get(db, `SELECT * FROM blog_posts WHERE slug=? AND published=1`, [req.params.slug]);
-    if (!post) return res.status(404).sendFile(path.join(__dirname, '..', 'public', '404.html'));
-    const [siteName, ogImage, baseUrl, logos] = await Promise.all([
-      getSetting('site_name'), getSetting('seo_og_image'), getSetting('base_url'), getLogoUrls(),
+    if (!post) return res.status(404).sendFile(path.join(__dirname, '..', 'public', 'store', '404.html'));
+    const [siteName, ogImage, baseUrl, logos, storeTheme] = await Promise.all([
+      getSetting('site_name'), getSetting('seo_og_image'), getSetting('base_url'), getLogoUrls(), getActiveTheme(),
     ]);
-    res.send(buildBlogPostPage(post, siteName || 'OTT Store', post.og_image || ogImage || '', baseUrl || cfg.baseUrl, logos));
+    res.send(buildBlogPostPage(post, siteName || 'OTT Store', post.og_image || ogImage || '', baseUrl || cfg.baseUrl, logos, storeTheme));
   } catch (e) { res.status(500).send('Server error'); }
 });
 
@@ -161,15 +179,26 @@ app.get('/blog', async (req, res) => {
   try {
     const db = await getDb();
     const posts = all(db, `SELECT id,slug,title,meta_desc,created_at FROM blog_posts WHERE published=1 ORDER BY created_at DESC`);
-    const [siteName, seoDesc, baseUrl, logos] = await Promise.all([
-      getSetting('site_name'), getSetting('seo_blog_desc'), getSetting('base_url'), getLogoUrls(),
+    const [siteName, seoDesc, baseUrl, logos, storeTheme] = await Promise.all([
+      getSetting('site_name'), getSetting('seo_blog_desc'), getSetting('base_url'), getLogoUrls(), getActiveTheme(),
     ]);
-    res.send(buildBlogIndexPage(posts, siteName || 'OTT Store', seoDesc || '', baseUrl || cfg.baseUrl, logos));
+    res.send(buildBlogIndexPage(posts, siteName || 'OTT Store', seoDesc || '', baseUrl || cfg.baseUrl, logos, storeTheme));
   } catch (e) { res.status(500).send('Server error'); }
 });
 
-// SPA routes → serve their HTML files
-app.get('/my', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'store', 'my.html')));
+// SPA routes → serve their HTML files. /my is server-rendered with the active
+// theme attribute injected so the cinematic palette is correct on first paint,
+// before the SPA JS reads STORE.store_theme.
+app.get('/my', async (req, res) => {
+  try {
+    const storeTheme = await getActiveTheme();
+    let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'store', 'my.html'), 'utf8');
+    html = html.replace(/<html lang="en" data-theme="dark">/, `<html lang="en" data-theme="dark" data-store-theme="${storeTheme}">`);
+    res.type('text/html').send(html);
+  } catch {
+    res.sendFile(path.join(__dirname, '..', 'public', 'store', 'my.html'));
+  }
+});
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'admin', 'index.html')));
 
 // Public static pages — served from DB legal_pages table
@@ -179,21 +208,28 @@ for (const [route, slug] of Object.entries(staticRoutes)) {
     try {
       const db = await getDb();
       const page = db ? (() => { const { get: dbGet } = require('./db'); return dbGet(db, `SELECT * FROM legal_pages WHERE slug=?`, [slug]); })() : null;
-      const [siteName, logos] = await Promise.all([getSetting('site_name'), getLogoUrls()]);
+      const [siteName, logos, storeTheme] = await Promise.all([getSetting('site_name'), getLogoUrls(), getActiveTheme()]);
       const name = siteName || 'OTT Store';
-      if (page) return res.send(buildLegalPage(page, name, logos));
+      if (page) return res.send(buildLegalPage(page, name, logos, storeTheme));
       const filePath = path.join(__dirname, '..', 'public', 'store', `${slug}.html`);
       if (fs.existsSync(filePath)) return res.sendFile(filePath);
-      res.send(buildSimplePage(slug, name, logos));
+      res.send(buildSimplePage(slug, name, logos, storeTheme));
     } catch {
-      res.send(buildSimplePage(slug, 'OTT Store', { light: '', dark: '' }));
+      res.send(buildSimplePage(slug, 'OTT Store', { light: '', dark: '' }, 'midnight-purple'));
     }
   });
 }
 
-// ─── /plans — separate product listing page ──────────────────────────────────
-app.get('/plans', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'store', 'plans.html'));
+// ─── /plans — product listing page (server-rendered so theme is correct on first paint) ──
+app.get('/plans', async (req, res) => {
+  try {
+    const storeTheme = await getActiveTheme();
+    let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'store', 'plans.html'), 'utf8');
+    html = html.replace(/data-store-theme="[^"]*"/, `data-store-theme="${storeTheme}"`);
+    res.type('text/html').send(html);
+  } catch {
+    res.sendFile(path.join(__dirname, '..', 'public', 'store', 'plans.html'));
+  }
 });
 
 // Storefront root — server-render meta tags for SEO crawlers.
@@ -205,12 +241,20 @@ app.get('/', async (req, res) => {
       getSetting('site_name'), getSetting('seo_home_title'), getSetting('seo_home_desc'),
       getSetting('seo_home_keywords'), getSetting('seo_og_image'), getSetting('seo_gsc_verification'),
       getSetting('seo_bing_verification'), getSetting('seo_twitter_card'), getSetting('base_url'),
-      getSetting('store_theme'),
+      getActiveTheme(),
     ]);
     const name = siteName || 'OTT Store';
     const base = baseUrl || cfg.baseUrl;
+    // MovieVerse gets its own bespoke home file (heavy cinema markup).
+    // All other themes share index.html with a data-store-theme attr swap so
+    // the same CSS palette cascade we use on /plans + /my applies to /, too.
     const homeFile = storeTheme === 'movieverse' ? 'movieverse-home.html' : 'index.html';
     let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'store', homeFile), 'utf8');
+    // For the default index.html, swap the hardcoded data-store-theme attribute
+    // to the current setting so the 22 non-MovieVerse themes also render.
+    if (homeFile === 'index.html') {
+      html = html.replace(/data-store-theme="[^"]*"/, `data-store-theme="${storeTheme}"`);
+    }
     html = html
       .replace(/<title id="page-title">[^<]*<\/title>/, `<title id="page-title">${esc(seoTitle || name + ' — Buy Premium Subscriptions Online')}</title>`)
       .replace(/(<meta name="description" id="meta-desc" content=")[^"]*"/, `$1${esc(seoDesc || 'Get Netflix, Amazon Prime, Disney+ and more at lowest prices. Instant delivery.')}"`)
@@ -378,7 +422,11 @@ async function getLogoUrls() {
 }
 
 // ─── Helpers: simple server-rendered pages ────────────────────────────────────
-function buildBlogPostPage(post, siteName, ogImage, baseUrl, logos = {}) {
+// `storeTheme` is the currently-active theme slug (validated against
+// ALLOWED_THEMES upstream). It is injected into the <html data-store-theme="…">
+// attribute so themes.css overrides apply globally to blog / about / contact /
+// privacy / terms / refund pages, the same way they do for the main storefront.
+function buildBlogPostPage(post, siteName, ogImage, baseUrl, logos = {}, storeTheme = 'midnight-purple') {
   const bodyHtml = post.body
     .replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -386,7 +434,7 @@ function buildBlogPostPage(post, siteName, ogImage, baseUrl, logos = {}) {
   const canonical = `${baseUrl}/blog/${post.slug}`;
   const pubDate = (post.created_at || '').replace(' ', 'T').split('T')[0];
   const ldjson = JSON.stringify({ '@context':'https://schema.org','@type':'Article','headline':post.title,'datePublished':pubDate,'description':post.meta_desc||'','url':canonical });
-  return `<!DOCTYPE html><html lang="en" data-theme="dark" data-store-theme="midnight-purple">
+  return `<!DOCTYPE html><html lang="en" data-theme="dark" data-store-theme="${esc(storeTheme)}">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(post.title)} — ${esc(siteName)}</title>
@@ -396,6 +444,7 @@ function buildBlogPostPage(post, siteName, ogImage, baseUrl, logos = {}) {
 ${ogImage ? `<meta property="og:image" content="${esc(ogImage)}">` : ''}
 <link rel="canonical" href="${esc(canonical)}">
 <link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/store/themes.css">
 ${SHARED_STYLES}
 <script type="application/ld+json">${ldjson}</script>
 </head>
@@ -413,7 +462,7 @@ ${spFooter(siteName)}
 </body></html>`;
 }
 
-function buildBlogIndexPage(posts, siteName, seoDesc, baseUrl, logos = {}) {
+function buildBlogIndexPage(posts, siteName, seoDesc, baseUrl, logos = {}, storeTheme = 'midnight-purple') {
   const items = posts.map(p => {
     const d = (p.created_at || '').replace(' ', 'T').split('T')[0];
     return `<article class="blog-card">
@@ -424,12 +473,13 @@ function buildBlogIndexPage(posts, siteName, seoDesc, baseUrl, logos = {}) {
   }).join('');
   const desc = seoDesc || `Read the latest articles and guides from ${siteName}.`;
   const emptyHtml = `<div class="blog-empty"><div class="blog-empty-icon">✍️</div><p>No posts yet. Check back soon!</p></div>`;
-  return `<!DOCTYPE html><html lang="en" data-theme="dark" data-store-theme="midnight-purple">
+  return `<!DOCTYPE html><html lang="en" data-theme="dark" data-store-theme="${esc(storeTheme)}">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Blog — ${esc(siteName)}</title>
 <meta name="description" content="${esc(desc)}">
 <link rel="canonical" href="${esc(baseUrl)}/blog">
 <link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/store/themes.css">
 ${SHARED_STYLES}
 </head>
 <body>
@@ -445,12 +495,13 @@ ${spFooter(siteName)}
 </body></html>`;
 }
 
-function buildSimplePage(name, siteName, logos = {}) {
+function buildSimplePage(name, siteName, logos = {}, storeTheme = 'midnight-purple') {
   const titles = { about:'About Us', contact:'Contact', privacy:'Privacy Policy', terms:'Terms of Service', refund:'Refund Policy' };
   const title = titles[name] || name;
-  return `<!DOCTYPE html><html lang="en" data-theme="dark" data-store-theme="midnight-purple"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  return `<!DOCTYPE html><html lang="en" data-theme="dark" data-store-theme="${esc(storeTheme)}"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)} — ${esc(siteName)}</title>
 <link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/store/themes.css">
 ${SHARED_STYLES}
 </head>
 <body>
@@ -466,13 +517,14 @@ ${spFooter(siteName)}
 }
 
 // ─── Start ────────────────────────────────────────────────────────────────────
-function buildLegalPage(page, siteName, logos = {}) {
+function buildLegalPage(page, siteName, logos = {}, storeTheme = 'midnight-purple') {
   const baseUrl = cfg.baseUrl;
-  return `<!DOCTYPE html><html lang="en" data-theme="dark" data-store-theme="midnight-purple"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  return `<!DOCTYPE html><html lang="en" data-theme="dark" data-store-theme="${esc(storeTheme)}"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(page.title)} — ${esc(siteName)}</title>
 <meta name="description" content="${esc(page.title)} for ${esc(siteName)}">
 <link rel="canonical" href="${esc(baseUrl)}/${page.slug}">
 <link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/store/themes.css">
 ${SHARED_STYLES}
 </head>
 <body>
@@ -508,6 +560,19 @@ async function start() {
     }
   } catch (e) { console.error('wa-bot error:', e.message); }
   try { require('./wa-worker').startWaWorker(); } catch (e) { console.error('wa-worker error:', e.message); }
+
+  // Catch-all 404 — last route before listen. Injects the active theme into the
+  // 404.html so the cinematic skin renders correctly even on unknown URLs.
+  app.use(async (req, res) => {
+    try {
+      const storeTheme = await getActiveTheme();
+      let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'store', '404.html'), 'utf8');
+      html = html.replace(/data-store-theme="[^"]*"/, `data-store-theme="${storeTheme}"`);
+      res.status(404).type('text/html').send(html);
+    } catch {
+      res.status(404).type('text/plain').send('Not found');
+    }
+  });
 
   app.listen(cfg.port, () => {
     console.log(`OTT Store running on http://localhost:${cfg.port}`);

@@ -4204,60 +4204,100 @@ views['store-theme'] = async function () {
       { id:'movieverse',      label:'MovieVerse 🎬',     bg:'#04030a', card:'#0a0816', a1:'#ff2a4d', a2:'#ffd36a', text:'#fff8f2', dark:true  },
     ];
 
+    // Mini-page mockup: brand row + hero gradient + price/title text + 2 buttons + card row.
+    // MovieVerse gets a cinema-specific tweak — gold accent + a reel glyph in the hero.
     const cards = THEMES.map(t => {
       const isCurrent = t.id === current;
-      const border = isCurrent ? `3px solid ${t.a1}` : `2px solid ${t.dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.1)'}`;
-      const shadow = isCurrent ? `0 0 0 2px ${t.a1}44, 0 8px 24px ${t.a1}33` : '0 2px 8px rgba(0,0,0,0.12)';
-      const checkmark = isCurrent ? `<div style="position:absolute;top:8px;right:8px;background:${t.a1};color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">✓</div>` : '';
+      const accentText = t.dark ? '#fff' : t.text;
+      const subText = t.dark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.6)';
+      const cardLine = t.dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+      const border = isCurrent ? `3px solid ${t.a1}` : `1.5px solid ${t.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.12)'}`;
+      const shadow = isCurrent ? `0 0 0 3px ${t.a1}55, 0 10px 30px ${t.a1}33` : '0 4px 14px rgba(0,0,0,0.18)';
+      const checkmark = isCurrent ? `<div style="position:absolute;top:10px;right:10px;background:${t.a1};color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;box-shadow:0 4px 12px ${t.a1}55;z-index:2">✓</div>` : '';
+      const isMv = t.id === 'movieverse';
+      const heroExtras = isMv ? `<div style="position:absolute;left:8px;bottom:6px;width:18px;height:18px;border-radius:50%;background:conic-gradient(from 0deg,${t.a2},${t.a1},${t.a2});border:2px solid rgba(255,255,255,.5);opacity:.85"></div>` : '';
       return `
-<div onclick="window.setTheme('${t.id}')" style="cursor:pointer;border-radius:14px;overflow:hidden;border:${border};box-shadow:${shadow};transition:all .2s;position:relative;background:${t.bg}">
+<div data-theme-tile="${t.id}" style="cursor:pointer;border-radius:18px;overflow:hidden;border:${border};box-shadow:${shadow};transition:all .25s;position:relative;background:${t.bg}">
   ${checkmark}
-  <div style="height:72px;background:linear-gradient(135deg,${t.a1},${t.a2});display:flex;align-items:center;gap:8px;padding:0 14px">
-    <div style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.25);border:2px solid rgba(255,255,255,0.5)"></div>
-    <div style="flex:1">
-      <div style="height:8px;border-radius:4px;background:rgba(255,255,255,0.4);width:60%;margin-bottom:5px"></div>
-      <div style="height:5px;border-radius:3px;background:rgba(255,255,255,0.25);width:40%"></div>
+  <!-- Brand bar -->
+  <div style="position:relative;height:84px;background:linear-gradient(135deg,${t.a1},${t.a2});display:flex;align-items:center;gap:9px;padding:0 14px">
+    <div style="width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,.32);border:1.5px solid rgba(255,255,255,.55);display:grid;place-items:center;color:#fff;font-weight:900;font-size:13px">${isMv ? '▶' : 'O'}</div>
+    <div style="flex:1;min-width:0">
+      <div style="height:7px;border-radius:4px;background:rgba(255,255,255,0.55);width:70%;margin-bottom:5px"></div>
+      <div style="height:5px;border-radius:3px;background:rgba(255,255,255,0.3);width:45%"></div>
+    </div>
+    ${heroExtras}
+  </div>
+  <!-- Mock hero card -->
+  <div style="padding:14px 12px 10px;background:${t.card}">
+    <div style="height:7px;border-radius:4px;background:linear-gradient(90deg,${t.a1},${t.a2});width:62%;margin-bottom:6px"></div>
+    <div style="height:5px;border-radius:3px;background:${t.dark?'rgba(255,255,255,0.18)':'rgba(0,0,0,0.16)'};width:90%;margin-bottom:5px"></div>
+    <div style="height:5px;border-radius:3px;background:${t.dark?'rgba(255,255,255,0.12)':'rgba(0,0,0,0.1)'};width:70%;margin-bottom:10px"></div>
+    <div style="display:flex;gap:6px">
+      <div style="flex:1;height:24px;border-radius:7px;background:linear-gradient(135deg,${t.a1},${t.a2});box-shadow:0 4px 10px ${t.a1}55"></div>
+      <div style="flex:1;height:24px;border-radius:7px;background:transparent;border:1.5px solid ${t.dark?'rgba(255,255,255,.22)':'rgba(0,0,0,.18)'}"></div>
     </div>
   </div>
-  <div style="padding:12px;background:${t.card}">
-    <div style="display:flex;gap:6px;margin-bottom:8px">
-      <div style="flex:1;height:32px;border-radius:7px;background:linear-gradient(135deg,${t.a1}22,${t.a2}22);border:1px solid ${t.a1}44"></div>
-      <div style="flex:1;height:32px;border-radius:7px;background:linear-gradient(135deg,${t.a1}22,${t.a2}22);border:1px solid ${t.a1}44"></div>
+  <!-- Mock card row -->
+  <div style="padding:0 12px 12px;background:${t.card}">
+    <div style="border-top:1px dashed ${cardLine};padding-top:10px;margin-top:4px;display:flex;align-items:center;gap:8px">
+      <div style="width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,${t.a1}22,${t.a2}33);border:1px solid ${t.a1}55"></div>
+      <div style="flex:1">
+        <div style="height:5px;border-radius:3px;background:${t.dark?'rgba(255,255,255,0.22)':'rgba(0,0,0,0.18)'};width:65%;margin-bottom:3px"></div>
+        <div style="height:4px;border-radius:2px;background:${t.dark?'rgba(255,255,255,0.12)':'rgba(0,0,0,0.1)'};width:42%"></div>
+      </div>
+      <div style="font-size:10px;font-weight:800;padding:3px 6px;border-radius:999px;background:linear-gradient(135deg,${t.a1},${t.a2});color:#fff">₹99</div>
     </div>
-    <div style="height:6px;border-radius:3px;background:linear-gradient(90deg,${t.a1},${t.a2});margin-bottom:5px;width:55%"></div>
-    <div style="height:5px;border-radius:3px;background:${t.dark?'rgba(255,255,255,0.12)':'rgba(0,0,0,0.1)'};width:75%"></div>
   </div>
-  <div style="padding:8px 14px 12px;background:${t.bg};border-top:1px solid ${t.dark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.06)'}">
-    <div style="font-size:13px;font-weight:700;color:${t.text}">${esc(t.label)}</div>
-    ${isCurrent ? `<div style="font-size:11px;color:${t.a1};margin-top:2px;font-weight:600">● Active</div>` : `<div style="font-size:11px;color:${t.dark?'rgba(255,255,255,0.35)':'rgba(0,0,0,0.35)'};margin-top:2px">Click to apply</div>`}
+  <!-- Footer with theme label + buttons -->
+  <div style="padding:10px 12px;background:${t.bg};border-top:1px solid ${cardLine};display:flex;align-items:center;justify-content:space-between;gap:6px">
+    <div style="min-width:0;flex:1">
+      <div style="font-size:13px;font-weight:800;color:${accentText};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.label)}</div>
+      <div style="font-size:10px;color:${isCurrent ? t.a1 : subText};margin-top:1px;font-weight:600">${isCurrent ? '● Active' : 'Tap to apply'}</div>
+    </div>
+    <button data-theme-apply="${t.id}" style="border:0;cursor:pointer;font-size:10px;font-weight:800;padding:6px 9px;border-radius:7px;color:#fff;background:linear-gradient(135deg,${t.a1},${t.a2});box-shadow:0 4px 12px ${t.a1}44">Apply</button>
   </div>
 </div>`;
     }).join('');
 
+    const currentMeta = THEMES.find(t=>t.id===current) || { label: current, a1: '#6366f1', a2: '#8b5cf6', bg: '#0d1117' };
     setMain(`
-<h2 style="font-weight:800;margin-bottom:.25rem">Store Themes</h2>
-<p style="color:var(--muted);margin-bottom:1.5rem;font-size:.9rem">Choose a visual theme for your storefront. Changes apply instantly for all visitors.</p>
+<h2 style="font-weight:800;margin-bottom:.25rem">Theme Settings</h2>
+<p style="color:var(--muted);margin-bottom:1.5rem;font-size:.9rem">Pick a visual skin for your storefront. The Default theme is your current site; <strong>MovieVerse 🎬</strong> swaps the home page to a cinematic movie-store layout and re-skins every public page. Changes are live for all visitors immediately.</p>
 <div id="theme-msg"></div>
-<div style="background:var(--card);border-radius:12px;padding:1.25rem;margin-bottom:1.5rem;display:flex;align-items:center;gap:12px">
-  <span style="font-size:1.5rem">🎨</span>
-  <div>
-    <div style="font-weight:700">Currently Active: <span id="theme-current-label" style="color:var(--accent)">${esc(THEMES.find(t=>t.id===current)?.label || current)}</span></div>
-    <div style="font-size:.82rem;color:var(--muted)">Theme ID: <code>${esc(current)}</code></div>
+<div style="background:linear-gradient(135deg,${currentMeta.a1}18,${currentMeta.a2}18);border:1px solid ${currentMeta.a1}44;border-radius:14px;padding:1.1rem 1.25rem;margin-bottom:1.5rem;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+  <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,${currentMeta.a1},${currentMeta.a2});display:grid;place-items:center;font-size:20px;color:#fff;font-weight:900;box-shadow:0 6px 18px ${currentMeta.a1}55">${current === 'movieverse' ? '🎬' : '🎨'}</div>
+  <div style="flex:1;min-width:160px">
+    <div style="font-weight:800;font-size:1rem">Active Theme: <span style="color:${currentMeta.a1}">${esc(currentMeta.label)}</span></div>
+    <div style="font-size:.78rem;color:var(--muted);margin-top:2px">Theme ID: <code>${esc(current)}</code></div>
   </div>
-  <a href="/" target="_blank" class="btn btn-sm btn-secondary" style="margin-left:auto">Preview Store ↗</a>
+  <a href="/" target="_blank" class="btn btn-sm btn-secondary">Preview Storefront ↗</a>
 </div>
-<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px">
+<div id="theme-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px">
 ${cards}
 </div>
 <style>
-  [onclick*="setTheme"]:hover { transform:translateY(-3px) scale(1.02); }
+  #theme-grid [data-theme-tile]:hover { transform:translateY(-4px); }
 </style>`);
+
+    // Wire up tile + apply-button clicks (replaces inline onclick="setTheme(...)").
+    const grid = document.getElementById('theme-grid');
+    if (grid) {
+      grid.addEventListener('click', (e) => {
+        const applyBtn = e.target.closest('[data-theme-apply]');
+        if (applyBtn) { e.stopPropagation(); window.setTheme(applyBtn.dataset.themeApply); return; }
+        const tile = e.target.closest('[data-theme-tile]');
+        if (tile) window.setTheme(tile.dataset.themeTile);
+      });
+    }
 
     window.setTheme = async function(id) {
       const theme = THEMES.find(t => t.id === id);
       if (!theme) return;
+      const msg = document.getElementById('theme-msg');
       try {
         await api('/store-theme', { method:'POST', body: JSON.stringify({ theme: id }) });
+        if (msg) { msg.innerHTML = `<div class="alert alert-success">Theme updated successfully — ${esc(theme.label)} is now live.</div>`; setTimeout(() => { if (msg) msg.innerHTML = ''; }, 4000); }
         showToast(`Theme applied: ${theme.label}`);
         views['store-theme']();
       } catch(e) { showToast(e.message, 'error'); }

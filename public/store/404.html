@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" data-store-theme="midnight-purple">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Page not found — OTT Store</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="stylesheet" href="/store/store-theme.css">
+<link rel="stylesheet" href="/store/themes.css">
+<style>
+.e404-wrap{
+  min-height:100vh;display:grid;place-items:center;padding:2rem 1rem;
+  background:var(--th-hero-bg,linear-gradient(180deg,var(--bg) 0%,#0a0a14 100%));
+  position:relative;overflow:hidden;
+}
+.e404-spotlight{position:fixed;z-index:0;pointer-events:none;filter:blur(60px);opacity:.45;border-radius:50%}
+.e404-spotlight.a{width:380px;height:380px;background:var(--th-accent,var(--red));left:-100px;top:10%}
+.e404-spotlight.b{width:300px;height:300px;background:var(--th-accent-pop,var(--purple,#9b5cff));right:-80px;bottom:10%;animation:e404float 14s ease-in-out infinite alternate}
+@keyframes e404float{to{transform:translate3d(40px,-30px,0) scale(1.1)}}
+
+.e404-card{
+  position:relative;z-index:1;max-width:560px;width:100%;text-align:center;
+  background:var(--card,rgba(255,255,255,.07));border:1px solid var(--border,rgba(255,255,255,.16));
+  border-radius:32px;padding:3rem 2rem;backdrop-filter:blur(20px);
+  box-shadow:0 30px 80px rgba(0,0,0,.4);
+}
+.e404-glyph{
+  font-size:clamp(80px,16vw,140px);font-weight:900;letter-spacing:-6px;line-height:1;
+  margin-bottom:1rem;
+  background:linear-gradient(135deg,var(--th-accent,var(--red)),var(--th-accent-end,var(--orange)));
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 12px 30px rgba(255,43,79,.3));
+}
+.e404-card h1{font-size:clamp(24px,3.5vw,36px);margin:0 0 .75rem;color:var(--th-text,var(--text));font-weight:800}
+.e404-card p{color:var(--th-muted,var(--muted));font-size:.95rem;line-height:1.6;margin:0 0 2rem;max-width:420px;margin-left:auto;margin-right:auto}
+.e404-actions{display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap}
+.e404-btn{
+  display:inline-flex;align-items:center;gap:.5rem;padding:.75rem 1.4rem;border-radius:14px;
+  font-weight:700;text-decoration:none;border:0;cursor:pointer;font-size:.95rem;transition:transform .2s;
+}
+.e404-btn:hover{transform:translateY(-2px)}
+.e404-btn-primary{
+  color:#fff;
+  background:linear-gradient(135deg,var(--th-accent,var(--red)),var(--th-accent-end,var(--orange)));
+  box-shadow:0 12px 30px rgba(255,43,79,.3);
+}
+.e404-btn-soft{
+  color:var(--th-text,var(--text));
+  background:rgba(255,255,255,.08);
+  border:1px solid var(--th-border,var(--border));
+}
+
+@media (prefers-reduced-motion:reduce){
+  .e404-spotlight{animation:none}
+}
+@media (max-width:480px){
+  .e404-card{padding:2rem 1.25rem;border-radius:24px}
+  .e404-actions{flex-direction:column}
+  .e404-btn{width:100%;justify-content:center}
+}
+</style>
+</head>
+<body>
+<div class="e404-spotlight a"></div>
+<div class="e404-spotlight b"></div>
+<div class="e404-wrap">
+  <div class="e404-card">
+    <div class="e404-glyph">404</div>
+    <h1 id="e404-title">Page not found</h1>
+    <p>The page you're looking for isn't here — it may have moved or never existed. Let's get you back on track.</p>
+    <div class="e404-actions">
+      <a class="e404-btn e404-btn-primary" href="/">🏠 Back to Home</a>
+      <a class="e404-btn e404-btn-soft" href="/plans">📦 Browse Plans</a>
+    </div>
+  </div>
+</div>
+<script>
+// Read site_name + the active theme (already injected into the html attribute
+// server-side; this just adjusts the page title to match brand).
+fetch('/user/api/store').then(r=>r.json()).then(s=>{
+  if(s&&s.site_name)document.title='Page not found — '+s.site_name;
+}).catch(()=>{});
+</script>
+</body>
+</html>

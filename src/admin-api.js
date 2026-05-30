@@ -1564,12 +1564,24 @@ router.get('/store-theme', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Allowlist mirrors public/store/themes.css definitions + the admin picker.
+// Mirrored from the same set in src/index.js so an unknown theme value can
+// never leak into the settings table and silently fall back at render time.
+const ALLOWED_THEMES = new Set([
+  'midnight-purple','neon-dark','ocean-deep','cosmic','sunset-glow','forest-dark',
+  'royal-gold','rose-noir','arctic-light','sakura','slate-minimal','cyberpunk',
+  'aurora-teal','volcano','lavender-mist','navy-classic','emerald-city',
+  'crystal-clean','obsidian-gold','electric-blue','crimson-tide','teal-ocean',
+  'movieverse',
+]);
 router.post('/store-theme', requireAdmin, async (req, res) => {
   try {
     const { theme } = req.body;
     if (!theme || typeof theme !== 'string') return res.status(400).json({ error: 'theme required' });
+    if (!ALLOWED_THEMES.has(theme)) return res.status(400).json({ error: 'Unknown theme. Allowed: ' + [...ALLOWED_THEMES].join(', ') });
     const db = await getDb();
     run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES ('store_theme',?)`, [theme]);
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'set_store_theme', targetKind: 'setting', targetId: 'store_theme', after_json: JSON.stringify({ theme }), ip: req.ip });
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
