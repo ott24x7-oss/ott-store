@@ -17,8 +17,18 @@ app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 app.use(cookieParser(cfg.sessionSecret));
 app.use(apiLimiter);
 
-// Static files
-app.use(express.static(path.join(__dirname, '..', 'public')));
+// Static files. Admin + store HTML/JS/CSS must always reflect the latest deploy,
+// so we send no-cache for them — otherwise admins see a stale UI for up to 4h
+// after each push. Versioned assets (anything under /static/) can still be
+// long-cached if added later.
+app.use(express.static(path.join(__dirname, '..', 'public'), {
+  setHeaders: (res, filePath) => {
+    if (/[\\\/](admin|store)[\\\/].+\.(html|js|css)$/i.test(filePath) ||
+        /[\\\/]public[\\\/][^\\\/]+\.html$/i.test(filePath)) {
+      res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    }
+  },
+}));
 app.use('/data/uploads', express.static(path.join(__dirname, '..', 'data', 'uploads')));
 
 // ─── CORS preflight for cross-origin import endpoint ─────────────────────────
