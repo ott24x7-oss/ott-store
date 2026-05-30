@@ -180,3 +180,184 @@ body::before { display: none !important; }
 .mt-3 { margin-top: .75rem; } .mt-4 { margin-top: 1rem; }
 .mb-2 { margin-bottom: .5rem; } .mb-4 { margin-bottom: 1rem; }
 .hidden { display: none !important; }
+
+/* ─────────────────────────────────────────────────────────────────
+   UNIFIED HEADER — normalizes index.html (<header>), plans.html (.snav)
+   and my.html (.my-nav) into ONE consistent brand bar.
+   Overrides each page's inline CSS without touching their HTML.
+───────────────────────────────────────────────────────────────── */
+
+/* Outer header bar — sticky, blurred, identical across pages */
+body > header,
+body > nav.snav,
+body > .my-wrap > header.my-nav,
+body > .my-wrap header.my-nav {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 200 !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: .85rem clamp(1rem, 4vw, 2rem) !important;
+  background: var(--header-bg) !important;
+  backdrop-filter: blur(20px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(140%) !important;
+  border-bottom: 1px solid var(--border) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: .75rem !important;
+}
+
+/* Inner row wrapper for plans.html (.snav-inner) and my.html (.my-nav-inner).
+   index.html has no wrapper — body > header IS the row, already handled above. */
+nav.snav > .snav-inner,
+header.my-nav > .my-nav-inner {
+  width: 100% !important;
+  max-width: 1200px !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: .75rem !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+
+/* Brand / logo — same look everywhere */
+header .brand,
+nav.snav .snav-logo,
+header.my-nav .my-logo {
+  display: flex !important;
+  align-items: center !important;
+  gap: .55rem !important;
+  font-weight: 800 !important;
+  font-size: 1.15rem !important;
+  letter-spacing: .2px !important;
+  color: var(--text) !important;
+  text-decoration: none !important;
+  flex-shrink: 0 !important;
+}
+header .brand-badge {
+  width: 32px !important; height: 32px !important;
+  border-radius: 10px !important;
+  font-size: 1rem !important;
+  transform: none !important;
+  box-shadow: 0 6px 18px rgba(255,43,79,.35), inset 0 1px 4px rgba(255,255,255,.3) !important;
+}
+header .brand-name { font-size: 1.15rem !important; }
+
+/* Nav link row — same look everywhere */
+header > nav,
+nav.snav .snav-links,
+header.my-nav .my-nav-links {
+  display: flex !important;
+  gap: .15rem !important;
+  align-items: center !important;
+  margin: 0 auto 0 .75rem !important;
+}
+header > nav > a,
+nav.snav .snav-links > a,
+header.my-nav .my-nav-links > a {
+  color: var(--muted) !important;
+  font-size: .88rem !important;
+  font-weight: 600 !important;
+  padding: .4rem .75rem !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  text-decoration: none !important;
+  transition: color .15s, background .15s !important;
+  white-space: nowrap !important;
+}
+header > nav > a:hover,
+nav.snav .snav-links > a:hover,
+header.my-nav .my-nav-links > a:hover {
+  color: var(--text) !important;
+  background: rgba(255,43,79,.08) !important;
+  border-color: transparent !important;
+  transform: none !important;
+}
+nav.snav .snav-links > a.active {
+  color: var(--text) !important;
+  background: rgba(255,43,79,.12) !important;
+}
+
+/* Right-side actions cluster (account / login / wallet / avatar) */
+header > nav > a.nav-account,
+nav.snav .snav-right,
+nav.snav .snav-login,
+header.my-nav .my-nav-right {
+  display: flex !important;
+  align-items: center !important;
+  gap: .5rem !important;
+  margin-left: auto !important;
+}
+/* Primary CTA button in header (Account / Login-Sign Up) — same pill */
+header > nav > a.nav-account,
+nav.snav .snav-login {
+  background: linear-gradient(135deg, var(--red), var(--orange)) !important;
+  color: #fff !important;
+  font-weight: 700 !important;
+  padding: .45rem .9rem !important;
+  border-radius: 999px !important;
+  border: 0 !important;
+  box-shadow: 0 6px 18px rgba(255,43,79,.28) !important;
+  white-space: nowrap !important;
+}
+header > nav > a.nav-account:hover,
+nav.snav .snav-login:hover { filter: brightness(1.08) !important; }
+
+/* Burger button — same across pages, only visible on mobile */
+header .nav-burger,
+nav.snav .snav-burger,
+header.my-nav #hamburger-btn {
+  display: none !important;
+  background: var(--glass) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+  border-radius: 8px !important;
+  padding: .4rem .6rem !important;
+  font-size: 1.1rem !important;
+  cursor: pointer !important;
+}
+
+/* /my tab-nav: visually attach to the brand header so it reads as ONE bar,
+   not "two stacked headers". Subtle, lower-contrast sub-row. */
+header.my-nav + nav.my-tab-nav,
+nav.my-tab-nav {
+  position: sticky !important;
+  top: 56px !important;
+  z-index: 199 !important;
+  background: rgba(5,5,11,.72) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border-bottom: 1px solid var(--border) !important;
+  padding: 0 clamp(1rem, 4vw, 2rem) !important;
+  gap: 0 !important;
+}
+nav.my-tab-nav .my-tab-btn {
+  padding: .55rem .95rem !important;
+  font-size: .82rem !important;
+}
+
+/* Mobile breakpoint — keep behavior consistent */
+@media (max-width: 760px) {
+  body > header,
+  body > nav.snav,
+  body > .my-wrap > header.my-nav,
+  body > .my-wrap header.my-nav {
+    padding: .65rem 1rem !important;
+  }
+  header > nav,
+  nav.snav .snav-links,
+  header.my-nav .my-nav-links { display: none !important; }
+  header .nav-burger,
+  nav.snav .snav-burger { display: inline-flex !important; }
+  /* hide the desktop Account/Login pill on mobile — burger handles it */
+  header > nav > a.nav-account,
+  nav.snav .snav-login { display: none !important; }
+  /* hide the sub-row tab-nav on mobile — bottom-nav handles it */
+  nav.my-tab-nav { display: none !important; }
+}
+
