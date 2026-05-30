@@ -591,3 +591,148 @@
   --th-hero-line: #67e8f9;
   --th-dark: 1;
 }
+
+/* ── 23. MovieVerse (cinematic gold/red/purple) ───────────────────────────── */
+/* Colors lifted from the MovieVerse preview file:                              */
+/*   gold #ffd36a · red #ff2a4d · purple #8d5cff · orange #ff8b22                */
+[data-store-theme="movieverse"] {
+  --th-bg: #04030a;
+  --th-hero-bg:
+    radial-gradient(circle at 15% 6%, rgba(255,42,77,.32), transparent 30%),
+    radial-gradient(circle at 86% 14%, rgba(141,92,255,.26), transparent 30%),
+    radial-gradient(circle at 50% 92%, rgba(255,211,106,.18), transparent 32%),
+    linear-gradient(180deg, #04030a 0%, #090716 55%, #03030a 100%);
+  --th-card: rgba(255,255,255,.08);
+  --th-card-solid: #0a0816;
+  --th-border: rgba(255,255,255,.16);
+  --th-accent: #ff2a4d;
+  --th-accent-end: #ff8b22;
+  --th-accent-pop: #ffd36a;
+  --th-text: #fff8f2;
+  --th-muted: #bdb5c9;
+  --th-glow: rgba(255,211,106,.35);
+  --th-btn: linear-gradient(135deg,#ff2a4d 0%,#ff8b22 100%);
+  --th-blob1: rgba(255,42,77,.20);
+  --th-blob2: rgba(141,92,255,.16);
+  --th-blob3: rgba(255,211,106,.14);
+  --th-nav-bg: rgba(4,3,10,.66);
+  --th-badge-bg: linear-gradient(135deg,#ffd36a,#ff8b22);
+  --th-stat-bg: rgba(255,255,255,.075);
+  --th-step-bg: rgba(255,255,255,.065);
+  --th-faq-bg: rgba(255,255,255,.05);
+  --th-hero-line: #ffd36a;
+  --th-dark: 1;
+}
+
+/* MovieVerse-specific decorative layers: gold-button variant + cinema accents.
+   These apply on top of any storefront page when the theme is active. */
+[data-store-theme="movieverse"] body::before {
+  /* film grain overlay */
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  opacity: .11;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 170 170' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.6'/%3E%3C/svg%3E");
+}
+[data-store-theme="movieverse"] .btn-gold,
+[data-store-theme="movieverse"] .nav-account,
+[data-store-theme="movieverse"] .snav-login {
+  color: #1b0d02 !important;
+  background: linear-gradient(135deg, #ffd36a, #ff8b22) !important;
+  box-shadow: 0 22px 60px rgba(255,211,106,.25) !important;
+}
+
+/* ── MovieVerse overrides for plans.html storefront vars (st-*) ─────────────── */
+/* plans.html uses --st-* tokens (declared in store-theme.css). Remap them to
+   the MovieVerse palette so the existing markup gets cinematic colors. */
+[data-store-theme="movieverse"] {
+  --st-bg:           #04030a;
+  --st-card:         rgba(255,255,255,.08);
+  --st-card-solid:   #0a0816;
+  --st-border:       rgba(255,255,255,.16);
+  --st-accent:       #ff2a4d;
+  --st-accent-end:   #ff8b22;
+  --st-text:         #fff8f2;
+  --st-muted:        #bdb5c9;
+  --st-btn:          linear-gradient(135deg,#ff2a4d 0%,#ff8b22 100%);
+  --st-nav:          rgba(4,3,10,.66);
+  /* re-tint store-theme.css base tokens too */
+  --bg:              #04030a;
+  --text:            #fff8f2;
+  --muted:           #bdb5c9;
+  --red:             #ff2a4d;
+  --orange:          #ff8b22;
+  --purple:          #8d5cff;
+  --header-bg:       rgba(4,3,10,.72);
+  --card:            rgba(255,255,255,.08);
+  --card-solid:      #0a0816;
+  --border:          rgba(255,255,255,.16);
+  --glass:           rgba(255,255,255,.075);
+  --glass2:          rgba(255,255,255,.12);
+}
+
+/* MovieVerse body gradient — replace the default red/cyan/purple radial mix
+   with a gold/red/purple cinema gradient. */
+[data-store-theme="movieverse"] body {
+  background:
+    radial-gradient(circle at 15% 6%,  rgba(255,42,77,.32),  transparent 30%),
+    radial-gradient(circle at 86% 14%, rgba(141,92,255,.26), transparent 30%),
+    radial-gradient(circle at 50% 92%, rgba(255,211,106,.18), transparent 32%),
+    linear-gradient(180deg,#04030a 0%, #090716 55%, #03030a 100%) !important;
+}
+
+/* Plans grid: poster-style cards on plans.html.
+   plans.html uses .st-card / .plan-card / .plan-grid classes. */
+[data-store-theme="movieverse"] .st-card,
+[data-store-theme="movieverse"] .plan-card,
+[data-store-theme="movieverse"] .plan-item {
+  background: linear-gradient(180deg, rgba(255,255,255,.115), rgba(255,255,255,.052)) !important;
+  border: 1px solid rgba(255,255,255,.16) !important;
+  border-radius: 26px !important;
+  backdrop-filter: blur(18px);
+  box-shadow: 0 22px 75px rgba(0,0,0,.24);
+}
+[data-store-theme="movieverse"] .plan-card:hover,
+[data-store-theme="movieverse"] .plan-item:hover {
+  border-color: rgba(255,211,106,.4) !important;
+  transform: translateY(-4px);
+}
+/* Price text in MovieVerse → gold */
+[data-store-theme="movieverse"] .plan-price,
+[data-store-theme="movieverse"] .price,
+[data-store-theme="movieverse"] .grad-text {
+  background: linear-gradient(135deg,#ffd36a,#ff8b22) !important;
+  -webkit-background-clip: text !important;
+          background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+/* Buy / primary buttons stay red→orange (already correct via --th-btn) but force the gradient on .btn.primary too */
+[data-store-theme="movieverse"] .btn.primary,
+[data-store-theme="movieverse"] .btn-primary {
+  background: linear-gradient(135deg,#ff2a4d,#ff8b22) !important;
+  box-shadow: 0 22px 60px rgba(255,42,77,.35) !important;
+  color: #fff !important;
+}
+
+/* ── MovieVerse overrides for /my (my.html) ──────────────────────────────── */
+/* my.html uses --header-bg / --card / --grad-1 / --grad-2 / --grad-3 tokens.
+   The token remaps above cover most; the gradients need explicit re-aliasing. */
+[data-store-theme="movieverse"] {
+  --grad-1: #ff2a4d;
+  --grad-2: #ff8b22;
+  --grad-3: #8d5cff;
+}
+[data-store-theme="movieverse"] .dash-hero {
+  background: radial-gradient(circle at 14% 20%, rgba(255,42,77,.30), transparent 40%),
+              radial-gradient(circle at 86% 16%, rgba(255,211,106,.20), transparent 40%),
+              rgba(255,255,255,.06) !important;
+  border: 1px solid rgba(255,255,255,.16) !important;
+}
+[data-store-theme="movieverse"] .my-stat-card {
+  background: linear-gradient(180deg, rgba(255,255,255,.115), rgba(255,255,255,.052)) !important;
+}
+[data-store-theme="movieverse"] .my-topup-m {
+  background: rgba(255,255,255,.07) !important;
+  border: 1px solid rgba(255,255,255,.13) !important;
+}
+[data-store-theme="movieverse"] .my-topup-m:hover {
+  border-color: rgba(255,211,106,.4) !important;
+}

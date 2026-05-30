@@ -4201,6 +4201,7 @@ views['store-theme'] = async function () {
       { id:'electric-blue',   label:'Electric Blue',     bg:'#000a1a', card:'#00122e', a1:'#2563eb', a2:'#3b82f6', text:'#dbeafe', dark:true  },
       { id:'crimson-tide',    label:'Crimson Tide',      bg:'#0d0000', card:'#1f0000', a1:'#dc2626', a2:'#ef4444', text:'#fee2e2', dark:true  },
       { id:'teal-ocean',      label:'Teal Ocean',        bg:'#01151e', card:'#00253a', a1:'#0891b2', a2:'#0ea5e9', text:'#e0f2fe', dark:true  },
+      { id:'movieverse',      label:'MovieVerse 🎬',     bg:'#04030a', card:'#0a0816', a1:'#ff2a4d', a2:'#ffd36a', text:'#fff8f2', dark:true  },
     ];
 
     const cards = THEMES.map(t => {

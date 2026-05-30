@@ -196,17 +196,21 @@ app.get('/plans', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'store', 'plans.html'));
 });
 
-// Storefront root — server-render meta tags for SEO crawlers
+// Storefront root — server-render meta tags for SEO crawlers.
+// When store_theme === 'movieverse', serve the MovieVerse home variant instead
+// of the default index.html so the cinematic skin renders globally.
 app.get('/', async (req, res) => {
   try {
-    const [siteName, seoTitle, seoDesc, seoKw, ogImg, gscCode, bingCode, twitterCard, baseUrl] = await Promise.all([
+    const [siteName, seoTitle, seoDesc, seoKw, ogImg, gscCode, bingCode, twitterCard, baseUrl, storeTheme] = await Promise.all([
       getSetting('site_name'), getSetting('seo_home_title'), getSetting('seo_home_desc'),
       getSetting('seo_home_keywords'), getSetting('seo_og_image'), getSetting('seo_gsc_verification'),
       getSetting('seo_bing_verification'), getSetting('seo_twitter_card'), getSetting('base_url'),
+      getSetting('store_theme'),
     ]);
     const name = siteName || 'OTT Store';
     const base = baseUrl || cfg.baseUrl;
-    let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'store', 'index.html'), 'utf8');
+    const homeFile = storeTheme === 'movieverse' ? 'movieverse-home.html' : 'index.html';
+    let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'store', homeFile), 'utf8');
     html = html
       .replace(/<title id="page-title">[^<]*<\/title>/, `<title id="page-title">${esc(seoTitle || name + ' — Buy Premium Subscriptions Online')}</title>`)
       .replace(/(<meta name="description" id="meta-desc" content=")[^"]*"/, `$1${esc(seoDesc || 'Get Netflix, Amazon Prime, Disney+ and more at lowest prices. Instant delivery.')}"`)
