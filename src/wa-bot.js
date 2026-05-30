@@ -39,6 +39,17 @@ const _waSessions    = new Map(); // jid → { messages: [], lastActive: ms }
 const WA_SESSION_TTL = 30 * 60 * 1000; // 30 min inactivity resets session
 const WA_MAX_HISTORY = 8; // messages to keep per session
 
+// The AI emits standard markdown (**bold**, __bold__). WhatsApp's own bold is a
+// single asterisk (*bold*) and italic is _italic_, so double-asterisk markdown
+// renders as literal "**" on WhatsApp. Convert it to WhatsApp's flavor before
+// sending. Single-marker *italic* / _italic_ already render natively, so they
+// pass through untouched.
+function mdToWhatsApp(text) {
+  return String(text || '')
+    .replace(/\*\*([^\n*]+?)\*\*/g, '*$1*')   // **bold** → *bold*
+    .replace(/__([^\n_]+?)__/g, '*$1*');      // __bold__ → *bold*
+}
+
 function extractWAText(msg) {
   const m = msg.message;
   if (!m) return null;
@@ -179,9 +190,10 @@ async function processIncomingWA(msg) {
       session.messages = session.messages.slice(-WA_MAX_HISTORY);
     }
 
-    // Send reply via Baileys or Meta
+    // Send reply via Baileys or Meta. Convert the AI's markdown bold (**…**) to
+    // WhatsApp's native *…* so it renders bold instead of showing literal "**".
     const s = getActiveSock();
-    if (s) await s.sendMessage(jid, { text: reply });
+    if (s) await s.sendMessage(jid, { text: mdToWhatsApp(reply) });
   } catch (e) {
     console.error('[wa-bot] AI reply error:', e.message);
   }

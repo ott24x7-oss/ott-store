@@ -46,6 +46,10 @@ const STYLE=`
 .cw-m.user .cw-mb{background:linear-gradient(135deg,#ff2a4d,#ff8b22);color:#fff;border-bottom-right-radius:5px}
 /* linkify URLs inside bot messages */
 .cw-m.bot .cw-mb a{color:#ffd9df;text-decoration:underline;word-break:break-all}
+/* markdown bold/italic rendered from AI replies (no literal ** or _) */
+.cw-mb strong{font-weight:800}
+.cw-m.bot .cw-mb strong{color:#fff}
+.cw-mb em{font-style:italic}
 .cw-mt{font-size:.64rem;color:rgba(255,255,255,.3);padding:.1rem .3rem}
 .cw-btns{display:flex;flex-wrap:wrap;gap:.42rem;padding:.1rem .95rem .65rem;flex-shrink:0}
 .cw-btn{background:rgba(255,42,77,.1);border:1px solid rgba(255,42,77,.32);color:#ff9aaa;
@@ -110,15 +114,28 @@ function now(){return new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minu
 
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
-// Convert plain URLs in bot text into clickable links
-function linkify(text){
-  return esc(text).replace(/https?:\/\/[^\s<>"']+/g,url=>`<a href="${url}" target="_blank" rel="noopener">${url}</a>`);
+// Render bot text: escape HTML, apply lightweight markdown (bold/italic), then
+// linkify URLs. The AI emits standard markdown (**bold**); on the website we
+// render it as real bold instead of showing literal asterisks. (WhatsApp gets
+// its own *bold* conversion server-side — see wa-bot.js.)
+function formatBot(text){
+  let html=esc(text);
+  // **bold** / __bold__  →  <strong>
+  html=html.replace(/\*\*([^\n*]+?)\*\*/g,'<strong>$1</strong>')
+           .replace(/__([^\n_]+?)__/g,'<strong>$1</strong>');
+  // _italic_ / *italic*  →  <em>  (boundary-guarded so stray * or _ inside
+  // words/URLs and "* " bullet markers are left alone)
+  html=html.replace(/(^|[\s(])\*(?!\s)([^\n*]+?)\*(?=[\s).,!?:;]|$)/g,'$1<em>$2</em>')
+           .replace(/(^|[\s(])_(?!\s)([^\n_]+?)_(?=[\s).,!?:;]|$)/g,'$1<em>$2</em>');
+  // plain URLs → clickable links (last, so the regexes above never touch <a> markup)
+  html=html.replace(/https?:\/\/[^\s<>"']+/g,url=>`<a href="${url}" target="_blank" rel="noopener">${url}</a>`);
+  return html;
 }
 
 function addMsg(role,text){
   const div=document.createElement('div');
   div.className='cw-m '+role;
-  const body=role==='bot'?linkify(text):esc(text);
+  const body=role==='bot'?formatBot(text):esc(text);
   div.innerHTML=`<div class="cw-mb">${body}</div><div class="cw-mt">${now()}</div>`;
   msgList.appendChild(div);
   msgList.scrollTop=msgList.scrollHeight;
