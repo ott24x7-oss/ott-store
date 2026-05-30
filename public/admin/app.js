@@ -60,10 +60,24 @@ function statusBadge(s) {
   return `<span class="badge ${map[s] || 'badge-grey'}">${esc(s)}</span>`;
 }
 
+// Read the csrfToken cookie (set globally by the server) and echo it back as
+// an X-CSRF-Token header. The server's requireCsrf middleware enforces that
+// the header matches the cookie on every POST/PUT/DELETE.
+function getCsrfToken() {
+  const m = document.cookie.match(/(?:^|;\s*)csrfToken=([^;]+)/);
+  return m ? m[1] : '';
+}
+
 async function api(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  const method = (opts.method || 'GET').toUpperCase();
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+    const tok = getCsrfToken();
+    if (tok) headers['X-CSRF-Token'] = tok;
+  }
   const res = await fetch('/admin/api' + path, {
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
+    headers,
     ...opts,
   });
   if (res.status === 401) { renderLogin(); throw new Error('Unauthorized'); }
@@ -161,7 +175,7 @@ function goView(id) {
 
 // ── Logout ────────────────────────────────────────────────────────────────────
 document.getElementById('admin-logout-btn')?.addEventListener('click', async () => {
-  await fetch('/admin/api/logout', { method: 'POST', credentials: 'include' });
+  await fetch('/admin/api/logout', { method: 'POST', credentials: 'include', headers: { 'X-CSRF-Token': getCsrfToken() } });
   renderLogin();
 });
 
@@ -822,7 +836,7 @@ window.quickSetImage = function(planId, currentUrl) {
     if (!file) return;
     const fd = new FormData(); fd.append('image', file);
     try {
-      const res = await fetch(`/admin/api/plans/${id}/upload-image`, { method:'POST', credentials:'include', body: fd });
+      const res = await fetch(`/admin/api/plans/${id}/upload-image`, { method:'POST', credentials:'include', headers: { 'X-CSRF-Token': getCsrfToken() }, body: fd });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error);
       document.getElementById('qi-url').value = j.url;
@@ -852,7 +866,7 @@ window.uploadPlanImage = async function(planId) {
   const fd = new FormData();
   fd.append('image', file);
   try {
-    const res = await fetch(`/admin/api/plans/${planId}/upload-image`, { method:'POST', credentials:'include', body: fd });
+    const res = await fetch(`/admin/api/plans/${planId}/upload-image`, { method:'POST', credentials:'include', headers: { 'X-CSRF-Token': getCsrfToken() }, body: fd });
     const j = await res.json();
     if (!res.ok) throw new Error(j.error);
     const inp = document.getElementById('pf-img');
@@ -4395,7 +4409,7 @@ async function uploadLogo(type, input) {
   fd.append('logo', file);
   try {
     showToast('Uploading…');
-    const r = await fetch(`/admin/api/upload-logo/${type}`, { method: 'POST', body: fd, credentials: 'include' });
+    const r = await fetch(`/admin/api/upload-logo/${type}`, { method: 'POST', body: fd, credentials: 'include', headers: { 'X-CSRF-Token': getCsrfToken() } });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || 'Upload failed');
     const preview = document.getElementById(`logo-${type}-preview`);
@@ -4408,7 +4422,7 @@ async function uploadLogo(type, input) {
 async function deleteLogo(type) {
   if (!confirm('Remove this logo?')) return;
   try {
-    const r = await fetch(`/admin/api/upload-logo/${type}`, { method: 'DELETE', credentials: 'include' });
+    const r = await fetch(`/admin/api/upload-logo/${type}`, { method: 'DELETE', credentials: 'include', headers: { 'X-CSRF-Token': getCsrfToken() } });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error);
     const preview = document.getElementById(`logo-${type}-preview`);

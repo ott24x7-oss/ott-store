@@ -414,6 +414,32 @@ function migrate(db) {
   // Cheap; runs on every boot.
   try { db.run(`DELETE FROM auth_tokens WHERE used=1 AND created_at < datetime('now', '-1 day')`); } catch {}
   try { db.run(`DELETE FROM auth_tokens WHERE expires_at < datetime('now', '-1 day')`); } catch {}
+
+  // ── topups housekeeping ──────────────────────────────────────────────────
+  // Expired / cancelled / rejected payment attempts older than 30 days are
+  // safe to drop — they're already shown in the customer's payment history
+  // for 30 days and the IMAP matcher only looks at status='pending'.
+  try { db.run(`DELETE FROM topups WHERE status IN ('expired','cancelled','rejected') AND created_at < datetime('now', '-30 days')`); } catch {}
+
+  // ── orphaned stock detector ──────────────────────────────────────────────
+  // refund_needed topups (a paid topup that couldn't be honored because the
+  // plan sold out under us, see imap-verify.js stock-race fix) get logged as
+  // a system audit row at startup so the admin sees them on Audit Log without
+  // hunting through topups. Reissued only once per topup id.
+  try {
+    const refundNeeded = db.exec(`SELECT t.id, t.customer_jid, t.amount_inr, t.plan_id, c.email
+      FROM topups t LEFT JOIN customers c ON t.customer_jid=c.jid
+      WHERE t.status='refund_needed'
+        AND NOT EXISTS (SELECT 1 FROM audit_log WHERE actor_label='boot-orphan-check' AND target_id=CAST(t.id AS TEXT))`);
+    const rows = refundNeeded[0]?.values || [];
+    rows.forEach(([tid, jid, amt, pid, email]) => {
+      try {
+        db.run(`INSERT INTO audit_log (actor_kind,actor_label,action,target_kind,target_id,after_json) VALUES (?,?,?,?,?,?)`,
+          ['system', 'boot-orphan-check', 'refund_needed_topup', 'topup', String(tid),
+           JSON.stringify({ customer_jid: jid, email, amount_inr: amt, plan_id: pid, note: 'Customer paid but plan was sold out — manual refund required' })]);
+      } catch {}
+    });
+  } catch {}
 }
 
 function seedPlansData(db) {

@@ -1,7 +1,7 @@
 'use strict';
 const Imap = require('imap');
 const { simpleParser } = require('mailparser');
-const { getDb, getSetting, all, get, run } = require('./db');
+const { getDb, getSetting, setSetting, all, get, run } = require('./db');
 const { sendMail } = require('./mailer');
 
 let _lastCheck = new Date(Date.now() - 10 * 60 * 1000); // start 10 min ago
@@ -41,24 +41,34 @@ function extractUsdtAmounts(text) {
   return [...amounts];
 }
 
-function fetchMessages(imap, since) {
+// Fetch all emails with UID > lastUid (regardless of SEEN flag, so a user
+// opening the email on their phone doesn't hide it from us). Falls back to
+// SINCE if lastUid is 0 — i.e. very first poll after a config change.
+function fetchMessages(imap, lastUid, since) {
   return new Promise((resolve, reject) => {
-    imap.search(['UNSEEN', ['SINCE', since]], (err, uids) => {
+    const criteria = lastUid > 0
+      ? [['UID', `${lastUid + 1}:*`]]
+      : [['SINCE', since]];
+    imap.search(criteria, (err, uids) => {
       if (err) return reject(err);
-      if (!uids || !uids.length) return resolve([]);
+      if (!uids || !uids.length) return resolve({ messages: [], maxUid: lastUid });
 
       const fetch = imap.fetch(uids, { bodies: '' });
       const messages = [];
+      let maxUid = lastUid;
 
-      fetch.on('message', msg => {
+      fetch.on('message', (msg) => {
         let raw = '';
         msg.on('body', stream => {
           stream.on('data', chunk => { raw += chunk.toString(); });
         });
+        msg.on('attributes', attrs => {
+          if (attrs?.uid && attrs.uid > maxUid) maxUid = attrs.uid;
+        });
         msg.once('end', () => messages.push(raw));
       });
       fetch.once('error', reject);
-      fetch.once('end', () => resolve(messages));
+      fetch.once('end', () => resolve({ messages, maxUid }));
     });
   });
 }
@@ -230,6 +240,10 @@ async function runImapCheck() {
 
     if (!user || !password) { _running = false; return; }
 
+    // UID-based polling instead of UNSEEN: any client reading the email won't
+    // hide it from us. lastUid is persisted so we resume from where we left
+    // off after a restart. On first ever run, lastUid=0 → falls back to SINCE.
+    const lastUid = parseInt(await getSetting('imap_last_uid') || '0', 10) || 0;
     const since = new Date(_lastCheck);
     _lastCheck = new Date();
 
@@ -241,9 +255,12 @@ async function runImapCheck() {
         imap.openBox(folder, true, async (err) => {
           if (err) { imap.end(); return reject(err); }
           try {
-            const raws = await fetchMessages(imap, since);
+            const { messages: raws, maxUid } = await fetchMessages(imap, lastUid, since);
             const matched = await parseAndMatch(raws);
             if (matched > 0) _status.matched += matched;
+            // Persist the highest UID seen so we don't re-fetch on next tick
+            // (even if a single message in this batch failed to parse).
+            if (maxUid > lastUid) { try { await setSetting('imap_last_uid', String(maxUid)); } catch {} }
             imap.end();
             resolve();
           } catch (e) { imap.end(); reject(e); }

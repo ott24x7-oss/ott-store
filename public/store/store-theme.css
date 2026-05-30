@@ -195,7 +195,10 @@ body::before { display: none !important; }
   border-radius: var(--radius, 14px);
   box-shadow: var(--shadow-lg, 0 20px 60px rgba(0,0,0,.45));
   border: 1px solid var(--border, rgba(255,255,255,.11));
-  width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto;
+  width: 100%; max-width: 520px; max-height: 90vh;
+  /* Flex column with the body scrolling so the header and footer stay
+     visible — Cancel button can't fall off the bottom of long content. */
+  display: flex; flex-direction: column;
   animation: modalIn .2s ease;
   color: var(--text, #f7f7ff);
 }
@@ -203,19 +206,33 @@ body::before { display: none !important; }
 .modal-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 1.2rem 1.4rem; border-bottom: 1px solid var(--border, rgba(255,255,255,.11));
+  flex-shrink: 0;
 }
 .modal-header h3 { font-size: 1.05rem; font-weight: 700; margin: 0; }
-.modal-body { padding: 1.4rem; display: flex; flex-direction: column; gap: .9rem; }
+.modal-body {
+  padding: 1.4rem; display: flex; flex-direction: column; gap: .9rem;
+  overflow-y: auto;
+  /* iOS Safari momentum scroll inside the modal */
+  -webkit-overflow-scrolling: touch;
+  flex: 1 1 auto;
+  min-height: 0;
+}
 .modal-footer {
   padding: 1rem 1.4rem;
   border-top: 1px solid var(--border, rgba(255,255,255,.11));
   display: flex; gap: .6rem; justify-content: flex-end;
+  flex-shrink: 0;
+  /* Safe-area bottom on iOS so the Cancel button isn't covered by the
+     home indicator on a notched phone. */
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
 }
 .btn-icon { background: none; border: none; color: var(--muted, rgba(255,255,255,.48)); font-size: 1.2rem; padding: .2rem; cursor: pointer; }
 .btn-icon:hover { color: var(--text, #f7f7ff); }
 @media (max-width: 560px) {
   .modal-overlay { padding: 0; align-items: flex-end; }
-  .modal { max-height: 95vh; border-radius: 16px 16px 0 0; }
+  .modal { max-height: 92vh; border-radius: 16px 16px 0 0; }
+  .modal-body { padding: 1.1rem; }
+  .modal-footer { padding: .85rem 1.1rem calc(.85rem + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* ─────────────────────────────────────────────────────────────────

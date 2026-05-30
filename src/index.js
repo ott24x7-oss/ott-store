@@ -10,11 +10,17 @@ const { apiLimiter } = require('./security');
 
 const app = express();
 
-app.set('trust proxy', 1);
+// Cloudflare in front of Railway in front of the app = 2 trusted hops. Setting
+// to `true` lets Express use the leftmost X-Forwarded-For value (the real
+// client). Without this, req.ip resolves to the Cloudflare proxy IP and the
+// per-IP rate limiters never trip (every request looks like the same client).
+app.set('trust proxy', true);
 app.use(compression());
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 app.use(cookieParser(cfg.sessionSecret));
+const { ensureCsrfToken } = require('./security');
+app.use(ensureCsrfToken);
 app.use(apiLimiter);
 
 // Static files. Admin + store HTML/JS/CSS must always reflect the latest deploy,

@@ -7,12 +7,19 @@ const fs = require('fs');
 const multer = require('multer');
 const cfg = require('./config');
 const { getDb, getSetting, setSetting, all, get, run } = require('./db');
-const { loginLimiter, checkCredentialThrottle, recordFailedLogin, clearFailedLogin } = require('./security');
+const { loginLimiter, requireCsrf, checkCredentialThrottle, recordFailedLogin, clearFailedLogin } = require('./security');
 const { audit } = require('./audit');
 const { submitUrls, pingSitemap } = require('./google-index');
 const { sendOrderDelivery, sendMail } = require('./mailer');
 
 const router = express.Router();
+
+// CSRF guard for all admin write requests. ensureCsrfToken (global) sets a
+// csrfToken cookie on every visitor; the admin SPA reads it and sends it back
+// as X-CSRF-Token on POST/PUT/DELETE. A cross-site attacker can never read the
+// cookie (SameSite=strict) so they can't forge a matching header. Safe methods
+// (GET/HEAD/OPTIONS) skip the check inside requireCsrf itself.
+router.use(requireCsrf);
 
 const UPLOADS_DIR = path.join(__dirname, '..', 'data', 'uploads');
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });

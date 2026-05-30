@@ -345,7 +345,16 @@ router.post('/send-otp', sendLimiter, async (req, res) => {
     run(db, `INSERT INTO auth_tokens (token,purpose,code,email,expires_at) VALUES (?,?,?,?,?)`,
       [token, 'otp', otp, email.toLowerCase().trim(), expires]);
     const siteName = await getSetting('site_name') || 'OTT Store';
-    sendOtpEmail(email, otp, siteName).catch(() => {});
+    // Await the send so a mailer failure surfaces as a real error instead of
+    // silently telling the customer ok:true while they wait for an OTP that
+    // never arrives. The token is already in auth_tokens; if delivery fails
+    // it stays unused and harmlessly expires in 10 min.
+    try {
+      await sendOtpEmail(email, otp, siteName);
+    } catch (sendErr) {
+      try { await audit({ actorKind: 'system', actorLabel: 'mailer', action: 'send_otp_failed', targetKind: 'customer', targetId: jid, after_json: JSON.stringify({ error: sendErr.message }), ip: req.ip }); } catch {}
+      return res.status(502).json({ error: 'We couldn’t send the OTP email. Try a different method.' });
+    }
     res.json({ ok: true, is_new: !existing });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -396,7 +405,12 @@ router.post('/send-magic-link', sendLimiter, async (req, res) => {
     const baseUrl = stripSlash(await getSetting('base_url')) || `${req.protocol}://${req.get('host')}`;
     const siteName = await getSetting('site_name') || 'OTT Store';
     const magicUrl = `${baseUrl}/user/api/auth/magic?token=${token}`;
-    sendMagicLinkEmail(emailNorm, customer?.name || '', magicUrl, siteName).catch(() => {});
+    try {
+      await sendMagicLinkEmail(emailNorm, customer?.name || '', magicUrl, siteName);
+    } catch (sendErr) {
+      try { await audit({ actorKind: 'system', actorLabel: 'mailer', action: 'send_magic_failed', targetKind: 'customer', targetId: jid, after_json: JSON.stringify({ error: sendErr.message }), ip: req.ip }); } catch {}
+      return res.status(502).json({ error: 'We couldn’t send the login email. Try a different method.' });
+    }
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -446,10 +460,14 @@ router.post('/send-wa-otp', sendLimiter, async (req, res) => {
     run(db, `INSERT INTO auth_tokens (token,purpose,code,phone,expires_at) VALUES (?,?,?,?,?)`,
       [token, 'wa_otp', otp, phoneCC, expires]);
     const siteName = await getSetting('site_name') || 'OTT Store';
+    let sent = false;
     try {
       const { sendToPhone } = require('./wa-bot');
-      await sendToPhone(phoneCC, `🔐 *${siteName} Login Code*\n\nYour OTP: *${otp}*\n\nValid for 10 minutes. Do not share with anyone.`);
-    } catch {}
+      sent = await sendToPhone(phoneCC, `🔐 *${siteName} Login Code*\n\nYour OTP: *${otp}*\n\nValid for 10 minutes. Do not share with anyone.`);
+    } catch (e) {
+      try { await audit({ actorKind: 'system', actorLabel: 'wa-bot', action: 'send_wa_otp_failed', targetKind: 'customer', targetId: phoneCC + '@s.whatsapp.net', after_json: JSON.stringify({ error: e.message }), ip: req.ip }); } catch {}
+    }
+    if (!sent) return res.status(502).json({ error: 'We couldn’t send the OTP on WhatsApp. The bot may be offline — try Email OTP or Magic Link.' });
     res.json({ ok: true, masked: '****' + phoneCC.slice(-4) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -501,11 +519,15 @@ router.post('/send-wa-magic', sendLimiter, async (req, res) => {
     const baseUrl = stripSlash(await getSetting('base_url')) || `${req.protocol}://${req.get('host')}`;
     const siteName = await getSetting('site_name') || 'OTT Store';
     const magicUrl = `${baseUrl}/user/api/auth/wa-magic?token=${token}`;
+    let sent = false;
     try {
       const { sendToPhone } = require('./wa-bot');
-      await sendToPhone(phoneCC,
+      sent = await sendToPhone(phoneCC,
         `🔐 *${siteName} — Tap to Login*\n\nTap this link to sign in instantly:\n${magicUrl}\n\nLink expires in 15 minutes. Do not share with anyone.`);
-    } catch {}
+    } catch (e) {
+      try { await audit({ actorKind: 'system', actorLabel: 'wa-bot', action: 'send_wa_magic_failed', targetKind: 'customer', targetId: phoneCC + '@s.whatsapp.net', after_json: JSON.stringify({ error: e.message }), ip: req.ip }); } catch {}
+    }
+    if (!sent) return res.status(502).json({ error: 'We couldn’t send the login link on WhatsApp. The bot may be offline — try Email OTP or Magic Link.' });
     res.json({ ok: true, masked: '****' + phoneCC.slice(-4) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

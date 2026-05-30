@@ -1,5 +1,42 @@
 'use strict';
 const rateLimit = require('express-rate-limit');
+const crypto = require('crypto');
+const cfg = require('./config');
+
+// ─── CSRF (double-submit cookie pattern) ──────────────────────────────────────
+// On every request we make sure the visitor has a csrfToken cookie. The cookie
+// is intentionally NOT HttpOnly so the admin SPA's JS can read it and echo the
+// value back in a custom X-CSRF-Token header. requireCsrf then enforces that
+// the cookie and header match — a cross-site attacker has no way to read the
+// cookie (SameSite=strict) so they can't forge the header.
+function ensureCsrfToken(req, res, next) {
+  if (!req.cookies?.csrfToken) {
+    const token = crypto.randomBytes(32).toString('hex');
+    res.cookie('csrfToken', token, {
+      path: '/',
+      sameSite: 'strict',
+      secure: !!cfg.cookieOptions?.secure,
+      maxAge: 12 * 60 * 60 * 1000,
+      // NOT httpOnly — the admin SPA must read it
+    });
+    // Mirror onto the request so the very first response can use it too.
+    if (!req.cookies) req.cookies = {};
+    req.cookies.csrfToken = token;
+  }
+  next();
+}
+
+// State-changing requests must echo the csrf cookie back as a header. Skipped
+// for safe methods (GET/HEAD/OPTIONS) which don't change state.
+function requireCsrf(req, res, next) {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+  const cookie = req.cookies?.csrfToken;
+  const header = req.headers['x-csrf-token'];
+  if (!cookie || !header || cookie !== header) {
+    return res.status(403).json({ error: 'CSRF token invalid. Reload the admin panel and try again.' });
+  }
+  next();
+}
 
 // Per-IP rate limits
 const loginLimiter = rateLimit({
@@ -69,6 +106,8 @@ module.exports = {
   registerLimiter,
   apiLimiter,
   sendLimiter,
+  ensureCsrfToken,
+  requireCsrf,
   checkCredentialThrottle,
   recordFailedLogin,
   clearFailedLogin,
