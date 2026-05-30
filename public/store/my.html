@@ -414,12 +414,21 @@ function openModal(html){
   ov.className='modal-overlay';
   ov.innerHTML=`<div class="modal">${html}</div>`;
   ov.querySelector('.modal').addEventListener('click',e=>e.stopPropagation());
-  ov.addEventListener('click',()=>ov.remove());
+  // Wire close on overlay click, on the X icon, AND on the Cancel button.
+  // Also lock the body scroll and hide the bottom-nav so the mobile bottom-
+  // sheet modal owns the screen — no accidental taps on Home/Plans/Orders
+  // and no ghost page-scroll behind the modal.
+  const close=()=>{ ov.remove(); document.body.classList.remove('modal-open'); };
+  ov.addEventListener('click',close);
   document.body.appendChild(ov);
+  document.body.classList.add('modal-open');
   // Every [data-close] element closes the modal — the X in the header AND the
   // Cancel button in the footer. Previously only the FIRST match got a listener
   // (querySelector vs querySelectorAll), so Cancel was a dead button.
-  ov.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>ov.remove()));
+  ov.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',close));
+  // Escape key closes the modal too — matches common modal UX.
+  const onKey=(e)=>{ if(e.key==='Escape'){ close(); document.removeEventListener('keydown',onKey); } };
+  document.addEventListener('keydown',onKey);
   return ov;
 }
 function setLoading(btn,loading,text=''){if(loading){btn._orig=btn.textContent;btn.disabled=true;btn.textContent='⏳ '+text}else{btn.disabled=false;btn.textContent=btn._orig||text}}

@@ -185,8 +185,25 @@ body::before { display: none !important; }
    These rules used to live only in /public/style.css, which the storefront
    pages don't load — so the checkout modal opened as an unstyled inline div
    and the Buy button appeared to do nothing. */
+/* Body scroll-lock + hide the bottom-nav while a modal is open. Bottom-sheet
+   modal sits where the .my-bnav usually does (y=754–812 on 375x812), so taps
+   on the Cancel button could be ambiguous with the Home / Plans / Orders pills
+   underneath even with proper z-index. Easiest fix: just hide the bnav. */
+body.modal-open {
+  overflow: hidden;
+  /* Prevent iOS Safari rubber-band bounce of the page behind the modal */
+  touch-action: none;
+}
+body.modal-open .my-bnav,
+body.modal-open .home-bnav,
+body.modal-open #bottom-nav { display: none !important; }
+
 .modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 1000;
+  /* Bumped to 10000 so it sits well above every other layer (sticky nav 200,
+     drawer overlay 300, drawer 301, anything an admin might set on a future
+     widget). Bottom-nav z-index doesn't matter once it's display:none, but
+     keeping the headroom is defensive. */
+  position: fixed; inset: 0; background: rgba(0,0,0,.72); z-index: 10000;
   display: flex; align-items: center; justify-content: center;
   /* Side padding keeps the modal off the screen edge on desktop and
      prevents pinch-zoom from clipping the rounded corners. Top/bottom
