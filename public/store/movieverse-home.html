@@ -251,29 +251,14 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
   .stat strong{font-size:20px}
   .stat span{font-size:11px}
 
-  /* Cinema stage — hide decorations, flatten screen-card, no perspective */
-  .cinema-stage{
-    order:-1;perspective:none;transform-style:flat;
-    height:auto;min-height:0;margin:0 0 20px;
-  }
-  .projector-beam,
-  .reel,.reel.one,.reel.two,
-  .floating-sub{display:none!important}
-
-  .screen-card{
-    position:relative;left:auto;right:auto;top:auto;
-    width:100%;max-width:380px;height:auto;
-    margin:0 auto;padding:14px;border-radius:26px;
-    transform:none;
-  }
-  .poster{height:170px;border-radius:20px;padding:14px}
-  .poster h3{font-size:22px;bottom:38px;left:14px;right:14px;letter-spacing:-1px}
-  .poster small{left:14px;bottom:16px;font-size:12px}
-  .poster-row{gap:8px;margin-top:11px}
-  .poster-mini{min-height:74px;border-radius:16px;padding:10px}
-  .poster-mini span{font-size:20px;margin-bottom:6px}
-  .poster-mini b{font-size:11px}
-  .plan-card{padding:10px;border-radius:16px;margin-top:10px}
+  /* Cinema stage — hidden entirely on mobile.
+     On desktop it's the cinematic hero visual (tilted screen-card +
+     floating bubbles). On mobile it duplicated the Categories section
+     below and pushed the real hero (h1 + Explore buttons) below the
+     fold. The Featured Storefront section right below the hero already
+     showcases the same featured plans, so dropping it here is a net
+     improvement: shorter scroll to CTA, no duplicate product cards. */
+  .cinema-stage{display:none}
 
   /* Sections below the fold */
   .ribbon{padding:9px 0}
@@ -285,8 +270,9 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
   .grid-4,.steps,.product-showcase{grid-template-columns:1fr;gap:12px}
   .category-card{min-height:auto;padding:18px}
   .cta{flex-direction:column;align-items:stretch;padding:22px;gap:14px}
-  .cta h2{font-size:22px}
-  .cta .hero-actions{margin-bottom:0;width:100%}
+  .cta h2{font-size:22px;letter-spacing:-.6px;line-height:1.25}
+  .cta p{font-size:14px;line-height:1.55}
+  .cta .hero-actions{margin-bottom:0;width:100%;flex-direction:column;gap:10px}
   .cta .btn{width:100%;justify-content:center}
   .footer-row{flex-direction:column;align-items:flex-start;gap:14px}
   .footer-row a{margin-left:0;margin-right:13px}
