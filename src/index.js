@@ -438,7 +438,8 @@ function spFooter(siteName) {
   <a class="sp-bnav-btn" href="/my"><span>👤</span>Account</a>
   <a class="sp-bnav-btn" href="/contact"><span>🎧</span>Support</a>
 </nav>
-<script>(function(){var p=location.pathname;document.querySelectorAll('.sp-bnav-btn').forEach(function(a){if(a.getAttribute('href')===p)a.classList.add('active');});})();</script>`;
+<script>(function(){var p=location.pathname;document.querySelectorAll('.sp-bnav-btn').forEach(function(a){if(a.getAttribute('href')===p)a.classList.add('active');});})();</script>
+<script src="/store/chat-widget.js"></script>`;
 }
 
 async function getLogoUrls() {

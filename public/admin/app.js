@@ -338,6 +338,7 @@ function renderPlansTable(plans, catFilter) {
   <button class="btn btn-sm btn-secondary" onclick="bulkSetImage()">🖼 Set Image</button>
   <button class="btn btn-sm btn-secondary" onclick="bulkUploadImages()">📤 Bulk Upload</button>
   <button class="btn btn-sm btn-secondary" onclick="bulkAction('auto-logo')">🤖 Auto Logo</button>
+  <button class="btn btn-sm btn-secondary" onclick="bulkSortOrder()">🔢 Sort Order</button>
   <button class="btn btn-red btn-sm" onclick="bulkAction('delete')">🗑 Delete</button>
   <button class="btn btn-sm btn-secondary" style="margin-left:auto" onclick="clearBulkSelect()">✕ Clear</button>
 </div>
@@ -477,6 +478,86 @@ function renderPlansTable(plans, catFilter) {
     };
   };
 
+  // ── Bulk sort-order editor ────────────────────────────────────────────────
+  // Drag-to-reorder the selected products; save writes sort_order back via
+  // the 'set-sort-order' bulk-action (ids in display order → order * 10).
+  window.bulkSortOrder = () => {
+    const ids = getSelectedIds();
+    if (!ids.length) return showToast('Select at least one product', 'error');
+    // Build item list from visible table rows (preserves current filtered order)
+    const items = ids.map(id => {
+      const tr = document.querySelector(`tr[data-pid="${id}"]`)
+               || document.querySelector(`input.plan-cb[data-id="${id}"]`)?.closest('tr');
+      const name = tr?.querySelector('td:nth-child(3)')?.textContent?.trim() || `#${id}`;
+      const img  = tr?.querySelector('td:nth-child(2) img')?.src || '';
+      const sortVal = tr?.querySelector('td:nth-child(3)')?.closest('tr')?.dataset?.sortOrder || '';
+      return { id: Number(id), name, img };
+    });
+
+    const ov = openModal(`
+<div class="modal-header"><h3>🔢 Set Sort Order</h3><button class="btn-icon" data-close>✕</button></div>
+<div class="modal-body">
+  <p style="font-size:.83rem;color:var(--muted);margin-bottom:.75rem">
+    Drag rows to reorder. Products will appear on the store in this order.<br>
+    <span style="opacity:.7">Sort values are saved as multiples of 10 so you can insert products between them later.</span>
+  </p>
+  <div id="sort-list" style="display:flex;flex-direction:column;gap:.3rem;max-height:400px;overflow-y:auto"></div>
+  <div id="sort-msg" style="margin-top:.5rem"></div>
+</div>
+<div class="modal-footer">
+  <button class="btn btn-secondary" data-close>Cancel</button>
+  <button class="btn btn-primary" id="sort-save-btn">💾 Save Order</button>
+</div>`);
+
+    // Render draggable rows
+    const list = document.getElementById('sort-list');
+    let orderedIds = items.map(p => p.id);
+
+    function renderSortList() {
+      list.innerHTML = orderedIds.map((id, i) => {
+        const p = items.find(x => x.id === id);
+        return `<div class="sort-row" draggable="true" data-id="${id}" style="display:flex;align-items:center;gap:.6rem;padding:.5rem .65rem;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;cursor:grab;user-select:none">
+          <span style="color:var(--muted);font-size:.85rem;width:20px;text-align:right;flex-shrink:0">${i+1}</span>
+          <span style="cursor:grab;color:var(--muted);font-size:1.1rem;flex-shrink:0">⠿</span>
+          ${p.img?`<img src="${esc(p.img)}" style="width:28px;height:28px;border-radius:4px;object-fit:cover;flex-shrink:0">`:'<div style="width:28px;height:28px;background:var(--input-bg);border-radius:4px;flex-shrink:0"></div>'}
+          <span style="flex:1;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(p.name)}">${esc(p.name)}</span>
+          <span style="font-size:.72rem;color:var(--muted);flex-shrink:0">sort: ${(i+1)*10}</span>
+        </div>`;
+      }).join('');
+
+      // Native HTML5 drag-and-drop sort
+      let dragging = null;
+      list.querySelectorAll('.sort-row').forEach(row => {
+        row.addEventListener('dragstart', e => { dragging = row; row.style.opacity = '.4'; });
+        row.addEventListener('dragend',   e => { dragging = null; row.style.opacity = ''; });
+        row.addEventListener('dragover',  e => { e.preventDefault(); });
+        row.addEventListener('drop', e => {
+          e.preventDefault();
+          if (!dragging || dragging === row) return;
+          const kids = [...list.children];
+          const fromI = kids.indexOf(dragging);
+          const toI   = kids.indexOf(row);
+          orderedIds = orderedIds.filter((_,i)=>i!==fromI);
+          orderedIds.splice(toI, 0, items.find(x=>x.id===Number(dragging.dataset.id)).id);
+          renderSortList();
+        });
+      });
+    }
+    renderSortList();
+
+    document.getElementById('sort-save-btn').onclick = async () => {
+      const btn = document.getElementById('sort-save-btn');
+      btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        const r = await api('/plans/bulk-action', { method:'POST', body: JSON.stringify({ action:'set-sort-order', ids: orderedIds }) });
+        ov.remove(); showToast(`Sort order saved for ${r.affected} products`); views.plans(catFilter);
+      } catch(e) {
+        document.getElementById('sort-msg').innerHTML = `<div class="alert alert-error">${esc(e.message)}</div>`;
+        btn.disabled = false; btn.textContent = '💾 Save Order';
+      }
+    };
+  };
+
   // ── Bulk image FILE upload (one image per product) ────────────────────────
   // Companion to bulkSetImage (single URL → all). This one:
   //  1. Admin drops/picks N image files
@@ -508,10 +589,23 @@ function renderPlansTable(plans, catFilter) {
     Drop multiple files at once — we'll auto-match each file to the closest product by filename.
   </p>
 
+  <!-- AI auto-fill section -->
+  <div style="background:var(--input-bg);border-radius:8px;padding:.7rem .85rem;margin-bottom:.75rem;border:1px solid var(--border)">
+    <div style="font-weight:700;font-size:.85rem;margin-bottom:.35rem">🤖 AI Auto-fill Images from Internet</div>
+    <p style="font-size:.78rem;color:var(--muted);margin:0 0 .5rem">
+      Searches Clearbit Logo API for each selected product. Instant, no API key needed.
+      Results are set as the image URL — no file upload required.
+    </p>
+    <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-sm btn-secondary" id="bui-ai-btn">🤖 Auto-fill ${ids.length} Products</button>
+      <span id="bui-ai-status" style="font-size:.78rem;color:var(--muted)"></span>
+    </div>
+  </div>
+
   <label id="bui-drop" style="display:block;border:2px dashed var(--border);border-radius:10px;padding:1.5rem;text-align:center;cursor:pointer;transition:all .15s">
     <div style="font-size:2rem;margin-bottom:.35rem">📁</div>
-    <div style="font-weight:700">Drop images here or click to pick files</div>
-    <div style="font-size:.78rem;color:var(--muted);margin-top:.25rem">JPG / PNG / WebP / SVG · 2 MB each · select many at once</div>
+    <div style="font-weight:700">Or drop / pick image files below</div>
+    <div style="font-size:.78rem;color:var(--muted);margin-top:.25rem">JPG / PNG / WebP · 2 MB each · select many at once</div>
     <input type="file" id="bui-input" accept="image/*" multiple style="display:none">
   </label>
 
@@ -685,6 +779,57 @@ function renderPlansTable(plans, catFilter) {
     };
 
     renderList();
+
+    // ── AI Auto-fill: Clearbit logo + Google favicon fallback ──────────────
+    document.getElementById('bui-ai-btn').onclick = async () => {
+      const aiBtn   = document.getElementById('bui-ai-btn');
+      const aiStatus = document.getElementById('bui-ai-status');
+      aiBtn.disabled = true;
+      aiStatus.textContent = 'Looking up images…';
+
+      // Try to derive a domain from platform/name for Clearbit.
+      // Clearbit Logo API is free and returns a PNG for known brands.
+      const domainGuess = name => {
+        const n = String(name||'').toLowerCase();
+        const MAP = {
+          'netflix':'netflix.com','amazon prime':'amazon.com','prime video':'amazon.com',
+          'disney+':'disneyplus.com','hotstar':'hotstar.com','disney+ hotstar':'hotstar.com',
+          'sony liv':'sonyliv.com','zee5':'zee5.com','jiocinema':'jiocinema.com',
+          'spotify':'spotify.com','youtube':'youtube.com','youtube premium':'youtube.com',
+          'apple tv':'apple.com','apple music':'apple.com',
+          'canva':'canva.com','adobe':'adobe.com','microsoft 365':'microsoft.com',
+          'office 365':'microsoft.com','microsoft office':'microsoft.com',
+          'word':'microsoft.com','excel':'microsoft.com','powerpoint':'microsoft.com',
+          'outlook':'microsoft.com','access':'microsoft.com',
+          'google one':'google.com','nordvpn':'nordvpn.com','expressvpn':'expressvpn.com',
+          'chatgpt':'openai.com','openai':'openai.com','linkedin':'linkedin.com',
+          'mx player':'mxplayer.in','voot':'voot.com','fancode':'fancode.com',
+          'primevideo':'amazon.com','amazon':'amazon.com',
+        };
+        for (const [k,v] of Object.entries(MAP)) { if (n.includes(k)) return v; }
+        // Fall back: strip common suffixes and use as domain
+        const clean = n.replace(/\b(premium|pro|plus|max|ultra|free|trial|plan|subscription|1pc|5pc|bind|retail|online|month|year|days|lifetime)\b/g,'').trim().replace(/\s+/g,'').replace(/[^a-z0-9]/g,'');
+        return clean ? clean+'.com' : null;
+      };
+
+      let done=0, skipped=0;
+      for (const p of products) {
+        const domain = domainGuess(p.name) || domainGuess(p.platform||'');
+        if (!domain) { skipped++; continue; }
+        const url = `https://logo.clearbit.com/${domain}`;
+        try {
+          const r = await api('/plans/bulk-action', { method:'POST', body: JSON.stringify({
+            action: 'set-image-url', ids: [p.id], image_url: url
+          })});
+          if (r.affected) done++;
+        } catch { skipped++; }
+        aiStatus.textContent = `${done} done, ${skipped} skipped…`;
+      }
+      aiBtn.disabled = false;
+      aiStatus.textContent = `✅ Done — ${done} images set, ${skipped} skipped`;
+      showToast(`AI filled ${done} product images`);
+      views.plans(catFilter);
+    };
   };
 
   // ── ResellKeys panel ──────────────────────────────────────────────────────

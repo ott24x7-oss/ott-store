@@ -133,7 +133,7 @@ async function buildStoreSystemPrompt(db) {
   const s = {};
   siteRows.forEach(r => s[r.key] = r.value);
 
-  const plans = all(db, `SELECT platform,name,duration_days,price_inr,original_price_inr,description,delivery_type,delivery_time_est FROM plans WHERE active=1 ORDER BY platform,price_inr ASC`);
+  const plans = all(db, `SELECT id,platform,name,duration_days,price_inr,original_price_inr,description,delivery_type,delivery_time_est FROM plans WHERE active=1 ORDER BY platform,price_inr ASC`);
   const platforms = [...new Set(plans.map(p => p.platform))];
   const plansText = plans.map(p => {
     const orig = (p.original_price_inr > p.price_inr) ? ` (was ₹${p.original_price_inr})` : '';
@@ -143,7 +143,10 @@ async function buildStoreSystemPrompt(db) {
                : `${p.duration_days} days`;
     const del  = p.delivery_type === 'instant' ? ' | Instant delivery'
                : p.delivery_time_est ? ` | Delivery: ${p.delivery_time_est}` : '';
-    return `• ${p.platform} — ${p.name} | ${dur} | ₹${p.price_inr}${orig}${del}${p.description ? ` | ${p.description}` : ''}`;
+    // Each plan gets a deep link so AI can share a direct buy URL
+    const planUrl = siteUrl ? `${siteUrl}/plans?q=${encodeURIComponent(p.name)}` : null;
+    const urlPart = planUrl ? ` | Buy: ${planUrl}` : '';
+    return `• [ID:${p.id}] ${p.platform} — ${p.name} | ${dur} | ₹${p.price_inr}${orig}${del}${p.description ? ` | ${p.description}` : ''}${urlPart}`;
   }).join('\n');
 
   const payMethods = all(db, `SELECT name FROM payment_methods WHERE enabled=1`).map(m => m.name).join(', ');
@@ -188,21 +191,26 @@ ${s.support_email ? `SUPPORT EMAIL: ${s.support_email}` : ''}
 ${teamText ? `\nHUMAN SUPPORT TEAM (share these wa.me links when a customer asks to speak to a human, needs help, or has a complaint):\n${teamText}` : ''}
 ${s.bot_system_prompt ? `\nCUSTOM STORE INSTRUCTIONS:\n${s.bot_system_prompt}` : ''}
 
+HOW TO ORDER:
+1. Visit ${siteUrl || 'our website'}/plans and browse
+2. Register / login free → click Buy Now on any plan
+3. Pay via UPI or USDT → receive credentials instantly
+
 YOUR ROLE:
-- Answer questions about our plans, pricing, and availability confidently
-- Help customers choose the right plan based on their budget and viewing habits
-- Guide step-by-step through the order process
+- Answer questions about plans, pricing, and availability confidently
+- Help customers pick the right plan based on their budget and viewing habits
+- When a customer asks about a specific plan, share its direct Buy link from the catalog above (the "Buy:" URL)
 - Proactively suggest plans — ask what they like to watch if they're unsure
 - For order tracking → ${siteUrl ? siteUrl + '/my' : 'the website'} → My Orders
-- For wallet top-up → ${siteUrl ? siteUrl + '/my' : 'the website'} → Wallet
+- For browsing all plans → ${siteUrl ? siteUrl + '/plans' : 'our website'}
 - For human support → ${humanSupportLine}
-- NEVER invent plans or prices that are not listed above
-- NEVER use "<link>", "[link]", or any placeholder text for URLs — always use the actual URL from WEBSITE above, or say "visit our website" if no URL is configured
+- NEVER invent plans or prices not listed above
+- NEVER use placeholder text like "<link>" — always paste the real URL from the catalog
 
 RESPONSE FORMAT:
 - Short, conversational replies (2–4 sentences max)
 - Always use ₹ for prices
-- When sharing a link, use the real URL only: ${siteUrl || 'our website'}
+- When sharing a direct plan link, use the "Buy:" URL from the catalog above
 - Add action buttons at end (website only): [BUTTONS: Option1 | Option2 | Option3] (max 4)
 - Be warm, friendly — not corporate/robotic`;
 }

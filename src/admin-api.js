@@ -1913,6 +1913,13 @@ router.post('/plans/bulk-action', requireAdmin, async (req, res) => {
         db.run('UPDATE plans SET image_url=? WHERE id=?', [url, p.id]);
         affected++;
       }
+    } else if (action === 'set-sort-order') {
+      // ids is an ordered array; each plan gets sort_order = its index * 10
+      // so there's room to insert between any two later without renumbering.
+      for (let i = 0; i < ids.length; i++) {
+        db.run('UPDATE plans SET sort_order=? WHERE id=?', [(i + 1) * 10, ids[i]]);
+        affected++;
+      }
     } else {
       return res.status(400).json({ error: 'Unknown action' });
     }
