@@ -375,6 +375,27 @@ function migrate(db) {
   try { db.run(`ALTER TABLE plans ADD COLUMN delivery_type TEXT DEFAULT 'manual'`); } catch {}
   try { db.run(`ALTER TABLE plans ADD COLUMN delivery_time_est TEXT DEFAULT ''`); } catch {}
   try { db.run(`ALTER TABLE plans ADD COLUMN price_usd REAL DEFAULT 0`); } catch {}
+  // SEO-friendly slugs for product pages (/plans/:slug)
+  try { db.run(`ALTER TABLE plans ADD COLUMN slug TEXT`); } catch {}
+  try { db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_plans_slug ON plans(slug) WHERE slug IS NOT NULL`); } catch {}
+  // Backfill slugs for existing plans that don't have one yet.
+  // Runs on every startup but is a no-op when all slugs are present.
+  try {
+    const plansMissing = db.exec(`SELECT id, platform, name FROM plans WHERE slug IS NULL OR slug = ''`);
+    if (plansMissing?.[0]?.values?.length) {
+      const rows = plansMissing[0].values; // [[id, platform, name], ...]
+      const existing = new Set(
+        (db.exec(`SELECT slug FROM plans WHERE slug IS NOT NULL`)?.[0]?.values || []).map(r => r[0])
+      );
+      for (const [id, platform, name] of rows) {
+        const slug = makePlanSlug(`${platform || ''} ${name || ''}`, existing);
+        if (slug) {
+          db.run(`UPDATE plans SET slug=? WHERE id=?`, [slug, id]);
+          existing.add(slug);
+        }
+      }
+    }
+  } catch {}
 
   seedDefaults(db);
   seedLegalPages(db);
@@ -2407,4 +2428,25 @@ After delivery → Login in PlayBox with same number
   }
 }
 
-module.exports = { getDb, getSetting, setSetting, getSettingSync, setSettingSync, all, get, run };
+// Slug generator shared by db.js backfill + admin-api.js create/update.
+// Converts "Amazon Prime — 6M Ads Free" → "amazon-prime-6m-ads-free".
+// Pass the `existingSet` (Set of known slugs) to get a unique suffix appended.
+function makePlanSlug(text, existingSet) {
+  let base = String(text || '')
+    .toLowerCase()
+    .replace(/[—–]/g, '-')           // em-dash / en-dash
+    .replace(/[^\w\s-]/g, '')        // strip special chars (keep letters, digits, hyphens)
+    .replace(/[\s_]+/g, '-')         // spaces/underscores → hyphens
+    .replace(/-+/g, '-')             // collapse multiple hyphens
+    .replace(/^-|-$/g, '')           // trim leading/trailing hyphens
+    .slice(0, 90);
+  if (!base) return '';
+  if (!existingSet || !existingSet.has(base)) return base;
+  for (let i = 2; i < 1000; i++) {
+    const candidate = `${base}-${i}`;
+    if (!existingSet.has(candidate)) return candidate;
+  }
+  return `${base}-${Date.now()}`;
+}
+
+module.exports = { getDb, getSetting, setSetting, getSettingSync, setSettingSync, all, get, run, makePlanSlug };

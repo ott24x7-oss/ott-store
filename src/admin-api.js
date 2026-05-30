@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const cfg = require('./config');
-const { getDb, getSetting, setSetting, all, get, run } = require('./db');
+const { getDb, getSetting, setSetting, all, get, run, makePlanSlug } = require('./db');
 const { loginLimiter, requireCsrf, checkCredentialThrottle, recordFailedLogin, clearFailedLogin } = require('./security');
 const { audit } = require('./audit');
 const { submitUrls, pingSitemap } = require('./google-index');
@@ -175,21 +175,25 @@ router.post('/plans', requireAdmin, async (req, res) => {
   try {
     const { platform, name, duration_days, price_inr, original_price_inr, price_usd,
             description, features, badge, stock, active, sort_order,
-            category, image_url, provider_api, provider_product_id, delivery_type, delivery_time_est } = req.body;
+            category, image_url, provider_api, provider_product_id, delivery_type, delivery_time_est,
+            slug: slugOverride } = req.body;
     if (!platform || !name) return res.status(400).json({ error: 'Platform and name required' });
     const db = await getDb();
+    // Auto-generate slug from "platform name" unless admin provided one
+    const existingSlugs = new Set(all(db,'SELECT slug FROM plans WHERE slug IS NOT NULL').map(p=>p.slug));
+    const slug = makePlanSlug(slugOverride || `${platform} ${name}`, existingSlugs);
     const r = run(db,
       `INSERT INTO plans (platform,name,duration_days,price_inr,original_price_inr,price_usd,
         description,features,badge,stock,active,sort_order,
-        category,image_url,provider_api,provider_product_id,delivery_type,delivery_time_est)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        category,image_url,provider_api,provider_product_id,delivery_type,delivery_time_est,slug)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [platform, name, duration_days||null, price_inr||0, original_price_inr||null, price_usd||0,
        description||null, JSON.stringify(features||[]), badge||null,
        stock??-1, active??1, sort_order||0,
        category||'', image_url||'', provider_api||'', provider_product_id||'',
-       delivery_type||'manual', delivery_time_est||'']);
+       delivery_type||'manual', delivery_time_est||'', slug]);
     await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'create_plan', targetKind: 'plan', targetId: r.lastInsertRowid, after: req.body, ip: req.ip });
-    res.json({ ok: true, id: r.lastInsertRowid });
+    res.json({ ok: true, id: r.lastInsertRowid, slug });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -197,19 +201,30 @@ router.put('/plans/:id', requireAdmin, async (req, res) => {
   try {
     const { platform, name, duration_days, price_inr, original_price_inr, price_usd,
             description, features, badge, stock, active, sort_order,
-            category, image_url, provider_api, provider_product_id, delivery_type, delivery_time_est } = req.body;
+            category, image_url, provider_api, provider_product_id, delivery_type, delivery_time_est,
+            slug: slugOverride } = req.body;
     const db = await getDb();
+    const existing = get(db, 'SELECT slug FROM plans WHERE id=?', [req.params.id]);
+    // Re-generate slug only when name changes or admin supplied a new one.
+    // Never let an UPDATE steal another plan's slug — exclude self from the unique check.
+    const otherSlugs = new Set(all(db,'SELECT slug FROM plans WHERE slug IS NOT NULL AND id!=?',[req.params.id]).map(p=>p.slug));
+    let slug = existing?.slug || null;
+    if (slugOverride && slugOverride !== slug) {
+      slug = makePlanSlug(slugOverride, otherSlugs);
+    } else if (!slug) {
+      slug = makePlanSlug(`${platform||''} ${name||''}`, otherSlugs);
+    }
     run(db,
       `UPDATE plans SET platform=?,name=?,duration_days=?,price_inr=?,original_price_inr=?,price_usd=?,
        description=?,features=?,badge=?,stock=?,active=?,sort_order=?,
-       category=?,image_url=?,provider_api=?,provider_product_id=?,delivery_type=?,delivery_time_est=?
+       category=?,image_url=?,provider_api=?,provider_product_id=?,delivery_type=?,delivery_time_est=?,slug=?
        WHERE id=?`,
       [platform, name, duration_days||null, price_inr||0, original_price_inr||null, price_usd||0,
        description||null, JSON.stringify(features||[]), badge||null,
        stock??-1, active??1, sort_order||0,
        category||'', image_url||'', provider_api||'', provider_product_id||'',
-       delivery_type||'manual', delivery_time_est||'', req.params.id]);
-    res.json({ ok: true });
+       delivery_type||'manual', delivery_time_est||'', slug, req.params.id]);
+    res.json({ ok: true, slug });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

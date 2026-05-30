@@ -248,6 +248,40 @@ app.get('/plans', async (req, res) => {
   }
 });
 
+// Product slug route — /plans/amazon-prime-6m-ads-free
+// Looks up the plan by slug and renders the plans page pre-focused on that
+// product. Uses a meta-refresh + hash so the SPA can scroll to the card.
+app.get('/plans/:slug', async (req, res) => {
+  try {
+    const { getDb, get: dbGet } = require('./db');
+    const db = await getDb();
+    const slug = req.params.slug.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    const plan = dbGet(db, `SELECT id, name, platform, slug FROM plans WHERE slug=? AND active=1`, [slug]);
+
+    if (!plan) {
+      // Slug not found — fall through to plans page with search pre-filled
+      const storeTheme = await getActiveTheme();
+      let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'store', 'plans.html'), 'utf8');
+      html = html.replace(/data-store-theme="[^"]*"/, `data-store-theme="${storeTheme}"`);
+      return res.status(404).type('text/html').send(html);
+    }
+
+    // Render plans page with the plan's slug as the hash anchor.
+    // The page reads the URL hash after load and smooth-scrolls to #plan-{slug}.
+    const storeTheme = await getActiveTheme();
+    let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'store', 'plans.html'), 'utf8');
+    html = html.replace(/data-store-theme="[^"]*"/, `data-store-theme="${storeTheme}"`);
+    // Inject OG / title meta for this specific product so social previews work
+    html = html
+      .replace(/<title>[^<]*<\/title>/, `<title>${esc(plan.platform)} — ${esc(plan.name)}</title>`)
+      .replace(/<meta name="description"[^>]*>/, `<meta name="description" content="Buy ${esc(plan.platform)} — ${esc(plan.name)} at OTT Store. Instant digital delivery.">`)
+      .replace('</head>', `<script>window.__PLAN_SLUG__="${esc(plan.slug)}";window.__PLAN_ID__=${plan.id};</script>\n</head>`);
+    res.type('text/html').send(html);
+  } catch (e) {
+    res.sendFile(path.join(__dirname, '..', 'public', 'store', 'plans.html'));
+  }
+});
+
 // Storefront root — server-render meta tags for SEO crawlers.
 // When store_theme === 'movieverse', serve the MovieVerse home variant instead
 // of the default index.html so the cinematic skin renders globally.

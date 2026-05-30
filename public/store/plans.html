@@ -287,15 +287,14 @@ let STORE={};
 const PAGE_SIZE=24;
 let _visible=PAGE_SIZE;
 
-// Read URL params so /plans?q=Netflix pre-filters and AI can share direct links.
-// Also supports /plans?platform=Netflix and /plans#plan-42 (hash scroll).
+// Read URL params (?q= / ?platform=) and server-injected __PLAN_SLUG__ / __PLAN_ID__
+// (set by the /plans/:slug route) so deep links work from any entry point.
 (function(){
   const p=new URLSearchParams(location.search);
   const q=p.get('q')||p.get('search')||'';
   const plat=p.get('platform')||'';
   if(q)SEARCH=q.toLowerCase();
   if(plat)ACTIVE_PLATFORM=plat;
-  // Pre-fill search box once DOM is ready (called after plans load too)
   window._prefillSearch=()=>{
     const el=document.getElementById('search-input');
     if(el&&q){el.value=q;}
@@ -313,7 +312,9 @@ fetch('/user/api/store').then(r=>r.json()).then(s=>{
   }
   if(s.site_name){
     document.getElementById('footer-copy').textContent=`© ${new Date().getFullYear()} ${s.site_name}. All rights reserved.`;
-    document.title=`All Plans — ${s.site_name}`;
+    // Only set generic title when not on a product slug page
+    // (server already injected the product-specific title for SEO)
+    if(!window.__PLAN_SLUG__)document.title=`All Plans — ${s.site_name}`;
   }
   if(s.store_theme)document.documentElement.setAttribute('data-store-theme',s.store_theme);
 }).catch(()=>{});
@@ -330,9 +331,14 @@ fetch('/user/api/plans').then(r=>r.json()).then(plans=>{
   buildPlatformChips(plans);
   if(window._prefillSearch)_prefillSearch();
   renderPlans();
-  // Hash deep-link: /plans#plan-42 → scroll to that card after render
-  if(location.hash&&location.hash.startsWith('#plan-')){
-    const el=document.getElementById(location.hash.slice(1));
+  // Deep-link scroll — supports three sources:
+  //   1. Server injected __PLAN_SLUG__ via /plans/:slug route
+  //   2. URL hash #plan-{slug} e.g. /plans#plan-amazon-prime-6m
+  //   3. URL hash #plan-{id}  e.g. /plans#plan-42 (legacy)
+  const targetId = (window.__PLAN_SLUG__ ? 'plan-'+window.__PLAN_SLUG__ : null)
+    || (location.hash.startsWith('#plan-') ? location.hash.slice(1) : null);
+  if(targetId){
+    const el=document.getElementById(targetId);
     if(el)setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'center'}),120);
   }
 }).catch(()=>{
@@ -652,7 +658,10 @@ function planCard(p){
   const headerInner=p.image_url
     ?`<img src="${esc(p.image_url)}" alt="${esc(p.platform)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="splan-header-bg" style="display:none;background:${grad}"><span class="splan-header-icon">${icon}</span><span class="splan-header-plat">${esc(p.platform)}</span></div>`
     :`<div class="splan-header-bg" style="background:${grad}"><span class="splan-header-icon">${icon}</span><span class="splan-header-plat">${esc(p.platform)}</span></div>`;
-  return `<div id="plan-${p.id}" class="splan-card${p.badge?' featured':''}${outOfStock?' splan-oos':''}">`+`
+  // Use slug as the card ID for clean deep links (/plans/amazon-prime-6m)
+  // Fall back to numeric ID for plans that have no slug yet.
+  const cardId = p.slug ? `plan-${p.slug}` : `plan-${p.id}`;
+  return `<div id="${cardId}" class="splan-card${p.badge?' featured':''}${outOfStock?' splan-oos':''}">`+`
 <div class="splan-header">${badge}${headerInner}</div>
 <div class="splan-body">
   <div class="splan-name">${esc(p.name)}</div>

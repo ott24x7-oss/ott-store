@@ -1132,7 +1132,14 @@ window.openPlanModal = async function (plan = null) {
       </select>
     </div>
   </div>
-  <div class="form-group"><label class="form-label">Plan Name *</label><input class="form-input" id="pf-name" value="${esc(f.name || '')}" placeholder="e.g. Netflix 4K — 1 Month"></div>
+  <div class="form-group"><label class="form-label">Plan Name *</label><input class="form-input" id="pf-name" value="${esc(f.name || '')}" placeholder="e.g. Netflix 4K — 1 Month" oninput="autoFillSlug()"></div>
+  <div class="form-group">
+    <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
+      URL Slug
+      <span style="font-size:.72rem;font-weight:400;color:var(--muted)">e.g. netflix-4k-1-month → /plans/netflix-4k-1-month</span>
+    </label>
+    <input class="form-input" id="pf-slug" value="${esc(f.slug||'')}" placeholder="auto-generated from name">
+  </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Duration (days)</label><input class="form-input" id="pf-duration" type="number" min="1" value="${f.duration_days || ''}" placeholder="30"></div>
     <div class="form-group"><label class="form-label">Stock (-1 = unlimited)</label><input class="form-input" id="pf-stock" type="number" min="-1" value="${f.stock ?? -1}"></div>
@@ -1197,6 +1204,21 @@ window.openPlanModal = async function (plan = null) {
 
   document.getElementById('feat-input').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addFeature(); } });
 
+  // Auto-fill slug from plan name only when slug hasn't been manually edited
+  window.autoFillSlug = () => {
+    const slugEl = document.getElementById('pf-slug');
+    if (!slugEl || slugEl.dataset.manualEdit === '1') return;
+    const name = document.getElementById('pf-name')?.value || '';
+    const platform = document.getElementById('pf-platform')?.value || '';
+    const raw = `${platform} ${name}`.toLowerCase()
+      .replace(/[—–]/g, '-').replace(/[^\w\s-]/g, '').replace(/[\s_]+/g, '-')
+      .replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 90);
+    slugEl.value = raw;
+  };
+  // Mark as manually edited when admin types in the slug box
+  const slugInput = document.getElementById('pf-slug');
+  if (slugInput) slugInput.addEventListener('input', () => { slugInput.dataset.manualEdit = '1'; });
+
   document.getElementById('save-plan-btn').addEventListener('click', async () => {
     const body = {
       platform: document.getElementById('pf-platform').value,
@@ -1217,6 +1239,7 @@ window.openPlanModal = async function (plan = null) {
       provider_product_id: document.getElementById('pf-pid').value.trim(),
       delivery_type: document.getElementById('pf-deltype').value,
       delivery_time_est: document.getElementById('pf-deltime').value.trim(),
+      slug: document.getElementById('pf-slug')?.value.trim() || undefined,
     };
     if (!body.name) return showToast('Name required', 'error');
     try {
