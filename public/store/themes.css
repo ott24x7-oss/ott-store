@@ -873,17 +873,39 @@
 }
 /* Checkout modal */
 [data-store-theme="movieverse"] .modal-overlay {
-  background: rgba(0,0,0,.66) !important;
-  backdrop-filter: blur(6px);
+  background: rgba(0,0,0,.78) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
+/* Modal needs a solid, opaque base so page content can't bleed through and
+   kill text contrast. The cinema gradient sits ON TOP of the solid base. */
 [data-store-theme="movieverse"] .modal {
-  background: linear-gradient(180deg, rgba(255,255,255,.13), rgba(255,255,255,.06)) !important;
-  border: 1px solid rgba(255,255,255,.22) !important;
+  background: #0a0816 linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02)) !important;
+  border: 1px solid rgba(255,211,106,.22) !important;
   border-radius: 28px !important;
-  backdrop-filter: blur(22px);
-  box-shadow: 0 34px 100px rgba(0,0,0,.5) !important;
+  box-shadow: 0 34px 100px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.04) inset !important;
+  color: #fff8f2 !important;
 }
-[data-store-theme="movieverse"] .modal-header h3 { color: #fff8f2 !important; }
+[data-store-theme="movieverse"] .modal-header h3,
+[data-store-theme="movieverse"] .modal-body,
+[data-store-theme="movieverse"] .modal-body div,
+[data-store-theme="movieverse"] .modal-body span,
+[data-store-theme="movieverse"] .modal-body strong,
+[data-store-theme="movieverse"] .modal-body p { color: #fff8f2 !important; }
+[data-store-theme="movieverse"] .modal-body div[style*="color:var(--muted)"],
+[data-store-theme="movieverse"] .modal-body span[style*="color:var(--muted)"] {
+  color: #c9c2d9 !important;
+}
+[data-store-theme="movieverse"] .modal-footer { background: rgba(0,0,0,.18); }
+[data-store-theme="movieverse"] .modal-footer .btn-secondary {
+  background: rgba(255,255,255,.10) !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+  color: #fff8f2 !important;
+}
+[data-store-theme="movieverse"] .modal-footer .btn-secondary:hover {
+  background: rgba(255,211,106,.18) !important;
+  border-color: rgba(255,211,106,.4) !important;
+}
 /* Alerts (info / success / warn / error) */
 [data-store-theme="movieverse"] .alert-info {
   background: rgba(141,92,255,.12) !important;

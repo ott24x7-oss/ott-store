@@ -651,6 +651,7 @@ router.post('/checkout/upi-direct', requireCustomer, async (req, res) => {
       unique_amount: uniqueAmount,
       upi_id: upiId,
       upi_name: upiName,
+      qr_url: eupi.qr_url || '',
       plan_name: plan.name,
       plan_price: price,
       expires_at: expiresAt,
