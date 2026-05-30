@@ -383,7 +383,19 @@ a:hover{color:#8af1ff;text-decoration:underline}
 .sp-bnav-btn span{font-size:1.15rem;line-height:1}
 .sp-bnav-btn.active,.sp-bnav-btn:hover{color:var(--sp-accent);text-decoration:none}
 @media(max-width:600px){.sp-footer-top{grid-template-columns:1fr}.blog-grid{grid-template-columns:1fr}.blog-post-page h1{font-size:1.5rem}.sp-links a:not(.sp-cta){display:none}}
-@media(max-width:760px){.sp-bnav{display:grid}body{padding-bottom:58px}.sp-footer{margin-bottom:58px}}
+@media(max-width:760px){
+  /* Match home/plans/my fixed-header pattern across all server-rendered
+     pages (contact, privacy, terms, refund, blog, blog post). */
+  body{padding-top:54px;padding-bottom:58px}
+  .sp-nav{position:fixed;left:0;right:0;top:0;width:100%;padding:.55rem 1rem}
+  .sp-nav-inner{gap:.75rem}
+  .sp-logo img{max-height:30px;max-width:130px}
+  .sp-bnav{display:grid}
+  .sp-footer{margin-bottom:58px;padding:1.75rem 1rem}
+  .sp-main{padding:1.5rem 1rem 3rem}
+  .blog-page-header{padding:1.5rem 0 1.25rem}
+  .blog-page-header h1{font-size:1.7rem}
+}
 </style>`;
 
 function spNav(siteName, logoLight, logoDark) {

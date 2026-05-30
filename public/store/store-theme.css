@@ -455,11 +455,24 @@ nav.my-tab-nav .my-tab-btn {
 
 /* Mobile breakpoint — keep behavior consistent */
 @media (max-width: 760px) {
+  /* Switch outer header from sticky to fixed across all pages on mobile.
+     html/body on plans.html have overflow-x:hidden which breaks
+     position:sticky on Android Chrome (the header scrolls away instead
+     of staying pinned). Fixed at top:0 is reliable across all engines.
+     Body gets padding-top so content doesn't sit underneath. */
+  body {
+    padding-top: 58px;
+  }
   body > header,
   body > nav.snav,
   body > .my-wrap > header.my-nav,
   body > .my-wrap header.my-nav {
-    padding: .65rem 1rem !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    padding: .55rem 1rem !important;
+    background: rgba(5, 5, 11, .92) !important;
   }
   header > nav,
   nav.snav .snav-links,

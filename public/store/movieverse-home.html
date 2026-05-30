@@ -230,14 +230,24 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
    decorative reels/bubbles/projector-beam are hidden — the cinematic
    feel comes from the spotlight orbs in the background instead. */
 @media (max-width:760px){
-  /* Page chrome */
-  body{padding-bottom:70px}
+  /* Page chrome
+     - Marquee top-banner removed on mobile: animation restarted on every
+       refresh (jarring) + crowded the limited header space.
+     - Header switched from position:sticky to position:fixed so it sits
+       at top:0 from page load — sticky was unreliable on Android Chrome
+       because html/body have overflow-x:hidden which breaks sticky
+       behaviour in some engines.
+     - body padding-top compensates for the now-fixed 60px header.
+     - padding-bottom keeps clearance for the fixed bottom nav. */
+  body{padding-top:60px;padding-bottom:70px}
   .container{width:min(1180px,94vw)}
-  .top-banner{font-size:11.5px;padding:7px 0}
-  .nav{height:62px}
+  .top-banner{display:none}
+  header.mv-header{position:fixed;left:0;right:0;top:0;width:100%;
+    background:rgba(4,3,10,.92);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px)}
+  .nav{height:60px}
   .brand span{font-size:14.5px}
-  .logo{width:38px;height:38px;border-radius:13px;font-size:17px}
-  .brand img{max-height:32px;max-width:140px}
+  .logo{width:36px;height:36px;border-radius:12px;font-size:16px}
+  .brand img{max-height:30px;max-width:130px}
 
   /* Hero — tighter typography, single column */
   .hero{grid-template-columns:1fr;gap:0;padding:26px 0 18px;min-height:auto}
