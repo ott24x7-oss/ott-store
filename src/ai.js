@@ -1,7 +1,7 @@
 'use strict';
 const https = require('https');
 const http = require('http');
-const { getDb, get, all } = require('./db');
+const { getDb, getSetting, get, all, run } = require('./db');
 
 function request(url, opts, body) {
   return new Promise((resolve, reject) => {
@@ -31,8 +31,33 @@ async function getActiveChannel(db) {
   return get(db, `SELECT * FROM api_channels WHERE active=1 ORDER BY id ASC LIMIT 1`);
 }
 
+// Daily AI call counter. In-memory only — resets on process restart, which is
+// fine for the soft daily cap. Persists per-UTC-day so any restart on the same
+// day picks up roughly where we left off via the audit_log fallback below.
+const _aiCallsToday = { day: '', count: 0 };
+async function _checkAiDailyCap(db) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (_aiCallsToday.day !== today) {
+    _aiCallsToday.day = today;
+    // Restore today's count from audit_log so a restart doesn't reset the
+    // cap to zero mid-day.
+    try {
+      const r = get(db, `SELECT COUNT(*) as c FROM audit_log
+        WHERE action='ai_chat_call' AND created_at >= datetime('now', 'start of day')`);
+      _aiCallsToday.count = r?.c || 0;
+    } catch { _aiCallsToday.count = 0; }
+  }
+  const cap = parseInt(await getSetting('ai_daily_cap') || '500', 10) || 500;
+  if (_aiCallsToday.count >= cap) {
+    const err = new Error('AI daily quota reached. Please ask the team to top up.');
+    err.code = 'AI_QUOTA_EXCEEDED';
+    throw err;
+  }
+}
+
 async function chat(messages, opts = {}) {
   const db = await getDb();
+  await _checkAiDailyCap(db);
   const ch = await getActiveChannel(db);
   if (!ch) throw new Error('No active API channel configured. Add one in Admin → API Channels.');
 
@@ -59,10 +84,16 @@ async function chat(messages, opts = {}) {
     },
   }, payload);
 
+  // Sanitize provider error before letting it leak — strip the Authorization
+  // header value (the api key) from any echoed request body Meta/OpenAI might
+  // include in error responses.
   if (res.status !== 200) {
-    const msg = res.body?.error?.message || res.body?.message || `HTTP ${res.status}`;
+    let msg = res.body?.error?.message || res.body?.message || `HTTP ${res.status}`;
+    msg = String(msg).replace(/Bearer\s+[A-Za-z0-9._\-+/=]+/g, 'Bearer ***');
     throw new Error(`AI API error: ${msg}`);
   }
+  _aiCallsToday.count++;
+  try { run(db, `INSERT INTO audit_log (actor_kind,actor_label,action,target_kind) VALUES (?,?,?,?)`, ['system','ai','ai_chat_call','ai_call']); } catch {}
   return res.body.choices?.[0]?.message?.content?.trim() || '';
 }
 

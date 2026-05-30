@@ -410,24 +410,30 @@ function showToast(msg,type='success'){
   setTimeout(()=>t.remove(),2800);
 }
 function openModal(html){
+  // Double-tap guard: if a modal is already open, don't open another. Stops
+  // two stacked overlays when a customer taps Buy twice quickly.
+  if(document.querySelector('.modal-overlay'))return null;
   const ov=document.createElement('div');
   ov.className='modal-overlay';
   ov.innerHTML=`<div class="modal">${html}</div>`;
   ov.querySelector('.modal').addEventListener('click',e=>e.stopPropagation());
-  // Wire close on overlay click, on the X icon, AND on the Cancel button.
-  // Also lock the body scroll and hide the bottom-nav so the mobile bottom-
-  // sheet modal owns the screen — no accidental taps on Home/Plans/Orders
-  // and no ghost page-scroll behind the modal.
-  const close=()=>{ ov.remove(); document.body.classList.remove('modal-open'); };
+  // Single close path that ALWAYS detaches every listener, no matter how
+  // the user closes — overlay click / X icon / Cancel button / Esc key.
+  // Prior bug: onKey only removed the keydown listener on Esc, so after
+  // every Cancel/X/overlay close a stale keydown listener accumulated on
+  // document.
+  const onKey=(e)=>{ if(e.key==='Escape') close(); };
+  let closed=false;
+  const close=()=>{
+    if(closed)return; closed=true;
+    document.removeEventListener('keydown',onKey);
+    ov.remove();
+    document.body.classList.remove('modal-open');
+  };
   ov.addEventListener('click',close);
   document.body.appendChild(ov);
   document.body.classList.add('modal-open');
-  // Every [data-close] element closes the modal — the X in the header AND the
-  // Cancel button in the footer. Previously only the FIRST match got a listener
-  // (querySelector vs querySelectorAll), so Cancel was a dead button.
   ov.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',close));
-  // Escape key closes the modal too — matches common modal UX.
-  const onKey=(e)=>{ if(e.key==='Escape'){ close(); document.removeEventListener('keydown',onKey); } };
   document.addEventListener('keydown',onKey);
   return ov;
 }
@@ -1184,6 +1190,16 @@ function bindPlanBtns(){
 }
 
 function confirmBuy(planId,planName,price){
+  // Pre-flight: refuse to open the modal if the plan no longer exists in the
+  // current ALL_PLANS list (admin deleted it, or buy intent was stored
+  // pointing at a plan that's since been removed). Without this guard the
+  // user lands in a loop: open modal → click tile → server 404 → 'Back'
+  // → re-open modal → same 404.
+  const numId=Number(planId);
+  if(Array.isArray(ALL_PLANS)&&ALL_PLANS.length&&!ALL_PLANS.some(p=>p.id===numId)){
+    showToast('That plan is no longer available.','error');
+    return;
+  }
   const cost=Number(price);
   const imapOn=STORE.imap_enabled==='1';
   const upiOn=imapOn&&!!STORE.upi_id;
@@ -1302,7 +1318,7 @@ function showUpiPaymentStep(modalEl,area,r,planName){
 </div>`;
 
   // Poll every 5 seconds
-  let pollCount=0;
+  let pollCount=0, consecutiveErrors=0;
   const maxPolls=72; // 6 minutes
   const timer=setInterval(async()=>{
     if(!document.body.contains(modalEl)){clearInterval(timer);return;}
@@ -1314,6 +1330,7 @@ function showUpiPaymentStep(modalEl,area,r,planName){
     }
     try{
       const s=await api('/checkout/poll/'+r.topup_id);
+      consecutiveErrors=0;
       if(s.status==='paid'){
         clearInterval(timer);
         modalEl.remove();
@@ -1322,7 +1339,15 @@ function showUpiPaymentStep(modalEl,area,r,planName){
         showToast('Payment confirmed! Order placed.','success');
         goTab('orders');
       }
-    }catch{}
+    }catch(err){
+      // Surface persistent polling failure so customer isn't left staring at
+      // "Waiting…" if the server is down. Reset on success above.
+      consecutiveErrors++;
+      if(consecutiveErrors>=5){
+        const el=document.getElementById('upi-poll-status');
+        if(el)el.innerHTML='⚠️ Connection issue checking status. Retrying… (your payment is still being watched server-side)';
+      }
+    }
   },5000);
 }
 
@@ -1494,7 +1519,13 @@ ${STORE.support_whatsapp?`<button class="btn btn-green btn-block mt-3" id="creds
     }));
     const wa=document.getElementById('creds-wa-share');
     if(wa)wa.addEventListener('click',()=>{
-      const lines=Object.entries(o.credentials||{}).filter(([k])=>k!=='').map(([k,v])=>`${k}: ${v}`).join('\n');
+      // Defensive: skip blank values and blank keys so the forwarded text
+      // never reads "Email: undefined" or "Password: " for a partially-
+      // populated credentials object.
+      const lines=Object.entries(o.credentials||{})
+        .filter(([k,v])=>k&&v!=null&&String(v).trim()!=='')
+        .map(([k,v])=>`${k}: ${v}`).join('\n');
+      if(!lines){ showToast('No credentials to forward yet.','error'); return; }
       const txt=`Order #${o.id} — ${o.plan_name||''}\n\n${lines}${o.delivery_note?`\n\n${o.delivery_note}`:''}`;
       const phone=String(STORE.support_whatsapp||'').replace(/\D/g,'');
       window.open(`https://wa.me/${phone}?text=${encodeURIComponent(txt)}`,'_blank','noopener');
@@ -1568,7 +1599,7 @@ ${r.qr_url?`<div style="text-align:center;margin:.5rem 0"><img src="${esc(r.qr_u
   tick();
 
   // Poll every 10s (USDT confirms slower than UPI; align with 20-min window)
-  let pollCount=0;
+  let pollCount=0, consecutiveErrors=0;
   const maxPolls=Math.ceil((r.window_minutes||20)*60/10);
   const timer=setInterval(async()=>{
     if(!document.body.contains(modalEl)){clearInterval(timer);return;}
@@ -1581,6 +1612,7 @@ ${r.qr_url?`<div style="text-align:center;margin:.5rem 0"><img src="${esc(r.qr_u
     }
     try{
       const s=await api('/checkout/poll/'+r.topup_id);
+      consecutiveErrors=0;
       if(s.status==='paid'){
         clearInterval(timer);
         modalEl.remove();
@@ -1593,7 +1625,13 @@ ${r.qr_url?`<div style="text-align:center;margin:.5rem 0"><img src="${esc(r.qr_u
         const el=document.getElementById('usdt-poll-status');
         if(el)el.innerHTML='⏱ Payment window expired.';
       }
-    }catch{}
+    }catch(err){
+      consecutiveErrors++;
+      if(consecutiveErrors>=4){
+        const el=document.getElementById('usdt-poll-status');
+        if(el)el.innerHTML='⚠️ Connection issue checking status. Retrying… (your payment is still being watched server-side)';
+      }
+    }
   },10000);
 }
 
@@ -1705,7 +1743,8 @@ async function renderProfile(){
 </div>`;
     const memberSinceShort=stats.member_since?fmtDate(stats.member_since):'—';
     const fav=stats.favorite_platform?`${PLATFORM_ICONS[stats.favorite_platform]||'📺'} ${stats.favorite_platform}`:'—';
-    const favSub=stats.favorite_platform?`${stats.favorite_count} order${stats.favorite_count===1?'':'s'}`:'';
+    const favCount=Number(stats.favorite_count)||0;
+    const favSub=stats.favorite_platform?`${favCount} order${favCount===1?'':'s'}`:'';
 
     const statsBlock=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.6rem;margin-bottom:1.25rem">
       ${tile('Total spent',fmtInr(stats.total_spent_inr),'')}
@@ -1793,7 +1832,13 @@ ${statsBlock}
 
     document.getElementById('profile-form').onsubmit=async e=>{
       e.preventDefault();
-      const fd=new FormData(e.target);
+      const form=e.target;
+      if(form.dataset.submitting==='1') return;
+      form.dataset.submitting='1';
+      const btn=form.querySelector('button[type="submit"]');
+      const origText=btn?btn.textContent:'';
+      if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+      const fd=new FormData(form);
       const msg=document.getElementById('pf-msg');
       const body={name:fd.get('name'),email:fd.get('email'),phone:fd.get('phone')};
       if(fd.get('password')){body.password=fd.get('password');body.current_password=fd.get('current_password');}
@@ -1803,6 +1848,10 @@ ${statsBlock}
         msg.innerHTML='<div class="alert alert-success">Saved!</div>';
         setTimeout(()=>msg.innerHTML='',2000);
       }catch(ex){msg.innerHTML=`<div class="alert alert-error">${esc(ex.message)}</div>`;}
+      finally{
+        form.dataset.submitting='';
+        if(btn){ btn.disabled=false; btn.textContent=origText; }
+      }
     };
   }catch(e){main.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`;}
 }

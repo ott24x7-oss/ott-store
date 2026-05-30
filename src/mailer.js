@@ -11,6 +11,12 @@ function getTransport() {
     port: cfg.smtp.port,
     secure: cfg.smtp.port === 465,
     auth: { user: cfg.smtp.user, pass: cfg.smtp.pass },
+    // Bound every SMTP phase so a hung/slow server can't make an OTP/magic
+    // request wait the full default (≈10 min). With timeouts the request
+    // surfaces a 502 within ~8s and the customer can pick another method.
+    connectionTimeout: 5000,
+    greetingTimeout:   5000,
+    socketTimeout:     8000,
   });
   return _transport;
 }

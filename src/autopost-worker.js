@@ -37,7 +37,15 @@ function istHour() {
   return (d.getUTCHours() * 60 + d.getUTCMinutes() + 330) % 1440 / 60 | 0;
 }
 
+// Concurrency guard: if a tick is still running when the interval fires again
+// (e.g. a slow Baileys send drags 6+ minutes), skip the new tick instead of
+// piling up. Without this, the same campaign could re-send to thousands of
+// customers because two ticks both pass the interval check before either
+// updates last_sent_at.
+let _autopostRunning = false;
 async function runAutopostTick() {
+  if (_autopostRunning) return;
+  _autopostRunning = true;
   try {
     const enabled = await getSetting('autopost_enabled');
     if (enabled !== '1') return;
@@ -53,11 +61,15 @@ async function runAutopostTick() {
       const endH   = parseInt(await getSetting('autopost_end_hour')   || '22');
       if (hour < startH || hour > endH) continue;
 
-      // Check interval
+      // Check interval. Guard against NTP clock-skew: if the wall clock jumps
+      // backwards (after `last_sent_at` was written), delta would be negative
+      // and < intervalMs, causing the campaign to re-send. We require BOTH a
+      // non-negative delta AND a delta past the interval before firing.
       if (c.last_sent_at) {
         const lastMs = new Date(c.last_sent_at).getTime();
+        const delta = now.getTime() - lastMs;
         const intervalMs = (c.interval_hours || 24) * 3600 * 1000;
-        if (now.getTime() - lastMs < intervalMs) continue;
+        if (delta < 0 || delta < intervalMs) continue;
       }
 
       // Get recipients
@@ -95,7 +107,7 @@ async function runAutopostTick() {
       run(db, `INSERT INTO audit_log (actor_kind,actor_label,action,target_kind,target_id,after_json) VALUES (?,?,?,?,?,?)`,
         ['system', 'autopost', 'campaign_sent', 'campaign', String(c.id), JSON.stringify({ sent, failed })]);
     }
-  } catch {}
+  } catch {} finally { _autopostRunning = false; }
 }
 
 async function sendCampaignNow(campaignId) {

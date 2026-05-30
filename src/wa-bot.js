@@ -23,6 +23,11 @@ let isStarting       = false;
 let connStatus       = 'disconnected'; // disconnected | connecting | waiting_qr | connected | logged_out | error
 let connectedNumber  = null;
 let watchdogTimer    = null;
+// Exponential-backoff reconnect: on a flapping link (rate-limited, no network,
+// Baileys auth race) the old 3-second fixed retry can fire 20 times a minute
+// and either rate-bans the number or pegs CPU. Track consecutive failures and
+// scale: 3s → 6s → 12s → 24s → 48s → 60s (cap).
+let _waReconnectAttempts = 0;
 let probeFails       = 0;
 let wdLastChange     = Date.now();
 let wdLastStatus     = 'disconnected';
@@ -256,10 +261,14 @@ async function startBaileysBot() {
         connectedNumber  = null;
         if (reconnect) {
           isStarting = false;
-          setTimeout(() => startBaileysBot(), 3000);
+          _waReconnectAttempts = Math.min(_waReconnectAttempts + 1, 6);
+          const delayMs = Math.min(3000 * Math.pow(2, _waReconnectAttempts - 1), 60000);
+          console.log(`[wa-bot] reconnect attempt #${_waReconnectAttempts} in ${delayMs}ms (close code ${code})`);
+          setTimeout(() => startBaileysBot(), delayMs);
         } else {
           connStatus = 'logged_out';
           isStarting = false;
+          _waReconnectAttempts = 0;
         }
       }
 
@@ -267,6 +276,7 @@ async function startBaileysBot() {
         currentQR       = null;
         connStatus       = 'connected';
         connectedNumber  = sock.user?.id?.split(':')[0] || sock.user?.id || 'Unknown';
+        _waReconnectAttempts = 0; // happy path resets the backoff
         console.log(`[wa-bot] Connected as ${connectedNumber}`);
         try { if (typeof sock.uploadPreKeysToServerIfRequired === 'function') await sock.uploadPreKeysToServerIfRequired(); } catch {}
         try { await sock.sendPresenceUpdate('available'); } catch {}

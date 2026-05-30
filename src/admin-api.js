@@ -722,13 +722,35 @@ router.get('/payment-methods', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// payment_methods.type is read by the storefront/IMAP matcher to decide which
+// auto-verify pipeline runs, so we hard-allowlist the values an admin can pick.
+const ALLOWED_PM_TYPES = new Set(['upi_imap','upi_manual','usdt_binance','usdt_bep20','usdt_trc20','crypto','bank']);
+// QR URLs end up in <img src=…> on the customer storefront. Block anything that
+// isn't http(s) or an already-uploaded relative /data path so a malicious admin
+// can't slip a javascript: or data:text/html payload that runs in the customer
+// session.
+function validateQrUrl(qr) {
+  if (!qr) return null;
+  const s = String(qr).trim();
+  if (!s) return null;
+  if (!/^(https?:\/\/|\/data\/)/i.test(s)) {
+    const err = new Error('QR URL must start with http://, https:// or /data/');
+    err.userFacing = true;
+    throw err;
+  }
+  return s;
+}
+
 router.post('/payment-methods', requireAdmin, async (req, res) => {
   try {
     const { name, type, address, instructions, qr_url, enabled, sort_order } = req.body;
     if (!name || !type) return res.status(400).json({ error: 'name and type required' });
+    if (!ALLOWED_PM_TYPES.has(type)) return res.status(400).json({ error: 'Unknown payment type. Allowed: ' + [...ALLOWED_PM_TYPES].join(', ') });
+    let safeQr;
+    try { safeQr = validateQrUrl(qr_url); } catch (e) { if (e.userFacing) return res.status(400).json({ error: e.message }); throw e; }
     const db = await getDb();
     const r = run(db, `INSERT INTO payment_methods (name,type,address,instructions,qr_url,enabled,sort_order) VALUES (?,?,?,?,?,?,?)`,
-      [name, type, address || null, instructions || null, qr_url || null, enabled ?? 1, sort_order || 0]);
+      [name, type, address || null, instructions || null, safeQr, enabled ?? 1, sort_order || 0]);
     res.json({ ok: true, id: r.lastInsertRowid });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -736,9 +758,12 @@ router.post('/payment-methods', requireAdmin, async (req, res) => {
 router.put('/payment-methods/:id', requireAdmin, async (req, res) => {
   try {
     const { name, type, address, instructions, qr_url, enabled, sort_order } = req.body;
+    if (type && !ALLOWED_PM_TYPES.has(type)) return res.status(400).json({ error: 'Unknown payment type. Allowed: ' + [...ALLOWED_PM_TYPES].join(', ') });
+    let safeQr;
+    try { safeQr = validateQrUrl(qr_url); } catch (e) { if (e.userFacing) return res.status(400).json({ error: e.message }); throw e; }
     const db = await getDb();
     run(db, `UPDATE payment_methods SET name=?,type=?,address=?,instructions=?,qr_url=?,enabled=?,sort_order=? WHERE id=?`,
-      [name, type, address || null, instructions || null, qr_url || null, enabled ?? 1, sort_order || 0, req.params.id]);
+      [name, type, address || null, instructions || null, safeQr, enabled ?? 1, sort_order || 0, req.params.id]);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

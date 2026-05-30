@@ -134,14 +134,22 @@ async function parseAndMatch(rawMessages) {
 }
 
 async function handleDirectCheckout(db, topup, cust) {
+  // Re-read the topup FRESH from the DB — the `topup` argument is a snapshot
+  // captured in parseAndMatch's SELECT, so if two parseAndMatch runs both
+  // matched the same row, they'd both pass the stale `order_id IS NULL` check
+  // and double-create the order. Reading fresh narrows the race to a single
+  // SQL statement window.
+  const freshTopup = get(db, `SELECT id, customer_jid, plan_id, amount_inr, amount_usdt,
+    unique_amount, unique_amount_usdt, method, currency, order_id, status FROM topups WHERE id=?`,
+    [topup.id]);
+  if (!freshTopup) return;
+  if (freshTopup.order_id) return; // already produced an order
+  topup = freshTopup; // use the fresh row from here on
+
   const plan = get(db, 'SELECT * FROM plans WHERE id=? AND active=1', [topup.plan_id]);
   if (!plan) return;
   if (plan.stock === 0) return;
 
-  // Idempotency guard: if this topup already produced an order (e.g. retry
-  // after a worker crash), don't create a second one. The previous code wrote
-  // order_id AFTER the INSERT, so a race could double-create.
-  if (topup.order_id) return;
   const existing = get(db, `SELECT id FROM orders o WHERE EXISTS (SELECT 1 FROM topups WHERE order_id=o.id AND id=?)`, [topup.id]);
   if (existing) return;
 
@@ -243,6 +251,14 @@ async function runImapCheck() {
     // UID-based polling instead of UNSEEN: any client reading the email won't
     // hide it from us. lastUid is persisted so we resume from where we left
     // off after a restart. On first ever run, lastUid=0 → falls back to SINCE.
+    // If admin reconnects to a DIFFERENT inbox the old UID is meaningless and
+    // would silently skip every new message; detect the inbox change and
+    // reset lastUid to 0 in that case.
+    const lastEmail = await getSetting('imap_last_email') || '';
+    if (lastEmail !== user) {
+      try { await setSetting('imap_last_uid', '0'); } catch {}
+      try { await setSetting('imap_last_email', user); } catch {}
+    }
     const lastUid = parseInt(await getSetting('imap_last_uid') || '0', 10) || 0;
     const since = new Date(_lastCheck);
     _lastCheck = new Date();
