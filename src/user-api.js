@@ -506,7 +506,7 @@ router.get('/orders', requireCustomer, async (req, res) => {
   try {
     const db = await getDb();
     const orders = all(db,
-      `SELECT o.*, p.name as plan_name, p.platform, p.duration_days
+      `SELECT o.*, p.name as plan_name, p.platform, p.duration_days, p.image_url as plan_image
        FROM orders o LEFT JOIN plans p ON o.plan_id=p.id
        WHERE o.customer_jid=? ORDER BY o.created_at DESC`,
       [req.customer.jid]);

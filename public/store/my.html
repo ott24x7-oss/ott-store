@@ -150,7 +150,7 @@ html[data-theme="dark"] .my-logo .logo-dark{display:block}
 .dash-active-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.75rem;margin-bottom:1.5rem}
 .dash-active-card{background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:1rem 1.1rem;display:flex;align-items:center;gap:.9rem;transition:all .15s}
 .dash-active-card:hover{border-color:var(--grad-1)}
-.dash-active-icon{width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,var(--grad-1),var(--grad-2));display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0}
+.dash-active-icon{width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,var(--grad-1),var(--grad-2));display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;overflow:hidden}
 .dash-active-info{min-width:0}
 .dash-active-name{font-weight:700;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dash-active-plat{font-size:.73rem;color:var(--muted);margin-bottom:.2rem}
@@ -1055,8 +1055,12 @@ ${activeSubs.slice(0,6).map(o=>{
   const daysLeft=Math.ceil((new Date(o.expires_at)-now)/86400000);
   const expSoon=daysLeft<=7;
   const icon=PLATFORM_ICONS[o.platform]||'📺';
+  // Prefer the product image; fall back to the platform emoji on missing/broken src.
+  const iconBlock=o.plan_image
+    ?`<div class="dash-active-icon"><img src="${esc(o.plan_image)}" alt="${esc(o.platform||'')}" loading="lazy" onerror="this.parentNode.textContent='${icon}'" style="width:100%;height:100%;object-fit:cover;border-radius:inherit"></div>`
+    :`<div class="dash-active-icon">${icon}</div>`;
   return `<div class="dash-active-card">
-<div class="dash-active-icon">${icon}</div>
+${iconBlock}
 <div class="dash-active-info">
   <div class="dash-active-plat">${esc(o.platform||'')}</div>
   <div class="dash-active-name">${esc(o.plan_name||'Plan')}</div>
