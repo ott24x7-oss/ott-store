@@ -143,9 +143,9 @@ async function buildStoreSystemPrompt(db) {
                : `${p.duration_days} days`;
     const del  = p.delivery_type === 'instant' ? ' | Instant delivery'
                : p.delivery_time_est ? ` | Delivery: ${p.delivery_time_est}` : '';
-    // Each plan gets a deep link so AI can share a direct buy URL
-    const planUrl = siteUrl ? `${siteUrl}/plans?q=${encodeURIComponent(p.name)}` : null;
-    const urlPart = planUrl ? ` | Buy: ${planUrl}` : '';
+    // Direct product URL: ?q= filters the page to show this plan, #plan-ID scrolls to the card
+    const planUrl = siteUrl ? `${siteUrl}/plans?q=${encodeURIComponent(p.name)}#plan-${p.id}` : null;
+    const urlPart = planUrl ? ` | URL: ${planUrl}` : '';
     return `• [ID:${p.id}] ${p.platform} — ${p.name} | ${dur} | ₹${p.price_inr}${orig}${del}${p.description ? ` | ${p.description}` : ''}${urlPart}`;
   }).join('\n');
 
