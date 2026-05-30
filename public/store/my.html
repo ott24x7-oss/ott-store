@@ -475,8 +475,15 @@ function showPortal(){
 function renderAuth(initMethod, msgHtml){
   const method=initMethod||'otp';
   const waEnabled=STORE.wa_enabled==='1';
+  // If the user landed here from a /plans Buy click, the buy intent is in
+  // localStorage and possibly also the ?buy= query param. Show a banner so the
+  // user knows the buy will resume after login.
+  let pendingBuyId='';
+  try { pendingBuyId=localStorage.getItem('pendingBuyPlanId')||new URLSearchParams(location.search).get('buy')||''; } catch {}
+  const buyBanner=pendingBuyId?`<div class="alert alert-info" style="margin-bottom:1rem;text-align:center">🛒 Sign in to complete your purchase — you'll go straight to checkout after login.</div>`:'';
   showAuthArea(`
 <div class="my-auth-box">
+  ${buyBanner}
   ${msgHtml?`<div style="margin-bottom:1rem">${msgHtml}</div>`:''}
   <div class="my-auth-card">
     <div class="my-auth-logo">
@@ -887,9 +894,13 @@ async function initPortal(loginResult){
       const tokenParam=new URLSearchParams(location.hash.replace('#reset-password?','')).get('token');
       if(tokenParam)renderResetPassword(tokenParam);return;
     }
-    // Handle ?buy=planId redirect from plans page — open plans tab and trigger buy modal
-    const buyId=params.get('buy');
+    // Handle pending buy intent (from /plans Buy click, possibly surviving login).
+    // Source of truth: ?buy=<id> from a direct /plans → /my redirect, OR the
+    // pendingBuyPlanId localStorage key (set by /plans, survives auth redirect).
+    let buyId=params.get('buy');
+    if(!buyId){ try { buyId=localStorage.getItem('pendingBuyPlanId'); } catch {} }
     if(buyId){
+      try { localStorage.removeItem('pendingBuyPlanId'); } catch {}
       await renderPlans();
       setTimeout(()=>{const btn=document.querySelector('.buy-plan-btn[data-id="'+buyId+'"]');if(btn)btn.click();},500);
       return;

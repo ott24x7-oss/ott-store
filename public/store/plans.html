@@ -368,6 +368,11 @@ function renderPlans(){
   grid.innerHTML=plans.slice(0,_visible).map(p=>planCard(p)).join('');
   grid.querySelectorAll('.splan-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
+      // Persist buy intent so it survives the login redirect on /my. After the
+      // user signs in via magic-link/OTP, /my checks this localStorage key on
+      // boot and opens the checkout modal automatically. Without this, the
+      // ?buy= query param is lost when auth redirects to /my?auth_success=1.
+      try { localStorage.setItem('pendingBuyPlanId', String(btn.dataset.id)); } catch {}
       window.location.href='/my?buy='+btn.dataset.id;
     });
   });
