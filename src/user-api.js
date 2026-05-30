@@ -75,16 +75,17 @@ function toJid(email) {
   return email.toLowerCase().trim().replace('@', '_at_') + '@email.local';
 }
 
-function creditWallet(db, jid, amount, type, label, refId) {
-  run(db, `UPDATE customers SET wallet_inr = wallet_inr + ? WHERE jid=?`, [amount, jid]);
-  run(db, `INSERT INTO wallet_txns (customer_jid,amount_inr,type,label,ref_id) VALUES (?,?,?,?,?)`,
-    [jid, amount, type, label, refId || null]);
-}
-
-function debitWallet(db, jid, amount, type, label, refId) {
-  run(db, `UPDATE customers SET wallet_inr = wallet_inr - ? WHERE jid=?`, [amount, jid]);
-  run(db, `INSERT INTO wallet_txns (customer_jid,amount_inr,type,label,ref_id) VALUES (?,?,?,?,?)`,
-    [jid, -amount, type, label, refId || null]);
+// ─── Pricing helper: computes the effective per-customer price for a plan ─────
+function computePlanPrice(db, plan, customer, planId) {
+  const reseller = get(db, `SELECT r.id, r.discount_percent FROM resellers r WHERE r.customer_jid=? AND r.status='approved'`, [customer.jid]);
+  if (reseller) {
+    const rp = get(db, `SELECT price_inr FROM reseller_prices WHERE reseller_id=? AND plan_id=?`, [reseller.id, planId]);
+    if (rp) return rp.price_inr;
+    if (reseller.discount_percent > 0) return plan.price_inr * (1 - reseller.discount_percent / 100);
+  } else if (customer.discount_percent > 0) {
+    return plan.price_inr * (1 - customer.discount_percent / 100);
+  }
+  return plan.price_inr;
 }
 
 // ─── Store info (public, no auth) ────────────────────────────────────────────
@@ -93,11 +94,14 @@ router.get('/store', async (req, res) => {
     const db = await getDb();
     const rows = all(db, `SELECT key, value FROM settings WHERE key IN
       ('site_name','site_tagline','hero_title','hero_title2','hero_subtext','logo_url','logo_light_url','logo_dark_url','announcement','upi_id','upi_name',
-       'razorpay_enabled','upi_manual_enabled','support_whatsapp','support_email',
-       'pwa_force_prompt','vapid_public_key','store_theme','wa_enabled','imap_enabled')`, []);
+       'support_whatsapp','support_email',
+       'pwa_force_prompt','vapid_public_key','store_theme','wa_enabled','imap_enabled',
+       'usdt_inr_rate','usdt_fee_pct','usdt_payment_window_minutes',
+       'usdt_binance_enabled','usdt_binance_uid','usdt_binance_qr_url',
+       'usdt_bep20_enabled','usdt_bep20_address','usdt_bep20_qr_url',
+       'usdt_trc20_enabled','usdt_trc20_address','usdt_trc20_qr_url')`, []);
     const s = {};
     rows.forEach(r => s[r.key] = r.value);
-    s.razorpay_key = s.razorpay_enabled === '1' ? cfg.razorpay.keyId : '';
     s.payment_methods = all(db, `SELECT id, name, type, address, instructions, qr_url FROM payment_methods WHERE enabled=1 ORDER BY sort_order ASC, id ASC`);
     // Resolve effective UPI (setting, else configured UPI payment method) so the
     // storefront shows a real UPI ID/QR even when the upi_id setting is blank.
@@ -490,62 +494,12 @@ router.put('/complete-profile', requireCustomer, async (req, res) => {
 });
 
 // ─── Orders ───────────────────────────────────────────────────────────────────
+// Wallet pay-from-balance is removed. All purchases go through /checkout/*-direct
+// (UPI IMAP or USDT IMAP). Order rows are inserted by imap-verify on payment match.
 router.post('/orders', requireCustomer, async (req, res) => {
-  try {
-    const { plan_id } = req.body;
-    if (!plan_id) return res.status(400).json({ error: 'plan_id required' });
-    const db = await getDb();
-    const plan = get(db, 'SELECT * FROM plans WHERE id=? AND active=1', [plan_id]);
-    if (!plan) return res.status(404).json({ error: 'Plan not found or unavailable' });
-    if (plan.stock === 0) return res.status(400).json({ error: 'Out of stock' });
-    const c = get(db, 'SELECT * FROM customers WHERE jid=?', [req.customer.jid]);
-    if (!c) return res.status(404).json({ error: 'Customer not found' });
-    // Check reseller custom price
-    const reseller = get(db, `SELECT r.id, r.discount_percent FROM resellers r WHERE r.customer_jid=? AND r.status='approved'`, [c.jid]);
-    let price = plan.price_inr;
-    if (reseller) {
-      const rp = get(db, `SELECT price_inr FROM reseller_prices WHERE reseller_id=? AND plan_id=?`, [reseller.id, plan_id]);
-      if (rp) price = rp.price_inr;
-      else if (reseller.discount_percent > 0) price = plan.price_inr * (1 - reseller.discount_percent / 100);
-    } else if (c.discount_percent > 0) {
-      price = plan.price_inr * (1 - c.discount_percent / 100);
-    }
-    if (c.wallet_inr < price) return res.status(400).json({ error: 'Insufficient wallet balance' });
-    debitWallet(db, c.jid, price, 'order', `${plan.platform} - ${plan.name}`, null);
-    const expiresAt = plan.duration_days
-      ? new Date(Date.now() + plan.duration_days * 86400000).toISOString()
-      : null;
-    const result = run(db, `INSERT INTO orders (customer_jid,plan_id,amount_inr,status,expires_at) VALUES (?,?,?,?,?)`,
-      [c.jid, plan_id, price, 'pending', expiresAt]);
-    if (plan.stock > 0) run(db, `UPDATE plans SET stock=stock-1 WHERE id=?`, [plan_id]);
-    await audit({ actorKind: 'customer', actorLabel: c.email, action: 'place_order', targetKind: 'order', targetId: result.lastInsertRowid, ip: req.ip });
-
-    // Credit referral reward on first order
-    if (c.referred_by) {
-      const alreadyRewarded = get(db, `SELECT id FROM referral_rewards WHERE referred_jid=?`, [c.jid]);
-      if (!alreadyRewarded) {
-        const rewardInr = parseFloat(await getSetting('referral_reward_inr') || '20');
-        run(db, `INSERT OR IGNORE INTO referral_rewards (referrer_jid,referred_jid,reward_inr,order_id) VALUES (?,?,?,?)`,
-          [c.referred_by, c.jid, rewardInr, result.lastInsertRowid]);
-        // Auto-credit referral reward
-        run(db, `UPDATE customers SET wallet_inr = wallet_inr + ? WHERE jid=?`, [rewardInr, c.referred_by]);
-        run(db, `INSERT INTO wallet_txns (customer_jid,amount_inr,type,label) VALUES (?,?,?,?)`,
-          [c.referred_by, rewardInr, 'referral', 'Referral bonus']);
-        run(db, `UPDATE referral_rewards SET status='credited' WHERE referred_jid=?`, [c.jid]);
-      }
-    }
-
-    // Trigger auto-delivery from stock
-    const orderId = result.lastInsertRowid;
-    setImmediate(async () => {
-      try {
-        const { autoDeliverForCustomer } = require('./delivery-worker');
-        await autoDeliverForCustomer(c.jid);
-      } catch {}
-    });
-
-    res.json({ ok: true, order_id: orderId });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  return res.status(410).json({
+    error: 'Direct order placement is no longer supported. Use /checkout/upi-direct or /checkout/usdt-direct.',
+  });
 });
 
 router.get('/orders', requireCustomer, async (req, res) => {
@@ -581,86 +535,6 @@ router.get('/orders/:id', requireCustomer, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── Topups ───────────────────────────────────────────────────────────────────
-router.post('/topup/razorpay', requireCustomer, async (req, res) => {
-  try {
-    const { amount } = req.body;
-    if (!amount || amount < 1) return res.status(400).json({ error: 'Invalid amount' });
-    const Razorpay = require('razorpay');
-    const rz = new Razorpay({ key_id: cfg.razorpay.keyId, key_secret: cfg.razorpay.keySecret });
-    const order = await rz.orders.create({
-      amount: Math.round(amount * 100),
-      currency: 'INR',
-      receipt: `topup_${req.customer.jid}_${Date.now()}`,
-    });
-    const db = await getDb();
-    run(db, `INSERT INTO topups (customer_jid,amount_inr,method,reference,status) VALUES (?,?,?,?,?)`,
-      [req.customer.jid, amount, 'razorpay', order.id, 'pending']);
-    res.json({ ok: true, order_id: order.id, key: cfg.razorpay.keyId, amount: order.amount });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.post('/topup/razorpay/verify', requireCustomer, async (req, res) => {
-  try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-    const crypto = require('crypto');
-    const expected = crypto.createHmac('sha256', cfg.razorpay.keySecret)
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`).digest('hex');
-    if (expected !== razorpay_signature) return res.status(400).json({ error: 'Invalid signature' });
-    const db = await getDb();
-    const topup = get(db, `SELECT * FROM topups WHERE reference=? AND customer_jid=? AND status='pending'`,
-      [razorpay_order_id, req.customer.jid]);
-    if (!topup) return res.status(404).json({ error: 'Topup not found' });
-    run(db, `UPDATE topups SET status='approved', reference=? WHERE id=?`,
-      [razorpay_payment_id, topup.id]);
-    creditWallet(db, req.customer.jid, topup.amount_inr, 'topup', 'Razorpay', razorpay_payment_id);
-    await audit({ actorKind: 'customer', actorLabel: req.customer.email, action: 'topup_razorpay', targetKind: 'topup', targetId: topup.id, ip: req.ip });
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.post('/topup/upi', requireCustomer, upload.single('screenshot'), async (req, res) => {
-  try {
-    const { amount, reference, payment_method_id } = req.body;
-    if (!amount || amount < 1) return res.status(400).json({ error: 'Invalid amount' });
-    const screenshotUrl = req.file ? `/data/uploads/${req.file.filename}` : null;
-    const db = await getDb();
-
-    // Determine method: IMAP auto-verify or manual
-    const imapEnabled = await getSetting('imap_enabled');
-    let method = 'upi_manual';
-    let uniqueAmount = null;
-    let pmId = payment_method_id || null;
-
-    if (imapEnabled === '1') {
-      method = 'upi_imap';
-      const { generateUniqueAmount } = require('./imap-verify');
-      uniqueAmount = generateUniqueAmount(amount);
-    }
-
-    const r = run(db, `INSERT INTO topups (customer_jid,amount_inr,unique_amount,method,reference,status,screenshot_url,payment_method_id) VALUES (?,?,?,?,?,?,?,?)`,
-      [req.customer.jid, parseFloat(amount), uniqueAmount, method, reference || null, 'pending', screenshotUrl, pmId]);
-
-    if (method === 'upi_imap') {
-      const upiId = (await getEffectiveUpi(db)).upi_id;
-      res.json({ ok: true, method: 'upi_imap', unique_amount: uniqueAmount, upi_id: upiId,
-        message: `Pay exactly ₹${uniqueAmount} to ${upiId}. Auto-verified within 30 seconds.` });
-    } else {
-      res.json({ ok: true, method: 'upi_manual', topup_id: r.lastInsertRowid,
-        message: 'Topup request submitted. Pending admin approval.' });
-    }
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.get('/wallet/transactions', requireCustomer, async (req, res) => {
-  try {
-    const db = await getDb();
-    const txns = all(db, `SELECT * FROM wallet_txns WHERE customer_jid=? ORDER BY created_at DESC LIMIT 100`,
-      [req.customer.jid]);
-    res.json(txns);
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
 // ─── Direct Checkout (IMAP UPI) ───────────────────────────────────────────────
 // Creates a pending topup linked to a plan; IMAP will auto-create the order on match
 router.post('/checkout/upi-direct', requireCustomer, async (req, res) => {
@@ -679,16 +553,7 @@ router.post('/checkout/upi-direct', requireCustomer, async (req, res) => {
     const c = get(db, 'SELECT * FROM customers WHERE jid=?', [req.customer.jid]);
     if (!c) return res.status(404).json({ error: 'Customer not found' });
 
-    // Compute effective price (reseller or personal discount)
-    const reseller = get(db, `SELECT r.id, r.discount_percent FROM resellers r WHERE r.customer_jid=? AND r.status='approved'`, [c.jid]);
-    let price = plan.price_inr;
-    if (reseller) {
-      const rp = get(db, `SELECT price_inr FROM reseller_prices WHERE reseller_id=? AND plan_id=?`, [reseller.id, plan_id]);
-      if (rp) price = rp.price_inr;
-      else if (reseller.discount_percent > 0) price = plan.price_inr * (1 - reseller.discount_percent / 100);
-    } else if (c.discount_percent > 0) {
-      price = plan.price_inr * (1 - c.discount_percent / 100);
-    }
+    const price = computePlanPrice(db, plan, c, plan_id);
 
     // Expire any existing pending direct-checkout for same customer+plan
     run(db, `UPDATE topups SET status='expired' WHERE customer_jid=? AND plan_id=? AND purpose='order' AND status='pending'`,
@@ -699,9 +564,11 @@ router.post('/checkout/upi-direct', requireCustomer, async (req, res) => {
     const eupi = await getEffectiveUpi(db);
     const upiId = eupi.upi_id;
     const upiName = (eupi.upi_name || '').replace(/[^a-zA-Z0-9 ]/g, '');
+    const windowMin = parseInt(await getSetting('usdt_payment_window_minutes') || '20', 10);
+    const expiresAt = new Date(Date.now() + windowMin * 60 * 1000).toISOString();
 
-    const r = run(db, `INSERT INTO topups (customer_jid,amount_inr,unique_amount,method,status,purpose,plan_id) VALUES (?,?,?,?,?,?,?)`,
-      [c.jid, price, uniqueAmount, 'upi_imap', 'pending', 'order', plan_id]);
+    const r = run(db, `INSERT INTO topups (customer_jid,amount_inr,unique_amount,method,status,purpose,plan_id,currency,expires_at) VALUES (?,?,?,?,?,?,?,?,?)`,
+      [c.jid, price, uniqueAmount, 'upi_imap', 'pending', 'order', plan_id, 'INR', expiresAt]);
 
     res.json({
       ok: true,
@@ -711,6 +578,83 @@ router.post('/checkout/upi-direct', requireCustomer, async (req, res) => {
       upi_name: upiName,
       plan_name: plan.name,
       plan_price: price,
+      expires_at: expiresAt,
+      window_minutes: windowMin,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Direct Checkout (USDT — Binance / BEP20 / TRC20, IMAP-verified) ──────────
+// Customer pays USDT to one of the configured addresses; provider emails
+// (Binance / BscScan / Tronscan) trigger IMAP match against the unique USDT
+// amount we store on the pending topup. Order is created on match.
+router.post('/checkout/usdt-direct', requireCustomer, async (req, res) => {
+  try {
+    const { plan_id, network } = req.body;
+    if (!plan_id) return res.status(400).json({ error: 'plan_id required' });
+    const net = String(network || '').toLowerCase();
+    if (!['binance', 'bep20', 'trc20'].includes(net)) {
+      return res.status(400).json({ error: 'Invalid network. Use binance / bep20 / trc20.' });
+    }
+    const db = await getDb();
+
+    const imapEnabled = await getSetting('imap_enabled');
+    if (imapEnabled !== '1') return res.status(400).json({ error: 'Payment auto-verify not enabled' });
+
+    const enabled = await getSetting(`usdt_${net}_enabled`);
+    if (enabled !== '1') return res.status(400).json({ error: `USDT ${net.toUpperCase()} is not enabled` });
+
+    const addressKey = net === 'binance' ? 'usdt_binance_uid' : `usdt_${net}_address`;
+    const address = (await getSetting(addressKey) || '').trim();
+    if (!address) return res.status(400).json({ error: `USDT ${net.toUpperCase()} receiver not configured` });
+
+    const plan = get(db, 'SELECT * FROM plans WHERE id=? AND active=1', [plan_id]);
+    if (!plan) return res.status(404).json({ error: 'Plan not found or unavailable' });
+    if (plan.stock === 0) return res.status(400).json({ error: 'Out of stock' });
+
+    const c = get(db, 'SELECT * FROM customers WHERE jid=?', [req.customer.jid]);
+    if (!c) return res.status(404).json({ error: 'Customer not found' });
+
+    const priceInr = computePlanPrice(db, plan, c, plan_id);
+
+    const rate = parseFloat(await getSetting('usdt_inr_rate') || '99');
+    const feePct = parseFloat(await getSetting('usdt_fee_pct') || '1.5');
+    if (!(rate > 0)) return res.status(500).json({ error: 'USDT rate not configured' });
+
+    const subUsdt = priceInr / rate;
+    const feeUsdt = subUsdt * (feePct / 100);
+    const baseUsdt = subUsdt + feeUsdt;
+
+    const { generateUniqueUsdtAmount } = require('./imap-verify');
+    const uniqueUsdt = generateUniqueUsdtAmount(baseUsdt);
+
+    // Expire any existing pending USDT checkout for same customer+plan+network
+    run(db, `UPDATE topups SET status='expired' WHERE customer_jid=? AND plan_id=? AND purpose='order' AND method=? AND status='pending'`,
+      [c.jid, plan_id, `usdt_${net}`]);
+
+    const windowMin = parseInt(await getSetting('usdt_payment_window_minutes') || '20', 10);
+    const expiresAt = new Date(Date.now() + windowMin * 60 * 1000).toISOString();
+    const qrUrl = (await getSetting(`usdt_${net}_qr_url`) || '').trim();
+
+    const r = run(db, `INSERT INTO topups (customer_jid,amount_inr,amount_usdt,unique_amount_usdt,method,status,purpose,plan_id,currency,expires_at) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+      [c.jid, priceInr, baseUsdt, uniqueUsdt, `usdt_${net}`, 'pending', 'order', plan_id, 'USDT', expiresAt]);
+
+    res.json({
+      ok: true,
+      topup_id: r.lastInsertRowid,
+      network: net,
+      address,
+      qr_url: qrUrl,
+      plan_name: plan.name,
+      plan_price_inr: priceInr,
+      rate_inr_per_usd: rate,
+      fee_pct: feePct,
+      sub_usdt: Number(subUsdt.toFixed(4)),
+      fee_usdt: Number(feeUsdt.toFixed(4)),
+      base_usdt: Number(baseUsdt.toFixed(4)),
+      unique_usdt: uniqueUsdt,
+      expires_at: expiresAt,
+      window_minutes: windowMin,
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

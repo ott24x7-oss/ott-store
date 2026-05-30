@@ -15,7 +15,7 @@ const MENU = [
   { group: 'SALES' },
   { id: 'orders',         label: 'Orders',        icon: '🛒' },
   { id: 'fulfillment',   label: 'Fulfillment',   icon: '🤖' },
-  { id: 'topups',         label: 'Top-ups',       icon: '💳' },
+  { id: 'topups',         label: 'Payment Log',   icon: '💳' },
   { id: 'customers',      label: 'Customers',     icon: '👥' },
   { id: 'resellers',      label: 'Resellers',     icon: '🤝' },
   { id: 'referrals',      label: 'Referrals',     icon: '🔗' },
@@ -1006,91 +1006,57 @@ window.openOrderModal = function (orderJson) {
 };
 
 // ── views.topups ──────────────────────────────────────────────────────────────
+// Direct-checkout payment log (UPI IMAP + USDT IMAP). Read-only — payments
+// are auto-verified by the IMAP worker. No manual approval, no wallet credit.
 views.topups = async function () {
   setMain('<div class="spinner"></div>');
   try {
-    const topups = await api('/topups?status=pending');
     const all = await api('/topups');
-    PENDING_TOPUPS = topups.length; buildSidebar();
-
-    const pendingRows = topups.map(t => `
+    const pending = all.filter(t => t.status === 'pending');
+    PENDING_TOPUPS = pending.length; buildSidebar();
+    const methodLabel = m => ({
+      upi_imap: 'UPI · IMAP',
+      usdt_binance: 'USDT · Binance',
+      usdt_bep20: 'USDT · BEP20',
+      usdt_trc20: 'USDT · TRC20',
+    })[m] || m || '—';
+    const amtCell = t => (t.currency === 'USDT')
+      ? `${Number(t.unique_amount_usdt || t.amount_usdt || 0).toFixed(3)} USDT`
+      : `${fmt(t.unique_amount || t.amount_inr)}`;
+    const rowOf = t => `
 <tr>
   <td>#${t.id}</td>
   <td>${esc(t.email||'—')}</td>
-  <td style="font-weight:700">${fmt(t.amount_inr)}</td>
-  <td><span class="badge badge-blue">${esc(t.method)}</span></td>
-  <td style="font-size:.8rem">${esc(t.reference||'—')}</td>
-  <td>${t.screenshot_url ? `<a href="${esc(t.screenshot_url)}" target="_blank" class="btn btn-secondary btn-sm">View</a>` : '—'}</td>
-  <td>${fmtDateShort(t.created_at)}</td>
-  <td>
-    <button class="btn btn-green btn-sm" onclick="actTopup(${t.id},'approve')">✓ Approve</button>
-    <button class="btn btn-red btn-sm" onclick="actTopup(${t.id},'reject')">✗ Reject</button>
-  </td>
-</tr>`).join('');
-
-    const histRows = all.filter(t=>t.status!=='pending').slice(0,50).map(t=>`
-<tr>
-  <td>#${t.id}</td>
-  <td>${esc(t.email||'—')}</td>
-  <td>${fmt(t.amount_inr)}</td>
-  <td>${esc(t.method)}</td>
+  <td style="font-weight:700;font-variant-numeric:tabular-nums">${amtCell(t)}</td>
+  <td><span class="badge badge-blue">${esc(methodLabel(t.method))}</span></td>
   <td>${statusBadge(t.status)}</td>
-  <td>${fmtDateShort(t.created_at)}</td>
-</tr>`).join('');
+  <td>${t.order_id?`<a href="#orders" onclick="views.orders()">#${t.order_id}</a>`:'—'}</td>
+  <td style="font-size:.8rem">${fmtDateShort(t.created_at)}</td>
+</tr>`;
+    const pendingRows = pending.map(rowOf).join('');
+    const histRows = all.filter(t => t.status !== 'pending').slice(0, 50).map(rowOf).join('');
 
     setMain(`
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
-  <h2 style="font-weight:800">Top-ups</h2>
-  <button class="btn btn-primary" onclick="openManualCreditModal()">+ Manual Credit</button>
+  <h2 style="font-weight:800">Payment Log</h2>
+  <button class="btn btn-secondary btn-sm" onclick="views.topups()">↻ Refresh</button>
 </div>
+<p class="muted" style="margin-bottom:1rem">Read-only log of direct-checkout payments. All entries are auto-verified by the IMAP worker — there is no manual approval. Pending entries past their window are auto-expired.</p>
 <div class="card" style="margin-bottom:1.5rem">
-  <div style="font-weight:700;margin-bottom:.75rem">Pending Approvals ${topups.length?`<span class="pending-dot">${topups.length}</span>`:''}</div>
+  <div style="font-weight:700;margin-bottom:.75rem">In-flight ${pending.length?`<span class="pending-dot">${pending.length}</span>`:''}</div>
   <div class="table-wrap"><table>
-    <thead><tr><th>ID</th><th>Customer</th><th>Amount</th><th>Method</th><th>Reference</th><th>Screenshot</th><th>Date</th><th>Actions</th></tr></thead>
-    <tbody>${pendingRows||'<tr><td colspan="8" class="muted" style="text-align:center;padding:1.5rem">No pending topups</td></tr>'}</tbody>
+    <thead><tr><th>ID</th><th>Customer</th><th>Amount</th><th>Method</th><th>Status</th><th>Order</th><th>Created</th></tr></thead>
+    <tbody>${pendingRows||'<tr><td colspan="7" class="muted" style="text-align:center;padding:1.5rem">No in-flight payments</td></tr>'}</tbody>
   </table></div>
 </div>
 <div class="card">
-  <div style="font-weight:700;margin-bottom:.75rem">History</div>
+  <div style="font-weight:700;margin-bottom:.75rem">History (last 50)</div>
   <div class="table-wrap"><table>
-    <thead><tr><th>ID</th><th>Customer</th><th>Amount</th><th>Method</th><th>Status</th><th>Date</th></tr></thead>
-    <tbody>${histRows||'<tr><td colspan="6" class="muted" style="text-align:center;padding:1rem">No history</td></tr>'}</tbody>
+    <thead><tr><th>ID</th><th>Customer</th><th>Amount</th><th>Method</th><th>Status</th><th>Order</th><th>Created</th></tr></thead>
+    <tbody>${histRows||'<tr><td colspan="7" class="muted" style="text-align:center;padding:1rem">No history</td></tr>'}</tbody>
   </table></div>
 </div>`);
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
-};
-
-window.actTopup = async function (id, action) {
-  try {
-    await api(`/topups/${id}`, { method: 'PUT', body: JSON.stringify({ action }) });
-    showToast(`Topup ${action}d`); views.topups();
-  } catch (e) { showToast(e.message, 'error'); }
-};
-
-window.openManualCreditModal = function () {
-  const ov = openModal(`
-<div class="modal-header"><h3>Manual Credit</h3><button class="btn-icon" data-close>✕</button></div>
-<div class="modal-body">
-  <div id="mc-err"></div>
-  <div class="form-group"><label class="form-label">Customer JID or Email</label><input class="form-input" id="mc-jid" placeholder="email_at_domain@email.local or search"></div>
-  <div class="form-group"><label class="form-label">Amount (₹)</label><input class="form-input" id="mc-amount" type="number" min="1" placeholder="500"></div>
-  <div class="form-group"><label class="form-label">Label</label><input class="form-input" id="mc-label" placeholder="e.g. Bonus credit" value="Admin Credit"></div>
-</div>
-<div class="modal-footer">
-  <button class="btn btn-secondary" data-close>Cancel</button>
-  <button class="btn btn-primary" id="mc-btn">Credit Wallet</button>
-</div>`);
-  document.getElementById('mc-btn').addEventListener('click', async () => {
-    let jid = document.getElementById('mc-jid').value.trim();
-    if (jid.includes('@') && !jid.endsWith('@email.local')) jid = jid.replace('@','_at_') + '@email.local';
-    const amount = parseFloat(document.getElementById('mc-amount').value);
-    const label = document.getElementById('mc-label').value.trim();
-    if (!jid || !amount) return showToast('JID and amount required', 'error');
-    try {
-      await api('/topups/manual-credit', { method: 'POST', body: JSON.stringify({ customer_jid: jid, amount, label }) });
-      ov.remove(); showToast('Wallet credited!'); views.topups();
-    } catch (ex) { document.getElementById('mc-err').innerHTML = `<div class="alert alert-error">${esc(ex.message)}</div>`; }
-  });
 };
 
 // ── views.customers ───────────────────────────────────────────────────────────
@@ -1104,7 +1070,6 @@ views.customers = async function (q = '') {
   <td style="font-weight:600">${esc(c.name||'—')}</td>
   <td style="font-size:.8rem">${esc(c.email||'—')}</td>
   <td>${esc(c.phone||'—')}</td>
-  <td>${fmt(c.wallet_inr)}</td>
   <td>${c.order_count}</td>
   <td>${c.blocked ? '<span class="badge badge-red">Blocked</span>' : '<span class="badge badge-green">Active</span>'}</td>
   <td>${fmtDateShort(c.created_at)}</td>
@@ -1121,8 +1086,8 @@ views.customers = async function (q = '') {
   </div>
 </div>
 <div class="table-wrap"><table>
-  <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Wallet</th><th>Orders</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead>
-  <tbody>${rows||'<tr><td colspan="8" class="muted" style="text-align:center;padding:2rem">No customers found</td></tr>'}</tbody>
+  <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Orders</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead>
+  <tbody>${rows||'<tr><td colspan="7" class="muted" style="text-align:center;padding:2rem">No customers found</td></tr>'}</tbody>
 </table></div>`);
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };
@@ -1149,9 +1114,6 @@ window.openCustomerModal = async function (jid) {
   </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="cm-phone" value="${esc(c.phone||'')}"></div>
-    <div class="form-group"><label class="form-label">Wallet (₹)</label><input class="form-input" id="cm-wallet" type="number" step="0.01" value="${c.wallet_inr||0}"></div>
-  </div>
-  <div class="form-row">
     <div class="form-group"><label class="form-label">Discount %</label><input class="form-input" id="cm-disc" type="number" min="0" max="100" value="${c.discount_percent||0}"></div>
     <div class="form-group" style="justify-content:center;align-items:center;flex-direction:row;gap:.75rem;padding-top:1.3rem">
       <label class="form-label">Blocked</label>
@@ -1179,7 +1141,6 @@ window.openCustomerModal = async function (jid) {
           name: document.getElementById('cm-name').value,
           email: document.getElementById('cm-email').value,
           phone: document.getElementById('cm-phone').value,
-          wallet_inr: parseFloat(document.getElementById('cm-wallet').value),
           discount_percent: parseFloat(document.getElementById('cm-disc').value),
           blocked: document.getElementById('cm-blocked').checked ? 1 : 0,
         }) });
@@ -1281,51 +1242,6 @@ views.mystore = async function () {
         document.getElementById('store-msg').innerHTML = '<div class="alert alert-success">Saved!</div>';
         setTimeout(() => document.getElementById('store-msg').innerHTML = '', 2500);
       } catch (ex) { document.getElementById('store-msg').innerHTML = `<div class="alert alert-error">${esc(ex.message)}</div>`; }
-    };
-  } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
-};
-
-// ── views.payments ────────────────────────────────────────────────────────────
-views.payments = async function () {
-  setMain('<div class="spinner"></div>');
-  try {
-    const s = await api('/settings');
-    setMain(`
-<h2 style="font-weight:800;margin-bottom:1.5rem">Payment Methods</h2>
-<div class="card" style="max-width:640px">
-<form id="pay-form" style="display:flex;flex-direction:column;gap:1.1rem">
-  <div id="pay-msg"></div>
-  <div style="font-weight:700">Razorpay</div>
-  <div style="display:flex;align-items:center;gap:.75rem">
-    <label class="toggle-switch"><input type="checkbox" name="razorpay_enabled" id="rz-toggle" ${s.razorpay_enabled==='1'?'checked':''}><span class="toggle-slider"></span></label>
-    <label class="form-label" for="rz-toggle">Enable Razorpay</label>
-  </div>
-  <div class="form-row">
-    <div class="form-group"><label class="form-label">Key ID</label><input class="form-input" name="razorpay_key_id" value="${esc(s.razorpay_key_id||'')}" placeholder="rzp_live_..."></div>
-    <div class="form-group"><label class="form-label">Key Secret</label><input class="form-input" name="razorpay_key_secret" type="password" value="${esc(s.razorpay_key_secret||'')}"></div>
-  </div>
-  <hr style="border-color:var(--border)">
-  <div style="font-weight:700">Manual UPI</div>
-  <div style="display:flex;align-items:center;gap:.75rem">
-    <label class="toggle-switch"><input type="checkbox" name="upi_manual_enabled" id="upi-toggle" ${s.upi_manual_enabled!=='0'?'checked':''}><span class="toggle-slider"></span></label>
-    <label class="form-label" for="upi-toggle">Enable Manual UPI</label>
-  </div>
-  <div class="form-row">
-    <div class="form-group"><label class="form-label">UPI ID</label><input class="form-input" name="upi_id" value="${esc(s.upi_id||'')}" placeholder="yourname@upi"></div>
-    <div class="form-group"><label class="form-label">Display Name</label><input class="form-input" name="upi_name" value="${esc(s.upi_name||'')}" placeholder="Store Name"></div>
-  </div>
-  <button type="submit" class="btn btn-primary">Save Payment Settings</button>
-</form></div>`);
-    document.getElementById('pay-form').onsubmit = async e => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      const body = { razorpay_enabled: document.getElementById('rz-toggle').checked ? '1' : '0', upi_manual_enabled: document.getElementById('upi-toggle').checked ? '1' : '0' };
-      fd.forEach((v, k) => { if (k !== 'razorpay_enabled' && k !== 'upi_manual_enabled') body[k] = v; });
-      try {
-        await api('/settings', { method: 'POST', body: JSON.stringify(body) });
-        document.getElementById('pay-msg').innerHTML = '<div class="alert alert-success">Saved!</div>';
-        setTimeout(() => document.getElementById('pay-msg').innerHTML = '', 2500);
-      } catch (ex) { document.getElementById('pay-msg').innerHTML = `<div class="alert alert-error">${esc(ex.message)}</div>`; }
     };
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };
@@ -2202,8 +2118,7 @@ views.legal = async function () {
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };
 
-// ── views.payments (enhanced with IMAP config + payment methods) ───────────────
-const _origPaymentsView = views.payments;
+// ── views.payments (UPI IMAP + USDT direct checkout) ──────────────────────────
 views.payments = async function () {
   setMain('<div class="spinner"></div>');
   try {
@@ -2223,7 +2138,7 @@ views.payments = async function () {
     <div class="form-group"><label class="form-label">UPI Name</label><input class="form-input" id="upi-name" value="${esc(s.upi_name||'')}"></div>
   </div>
   <div class="form-group mt-2"><label class="form-label">UPI QR Image URL</label><input class="form-input" id="upi-qr" value="${esc(s.upi_qr_url||'')}"></div>
-  <label style="display:flex;align-items:center;gap:.5rem;margin-top:.75rem"><input type="checkbox" id="upi-manual-en" ${s.upi_manual_enabled==='1'?'checked':''}> UPI Manual (screenshot) enabled</label>
+  <p class="muted" style="font-size:.8rem;margin-top:.5rem">UPI direct-checkout payments are auto-verified by reading the bank notification email via IMAP (configure below).</p>
   <button class="btn btn-primary btn-sm mt-3" onclick="saveUpi()">Save UPI</button>
 </div>
 
@@ -2264,10 +2179,48 @@ views.payments = async function () {
 </div>
 
 <div class="card">
-  <div style="font-weight:700;margin-bottom:.75rem">Razorpay</div>
-  <label style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem"><input type="checkbox" id="rz-en" ${s.razorpay_enabled==='1'?'checked':''}> Enable Razorpay</label>
-  <p class="muted" style="font-size:.85rem">Razorpay keys are configured via environment variables (RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET).</p>
-  <button class="btn btn-primary btn-sm mt-3" onclick="saveRz()">Save</button>
+  <div style="font-weight:700;margin-bottom:.75rem">USDT — Conversion &amp; Fee</div>
+  <div id="usdt-rate-msg"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem">
+    <div class="form-group"><label class="form-label">USDT → INR rate (₹ per $1)</label><input class="form-input" id="usdt-rate" type="number" step="0.01" min="1" value="${esc(s.usdt_inr_rate||'99')}"></div>
+    <div class="form-group"><label class="form-label">USDT fee % (on top)</label><input class="form-input" id="usdt-fee" type="number" step="0.01" min="0" value="${esc(s.usdt_fee_pct||'1.5')}"></div>
+    <div class="form-group"><label class="form-label">Payment window (min)</label><input class="form-input" id="usdt-window" type="number" min="5" max="120" value="${esc(s.usdt_payment_window_minutes||'20')}"></div>
+  </div>
+  <button class="btn btn-primary btn-sm mt-3" onclick="saveUsdtRate()">Save Rate &amp; Fee</button>
+</div>
+
+<div class="card">
+  <div style="font-weight:700;margin-bottom:.75rem">USDT — Binance (Pay ID / UID)</div>
+  <div id="usdt-binance-msg"></div>
+  <label style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem"><input type="checkbox" id="ub-en" ${s.usdt_binance_enabled==='1'?'checked':''}> Enable Binance USDT</label>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+    <div class="form-group"><label class="form-label">Binance Pay ID / UID</label><input class="form-input" id="ub-uid" value="${esc(s.usdt_binance_uid||'')}" placeholder="123456789"></div>
+    <div class="form-group"><label class="form-label">QR image URL (optional)</label><input class="form-input" id="ub-qr" value="${esc(s.usdt_binance_qr_url||'')}" placeholder="https://..."></div>
+  </div>
+  <p class="muted" style="font-size:.8rem;margin-top:.5rem">Auto-verified via the deposit-notification email from Binance (IMAP must be enabled).</p>
+  <button class="btn btn-primary btn-sm mt-3" onclick="saveUsdtBinance()">Save Binance</button>
+</div>
+
+<div class="card">
+  <div style="font-weight:700;margin-bottom:.75rem">USDT — BEP20 (BNB Smart Chain)</div>
+  <div id="usdt-bep20-msg"></div>
+  <label style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem"><input type="checkbox" id="ubep-en" ${s.usdt_bep20_enabled==='1'?'checked':''}> Enable USDT BEP20</label>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+    <div class="form-group"><label class="form-label">BEP20 wallet address</label><input class="form-input" id="ubep-addr" value="${esc(s.usdt_bep20_address||'')}" placeholder="0x..."></div>
+    <div class="form-group"><label class="form-label">QR image URL (optional)</label><input class="form-input" id="ubep-qr" value="${esc(s.usdt_bep20_qr_url||'')}" placeholder="https://..."></div>
+  </div>
+  <button class="btn btn-primary btn-sm mt-3" onclick="saveUsdtBep20()">Save BEP20</button>
+</div>
+
+<div class="card">
+  <div style="font-weight:700;margin-bottom:.75rem">USDT — TRC20 (Tron)</div>
+  <div id="usdt-trc20-msg"></div>
+  <label style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem"><input type="checkbox" id="utrc-en" ${s.usdt_trc20_enabled==='1'?'checked':''}> Enable USDT TRC20</label>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+    <div class="form-group"><label class="form-label">TRC20 wallet address</label><input class="form-input" id="utrc-addr" value="${esc(s.usdt_trc20_address||'')}" placeholder="T..."></div>
+    <div class="form-group"><label class="form-label">QR image URL (optional)</label><input class="form-input" id="utrc-qr" value="${esc(s.usdt_trc20_qr_url||'')}" placeholder="https://..."></div>
+  </div>
+  <button class="btn btn-primary btn-sm mt-3" onclick="saveUsdtTrc20()">Save TRC20</button>
 </div>
 
 <div class="card">
@@ -2287,12 +2240,40 @@ views.payments = async function () {
           upi_id: document.getElementById('upi-id').value,
           upi_name: document.getElementById('upi-name').value,
           upi_qr_url: document.getElementById('upi-qr').value,
-          upi_manual_enabled: document.getElementById('upi-manual-en').checked ? '1' : '0',
         })});
         msg.innerHTML='<div class="alert alert-success">Saved!</div>';
         setTimeout(()=>msg.innerHTML='',2000);
       } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
     };
+
+    const _saveSettings = async (cardId, body) => {
+      const msg = document.getElementById(cardId);
+      try {
+        await api('/settings', { method:'POST', body: JSON.stringify(body) });
+        if (msg) { msg.innerHTML='<div class="alert alert-success">Saved!</div>'; setTimeout(()=>{ if(msg) msg.innerHTML=''; }, 2000); }
+        else showToast('Saved!');
+      } catch(e) { if (msg) msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; else showToast(e.message,'error'); }
+    };
+    window.saveUsdtRate = () => _saveSettings('usdt-rate-msg', {
+      usdt_inr_rate: document.getElementById('usdt-rate').value,
+      usdt_fee_pct: document.getElementById('usdt-fee').value,
+      usdt_payment_window_minutes: document.getElementById('usdt-window').value,
+    });
+    window.saveUsdtBinance = () => _saveSettings('usdt-binance-msg', {
+      usdt_binance_enabled: document.getElementById('ub-en').checked ? '1' : '0',
+      usdt_binance_uid: document.getElementById('ub-uid').value,
+      usdt_binance_qr_url: document.getElementById('ub-qr').value,
+    });
+    window.saveUsdtBep20 = () => _saveSettings('usdt-bep20-msg', {
+      usdt_bep20_enabled: document.getElementById('ubep-en').checked ? '1' : '0',
+      usdt_bep20_address: document.getElementById('ubep-addr').value,
+      usdt_bep20_qr_url: document.getElementById('ubep-qr').value,
+    });
+    window.saveUsdtTrc20 = () => _saveSettings('usdt-trc20-msg', {
+      usdt_trc20_enabled: document.getElementById('utrc-en').checked ? '1' : '0',
+      usdt_trc20_address: document.getElementById('utrc-addr').value,
+      usdt_trc20_qr_url: document.getElementById('utrc-qr').value,
+    });
 
     window.saveImap = async () => {
       const msg = document.getElementById('imap-msg');
@@ -2321,11 +2302,6 @@ views.payments = async function () {
         })});
         msg.innerHTML = r.ok ? '<div class="alert alert-success">✓ IMAP connection successful!</div>' : `<div class="alert alert-error">✗ ${esc(r.error)}</div>`;
       } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
-    };
-
-    window.saveRz = async () => {
-      await api('/settings', { method:'POST', body: JSON.stringify({ razorpay_enabled: document.getElementById('rz-en').checked ? '1' : '0' }) });
-      showToast('Saved!');
     };
 
     window.saveDelivery = async () => {

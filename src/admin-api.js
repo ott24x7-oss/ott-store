@@ -279,50 +279,8 @@ router.get('/topups', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.put('/topups/:id', requireAdmin, async (req, res) => {
-  try {
-    const { action } = req.body; // 'approve' | 'reject'
-    if (!['approve', 'reject'].includes(action)) return res.status(400).json({ error: 'Invalid action' });
-    const db = await getDb();
-    const topup = get(db, `SELECT * FROM topups WHERE id=? AND status='pending'`, [req.params.id]);
-    if (!topup) return res.status(404).json({ error: 'Topup not found or already processed' });
-    const newStatus = action === 'approve' ? 'approved' : 'rejected';
-    run(db, `UPDATE topups SET status=? WHERE id=?`, [newStatus, req.params.id]);
-    if (action === 'approve') {
-      const { creditWallet } = _walletHelper(db);
-      creditWallet(topup.customer_jid, topup.amount_inr, 'topup', `Manual UPI`, topup.reference);
-    }
-    await audit({ actorKind: 'admin', actorLabel: 'admin', action: `topup_${action}`, targetKind: 'topup', targetId: req.params.id, ip: req.ip });
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.post('/topups/manual-credit', requireAdmin, async (req, res) => {
-  try {
-    const { customer_jid, amount, label } = req.body;
-    if (!customer_jid || !amount) return res.status(400).json({ error: 'customer_jid and amount required' });
-    const db = await getDb();
-    const c = get(db, `SELECT jid FROM customers WHERE jid=?`, [customer_jid]);
-    if (!c) return res.status(404).json({ error: 'Customer not found' });
-    run(db, `UPDATE customers SET wallet_inr = wallet_inr + ? WHERE jid=?`, [amount, customer_jid]);
-    run(db, `INSERT INTO wallet_txns (customer_jid,amount_inr,type,label) VALUES (?,?,?,?)`,
-      [customer_jid, amount, 'admin_credit', label || 'Admin Credit']);
-    run(db, `INSERT INTO topups (customer_jid,amount_inr,method,reference,status) VALUES (?,?,'admin','manual-credit','approved')`,
-      [customer_jid, amount]);
-    await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'manual_credit', targetKind: 'customer', targetId: customer_jid, after: { amount, label }, ip: req.ip });
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-function _walletHelper(db) {
-  return {
-    creditWallet(jid, amount, type, label, refId) {
-      run(db, `UPDATE customers SET wallet_inr = wallet_inr + ? WHERE jid=?`, [amount, jid]);
-      run(db, `INSERT INTO wallet_txns (customer_jid,amount_inr,type,label,ref_id) VALUES (?,?,?,?,?)`,
-        [jid, amount, type, label, refId || null]);
-    }
-  };
-}
+// Manual topup approval + manual wallet credit removed in the direct-checkout refactor.
+// Payments are auto-verified by imap-verify; there is no wallet to credit.
 
 // ─── Customers ────────────────────────────────────────────────────────────────
 router.get('/customers', requireAdmin, async (req, res) => {
@@ -344,13 +302,13 @@ router.get('/customers', requireAdmin, async (req, res) => {
 
 router.put('/customers/:jid', requireAdmin, async (req, res) => {
   try {
-    const { name, email, phone, wallet_inr, blocked, discount_percent, is_reseller } = req.body;
+    const { name, email, phone, blocked, discount_percent, is_reseller } = req.body;
     const db = await getDb();
     const c = get(db, `SELECT * FROM customers WHERE jid=?`, [req.params.jid]);
     if (!c) return res.status(404).json({ error: 'Customer not found' });
-    run(db, `UPDATE customers SET name=?,email=?,phone=?,wallet_inr=?,blocked=?,discount_percent=?,is_reseller=? WHERE jid=?`,
+    run(db, `UPDATE customers SET name=?,email=?,phone=?,blocked=?,discount_percent=?,is_reseller=? WHERE jid=?`,
       [name ?? c.name, email ?? c.email, phone ?? c.phone,
-       wallet_inr ?? c.wallet_inr, blocked ?? c.blocked,
+       blocked ?? c.blocked,
        discount_percent ?? c.discount_percent, is_reseller ?? c.is_reseller,
        req.params.jid]);
     await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'edit_customer', targetKind: 'customer', targetId: req.params.jid, ip: req.ip });
@@ -861,9 +819,9 @@ router.post('/referrals/:id/credit', requireAdmin, async (req, res) => {
     const db = await getDb();
     const rr = get(db, `SELECT * FROM referral_rewards WHERE id=? AND status='pending'`, [req.params.id]);
     if (!rr) return res.status(404).json({ error: 'Not found or already credited' });
-    run(db, `UPDATE customers SET wallet_inr = wallet_inr + ? WHERE jid=?`, [rr.reward_inr, rr.referrer_jid]);
-    run(db, `INSERT INTO wallet_txns (customer_jid,amount_inr,type,label) VALUES (?,?,?,?)`,
-      [rr.referrer_jid, rr.reward_inr, 'referral', 'Referral bonus']);
+    // Wallet is gone — admin marks the reward credited (payout is handled
+    // off-platform, e.g. paying out via UPI to the referrer or stacking a
+    // discount on their next order). The status flip is the audit trail.
     run(db, `UPDATE referral_rewards SET status='credited' WHERE id=?`, [req.params.id]);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }

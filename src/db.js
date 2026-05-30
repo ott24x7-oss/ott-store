@@ -357,6 +357,11 @@ function migrate(db) {
   try { db.run(`ALTER TABLE topups ADD COLUMN purpose TEXT DEFAULT 'wallet'`); } catch {}
   try { db.run(`ALTER TABLE topups ADD COLUMN plan_id INTEGER`); } catch {}
   try { db.run(`ALTER TABLE topups ADD COLUMN order_id INTEGER`); } catch {}
+  // USDT direct-checkout extension to topups
+  try { db.run(`ALTER TABLE topups ADD COLUMN currency TEXT DEFAULT 'INR'`); } catch {}
+  try { db.run(`ALTER TABLE topups ADD COLUMN amount_usdt REAL`); } catch {}
+  try { db.run(`ALTER TABLE topups ADD COLUMN unique_amount_usdt REAL`); } catch {}
+  try { db.run(`ALTER TABLE topups ADD COLUMN expires_at TEXT`); } catch {}
   try { db.run(`ALTER TABLE orders ADD COLUMN stock_credential_id INTEGER`); } catch {}
   try { db.run(`ALTER TABLE orders ADD COLUMN renewal_reminded_at TEXT`); } catch {}
   // Plans: catalog enhancements
@@ -379,6 +384,15 @@ function migrate(db) {
   // One-time data fix: strip trailing slash from stored base_url so we never
   // build URLs like https://site.com//user/api/auth/magic (broke magic links).
   try { db.run(`UPDATE settings SET value = rtrim(value, '/') WHERE key='base_url' AND value LIKE '%/'`); } catch {}
+
+  // ── 2026-05 refactor: drop wallet + Razorpay + manual UPI; USDT direct checkout ──
+  // Zero all customer wallet balances (system removed; users who had credit must be
+  // refunded manually). Column kept for backwards compat but unused going forward.
+  try { db.run(`UPDATE customers SET wallet_inr=0 WHERE wallet_inr IS NOT NULL AND wallet_inr <> 0`); } catch {}
+  // Remove dead Razorpay / manual-UPI settings so nothing reads stale values.
+  try { db.run(`DELETE FROM settings WHERE key IN ('razorpay_enabled','razorpay_key_id','razorpay_key_secret','upi_manual_enabled')`); } catch {}
+  // Cancel any in-flight wallet topups still pending — the route is gone.
+  try { db.run(`UPDATE topups SET status='cancelled' WHERE status='pending' AND COALESCE(purpose,'wallet')='wallet'`); } catch {}
 }
 
 function seedPlansData(db) {
@@ -652,8 +666,19 @@ function seedDefaults(db) {
     robots_txt: 'User-agent: *\nAllow: /',
     upi_id: '',
     upi_name: '',
-    razorpay_enabled: '0',
-    upi_manual_enabled: '1',
+    // USDT direct checkout (replaces wallet/Razorpay/manual UPI)
+    usdt_inr_rate: '99',
+    usdt_fee_pct: '1.5',
+    usdt_payment_window_minutes: '20',
+    usdt_binance_enabled: '0',
+    usdt_binance_uid: '',
+    usdt_binance_qr_url: '',
+    usdt_bep20_enabled: '0',
+    usdt_bep20_address: '',
+    usdt_bep20_qr_url: '',
+    usdt_trc20_enabled: '0',
+    usdt_trc20_address: '',
+    usdt_trc20_qr_url: '',
     'seo_home_title': 'Buy OTT Subscriptions Online',
     'seo_home_desc': 'Get Netflix, Amazon Prime, Disney+ and more at lowest prices.',
     'seo_home_keywords': 'ott subscription, netflix, amazon prime, disney plus',

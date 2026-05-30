@@ -292,9 +292,6 @@ html[data-theme="dark"] .my-logo .logo-dark{display:block}
       <a href="/contact">Support</a>
     </div>
     <div class="my-nav-right">
-      <a class="my-wallet-pill" id="hdr-wallet" href="#" style="display:none" onclick="event.preventDefault();goTab('wallet')">
-        <span>💰</span><span id="hdr-wallet-val">₹0</span>
-      </a>
       <button class="my-btn-icon" id="theme-toggle-hdr" title="Toggle theme" style="display:none">🌙</button>
       <div class="my-avatar" id="hdr-avatar" style="display:none">?</div>
       <button class="my-btn-icon" id="hamburger-btn" style="display:none;font-size:1.3rem">☰</button>
@@ -315,7 +312,7 @@ html[data-theme="dark"] .my-logo .logo-dark{display:block}
   <button class="my-bnav-btn" data-tab="dashboard"><span class="bi">🏠</span>Home</button>
   <button class="my-bnav-btn" data-tab="plans"><span class="bi">🎬</span>Plans</button>
   <button class="my-bnav-btn" data-tab="orders"><span class="bi">📦</span>Orders</button>
-  <button class="my-bnav-btn" data-tab="wallet"><span class="bi">💰</span>Wallet</button>
+  <button class="my-bnav-btn" data-tab="referral"><span class="bi">🎁</span>Refer</button>
   <button class="my-bnav-btn" data-tab="__more"><span class="bi">⋯</span>More</button>
 </div>
 
@@ -354,7 +351,7 @@ html[data-theme="dark"] .my-logo .logo-dark{display:block}
 
 // ── State ────────────────────────────────────────────────────────────────────
 let CUSTOMER = null, STORE = {}, ACTIVE_TAB = 'dashboard';
-let ALL_PLANS = [], ORDERS = [], TXNS = [], TICKETS = [];
+let ALL_PLANS = [], ORDERS = [], TICKETS = [];
 const PLATFORM_ICONS = {
   'Netflix':'🎬','Amazon Prime':'🛒','Disney+ Hotstar':'🏰','Disney+':'🏰',
   'Spotify':'🎵','YouTube Premium':'▶️','Apple TV+':'🍎',
@@ -370,7 +367,6 @@ const TABS = [
   {id:'dashboard',label:'Dashboard',icon:'🏠'},
   {id:'plans',label:'Plans',icon:'🎬'},
   {id:'orders',label:'Orders',icon:'📦'},
-  {id:'wallet',label:'Wallet',icon:'💰'},
   {id:'referral',label:'Referral',icon:'🎁'},
   {id:'support',label:'Support',icon:'🎧'},
   {id:'profile',label:'Profile',icon:'👤'},
@@ -439,7 +435,7 @@ function buildNav(){
 }
 function goTab(id){
   ACTIVE_TAB=id;buildNav();
-  const handlers={dashboard:renderDashboard,plans:renderPlans,orders:renderOrders,wallet:renderWallet,referral:renderReferral,support:renderSupport,profile:renderProfile};
+  const handlers={dashboard:renderDashboard,plans:renderPlans,orders:renderOrders,referral:renderReferral,support:renderSupport,profile:renderProfile};
   (handlers[id]||renderDashboard)();
 }
 window.goTab=goTab;
@@ -908,8 +904,6 @@ function updateHeaderUI(){
   if(!CUSTOMER)return;
   const av=document.getElementById('hdr-avatar');
   if(av){av.textContent=(CUSTOMER.name||'?')[0].toUpperCase();av.style.display='';}
-  const w=document.getElementById('hdr-wallet');
-  if(w){w.style.display='';document.getElementById('hdr-wallet-val').textContent=fmt(CUSTOMER.wallet_inr);}
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
@@ -917,7 +911,7 @@ async function renderDashboard(){
   const main=document.getElementById('portal-main');
   main.innerHTML=`<div class="spinner"></div>`;
   try{
-    [ORDERS,TXNS]=await Promise.all([api('/orders'),api('/wallet/transactions')]);
+    ORDERS=await api('/orders');
     const now=new Date();
     const activeSubs=ORDERS.filter(o=>o.status==='delivered'&&o.expires_at&&new Date(o.expires_at)>now);
     const totalSpent=ORDERS.filter(o=>o.status!=='cancelled').reduce((s,o)=>s+Number(o.amount_inr||0),0);
@@ -932,14 +926,10 @@ async function renderDashboard(){
       <div class="dash-hero-greet">${greeting()}, ${esc(CUSTOMER.name?.split(' ')[0]||'there')} 👋</div>
       <div class="dash-hero-name">${esc(STORE.site_name||'OTT Store')}</div>
     </div>
-    <div class="dash-hero-wallet">
-      <div class="dash-hero-wlbl">Wallet Balance</div>
-      <div class="dash-hero-wamt">${fmt(CUSTOMER.wallet_inr)}</div>
-    </div>
   </div>
   <div class="dash-hero-actions">
     <button class="dash-hero-btn dash-hero-btn-white" onclick="goTab('plans')">🎬 Browse Plans</button>
-    <button class="dash-hero-btn dash-hero-btn-ghost" onclick="goTab('wallet')">➕ Add Money</button>
+    <button class="dash-hero-btn dash-hero-btn-ghost" onclick="goTab('orders')">📦 My Orders</button>
   </div>
 </div>`;
 
@@ -951,11 +941,6 @@ ${expiring.length?`<div class="alert alert-warn" style="margin-bottom:1rem">⚠�
     // Stat cards
     const statsHtml=`
 <div class="my-stat-cards">
-  <div class="card my-stat-card" data-icon="💰" onclick="goTab('wallet')" style="cursor:pointer">
-    <div class="my-stat-icon my-stat-icon-wallet">💰</div>
-    <div class="my-stat-label">Wallet</div>
-    <div class="my-stat-val">${fmt(CUSTOMER.wallet_inr)}</div>
-  </div>
   <div class="card my-stat-card" data-icon="▶️" onclick="goTab('orders')" style="cursor:pointer">
     <div class="my-stat-icon my-stat-icon-active">▶️</div>
     <div class="my-stat-label">Active</div>
@@ -984,10 +969,6 @@ ${expiring.length?`<div class="alert alert-warn" style="margin-bottom:1rem">⚠�
   <div class="my-qa-tile qa-orders" onclick="goTab('orders')">
     <div class="my-qa-icon-wrap">📦</div>
     <div class="my-qa-lbl">My Orders</div>
-  </div>
-  <div class="my-qa-tile qa-topup" onclick="goTab('wallet')">
-    <div class="my-qa-icon-wrap">💳</div>
-    <div class="my-qa-lbl">Top Up</div>
   </div>
   <div class="my-qa-tile qa-referral" onclick="goTab('referral')">
     <div class="my-qa-icon-wrap">🎁</div>
@@ -1124,23 +1105,59 @@ function bindPlanBtns(){
 }
 
 function confirmBuy(planId,planName,price){
-  const balance=Number(CUSTOMER?.wallet_inr||0);
   const cost=Number(price);
-  const enough=balance>=cost;
   const imapOn=STORE.imap_enabled==='1';
+  const upiOn=imapOn&&!!STORE.upi_id;
+  const binanceOn=imapOn&&STORE.usdt_binance_enabled==='1'&&!!STORE.usdt_binance_uid;
+  const bep20On=imapOn&&STORE.usdt_bep20_enabled==='1'&&!!STORE.usdt_bep20_address;
+  const trc20On=imapOn&&STORE.usdt_trc20_enabled==='1'&&!!STORE.usdt_trc20_address;
+  const rate=parseFloat(STORE.usdt_inr_rate||'99');
+  const feePct=parseFloat(STORE.usdt_fee_pct||'1.5');
+  const usdtPreview=rate>0?(cost/rate*(1+feePct/100)).toFixed(2):null;
 
-  // Build payment options
-  const shortfall=Math.max(0,cost-balance);
-  const walletOption=enough?`
-<button class="btn btn-primary btn-block" id="confirm-buy-btn" style="margin-bottom:.5rem">
-  ✅ Pay from Wallet — ${fmt(cost)}
-</button>`:`
-<button class="btn btn-primary btn-block" id="add-money-btn" style="margin-bottom:.5rem">
-  ➕ Add Money &amp; Pay — ${fmt(cost)}
-</button>
-<p style="font-size:.75rem;color:var(--muted);text-align:center">Wallet balance: ${fmt(balance)} — add ${fmt(shortfall)} to continue</p>`;
+  const anyMethod=upiOn||binanceOn||bep20On||trc20On;
+  const tileUpi=upiOn?`<button class="my-topup-m" data-pay="upi" style="text-align:left">
+    <div style="display:flex;align-items:center;gap:.7rem">
+      <div class="my-topup-icon" style="margin:0">📱</div>
+      <div style="flex:1">
+        <div class="my-topup-name">UPI</div>
+        <div class="my-topup-sub">Auto-verified · ${fmt(cost)}</div>
+      </div>
+      <div style="font-size:1.2rem;color:var(--muted)">›</div>
+    </div>
+  </button>`:'';
+  const tileBinance=binanceOn?`<button class="my-topup-m" data-pay="binance" style="text-align:left">
+    <div style="display:flex;align-items:center;gap:.7rem">
+      <div class="my-topup-icon" style="margin:0">🟡</div>
+      <div style="flex:1">
+        <div class="my-topup-name">USDT · Binance</div>
+        <div class="my-topup-sub">Auto-verified${usdtPreview?` · ~$${usdtPreview}`:''}</div>
+      </div>
+      <div style="font-size:1.2rem;color:var(--muted)">›</div>
+    </div>
+  </button>`:'';
+  const tileBep20=bep20On?`<button class="my-topup-m" data-pay="bep20" style="text-align:left">
+    <div style="display:flex;align-items:center;gap:.7rem">
+      <div class="my-topup-icon" style="margin:0">🟨</div>
+      <div style="flex:1">
+        <div class="my-topup-name">USDT · BEP20</div>
+        <div class="my-topup-sub">BNB Smart Chain${usdtPreview?` · ~$${usdtPreview}`:''}</div>
+      </div>
+      <div style="font-size:1.2rem;color:var(--muted)">›</div>
+    </div>
+  </button>`:'';
+  const tileTrc20=trc20On?`<button class="my-topup-m" data-pay="trc20" style="text-align:left">
+    <div style="display:flex;align-items:center;gap:.7rem">
+      <div class="my-topup-icon" style="margin:0">🔴</div>
+      <div style="flex:1">
+        <div class="my-topup-name">USDT · TRC20</div>
+        <div class="my-topup-sub">Tron Network${usdtPreview?` · ~$${usdtPreview}`:''}</div>
+      </div>
+      <div style="font-size:1.2rem;color:var(--muted)">›</div>
+    </div>
+  </button>`:'';
 
-  const upiOption=imapOn?`<button class="btn btn-secondary btn-block" id="upi-direct-btn" style="margin-top:.5rem">📱 Pay via UPI — ${fmt(cost)}</button>`:'';
+  const emptyMsg=`<div class="alert alert-warn">No payment methods are enabled yet. Please contact support.${STORE.support_whatsapp?` <a href="https://wa.me/${STORE.support_whatsapp.replace(/\D/g,'')}" target="_blank" rel="noopener">Chat on WhatsApp →</a>`:''}</div>`;
 
   const ov=openModal(`
 <div class="modal-header"><h3>Confirm Purchase</h3><button class="btn-icon" data-close>✕</button></div>
@@ -1151,45 +1168,35 @@ function confirmBuy(planId,planName,price){
     <div style="font-size:1.3rem;font-weight:800;margin-top:.25rem" class="grad-text">${fmt(cost)}</div>
   </div>
   <div id="buy-payment-area">
-    ${walletOption}
-    ${upiOption}
+    ${anyMethod?`<div style="font-size:.85rem;color:var(--muted);margin-bottom:.5rem">Choose payment method</div>
+    <div style="display:flex;flex-direction:column;gap:.5rem">
+      ${tileUpi}${tileBinance}${tileBep20}${tileTrc20}
+    </div>`:emptyMsg}
   </div>
 </div>
 <div class="modal-footer">
   <button class="btn btn-secondary" data-close>Cancel</button>
 </div>`);
 
-  // Wallet pay
-  document.getElementById('confirm-buy-btn')?.addEventListener('click',async()=>{
-    const btn=document.getElementById('confirm-buy-btn');
-    setLoading(btn,true,'Processing...');
-    try{
-      await api('/orders',{method:'POST',body:JSON.stringify({plan_id:Number(planId)})});
-      ov.remove();
-      CUSTOMER=await api('/me');updateHeaderUI();
-      showToast('Order placed! Check Orders tab.','success');
-      goTab('orders');
-    }catch(e){setLoading(btn,false);showToast(e.message,'error');}
-  });
-
-  // Insufficient balance → send to wallet top-up (Razorpay / Manual UPI)
-  document.getElementById('add-money-btn')?.addEventListener('click',()=>{
-    ov.remove();
-    showToast('Add money to your wallet, then buy this plan.','info');
-    goTab('wallet');
-  });
-
-  // UPI direct pay
-  document.getElementById('upi-direct-btn')?.addEventListener('click',async()=>{
-    const area=document.getElementById('buy-payment-area');
-    area.innerHTML=`<div class="spinner" style="margin:1rem auto"></div>`;
-    try{
-      const r=await api('/checkout/upi-direct',{method:'POST',body:JSON.stringify({plan_id:Number(planId)})});
-      showUpiPaymentStep(ov,area,r,planName);
-    }catch(e){
-      area.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>
-<button class="btn btn-secondary btn-block mt-2" onclick="confirmBuy(${planId},'${planName.replace(/'/g,"\\'")}',${price});this.closest('.modal-overlay').remove()">← Back</button>`;
-    }
+  ov.querySelectorAll('[data-pay]').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      const method=btn.dataset.pay;
+      const area=document.getElementById('buy-payment-area');
+      area.innerHTML=`<div class="spinner" style="margin:1rem auto"></div>`;
+      try{
+        if(method==='upi'){
+          const r=await api('/checkout/upi-direct',{method:'POST',body:JSON.stringify({plan_id:Number(planId)})});
+          showUpiPaymentStep(ov,area,r,planName);
+        }else{
+          const r=await api('/checkout/usdt-direct',{method:'POST',body:JSON.stringify({plan_id:Number(planId),network:method})});
+          showUsdtPaymentStep(ov,area,r,planName);
+        }
+      }catch(e){
+        area.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>
+<button class="btn btn-secondary btn-block mt-2" id="buy-back-btn">← Back</button>`;
+        document.getElementById('buy-back-btn').addEventListener('click',()=>{ov.remove();confirmBuy(planId,planName,price);});
+      }
+    });
   });
 }
 
@@ -1293,100 +1300,81 @@ window.copyVal=function(elId,label){
   navigator.clipboard.writeText(el.textContent).then(()=>showToast(label+' copied!','success')).catch(()=>{});
 };
 
-// ── Wallet ─────────────────────────────────────────────────────────────────────
-async function renderWallet(){
-  const main=document.getElementById('portal-main');
-  main.innerHTML=`<div class="spinner"></div>`;
-  try{
-    [CUSTOMER,TXNS]=await Promise.all([api('/me'),api('/wallet/transactions')]);
-    updateHeaderUI();
-    const rzOn=STORE.razorpay_enabled==='1';
-    const upiOn=(STORE.upi_manual_enabled!=='0'||!!STORE.upi_id);
-    const hasTopup=rzOn||upiOn;
-    main.innerHTML=`
-<h2 style="font-weight:800;margin-bottom:1rem">Wallet</h2>
-<div class="my-wallet-card">
-  <div class="my-wallet-lbl">Available Balance</div>
-  <div class="my-wallet-amt">${fmt(CUSTOMER.wallet_inr)}</div>
+// ── USDT payment step (Binance / BEP20 / TRC20) ───────────────────────────────
+function showUsdtPaymentStep(modalEl,area,r,planName){
+  const netLabel={binance:'Binance',bep20:'BEP20',trc20:'TRC20'}[r.network]||r.network.toUpperCase();
+  const addressLabel=r.network==='binance'?'Binance Pay ID / UID':'Wallet Address';
+  area.innerHTML=`
+<div style="background:var(--input-bg);border-radius:var(--radius-sm);padding:.8rem;margin-bottom:.75rem;font-size:.82rem;line-height:1.6">
+  <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Plan price</span><span>₹${r.plan_price_inr.toFixed(2)}</span></div>
+  <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Convert @ 1\$=₹${r.rate_inr_per_usd}</span><span>$${r.sub_usdt.toFixed(3)}</span></div>
+  <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">USDT fee +${r.fee_pct}%</span><span>$${r.fee_usdt.toFixed(3)}</span></div>
+  <div style="height:1px;background:var(--border);margin:.4rem 0"></div>
+  <div style="display:flex;justify-content:space-between;font-weight:700"><span>Pay exactly</span><span style="font-size:1.15rem;color:var(--green)">${r.unique_usdt.toFixed(3)} USDT</span></div>
 </div>
-<h3 style="font-weight:700;margin-bottom:.75rem">Add Money</h3>
-${hasTopup?`<div class="my-topup-methods" id="topup-methods">
-  ${rzOn?`<div class="my-topup-m" id="tm-razorpay" onclick="selectTopup('razorpay')"><div class="my-topup-icon">💳</div><div class="my-topup-name">Card / UPI</div><div class="my-topup-sub">via Razorpay · Instant</div></div>`:''}
-  ${upiOn?`<div class="my-topup-m" id="tm-upi" onclick="selectTopup('upi')"><div class="my-topup-icon">📱</div><div class="my-topup-name">UPI</div><div class="my-topup-sub">${STORE.imap_enabled==='1'?'Auto-verified · Instant':'Screenshot · Pending approval'}</div></div>`:''}
-</div>`:`<div class="alert alert-info">Online top-up isn't enabled yet. Please contact support to add money.${STORE.support_whatsapp?` <a href="https://wa.me/${STORE.support_whatsapp.replace(/\D/g,'')}" target="_blank" rel="noopener">Chat on WhatsApp →</a>`:''}</div>`}
-<div id="topup-form-area"></div>
-<h3 style="font-weight:700;margin:1.5rem 0 .75rem">Transaction History</h3>
-<div class="card" style="padding:0;overflow:hidden">
-${TXNS.length?TXNS.map(txnItem).join(''):'<p style="color:var(--muted);text-align:center;padding:1.5rem">No transactions yet.</p>'}
-</div>`;
-  }catch(e){main.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`;}
-}
+<div style="text-align:center;padding:.25rem 0">
+  <div style="font-size:.75rem;color:var(--muted);margin-bottom:.25rem">(unique amount — auto-verified by the exact figure, do not round off)</div>
+</div>
+<div style="background:var(--input-bg);border-radius:var(--radius-sm);padding:.75rem;margin-bottom:.75rem">
+  <div style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Network</div>
+  <div style="font-weight:700;margin-bottom:.5rem">USDT · ${netLabel}</div>
+  <div style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${addressLabel}</div>
+  <div style="display:flex;align-items:center;gap:.5rem">
+    <code id="usdt-addr" style="flex:1;word-break:break-all;font-size:.85rem;background:var(--card);padding:.4rem .55rem;border-radius:6px">${esc(r.address)}</code>
+    <button class="btn btn-secondary btn-sm" id="usdt-copy" style="flex-shrink:0">Copy</button>
+  </div>
+</div>
+${r.qr_url?`<div style="text-align:center;margin:.5rem 0"><img src="${esc(r.qr_url)}" alt="USDT QR" style="max-width:180px;width:100%;border-radius:12px;background:#fff;padding:8px" loading="lazy" onerror="this.style.display='none'"></div>`:''}
+<button class="btn btn-secondary btn-block" id="usdt-copy-amt" style="margin-bottom:.5rem">📋 Copy ${r.unique_usdt.toFixed(3)} USDT</button>
+<div id="usdt-poll-status" style="margin-top:.75rem;font-size:.875rem;color:var(--muted);text-align:center">
+  <span class="spinner-inline"></span> Waiting for payment confirmation...
+</div>
+<p id="usdt-timer" style="font-size:.75rem;color:var(--muted);text-align:center;margin-top:.4rem"></p>`;
 
-window.selectTopup=function(type){
-  document.querySelectorAll('.my-topup-m').forEach(m=>m.classList.toggle('active',m.id===`tm-${type}`));
-  const area=document.getElementById('topup-form-area');
-  if(type==='razorpay')renderRazorpayForm(area);
-  else if(type==='upi')renderUpiForm(area);
-};
+  const copyText=(txt)=>{try{navigator.clipboard.writeText(txt);showToast('Copied','success');}catch{showToast('Copy failed — long-press to copy','error');}};
+  document.getElementById('usdt-copy').addEventListener('click',()=>copyText(r.address));
+  document.getElementById('usdt-copy-amt').addEventListener('click',()=>copyText(r.unique_usdt.toFixed(3)));
 
-function renderRazorpayForm(area){
-  area.innerHTML=`<div class="card mt-3"><h4 style="font-weight:700;margin-bottom:1rem">Pay via Razorpay</h4>
-<div id="rz-err"></div>
-<div class="form-group mb-4"><label class="my-lbl">Amount (₹)</label>
-  <input class="form-input" id="rz-amount" type="number" min="1" max="100000" placeholder="Enter amount" value="100"></div>
-<button class="btn btn-primary btn-block" onclick="initiateRazorpay()">Pay Now</button></div>`;
-}
+  const expiresAt=r.expires_at?new Date(r.expires_at).getTime():(Date.now()+r.window_minutes*60*1000);
+  const timerEl=document.getElementById('usdt-timer');
+  function tick(){
+    if(!document.body.contains(modalEl))return;
+    const ms=expiresAt-Date.now();
+    if(ms<=0){if(timerEl)timerEl.textContent='⏱ Payment window expired — re-open checkout to try again.';return;}
+    const m=Math.floor(ms/60000),s=Math.floor((ms%60000)/1000).toString().padStart(2,'0');
+    if(timerEl)timerEl.textContent=`Window: ${m}:${s} remaining`;
+    setTimeout(tick,1000);
+  }
+  tick();
 
-window.initiateRazorpay=async function(){
-  const amt=Number(document.getElementById('rz-amount')?.value||0);
-  if(amt<1)return showToast('Enter valid amount','error');
-  try{
-    const r=await api('/topup/razorpay',{method:'POST',body:JSON.stringify({amount:amt})});
-    const options={key:r.key,amount:r.amount,currency:'INR',name:STORE.site_name||'OTT Store',description:'Wallet Top Up',order_id:r.order_id,
-      handler:async function(resp){try{await api('/topup/razorpay/verify',{method:'POST',body:JSON.stringify(resp)});showToast('Wallet topped up!','success');renderWallet();}catch(e){showToast(e.message,'error');}},
-      theme:{color:'#6366f1'}};
-    new Razorpay(options).open();
-  }catch(e){showToast(e.message,'error');}
-};
-
-function renderUpiForm(area){
-  const upiId=STORE.upi_id||'';const upiName=STORE.upi_name||'Store';const qr=STORE.upi_qr_url||'';
-  const imapOn=STORE.imap_enabled==='1';
-  area.innerHTML=`<div class="card mt-3"><h4 style="font-weight:700;margin-bottom:.75rem">UPI Payment</h4>
-${upiId?`<div class="alert alert-info">Send to UPI ID: <strong>${esc(upiId)}</strong> (${esc(upiName)})</div>`:''}
-${qr?`<div style="text-align:center;margin:.5rem 0"><img src="${esc(qr)}" alt="UPI QR" style="max-width:200px;width:100%;border-radius:12px" loading="lazy" onerror="this.style.display='none'"></div>`:''}
-<div id="upi-result"></div>
-<form id="upi-form" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:.9rem">
-<div id="upi-err"></div>
-<div class="form-group"><label class="my-lbl">Amount (₹)</label><input class="form-input" name="amount" type="number" min="1" required placeholder="${imapOn?'Amount to add':'Amount you paid'}"></div>
-${imapOn?'':`<div class="form-group"><label class="my-lbl">UTR / Reference Number</label><input class="form-input" name="reference" placeholder="Transaction reference"></div>
-<div class="form-group"><label class="my-lbl">Screenshot (optional)</label><input class="form-input" name="screenshot" type="file" accept="image/*"></div>`}
-<button type="submit" class="btn btn-primary btn-block">${imapOn?'Get Payment Details':'Submit for Approval'}</button>
-</form></div>`;
-  document.getElementById('upi-form').onsubmit=async e=>{
-    e.preventDefault();
-    const fd=new FormData(e.target);
+  // Poll every 10s (USDT confirms slower than UPI; align with 20-min window)
+  let pollCount=0;
+  const maxPolls=Math.ceil((r.window_minutes||20)*60/10);
+  const timer=setInterval(async()=>{
+    if(!document.body.contains(modalEl)){clearInterval(timer);return;}
+    pollCount++;
+    if(pollCount>maxPolls){
+      clearInterval(timer);
+      const el=document.getElementById('usdt-poll-status');
+      if(el)el.innerHTML='⏱ Timed out. If you paid, check Orders tab in a minute.';
+      return;
+    }
     try{
-      const r=await fetch('/user/api/topup/upi',{method:'POST',credentials:'include',body:fd});
-      const j=await r.json();
-      if(!r.ok)throw new Error(j.error||'Failed');
-      if(j.method==='upi_imap'){
-        document.getElementById('upi-form').style.display='none';
-        document.getElementById('upi-result').innerHTML=`<div class="alert alert-success" style="line-height:1.7">Pay <strong>exactly ₹${esc(String(j.unique_amount))}</strong> to <strong>${esc(j.upi_id||upiId)}</strong>.<br>The exact paise let us auto-match your payment — please don't round it off.<br>✅ Your wallet is credited automatically within ~30 seconds.</div><button class="btn btn-secondary btn-block" onclick="renderWallet()">Refresh Wallet</button>`;
-      }else{
-        showToast('Submitted! Awaiting admin approval.','success');
-        renderWallet();
+      const s=await api('/checkout/poll/'+r.topup_id);
+      if(s.status==='paid'){
+        clearInterval(timer);
+        modalEl.remove();
+        CUSTOMER=await api('/me').catch(()=>CUSTOMER);
+        updateHeaderUI();
+        showToast('Payment confirmed! Order placed.','success');
+        goTab('orders');
+      }else if(s.status==='expired'){
+        clearInterval(timer);
+        const el=document.getElementById('usdt-poll-status');
+        if(el)el.innerHTML='⏱ Payment window expired.';
       }
-    }catch(ex){document.getElementById('upi-err').innerHTML=`<div class="alert alert-error">${esc(ex.message)}</div>`;}
-  };
-}
-
-function txnItem(t){
-  const pos=Number(t.amount_inr||0)>0;
-  return `<div class="my-txn">
-<div><div style="font-weight:600;font-size:.875rem">${esc(t.label||t.type)}</div><div style="color:var(--muted);font-size:.75rem">${fmtDate(t.created_at)}</div></div>
-<div class="${pos?'my-txn-pos':'my-txn-neg'}">${pos?'+':''}${fmt(Math.abs(t.amount_inr))}</div>
-</div>`;
+    }catch{}
+  },10000);
 }
 
 // ── Support ────────────────────────────────────────────────────────────────────
@@ -1577,7 +1565,6 @@ window.logout=async function(){
   await fetch('/user/api/logout',{method:'POST',credentials:'include'});
   CUSTOMER=null;
   document.getElementById('hdr-avatar').style.display='none';
-  document.getElementById('hdr-wallet').style.display='none';
   renderAuth('otp');
 };
 
