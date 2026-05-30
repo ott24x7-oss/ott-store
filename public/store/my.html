@@ -33,7 +33,7 @@ html[data-theme="dark"] .my-logo .logo-dark{display:block}
 .my-btn-icon:hover{color:var(--text);background:rgba(255,43,79,.08)}
 
 /* ── Tab nav ── */
-.my-tab-nav{display:flex;background:var(--card);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
+.my-tab-nav{display:flex;justify-content:center;background:var(--card);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none;padding:0 .5rem}
 .my-tab-nav::-webkit-scrollbar{display:none}
 .my-tab-btn{flex:none;padding:.7rem 1.2rem;font-size:.875rem;font-weight:600;color:var(--muted);background:none;border:none;border-bottom:2.5px solid transparent;cursor:pointer;white-space:nowrap;transition:all .15s}
 .my-tab-btn.active{color:var(--grad-1);border-bottom-color:var(--grad-1)}
@@ -220,6 +220,11 @@ html[data-theme="dark"] .my-logo .logo-dark{display:block}
 /* Creds */
 .my-creds-box{background:var(--input-bg);border:1px solid var(--border);border-radius:10px;padding:1rem;display:flex;flex-direction:column;gap:.6rem}
 .my-cred-row{display:flex;justify-content:space-between;align-items:center;gap:.5rem}
+.my-cred-label{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700}
+.my-cred-val{flex:1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.85rem;word-break:break-all;padding:0 .5rem}
+.my-order-chip{flex:none;padding:.45rem .9rem;border-radius:999px;font-size:.82rem;font-weight:700;color:var(--muted);background:var(--card);border:1px solid var(--border);cursor:pointer;transition:all .15s;white-space:nowrap}
+.my-order-chip:hover{color:var(--text);border-color:var(--grad-1)}
+.my-order-chip.active{color:var(--text);background:linear-gradient(135deg,var(--grad-1),var(--grad-2));border-color:transparent}
 .my-cred-label{font-size:.78rem;color:var(--muted);font-weight:600;text-transform:uppercase}
 .my-cred-val{font-weight:600;font-size:.875rem;font-family:monospace;flex:1;word-break:break-all}
 
@@ -351,7 +356,16 @@ html[data-theme="dark"] .my-logo .logo-dark{display:block}
 'use strict';
 
 // ── State ────────────────────────────────────────────────────────────────────
-let CUSTOMER = null, STORE = {}, ACTIVE_TAB = 'dashboard';
+// Initial tab comes from either the URL path (/my/orders → "orders") or the
+// data-initial-tab attribute the server injects when the route is /my/<tab>.
+// Falls back to "dashboard" for plain /my.
+function _initialTab(){
+  const m=location.pathname.match(/^\/my\/([a-z]+)$/);
+  if(m){return m[1];}
+  const attr=document.documentElement.getAttribute('data-initial-tab');
+  return attr||'dashboard';
+}
+let CUSTOMER = null, STORE = {}, ACTIVE_TAB = _initialTab();
 let ALL_PLANS = [], ORDERS = [], TICKETS = [];
 const PLATFORM_ICONS = {
   'Netflix':'🎬','Amazon Prime':'🛒','Disney+ Hotstar':'🏰','Disney+':'🏰',
@@ -434,12 +448,26 @@ function buildNav(){
   dt.innerHTML=TABS.map(t=>`<button class="my-dtab" data-tab="${t.id}"><span class="di">${t.icon}</span>${t.label}</button>`).join('');
   dt.querySelectorAll('.my-dtab').forEach(b=>b.addEventListener('click',()=>{closeDrawer();goTab(b.dataset.tab);}));
 }
-function goTab(id){
+function goTab(id, opts){
   ACTIVE_TAB=id;buildNav();
   const handlers={dashboard:renderDashboard,plans:renderPlans,orders:renderOrders,referral:renderReferral,support:renderSupport,profile:renderProfile};
+  // Update the URL so each tab feels like a separate page (/my/plans, etc.)
+  // without a full reload. Skip the pushState when called from popstate or
+  // boot — opts.skipPush lets the caller suppress the history change.
+  if(!opts||!opts.skipPush){
+    const known={dashboard:1,plans:1,orders:1,referral:1,support:1,profile:1};
+    const path=id==='dashboard'?'/my':known[id]?('/my/'+id):'/my';
+    try{ if(location.pathname!==path) history.pushState({tab:id},'',path); }catch{}
+  }
   (handlers[id]||renderDashboard)();
 }
 window.goTab=goTab;
+// Browser back/forward syncs the SPA tab with the URL.
+window.addEventListener('popstate',()=>{
+  const m=location.pathname.match(/^\/my\/([a-z]+)$/);
+  const t=m?m[1]:'dashboard';
+  if(t!==ACTIVE_TAB) goTab(t,{skipPush:true});
+});
 
 // ── Drawer ────────────────────────────────────────────────────────────────────
 document.getElementById('hamburger-btn').addEventListener('click',openDrawer);
@@ -901,11 +929,14 @@ async function initPortal(loginResult){
     if(!buyId){ try { buyId=localStorage.getItem('pendingBuyPlanId'); } catch {} }
     if(buyId){
       try { localStorage.removeItem('pendingBuyPlanId'); } catch {}
-      await renderPlans();
+      goTab('plans',{skipPush:true});
       setTimeout(()=>{const btn=document.querySelector('.buy-plan-btn[data-id="'+buyId+'"]');if(btn)btn.click();},500);
       return;
     }
-    renderDashboard();
+    // Boot into the tab the user actually requested via URL (/my/orders →
+    // orders), not always the dashboard. skipPush so we don't pushState
+    // over our own initial URL.
+    goTab(ACTIVE_TAB,{skipPush:true});
   }catch(e){
     // Not logged in or API error
     try{STORE=await api('/store');}catch{}
@@ -1276,54 +1307,191 @@ function showUpiPaymentStep(modalEl,area,r,planName){
 }
 
 // ── Orders ─────────────────────────────────────────────────────────────────────
+let ORDERS_FILTER='all', ORDERS_SEARCH='';
 async function renderOrders(){
   const main=document.getElementById('portal-main');
   main.innerHTML=`<div class="spinner"></div>`;
   try{
     ORDERS=await api('/orders');
-    main.innerHTML=`<h2 style="font-weight:800;margin-bottom:1rem">My Orders</h2>
-${ORDERS.length?ORDERS.map(orderItem).join(''):'<div class="card text-center" style="padding:2.5rem"><p style="font-size:2rem">📦</p><p class="muted">No orders yet.</p><button class="btn btn-primary mt-4" onclick="goTab(\'plans\')">Browse Plans</button></div>'}`;
-    main.querySelectorAll('.view-creds-btn').forEach(btn=>{
-      btn.addEventListener('click',()=>viewCredentials(btn.dataset.id));
-    });
+    drawOrders();
   }catch(e){main.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`;}
+}
+
+function _filteredOrders(){
+  const now=Date.now();
+  let list=ORDERS.slice();
+  if(ORDERS_FILTER==='active') list=list.filter(o=>o.status==='delivered'&&o.expires_at&&new Date(o.expires_at).getTime()>now);
+  else if(ORDERS_FILTER==='expired') list=list.filter(o=>o.status==='expired'||(o.status==='delivered'&&o.expires_at&&new Date(o.expires_at).getTime()<=now));
+  else if(ORDERS_FILTER==='pending') list=list.filter(o=>o.status==='pending'||o.status==='processing');
+  if(ORDERS_SEARCH){
+    const q=ORDERS_SEARCH.toLowerCase();
+    list=list.filter(o=>(o.plan_name||'').toLowerCase().includes(q)||(o.platform||'').toLowerCase().includes(q));
+  }
+  return list;
+}
+
+function drawOrders(){
+  const main=document.getElementById('portal-main');
+  const list=_filteredOrders();
+  const counts={
+    all:ORDERS.length,
+    active:ORDERS.filter(o=>o.status==='delivered'&&o.expires_at&&new Date(o.expires_at).getTime()>Date.now()).length,
+    expired:ORDERS.filter(o=>o.status==='expired'||(o.status==='delivered'&&o.expires_at&&new Date(o.expires_at).getTime()<=Date.now())).length,
+    pending:ORDERS.filter(o=>o.status==='pending'||o.status==='processing').length,
+  };
+  const chip=(k,label)=>`<button class="my-order-chip${ORDERS_FILTER===k?' active':''}" data-filter="${k}">${label} <span style="opacity:.6">(${counts[k]})</span></button>`;
+  main.innerHTML=`<h2 style="font-weight:800;margin-bottom:1rem">My Orders</h2>
+<div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.75rem;align-items:center">
+  ${chip('all','All')}${chip('active','Active')}${chip('pending','Pending')}${chip('expired','Expired')}
+</div>
+<input class="form-input" id="orders-search" placeholder="🔍 Search by plan or platform…" value="${esc(ORDERS_SEARCH)}" style="margin-bottom:1rem">
+${list.length?list.map(orderItem).join(''):'<div class="card text-center" style="padding:2.5rem"><p style="font-size:2rem">📦</p><p class="muted">No orders match this filter.</p><button class="btn btn-primary mt-4" onclick="goTab(\'plans\')">Browse Plans</button></div>'}`;
+  main.querySelectorAll('.my-order-chip').forEach(b=>b.addEventListener('click',()=>{ORDERS_FILTER=b.dataset.filter;drawOrders();}));
+  main.querySelectorAll('.view-creds-btn').forEach(b=>b.addEventListener('click',()=>viewCredentials(b.dataset.id)));
+  main.querySelectorAll('.view-order-btn').forEach(b=>b.addEventListener('click',()=>viewOrderDetail(b.dataset.id)));
+  main.querySelectorAll('.renew-order-btn').forEach(b=>b.addEventListener('click',()=>renewOrder(b.dataset.id,b.dataset.name,b.dataset.price)));
+  const si=document.getElementById('orders-search');
+  if(si){let t;si.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(()=>{ORDERS_SEARCH=si.value.trim();drawOrders();si.focus();si.setSelectionRange(si.value.length,si.value.length);},250);});}
 }
 
 function orderItem(o){
   const icon=PLATFORM_ICONS[o.platform]||'📺';
+  const isExp=o.expires_at&&new Date(o.expires_at).getTime()<=Date.now();
   return `<div class="my-order">
 <div class="my-order-icon">${icon}</div>
 <div class="my-order-info">
   <div class="my-order-name">${esc(o.plan_name||'Plan')}</div>
-  <div class="my-order-meta">${fmtDate(o.created_at)}${o.expires_at?' · Exp: '+fmtDate(o.expires_at):''}</div>
+  <div class="my-order-meta">${esc(o.platform||'')}${o.platform?' · ':''}${fmtDate(o.created_at)}${o.expires_at?' · Exp: '+fmtDate(o.expires_at):''}</div>
 </div>
 <div class="my-order-right">
   ${statusBadge(o.status)}
   <div class="my-order-amt">${fmt(o.amount_inr)}</div>
-  ${o.status==='delivered'?`<button class="btn btn-sm btn-secondary view-creds-btn" data-id="${o.id}">🔑 Credentials</button>`:''}
+  <div style="display:flex;gap:.35rem;flex-wrap:wrap;justify-content:flex-end">
+    <button class="btn btn-sm btn-secondary view-order-btn" data-id="${o.id}">📄 Details</button>
+    ${o.status==='delivered'?`<button class="btn btn-sm btn-primary view-creds-btn" data-id="${o.id}">🔑 Credentials</button>`:''}
+    ${isExp||o.status==='expired'?`<button class="btn btn-sm btn-secondary renew-order-btn" data-id="${o.plan_id}" data-name="${esc(o.plan_name||'')}" data-price="${o.amount_inr}">🔄 Renew</button>`:''}
+  </div>
 </div>
 </div>`;
 }
 
-async function viewCredentials(orderId){
+// ── Full order detail modal: status timeline + payment + plan + credentials ──
+async function viewOrderDetail(orderId){
   try{
     const o=await api(`/orders/${orderId}`);
-    const c=o.credentials||{};
-    const rows=Object.entries(c).filter(([k])=>k!=='').map(([k,v])=>`
+    // Timeline steps: Placed → Paid → Delivered → Expires
+    const steps=[
+      { key:'placed',    label:'Order Placed',  at:o.created_at, done:true },
+      { key:'paid',      label:'Payment Received', at:o.payment?.paid_at,
+        done:!!o.payment||['delivered','processing'].includes(o.status) },
+      { key:'delivered', label:'Delivered',     at:o.status==='delivered'?o.created_at:null,
+        done:o.status==='delivered' },
+      { key:'expires',   label:o.expires_at&&new Date(o.expires_at).getTime()<=Date.now()?'Expired':'Expires',
+        at:o.expires_at, done:o.expires_at&&new Date(o.expires_at).getTime()<=Date.now() },
+    ];
+    const timeline=steps.map(s=>`
+<div style="display:flex;gap:.75rem;align-items:start;margin-bottom:.5rem">
+  <div style="width:20px;height:20px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;margin-top:2px;
+    background:${s.done?'linear-gradient(135deg,#34f59b,#10b981)':'var(--input-bg)'};
+    border:2px solid ${s.done?'#34f59b':'var(--border)'};color:#fff;font-size:.7rem">${s.done?'✓':''}</div>
+  <div style="flex:1;min-width:0">
+    <div style="font-weight:700;font-size:.88rem">${esc(s.label)}</div>
+    <div style="font-size:.75rem;color:var(--muted)">${s.at?fmtDate(s.at):'—'}</div>
+  </div>
+</div>`).join('');
+
+    // Payment summary
+    const pm=o.payment;
+    const methodLabel=pm?({upi_imap:'UPI · Auto-verified',usdt_binance:'USDT · Binance',usdt_bep20:'USDT · BEP20',usdt_trc20:'USDT · TRC20'}[pm.method]||pm.method):'—';
+    const amtText=pm?(pm.currency==='USDT'
+      ?`${(pm.unique_amount_usdt||pm.amount_usdt||0).toFixed(3)} USDT`
+      :`₹${Number(pm.unique_amount||pm.amount_inr||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}`):'';
+
+    // Credentials section (delivered only)
+    const credsBlock=(o.credentials&&Object.keys(o.credentials).length)?`
+<hr style="border-color:var(--border);margin:1rem 0">
+<div style="font-weight:700;margin-bottom:.5rem;display:flex;align-items:center;gap:.5rem">🔑 Credentials</div>
+<div class="my-creds-box">${
+  Object.entries(o.credentials).filter(([k])=>k!=='').map(([k,v])=>`
 <div class="my-cred-row">
   <span class="my-cred-label">${esc(k)}</span>
-  <span class="my-cred-val" id="cv-${esc(k)}">${esc(v)}</span>
-  <button class="btn btn-secondary btn-sm" onclick="copyVal('cv-${esc(k)}','${esc(k)}')">Copy</button>
-</div>`).join('');
-    openModal(`
-<div class="modal-header"><h3>🔑 Credentials</h3><button class="btn-icon" data-close>✕</button></div>
+  <span class="my-cred-val" id="ocv-${esc(k)}">${esc(v)}</span>
+  <button class="btn btn-secondary btn-sm" data-copy="ocv-${esc(k)}" data-label="${esc(k)}">Copy</button>
+</div>`).join('')
+}</div>
+${o.delivery_note?`<div class="alert alert-info" style="margin-top:.75rem">📝 ${esc(o.delivery_note)}</div>`:''}
+${STORE.support_whatsapp?`<button class="btn btn-green btn-block mt-3" id="creds-wa-share">💬 Forward credentials to my WhatsApp</button>`:''}
+`:'';
+
+    // Plan features
+    const feats=Array.isArray(o.plan_features)?o.plan_features:[];
+    const featsBlock=feats.length?`<ul style="margin:.5rem 0 0 1rem;padding:0;font-size:.85rem;color:var(--muted)">${feats.slice(0,6).map(f=>`<li style="margin-bottom:2px">${esc(f)}</li>`).join('')}</ul>`:'';
+
+    const isExp=o.expires_at&&new Date(o.expires_at).getTime()<=Date.now();
+    const renewBtn=(isExp||o.status==='expired')&&o.plan_id?`<button class="btn btn-primary" id="order-renew-btn">🔄 Renew this plan</button>`:'';
+
+    const ov=openModal(`
+<div class="modal-header"><h3>Order #${o.id}</h3><button class="btn-icon" data-close>✕</button></div>
 <div class="modal-body">
-  <div class="my-creds-box">${rows||'<p style="color:var(--muted)">No credentials yet.</p>'}</div>
-  ${o.delivery_note?`<div class="alert alert-info" style="margin-top:.75rem">📝 ${esc(o.delivery_note)}</div>`:''}
-  ${o.expires_at?`<p style="font-size:.8rem;color:var(--muted);margin-top:.5rem">Expires: ${fmtDate(o.expires_at)}</p>`:''}
+  <div style="background:var(--input-bg);border-radius:10px;padding:1rem;margin-bottom:1rem">
+    <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem">
+      <div style="font-size:1.4rem">${PLATFORM_ICONS[o.platform]||'📺'}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:800">${esc(o.plan_name||'Plan')}</div>
+        <div style="font-size:.78rem;color:var(--muted)">${esc(o.platform||'')}</div>
+      </div>
+      ${statusBadge(o.status)}
+    </div>
+    <div style="font-size:1.25rem;font-weight:800" class="grad-text">${fmt(o.amount_inr)}</div>
+    ${featsBlock}
+  </div>
+
+  <div style="font-weight:700;margin-bottom:.5rem">Status timeline</div>
+  ${timeline}
+
+  ${pm?`<hr style="border-color:var(--border);margin:1rem 0">
+  <div style="font-weight:700;margin-bottom:.5rem">Payment</div>
+  <div style="font-size:.85rem;line-height:1.7">
+    <div><span style="color:var(--muted)">Method:</span> ${esc(methodLabel)}</div>
+    <div><span style="color:var(--muted)">Paid:</span> ${esc(amtText)}</div>
+    <div><span style="color:var(--muted)">When:</span> ${fmtDate(pm.paid_at)}</div>
+    <div><span style="color:var(--muted)">Topup ref:</span> #${pm.id}</div>
+  </div>`:''}
+
+  ${credsBlock}
+
+  ${o.delivery_time_est?`<p style="font-size:.78rem;color:var(--muted);margin-top:1rem">⏱ Estimated delivery: ${esc(o.delivery_time_est)}</p>`:''}
 </div>
-<div class="modal-footer"><button class="btn btn-secondary" data-close>Close</button></div>`);
+<div class="modal-footer">
+  <button class="btn btn-secondary" data-close>Close</button>
+  ${renewBtn}
+</div>`);
+
+    // Wire copy / share / renew handlers
+    ov.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',()=>{
+      const el=document.getElementById(b.dataset.copy); if(!el)return;
+      try{navigator.clipboard.writeText(el.textContent);showToast(b.dataset.label+' copied','success');}catch{}
+    }));
+    const wa=document.getElementById('creds-wa-share');
+    if(wa)wa.addEventListener('click',()=>{
+      const lines=Object.entries(o.credentials||{}).filter(([k])=>k!=='').map(([k,v])=>`${k}: ${v}`).join('\n');
+      const txt=`Order #${o.id} — ${o.plan_name||''}\n\n${lines}${o.delivery_note?`\n\n${o.delivery_note}`:''}`;
+      const phone=String(STORE.support_whatsapp||'').replace(/\D/g,'');
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(txt)}`,'_blank','noopener');
+    });
+    const rb=document.getElementById('order-renew-btn');
+    if(rb)rb.addEventListener('click',()=>{ov.remove();renewOrder(o.plan_id,o.plan_name,o.amount_inr);});
   }catch(e){showToast(e.message,'error');}
+}
+
+async function viewCredentials(orderId){
+  // Delegates to the detail modal so there's one source of truth.
+  return viewOrderDetail(orderId);
+}
+
+function renewOrder(planId,planName,price){
+  if(!planId)return showToast('Plan no longer available.','error');
+  confirmBuy(planId,planName,price);
 }
 
 window.copyVal=function(elId,label){

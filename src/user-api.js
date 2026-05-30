@@ -521,7 +521,7 @@ router.get('/orders/:id', requireCustomer, async (req, res) => {
   try {
     const db = await getDb();
     const order = get(db,
-      `SELECT o.*, p.name as plan_name, p.platform, p.duration_days
+      `SELECT o.*, p.name as plan_name, p.platform, p.duration_days, p.features as plan_features, p.image_url as plan_image, p.delivery_time_est
        FROM orders o LEFT JOIN plans p ON o.plan_id=p.id
        WHERE o.id=? AND o.customer_jid=?`,
       [req.params.id, req.customer.jid]);
@@ -531,6 +531,13 @@ router.get('/orders/:id', requireCustomer, async (req, res) => {
     } else {
       delete order.credentials;
     }
+    try { order.plan_features = JSON.parse(order.plan_features || '[]'); } catch { order.plan_features = []; }
+    // Attach the payment row (method + paid_at + tx ref) for the timeline.
+    const topup = get(db,
+      `SELECT id, method, currency, amount_inr, amount_usdt, unique_amount, unique_amount_usdt, created_at as paid_at, status as payment_status
+       FROM topups WHERE order_id=? AND customer_jid=? ORDER BY created_at DESC LIMIT 1`,
+      [order.id, req.customer.jid]);
+    if (topup) order.payment = topup;
     res.json(order);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

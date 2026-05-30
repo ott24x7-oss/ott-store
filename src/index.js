@@ -186,19 +186,29 @@ app.get('/blog', async (req, res) => {
   } catch (e) { res.status(500).send('Server error'); }
 });
 
-// SPA routes → serve their HTML files. /my is server-rendered with the active
-// theme attribute injected so the cinematic palette is correct on first paint,
-// before the SPA JS reads STORE.store_theme.
-app.get('/my', async (req, res) => {
+// SPA routes → serve my.html for /my and every tab subpath. The page is still
+// a single SPA, but each tab gets its own URL (so the address bar reads like
+// "separate pages" — /my/orders, /my/plans, etc. — and back/forward navigation
+// works). The server injects two things into the HTML: the active theme (for
+// correct first-paint colors) and the requested tab name (so the SPA boots
+// into the right view without a flash of the dashboard).
+const MY_TABS = ['dashboard', 'plans', 'orders', 'referral', 'support', 'profile'];
+async function serveMyHtml(req, res, tab) {
   try {
     const storeTheme = await getActiveTheme();
     let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'store', 'my.html'), 'utf8');
-    html = html.replace(/<html lang="en" data-theme="dark">/, `<html lang="en" data-theme="dark" data-store-theme="${storeTheme}">`);
+    html = html.replace(
+      /<html lang="en" data-theme="dark">/,
+      `<html lang="en" data-theme="dark" data-store-theme="${storeTheme}" data-initial-tab="${tab}">`,
+    );
     res.type('text/html').send(html);
   } catch {
     res.sendFile(path.join(__dirname, '..', 'public', 'store', 'my.html'));
   }
-});
+}
+app.get('/my', (req, res) => serveMyHtml(req, res, 'dashboard'));
+for (const t of MY_TABS) app.get(`/my/${t}`, (req, res) => serveMyHtml(req, res, t));
+
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'admin', 'index.html')));
 
 // Public static pages — served from DB legal_pages table
