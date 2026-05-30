@@ -133,7 +133,12 @@ async function buildStoreSystemPrompt(db) {
   const s = {};
   siteRows.forEach(r => s[r.key] = r.value);
 
-  const plans = all(db, `SELECT id,platform,name,duration_days,price_inr,original_price_inr,description,delivery_type,delivery_time_est FROM plans WHERE active=1 ORDER BY platform,price_inr ASC`);
+  // Declare siteUrl BEFORE the plans map — it's referenced inside the map for product URLs.
+  const payMethods = all(db, `SELECT name FROM payment_methods WHERE enabled=1`).map(m => m.name).join(', ');
+  const siteUrl  = (s.base_url || '').replace(/\/$/, '');
+  const siteName = s.site_name || 'OTT Store';
+
+  const plans = all(db, `SELECT id,slug,platform,name,duration_days,price_inr,original_price_inr,description,delivery_type,delivery_time_est FROM plans WHERE active=1 ORDER BY platform,price_inr ASC`);
   const platforms = [...new Set(plans.map(p => p.platform))];
   const plansText = plans.map(p => {
     const orig = (p.original_price_inr > p.price_inr) ? ` (was ₹${p.original_price_inr})` : '';
@@ -150,10 +155,6 @@ async function buildStoreSystemPrompt(db) {
     const urlPart = planUrl ? ` | URL: ${planUrl}` : '';
     return `• [ID:${p.id}] ${p.platform} — ${p.name} | ${dur} | ₹${p.price_inr}${orig}${del}${p.description ? ` | ${p.description}` : ''}${urlPart}`;
   }).join('\n');
-
-  const payMethods = all(db, `SELECT name FROM payment_methods WHERE enabled=1`).map(m => m.name).join(', ');
-  const siteUrl  = (s.base_url || '').replace(/\/$/, '');
-  const siteName = s.site_name || 'OTT Store';
 
   // Support team contacts
   let teamRow;
