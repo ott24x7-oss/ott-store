@@ -1670,31 +1670,111 @@ async function renderProfile(){
   const main=document.getElementById('portal-main');
   main.innerHTML=`<div class="spinner"></div>`;
   try{
-    CUSTOMER=await api('/me');
+    // Fan out the four reads in parallel for snappier paint.
+    const [me, stats, logins, payments]=await Promise.all([
+      api('/me'),
+      api('/me/stats').catch(()=>({})),
+      api('/me/logins').catch(()=>[]),
+      api('/me/payments').catch(()=>[]),
+    ]);
+    CUSTOMER=me;
+
+    // ── Stats tiles ────────────────────────────────────────────────────────
+    const fmtInr=n=>'₹'+Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:0});
+    const tile=(label,value,sub)=>`
+<div class="card" style="padding:.9rem 1rem;text-align:left">
+  <div style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700">${esc(label)}</div>
+  <div style="font-weight:800;font-size:1.15rem;margin-top:.2rem">${esc(String(value))}</div>
+  ${sub?`<div style="font-size:.72rem;color:var(--muted);margin-top:2px">${esc(sub)}</div>`:''}
+</div>`;
+    const memberSinceShort=stats.member_since?fmtDate(stats.member_since):'—';
+    const fav=stats.favorite_platform?`${PLATFORM_ICONS[stats.favorite_platform]||'📺'} ${stats.favorite_platform}`:'—';
+    const favSub=stats.favorite_platform?`${stats.favorite_count} order${stats.favorite_count===1?'':'s'}`:'';
+
+    const statsBlock=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.6rem;margin-bottom:1.25rem">
+      ${tile('Total spent',fmtInr(stats.total_spent_inr),'')}
+      ${tile('Orders',stats.total_orders||0,`${stats.active_subs_count||0} active`)}
+      ${tile('Favorite',fav,favSub)}
+      ${tile('Member since',memberSinceShort,'')}
+    </div>`;
+
+    // ── Login activity table ───────────────────────────────────────────────
+    const methodLabel={
+      login:'Password',
+      login_otp:'Email OTP', register_otp:'Email OTP (signup)',
+      login_magic:'Email Magic Link', register_magic:'Email Magic Link (signup)',
+      login_wa:'WhatsApp OTP', register_wa:'WhatsApp OTP (signup)',
+      login_wa_magic:'WhatsApp Tap-to-Login', register_wa_magic:'WhatsApp Tap-to-Login (signup)',
+    };
+    const loginRows=logins.length?logins.slice(0,10).map(l=>`
+<tr>
+  <td style="font-weight:600">${esc(methodLabel[l.action]||l.action)}</td>
+  <td style="font-size:.78rem;color:var(--muted)">${esc(l.ip||'—')}</td>
+  <td style="font-size:.78rem;color:var(--muted)">${fmtDate(l.created_at)}</td>
+</tr>`).join(''):`<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:1rem;font-size:.85rem">No login activity yet</td></tr>`;
+
+    // ── Payment history table ─────────────────────────────────────────────
+    const pmLabel={upi_imap:'UPI · Auto-verified',usdt_binance:'USDT · Binance',usdt_bep20:'USDT · BEP20',usdt_trc20:'USDT · TRC20'};
+    const pmAmt=p=>p.currency==='USDT'
+      ?`${Number(p.unique_amount_usdt||p.amount_usdt||0).toFixed(3)} USDT`
+      :`₹${Number(p.unique_amount||p.amount_inr||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+    const payRows=payments.length?payments.slice(0,15).map(p=>`
+<tr>
+  <td><span class="badge ${({approved:'badge-green',pending:'badge-yellow',expired:'badge-grey',cancelled:'badge-grey',rejected:'badge-red'})[p.status]||'badge-grey'}">${esc(p.status||'—')}</span></td>
+  <td style="font-size:.82rem">${esc(pmLabel[p.method]||p.method||'—')}</td>
+  <td style="font-weight:700;font-variant-numeric:tabular-nums">${esc(pmAmt(p))}</td>
+  <td style="font-size:.78rem;color:var(--muted)">${p.order_id?'<a href="#" onclick="event.preventDefault();viewOrderDetail('+p.order_id+')">#'+p.order_id+'</a>':'—'}</td>
+  <td style="font-size:.78rem;color:var(--muted)">${fmtDate(p.created_at)}</td>
+</tr>`).join(''):`<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:1rem;font-size:.85rem">No payments yet</td></tr>`;
+
     main.innerHTML=`
-<h2 style="font-weight:800;margin-bottom:1.5rem">Profile</h2>
-<div class="card" style="max-width:500px">
+<h2 style="font-weight:800;margin-bottom:1rem">Profile &amp; Activity</h2>
+
+${statsBlock}
+
+<div class="card" style="max-width:680px;margin-bottom:1.25rem">
 <form id="profile-form" style="display:flex;flex-direction:column;gap:.9rem">
 <div id="pf-msg"></div>
-<div class="form-group"><label class="my-lbl">Full Name</label><input class="form-input" name="name" value="${esc(CUSTOMER.name||'')}" required></div>
-<div class="form-group"><label class="my-lbl">Email</label><input class="form-input" name="email" type="email" value="${esc(CUSTOMER.email||'')}"></div>
+<div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+  <div class="form-group"><label class="my-lbl">Full Name</label><input class="form-input" name="name" value="${esc(CUSTOMER.name||'')}" required></div>
+  <div class="form-group"><label class="my-lbl">Email</label><input class="form-input" name="email" type="email" value="${esc(CUSTOMER.email||'')}"></div>
+</div>
 <div class="form-group"><label class="my-lbl">WhatsApp Number</label><input class="form-input" name="phone" type="tel" value="${esc(CUSTOMER.phone||'')}"></div>
 <hr style="border-color:var(--border)">
 <p style="font-size:.875rem;font-weight:700">Change Password</p>
-<div class="form-group"><label class="my-lbl">Current Password</label><input class="form-input" name="current_password" type="password" placeholder="Leave blank to keep unchanged"></div>
-<div class="form-group"><label class="my-lbl">New Password</label><input class="form-input" name="password" type="password" placeholder="Min. 6 characters"></div>
-<button type="submit" class="btn btn-primary btn-block">Save Changes</button>
+<div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+  <div class="form-group"><label class="my-lbl">Current Password</label><input class="form-input" name="current_password" type="password" placeholder="Leave blank to keep unchanged"></div>
+  <div class="form-group"><label class="my-lbl">New Password</label><input class="form-input" name="password" type="password" placeholder="Min. 6 characters"></div>
+</div>
+<button type="submit" class="btn btn-primary">Save Changes</button>
 </form>
 <hr style="border-color:var(--border);margin:1rem 0">
-<div style="display:flex;gap:.75rem">
-  <div style="flex:1;background:var(--input-bg);border-radius:var(--radius-sm);padding:.75rem;text-align:center">
+<div style="display:flex;gap:.75rem;flex-wrap:wrap">
+  <div style="flex:1;min-width:160px;background:var(--input-bg);border-radius:var(--radius-sm);padding:.75rem;text-align:center">
     <div style="color:var(--muted);font-size:.75rem">Referral Code</div>
-    <div style="font-weight:800;font-size:1.1rem;font-family:monospace">${esc(CUSTOMER.referral_code||'—')}</div>
+    <div style="font-weight:800;font-size:1.05rem;font-family:ui-monospace,monospace;margin-top:.15rem">${esc(CUSTOMER.referral_code||'—')}</div>
   </div>
 </div>
 <hr style="border-color:var(--border);margin:1rem 0">
 <button class="btn btn-red btn-block" onclick="logout()">Logout</button>
+</div>
+
+<h3 style="font-weight:800;margin:1.5rem 0 .75rem;font-size:1.05rem">🔐 Recent login activity</h3>
+<div class="card" style="padding:0;overflow:hidden;margin-bottom:1.25rem">
+  <div class="table-wrap"><table style="font-size:.85rem;width:100%">
+    <thead><tr><th style="text-align:left;padding:.6rem .9rem;color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.5px">Method</th><th style="text-align:left;padding:.6rem .9rem;color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.5px">IP</th><th style="text-align:left;padding:.6rem .9rem;color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.5px">When</th></tr></thead>
+    <tbody>${loginRows}</tbody>
+  </table></div>
+</div>
+
+<h3 style="font-weight:800;margin:1.5rem 0 .75rem;font-size:1.05rem">💳 Payment history</h3>
+<div class="card" style="padding:0;overflow:hidden">
+  <div class="table-wrap"><table style="font-size:.85rem;width:100%">
+    <thead><tr><th style="text-align:left;padding:.6rem .9rem;color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.5px">Status</th><th style="text-align:left;padding:.6rem .9rem;color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.5px">Method</th><th style="text-align:left;padding:.6rem .9rem;color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.5px">Amount</th><th style="text-align:left;padding:.6rem .9rem;color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.5px">Order</th><th style="text-align:left;padding:.6rem .9rem;color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.5px">When</th></tr></thead>
+    <tbody>${payRows}</tbody>
+  </table></div>
 </div>`;
+
     document.getElementById('profile-form').onsubmit=async e=>{
       e.preventDefault();
       const fd=new FormData(e.target);
@@ -1710,6 +1790,7 @@ async function renderProfile(){
     };
   }catch(e){main.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`;}
 }
+window.viewOrderDetail=window.viewOrderDetail||viewOrderDetail;
 
 // ── Referral ──────────────────────────────────────────────────────────────────
 async function renderReferral(){

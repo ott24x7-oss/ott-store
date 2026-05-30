@@ -205,6 +205,63 @@ router.get('/me', requireCustomer, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── Phase 3: customer history ───────────────────────────────────────────────
+// Read-only endpoints feeding the Profile page's Activity / Payments / Stats
+// sections. All scoped to the authenticated customer; never expose another
+// customer's rows.
+
+// Recent login + register events from audit_log.
+router.get('/me/logins', requireCustomer, async (req, res) => {
+  try {
+    const db = await getDb();
+    const rows = all(db, `SELECT id, action, ip, created_at
+      FROM audit_log
+      WHERE actor_kind='customer' AND target_kind='customer' AND target_id=?
+        AND (action LIKE 'login%' OR action LIKE 'register%')
+      ORDER BY created_at DESC LIMIT 25`,
+      [req.customer.jid]);
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// All payment / topup rows for this customer.
+router.get('/me/payments', requireCustomer, async (req, res) => {
+  try {
+    const db = await getDb();
+    const rows = all(db, `SELECT id, method, currency, amount_inr, amount_usdt,
+        unique_amount, unique_amount_usdt, status, order_id, created_at, expires_at
+      FROM topups WHERE customer_jid=?
+      ORDER BY created_at DESC LIMIT 100`,
+      [req.customer.jid]);
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Aggregate stats for the Profile dashboard card.
+router.get('/me/stats', requireCustomer, async (req, res) => {
+  try {
+    const db = await getDb();
+    const s = get(db, `SELECT
+        COUNT(*) as total_orders,
+        COALESCE(SUM(CASE WHEN status NOT IN ('cancelled','failed') THEN amount_inr ELSE 0 END),0) as total_spent_inr,
+        SUM(CASE WHEN status='delivered' AND expires_at IS NOT NULL AND datetime(expires_at) > datetime('now') THEN 1 ELSE 0 END) as active_subs_count
+      FROM orders WHERE customer_jid=?`, [req.customer.jid]);
+    const fav = get(db, `SELECT p.platform, COUNT(*) as n
+      FROM orders o LEFT JOIN plans p ON o.plan_id=p.id
+      WHERE o.customer_jid=? AND p.platform IS NOT NULL AND p.platform<>''
+      GROUP BY p.platform ORDER BY n DESC LIMIT 1`, [req.customer.jid]);
+    const c = get(db, `SELECT created_at FROM customers WHERE jid=?`, [req.customer.jid]);
+    res.json({
+      total_orders:      s?.total_orders || 0,
+      total_spent_inr:   s?.total_spent_inr || 0,
+      active_subs_count: s?.active_subs_count || 0,
+      favorite_platform: fav?.platform || null,
+      favorite_count:    fav?.n || 0,
+      member_since:      c?.created_at || null,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 router.put('/me', requireCustomer, async (req, res) => {
   try {
     const { name, email, phone, password, current_password } = req.body;
