@@ -222,31 +222,90 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
   .home-bnav{display:flex}
   body{padding-bottom:70px}
 }
-@media (max-width:560px){
-  .top-banner{font-size:12px}.nav{height:68px}.brand span{font-size:15px}
-  .logo{width:41px;height:41px;border-radius:15px;font-size:18px}
-  .btn{padding:13px 15px}h1{letter-spacing:-2.4px}.hero p{font-size:15.5px}
-  .hero-actions .btn{width:100%}
-  .cinema-stage{height:470px}
-  .screen-card{width:282px;height:405px;top:58px;padding:12px;border-radius:28px}
-  .poster{height:178px;border-radius:22px;padding:14px}
-  .poster h3{font-size:23px;bottom:38px;left:14px;right:14px}
-  .poster small{left:14px;bottom:16px}
-  .poster-mini{min-height:70px;border-radius:16px;padding:9px}
-  .poster-mini span{font-size:19px;margin-bottom:7px}.poster-mini b{font-size:10px}
-  .plan-card{padding:10px;border-radius:16px;margin-top:9px}
-  .floating-sub{width:68px;height:68px;border-radius:22px;font-size:21px}
-  .hotstar{left:0;top:175px}.prime{right:0;top:18px}.sony{left:126px;top:4px}
-  .zee{left:3px;bottom:74px}.music{right:3px;bottom:60px}.ai{left:145px;bottom:2px}
-  .reel{width:78px;height:78px;border-width:6px}.reel.one{left:0;top:84px}
-  .reel.two{width:64px;height:64px;right:4px;bottom:86px}
-  .projector-beam{top:31%;height:40%}
-  .grid-4,.steps{grid-template-columns:1fr}.category-card{min-height:190px}
-  .stat strong{font-size:21px}
-  .cta{flex-direction:column;align-items:flex-start;padding:26px}
+/* ── Mobile redesign (≤760px) ──
+   Desktop hero is a 3D cinema-stage with absolute-positioned floating-sub
+   bubbles around a tilted screen-card. On phones those bubbles crash into
+   the title and the 580px stage wastes vertical space. Mobile gets a clean
+   stacked layout: text → flat (non-tilted) screen-card → stats. The
+   decorative reels/bubbles/projector-beam are hidden — the cinematic
+   feel comes from the spotlight orbs in the background instead. */
+@media (max-width:760px){
+  /* Page chrome */
+  body{padding-bottom:70px}
+  .container{width:min(1180px,94vw)}
+  .top-banner{font-size:11.5px;padding:7px 0}
+  .nav{height:62px}
+  .brand span{font-size:14.5px}
+  .logo{width:38px;height:38px;border-radius:13px;font-size:17px}
+  .brand img{max-height:32px;max-width:140px}
+
+  /* Hero — tighter typography, single column */
+  .hero{grid-template-columns:1fr;gap:0;padding:26px 0 18px;min-height:auto}
+  .badge{font-size:11.5px;padding:7px 11px}
+  h1{font-size:clamp(34px,9vw,46px);line-height:.96;letter-spacing:-1.6px;margin:14px 0 12px}
+  .hero p{font-size:14.5px;line-height:1.6;margin:0 0 18px;max-width:none}
+  .hero-actions{flex-direction:column;align-items:stretch;gap:9px;margin-bottom:22px}
+  .hero-actions .btn{width:100%;justify-content:center;padding:13px 16px;font-size:14.5px}
+  .stats{grid-template-columns:repeat(2,1fr);gap:9px;max-width:none}
+  .stat{padding:11px 12px}
+  .stat strong{font-size:20px}
+  .stat span{font-size:11px}
+
+  /* Cinema stage — hide decorations, flatten screen-card, no perspective */
+  .cinema-stage{
+    order:-1;perspective:none;transform-style:flat;
+    height:auto;min-height:0;margin:0 0 20px;
+  }
+  .projector-beam,
+  .reel,.reel.one,.reel.two,
+  .floating-sub{display:none!important}
+
+  .screen-card{
+    position:relative;left:auto;right:auto;top:auto;
+    width:100%;max-width:380px;height:auto;
+    margin:0 auto;padding:14px;border-radius:26px;
+    transform:none;
+  }
+  .poster{height:170px;border-radius:20px;padding:14px}
+  .poster h3{font-size:22px;bottom:38px;left:14px;right:14px;letter-spacing:-1px}
+  .poster small{left:14px;bottom:16px;font-size:12px}
+  .poster-row{gap:8px;margin-top:11px}
+  .poster-mini{min-height:74px;border-radius:16px;padding:10px}
+  .poster-mini span{font-size:20px;margin-bottom:6px}
+  .poster-mini b{font-size:11px}
+  .plan-card{padding:10px;border-radius:16px;margin-top:10px}
+
+  /* Sections below the fold */
+  .ribbon{padding:9px 0}
+  .ribbon span{font-size:12px;margin:0 22px}
+  .section{padding:34px 0}
+  .section-head{flex-direction:column;align-items:flex-start;gap:10px;margin-bottom:18px}
+  .section-head h2{font-size:clamp(22px,5.5vw,28px);letter-spacing:-1.2px}
+  .kicker{font-size:11px}
+  .grid-4,.steps,.product-showcase{grid-template-columns:1fr;gap:12px}
+  .category-card{min-height:auto;padding:18px}
+  .cta{flex-direction:column;align-items:stretch;padding:22px;gap:14px}
+  .cta h2{font-size:22px}
   .cta .hero-actions{margin-bottom:0;width:100%}
-  .footer-row{flex-direction:column;align-items:flex-start}
+  .cta .btn{width:100%;justify-content:center}
+  .footer-row{flex-direction:column;align-items:flex-start;gap:14px}
   .footer-row a{margin-left:0;margin-right:13px}
+  .links{display:none}
+  .mv-burger{display:inline-flex;align-items:center;justify-content:center}
+  .home-bnav{display:flex}
+
+  /* Background spotlights — smaller and less intense so they don't smear */
+  .spotlight.one{width:240px;height:240px}
+  .spotlight.two{width:220px;height:220px}
+  .spotlight.three{width:200px;height:200px;bottom:-100px}
+}
+@media (max-width:420px){
+  .top-banner{font-size:11px}
+  h1{font-size:clamp(30px,9vw,40px);letter-spacing:-1.4px}
+  .hero p{font-size:14px}
+  .poster h3{font-size:20px}
+  .stat strong{font-size:18px}
+  .stat span{font-size:10.5px}
 }
 
 /* ── Chat widget (MovieVerse skin) ── */
