@@ -88,8 +88,19 @@ function computePlanPrice(db, plan, customer, planId) {
   return plan.price_inr;
 }
 
+// Disable HTTP-level caching for endpoints that mirror admin-editable data —
+// settings, plan list, and the active theme. Without this Express returns an
+// ETag with no Cache-Control, which lets browsers heuristic-cache the response;
+// an admin change to a plan image_url / price / stock would then only show up
+// on the landing pages after a manual refresh. With no-cache the browser must
+// revalidate every request, so admin edits land within a normal page load.
+function noStoreCache(_req, res, next) {
+  res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+  next();
+}
+
 // ─── Store info (public, no auth) ────────────────────────────────────────────
-router.get('/store', async (req, res) => {
+router.get('/store', noStoreCache, async (req, res) => {
   try {
     const db = await getDb();
     const rows = all(db, `SELECT key, value FROM settings WHERE key IN
@@ -123,7 +134,7 @@ router.get('/store', async (req, res) => {
 });
 
 // ─── Public plans ─────────────────────────────────────────────────────────────
-router.get('/plans', async (req, res) => {
+router.get('/plans', noStoreCache, async (req, res) => {
   try {
     const db = await getDb();
     let sql = `SELECT * FROM plans WHERE active=1`;
