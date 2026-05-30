@@ -364,6 +364,7 @@ function migrate(db) {
   try { db.run(`ALTER TABLE topups ADD COLUMN expires_at TEXT`); } catch {}
   // Admin-only customer note (visible in the Edit Customer modal)
   try { db.run(`ALTER TABLE customers ADD COLUMN admin_notes TEXT DEFAULT ''`); } catch {}
+  try { db.run(`ALTER TABLE customers ADD COLUMN guest INTEGER DEFAULT 0`); } catch {}
   try { db.run(`ALTER TABLE orders ADD COLUMN stock_credential_id INTEGER`); } catch {}
   try { db.run(`ALTER TABLE orders ADD COLUMN renewal_reminded_at TEXT`); } catch {}
   // Plans: catalog enhancements
@@ -406,6 +407,8 @@ function migrate(db) {
   try { db.run(`CREATE INDEX IF NOT EXISTS idx_topups_status_purpose ON topups(status, purpose)`); } catch {}
   try { db.run(`CREATE INDEX IF NOT EXISTS idx_topups_order_id ON topups(order_id)`); } catch {}
   try { db.run(`CREATE INDEX IF NOT EXISTS idx_audit_target ON audit_log(target_kind, target_id, action)`); } catch {}
+  // Guest checkout — random token so unauthenticated poll can verify ownership
+  try { db.run(`ALTER TABLE topups ADD COLUMN guest_token TEXT`); } catch {}
   try { db.run(`CREATE INDEX IF NOT EXISTS idx_auth_tokens_expires ON auth_tokens(expires_at)`); } catch {}
 
   // ── auth_tokens housekeeping ─────────────────────────────────────────────

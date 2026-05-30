@@ -780,6 +780,160 @@ router.get('/checkout/poll/:topupId', requireCustomer, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── Guest Checkout ───────────────────────────────────────────────────────────
+// Allows purchasing without creating an account. Guest provides name + email;
+// we create (or reuse) a synthetic customer record with jid = guest_<hash>@guest.local,
+// create the topup with a random guest_token for poll ownership verification,
+// and deliver credentials to the guest's email after IMAP payment confirmation.
+
+function guestJid(email) {
+  return 'guest_' + crypto.createHash('sha1').update(email.toLowerCase().trim()).digest('hex').slice(0, 16) + '@guest.local';
+}
+
+async function ensureGuestCustomer(db, email, name, phone) {
+  const jid = guestJid(email);
+  let cust = get(db, 'SELECT * FROM customers WHERE jid=?', [jid]);
+  if (!cust) {
+    run(db, `INSERT INTO customers (jid, email, name, phone, guest) VALUES (?,?,?,?,1)`,
+      [jid, email.toLowerCase().trim(), name || 'Guest', phone || null]);
+    cust = get(db, 'SELECT * FROM customers WHERE jid=?', [jid]);
+  } else {
+    // Update name/email if guest re-orders with different details
+    if (name) run(db, 'UPDATE customers SET name=?, phone=COALESCE(?,phone) WHERE jid=?', [name, phone || null, jid]);
+    cust = get(db, 'SELECT * FROM customers WHERE jid=?', [jid]);
+  }
+  return cust;
+}
+
+const guestLimiter = require('express-rate-limit').rateLimit({
+  windowMs: 15 * 60 * 1000, max: 10,
+  standardHeaders: true, legacyHeaders: false,
+  message: { error: 'Too many guest checkout attempts. Try again in 15 minutes.' },
+});
+
+router.post('/guest-checkout/upi', guestLimiter, async (req, res) => {
+  try {
+    const { plan_id, email, name, phone } = req.body;
+    if (!plan_id) return res.status(400).json({ error: 'plan_id required' });
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      return res.status(400).json({ error: 'Valid email required for guest checkout' });
+
+    const db = await getDb();
+    const imapEnabled = await getSetting('imap_enabled');
+    if (imapEnabled !== '1') return res.status(400).json({ error: 'UPI auto-verify not enabled by store' });
+
+    const plan = get(db, 'SELECT * FROM plans WHERE id=? AND active=1', [plan_id]);
+    if (!plan) return res.status(404).json({ error: 'Plan not found or unavailable' });
+    if (plan.stock === 0) return res.status(400).json({ error: 'Out of stock' });
+
+    const cust = await ensureGuestCustomer(db, email, name, phone);
+    const price = computePlanPrice(db, plan, cust, plan_id);
+
+    // Expire any pending guest topup for same plan+email
+    run(db, `UPDATE topups SET status='expired' WHERE customer_jid=? AND plan_id=? AND purpose='order' AND status='pending'`,
+      [cust.jid, plan_id]);
+
+    const { generateUniqueAmount } = require('./imap-verify');
+    const uniqueAmount = generateUniqueAmount(price);
+    const eupi = await getEffectiveUpi(db);
+    const windowMin = parseInt(await getSetting('usdt_payment_window_minutes') || '20', 10);
+    const expiresAt = new Date(Date.now() + windowMin * 60 * 1000).toISOString();
+    const guestToken = crypto.randomBytes(20).toString('hex');
+
+    const r = run(db, `INSERT INTO topups (customer_jid,amount_inr,unique_amount,method,status,purpose,plan_id,currency,expires_at,guest_token) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+      [cust.jid, price, uniqueAmount, 'upi_imap', 'pending', 'order', plan_id, 'INR', expiresAt, guestToken]);
+
+    res.json({
+      ok: true, guest: true,
+      topup_id: r.lastInsertRowid,
+      guest_token: guestToken,
+      unique_amount: uniqueAmount,
+      upi_id: eupi.upi_id, upi_name: (eupi.upi_name || '').replace(/[^a-zA-Z0-9 ]/g, ''),
+      qr_url: eupi.qr_url || '',
+      plan_name: plan.name, plan_price: price,
+      expires_at: expiresAt, window_minutes: windowMin,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/guest-checkout/usdt', guestLimiter, async (req, res) => {
+  try {
+    const { plan_id, email, name, phone, network } = req.body;
+    if (!plan_id) return res.status(400).json({ error: 'plan_id required' });
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      return res.status(400).json({ error: 'Valid email required for guest checkout' });
+    const net = String(network || '').toLowerCase();
+    if (!['binance','bep20','trc20'].includes(net))
+      return res.status(400).json({ error: 'Invalid network' });
+
+    const db = await getDb();
+    const imapEnabled = await getSetting('imap_enabled');
+    if (imapEnabled !== '1') return res.status(400).json({ error: 'Payment auto-verify not enabled' });
+
+    const plan = get(db, 'SELECT * FROM plans WHERE id=? AND active=1', [plan_id]);
+    if (!plan) return res.status(404).json({ error: 'Plan not found' });
+    if (plan.stock === 0) return res.status(400).json({ error: 'Out of stock' });
+
+    const cust = await ensureGuestCustomer(db, email, name, phone);
+    const price = computePlanPrice(db, plan, cust, plan_id);
+
+    const rateInr = parseFloat(await getSetting('usdt_inr_rate') || '84') || 84;
+    const feePct  = parseFloat(await getSetting('usdt_fee_pct')  || '2')  || 2;
+    const subUsdt = price / rateInr;
+    const feeUsdt = subUsdt * feePct / 100;
+    const totalUsdt = subUsdt + feeUsdt;
+    const { generateUniqueAmountUsdt } = require('./imap-verify');
+    const uniqueUsdt = generateUniqueAmountUsdt ? generateUniqueAmountUsdt(totalUsdt) : parseFloat((totalUsdt + (Math.random() * 0.001)).toFixed(4));
+
+    const addrKey = { binance:'usdt_binance_uid', bep20:'usdt_bep20_address', trc20:'usdt_trc20_address' }[net];
+    const qrKey   = { binance:'usdt_binance_qr_url', bep20:'usdt_bep20_qr_url', trc20:'usdt_trc20_qr_url' }[net];
+    const address = await getSetting(addrKey);
+    if (!address) return res.status(400).json({ error: `USDT ${net} address not configured` });
+
+    run(db, `UPDATE topups SET status='expired' WHERE customer_jid=? AND plan_id=? AND purpose='order' AND status='pending'`,
+      [cust.jid, plan_id]);
+
+    const windowMin = parseInt(await getSetting('usdt_payment_window_minutes') || '20', 10);
+    const expiresAt = new Date(Date.now() + windowMin * 60 * 1000).toISOString();
+    const guestToken = crypto.randomBytes(20).toString('hex');
+
+    const r = run(db, `INSERT INTO topups (customer_jid,amount_inr,amount_usdt,unique_amount_usdt,method,status,purpose,plan_id,currency,expires_at,guest_token) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+      [cust.jid, price, totalUsdt, uniqueUsdt, `usdt_${net}`, 'pending', 'order', plan_id, 'USDT', expiresAt, guestToken]);
+
+    res.json({
+      ok: true, guest: true,
+      topup_id: r.lastInsertRowid,
+      guest_token: guestToken,
+      network: net,
+      address, qr_url: (await getSetting(qrKey)) || '',
+      unique_usdt: uniqueUsdt,
+      plan_price_inr: price, rate_inr_per_usd: rateInr,
+      sub_usdt: subUsdt, fee_usdt: feeUsdt, fee_pct: feePct,
+      plan_name: plan.name,
+      expires_at: expiresAt, window_minutes: windowMin,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Guest poll — no auth cookie required; ownership proven by guest_token query param.
+router.get('/guest-checkout/poll/:topupId', async (req, res) => {
+  try {
+    const { token } = req.query;
+    if (!token) return res.status(400).json({ error: 'token required' });
+    const db = await getDb();
+    const topup = get(db, `SELECT * FROM topups WHERE id=? AND guest_token=? AND purpose='order'`,
+      [req.params.topupId, token]);
+    if (!topup) return res.status(404).json({ error: 'Not found' });
+    if (topup.status === 'approved' && topup.order_id) {
+      const order = get(db, `SELECT o.id, o.status, p.name as plan_name, p.platform FROM orders o LEFT JOIN plans p ON o.plan_id=p.id WHERE o.id=?`, [topup.order_id]);
+      return res.json({ status: 'paid', order });
+    }
+    if (topup.status === 'approved') return res.json({ status: 'paid', order: null });
+    if (['expired','rejected'].includes(topup.status)) return res.json({ status: topup.status });
+    res.json({ status: 'pending' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── Referral ─────────────────────────────────────────────────────────────────
 router.get('/referral', requireCustomer, async (req, res) => {
   try {

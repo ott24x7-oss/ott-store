@@ -283,6 +283,7 @@ const ICONS={'Netflix':'🎬','Amazon Prime':'📦','Disney+':'⭐','Disney+ Hot
 const COLORS={'Netflix':['#e50914','#8b0000'],'Amazon Prime':['#00a8e0','#005c8a'],'Prime Video':['#00a8e0','#005c8a'],'Disney+':['#0f2f7f','#3d5afa'],'Disney+ Hotstar':['#1a56db','#0284c7'],'Hotstar':['#00b4ff','#0070b8'],'Sony LIV':['#004fcc','#1a73e8'],'Zee5':['#7b1fa2','#c026d3'],'ZEE5':['#7b1fa2','#c026d3'],'JioCinema':['#4a00e0','#8e2de2'],'Spotify':['#1db954','#127c38'],'YouTube Premium':['#ff0000','#b91c1c'],'YouTube':['#ff0000','#b91c1c'],'Canva':['#00c4cc','#0098a6'],'LinkedIn':['#0a66c2','#004182'],'ChatGPT':['#10a37f','#0d6b58'],'Adobe':['#fa0f00','#b30b00'],'Microsoft 365':['#0078d4','#005a9e'],'Apple TV+':['#1c1c1e','#48484a'],'default':['#7c3aed','#6d28d9']};
 
 let ALL_PLANS=[], ACTIVE_PLATFORM='', SEARCH='', DURATION='', SORT='', isLoggedIn=false;
+let STORE={};
 const PAGE_SIZE=24;
 let _visible=PAGE_SIZE;
 
@@ -303,6 +304,7 @@ let _visible=PAGE_SIZE;
 
 // Store config
 fetch('/user/api/store').then(r=>r.json()).then(s=>{
+  STORE=s;
   if(s.logo_light_url||s.logo_dark_url){
     const light=s.logo_light_url||s.logo_dark_url, dark=s.logo_dark_url||s.logo_light_url;
     document.getElementById('nav-logo').innerHTML=`<img src="${light}" class="logo-light" alt="${s.site_name||'Logo'}"><img src="${dark}" class="logo-dark" alt="${s.site_name||'Logo'}">`;
@@ -396,18 +398,246 @@ function renderPlans(){
   grid.innerHTML=plans.slice(0,_visible).map(p=>planCard(p)).join('');
   grid.querySelectorAll('.splan-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
-      // Persist buy intent so it survives the login redirect on /my. After the
-      // user signs in via magic-link/OTP, /my checks this localStorage key on
-      // boot and opens the checkout modal automatically. Without this, the
-      // ?buy= query param is lost when auth redirects to /my?auth_success=1.
-      try { localStorage.setItem('pendingBuyPlanId', String(btn.dataset.id)); } catch {}
-      window.location.href='/my?buy='+btn.dataset.id;
+      const plan=ALL_PLANS.find(p=>p.id===Number(btn.dataset.id));
+      if(!plan)return;
+      openBuyChoice(plan);
     });
   });
   showMore.style.display=plans.length>_visible?'block':'none';
   if(plans.length>_visible){
     document.getElementById('show-more-btn').textContent=`Show ${plans.length-_visible} more plans ↓`;
   }
+}
+
+// ── Guest / Login buy choice ──────────────────────────────────────────────────
+function openBuyChoice(plan){
+  // If already logged in, skip the choice and go straight to /my checkout
+  if(isLoggedIn){
+    try { localStorage.setItem('pendingBuyPlanId', String(plan.id)); } catch {}
+    window.location.href='/my?buy='+plan.id;
+    return;
+  }
+
+  const ov=openPlanModal(`
+<div style="text-align:center;padding:1rem 0 .5rem">
+  <div style="font-size:2rem;margin-bottom:.5rem">🛒</div>
+  <h3 style="margin:0 0 .25rem;font-size:1.1rem;font-weight:800">${esc(plan.name)}</h3>
+  <div style="font-size:1.4rem;font-weight:900;color:var(--st-accent);margin-bottom:.75rem">₹${Number(plan.price_inr).toLocaleString('en-IN')}</div>
+  <p style="font-size:.85rem;color:var(--st-muted);margin:0 0 1.25rem">How would you like to continue?</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.7rem;max-width:360px;margin:0 auto">
+    <button id="bc-login" class="splan-btn" style="padding:.8rem;font-size:.9rem;border-radius:12px">
+      🔐 Sign In<br><small style="font-weight:400;opacity:.8">Track orders, history</small>
+    </button>
+    <button id="bc-guest" class="splan-btn" style="padding:.8rem;font-size:.9rem;border-radius:12px;background:linear-gradient(135deg,#7c3aed,#6d28d9)">
+      📧 Guest Checkout<br><small style="font-weight:400;opacity:.8">Email delivery only</small>
+    </button>
+  </div>
+</div>`);
+
+  document.getElementById('bc-login').onclick=()=>{
+    ov.remove();
+    try { localStorage.setItem('pendingBuyPlanId', String(plan.id)); } catch {}
+    window.location.href='/my?buy='+plan.id;
+  };
+  document.getElementById('bc-guest').onclick=()=>{
+    ov.remove();
+    openGuestForm(plan);
+  };
+}
+
+function openGuestForm(plan){
+  const ov=openPlanModal(`
+<div style="padding:.25rem 0">
+  <h3 style="margin:0 0 .25rem;font-size:1rem;font-weight:800">📧 Guest Checkout</h3>
+  <p style="font-size:.82rem;color:var(--st-muted);margin:0 0 1rem">Credentials will be sent to your email. No account needed.</p>
+  <div id="gf-msg"></div>
+  <div style="display:flex;flex-direction:column;gap:.6rem">
+    <div>
+      <label style="font-size:.78rem;font-weight:600;display:block;margin-bottom:.2rem">Your Name</label>
+      <input id="gf-name" class="plans-search-box" type="text" placeholder="Full name" style="width:100%;background:var(--st-card);border:1.5px solid var(--st-border);border-radius:10px;padding:.6rem .85rem;color:var(--st-text);font-size:.9rem;outline:none;box-sizing:border-box">
+    </div>
+    <div>
+      <label style="font-size:.78rem;font-weight:600;display:block;margin-bottom:.2rem">Email Address *</label>
+      <input id="gf-email" class="plans-search-box" type="email" placeholder="you@example.com" style="width:100%;background:var(--st-card);border:1.5px solid var(--st-border);border-radius:10px;padding:.6rem .85rem;color:var(--st-text);font-size:.9rem;outline:none;box-sizing:border-box">
+    </div>
+    <div>
+      <label style="font-size:.78rem;font-weight:600;display:block;margin-bottom:.2rem">Phone / WhatsApp (optional)</label>
+      <input id="gf-phone" class="plans-search-box" type="tel" placeholder="+91 98765 43210" style="width:100%;background:var(--st-card);border:1.5px solid var(--st-border);border-radius:10px;padding:.6rem .85rem;color:var(--st-text);font-size:.9rem;outline:none;box-sizing:border-box">
+    </div>
+  </div>
+  <div style="margin-top:1rem">
+    <div style="font-size:.78rem;font-weight:700;margin-bottom:.4rem">Payment Method</div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap" id="gf-method-btns"></div>
+  </div>
+  <div style="display:flex;gap:.5rem;margin-top:1.1rem;flex-wrap:wrap">
+    <button id="gf-back" class="splan-btn" style="background:rgba(255,255,255,.08);flex:0 0 auto;padding:.65rem 1rem;font-size:.85rem">← Back</button>
+    <button id="gf-proceed" class="splan-btn" style="flex:1;padding:.65rem;font-size:.9rem">Proceed to Payment →</button>
+  </div>
+</div>`);
+
+  // Build payment method buttons from STORE config
+  const methodsWrap=document.getElementById('gf-method-btns');
+  let selectedMethod='upi';
+  const methods=[];
+  if(STORE.imap_enabled==='1'&&STORE.upi_id)methods.push({id:'upi',label:'📱 UPI'});
+  if(STORE.usdt_binance_enabled==='1'&&STORE.usdt_binance_uid)methods.push({id:'binance',label:'₿ USDT Binance'});
+  if(STORE.usdt_bep20_enabled==='1'&&STORE.usdt_bep20_address)methods.push({id:'bep20',label:'₿ USDT BEP20'});
+  if(STORE.usdt_trc20_enabled==='1'&&STORE.usdt_trc20_address)methods.push({id:'trc20',label:'₿ USDT TRC20'});
+  if(!methods.length)methods.push({id:'upi',label:'📱 UPI'});
+  selectedMethod=methods[0].id;
+
+  function renderMethods(){
+    methodsWrap.innerHTML=methods.map(m=>`<button class="splan-btn gf-meth" data-id="${m.id}" style="padding:.4rem .85rem;font-size:.82rem;${selectedMethod===m.id?'':'background:rgba(255,255,255,.08);color:var(--st-muted)'}">${m.label}</button>`).join('');
+    methodsWrap.querySelectorAll('.gf-meth').forEach(b=>b.onclick=()=>{selectedMethod=b.dataset.id;renderMethods();});
+  }
+  renderMethods();
+
+  document.getElementById('gf-back').onclick=()=>{ov.remove();openBuyChoice(plan);};
+  document.getElementById('gf-proceed').onclick=async()=>{
+    const name=document.getElementById('gf-name').value.trim();
+    const email=document.getElementById('gf-email').value.trim();
+    const phone=document.getElementById('gf-phone').value.trim();
+    const msg=document.getElementById('gf-msg');
+    if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+      msg.innerHTML='<div style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);color:#fca5a5;border-radius:8px;padding:.6rem .8rem;font-size:.83rem;margin-bottom:.5rem">⚠️ Please enter a valid email address</div>';
+      return;
+    }
+    const btn=document.getElementById('gf-proceed');
+    btn.disabled=true; btn.textContent='Creating order…';
+    msg.innerHTML='';
+    try{
+      const isUsdt=selectedMethod!=='upi';
+      const endpoint=isUsdt?'/user/api/guest-checkout/usdt':'/user/api/guest-checkout/upi';
+      const body={plan_id:plan.id,email,name:name||'Guest',phone:phone||undefined};
+      if(isUsdt)body.network=selectedMethod;
+      const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const data=await r.json();
+      if(!r.ok)throw new Error(data.error||'Failed to create order');
+      ov.remove();
+      if(isUsdt) showGuestUsdtPayment(plan,data);
+      else       showGuestUpiPayment(plan,data);
+    }catch(e){
+      msg.innerHTML=`<div style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);color:#fca5a5;border-radius:8px;padding:.6rem .8rem;font-size:.83rem;margin-bottom:.5rem">⚠️ ${esc(e.message)}</div>`;
+      btn.disabled=false; btn.textContent='Proceed to Payment →';
+    }
+  };
+}
+
+function showGuestUpiPayment(plan,r){
+  const upiLink=`upi://pay?pa=${encodeURIComponent(r.upi_id)}&pn=${encodeURIComponent(r.upi_name||'Store')}&am=${r.unique_amount}&cu=INR`;
+  const ov=openPlanModal(`
+<div style="text-align:center">
+  <h3 style="margin:0 0 .1rem;font-size:1rem">💳 Pay via UPI</h3>
+  <div style="font-size:.8rem;color:var(--st-muted);margin-bottom:.75rem">${esc(plan.name)}</div>
+  <div style="font-size:.78rem;color:var(--st-muted)">Pay exactly</div>
+  <div style="font-size:2.2rem;font-weight:900;color:var(--st-accent)">₹${r.unique_amount}</div>
+  <div style="font-size:.72rem;color:var(--st-muted);margin-bottom:.75rem">(unique amount — do not round off)</div>
+  ${r.qr_url?`<div style="display:flex;justify-content:center;margin-bottom:.75rem"><img src="${esc(r.qr_url)}" style="width:160px;height:160px;border-radius:12px;background:#fff;padding:6px;object-fit:contain" onerror="this.style.display='none'"></div>`:''}
+  <div style="background:var(--st-card);border-radius:8px;padding:.65rem;margin-bottom:.65rem">
+    <div style="font-size:.72rem;color:var(--st-muted)">UPI ID</div>
+    <div style="font-weight:700;word-break:break-all">${esc(r.upi_id)}</div>
+  </div>
+  <a href="${upiLink}" class="splan-btn" style="display:block;margin-bottom:.5rem;text-decoration:none">📱 Open UPI App</a>
+  <div id="gp-status" style="margin-top:.75rem;font-size:.85rem;color:var(--st-muted)">
+    <span>⏳ Waiting for payment confirmation…</span>
+  </div>
+  <p style="font-size:.72rem;color:var(--st-muted);margin-top:.3rem">Credentials will be emailed to you after payment is confirmed</p>
+</div>`);
+
+  let polls=0, errors=0;
+  const maxPolls=72;
+  const timer=setInterval(async()=>{
+    if(!document.body.contains(ov)){clearInterval(timer);return;}
+    polls++;
+    if(polls>maxPolls){clearInterval(timer);document.getElementById('gp-status').innerHTML='⏱ Timed out. If you paid, check your email in a few minutes.';return;}
+    try{
+      const s=await fetch(`/user/api/guest-checkout/poll/${r.topup_id}?token=${encodeURIComponent(r.guest_token)}`).then(x=>x.json());
+      errors=0;
+      if(s.status==='paid'){
+        clearInterval(timer);
+        ov.remove();
+        showGuestSuccess(plan);
+      } else if(s.status==='expired'){
+        clearInterval(timer);
+        document.getElementById('gp-status').innerHTML='⏱ Payment window expired.';
+      }
+    }catch{
+      if(++errors>=5)document.getElementById('gp-status').innerHTML='⚠️ Connection issue. Retrying… your payment is still being watched.';
+    }
+  },5000);
+}
+
+function showGuestUsdtPayment(plan,r){
+  const netLabel={binance:'Binance',bep20:'BEP20',trc20:'TRC20'}[r.network]||r.network.toUpperCase();
+  const ov=openPlanModal(`
+<div>
+  <h3 style="margin:0 0 .1rem;font-size:1rem;text-align:center">₿ Pay via USDT · ${netLabel}</h3>
+  <div style="font-size:.8rem;color:var(--st-muted);text-align:center;margin-bottom:.75rem">${esc(plan.name)}</div>
+  <div style="background:var(--st-card);border-radius:8px;padding:.75rem;font-size:.82rem;margin-bottom:.65rem">
+    <div style="display:flex;justify-content:space-between"><span style="color:var(--st-muted)">Plan price</span><span>₹${r.plan_price_inr?.toFixed(2)}</span></div>
+    <div style="display:flex;justify-content:space-between"><span style="color:var(--st-muted)">Rate $1=₹${r.rate_inr_per_usd}</span><span>$${r.sub_usdt?.toFixed(3)}</span></div>
+    <div style="display:flex;justify-content:space-between"><span style="color:var(--st-muted)">Fee +${r.fee_pct}%</span><span>$${r.fee_usdt?.toFixed(3)}</span></div>
+    <div style="height:1px;background:var(--st-border);margin:.35rem 0"></div>
+    <div style="display:flex;justify-content:space-between;font-weight:700"><span>Pay exactly</span><span style="color:var(--st-accent)">${r.unique_usdt?.toFixed(4)} USDT</span></div>
+  </div>
+  <div style="background:var(--st-card);border-radius:8px;padding:.7rem;margin-bottom:.65rem">
+    <div style="font-size:.7rem;color:var(--st-muted);text-transform:uppercase">Address</div>
+    <div style="display:flex;align-items:center;gap:.5rem">
+      <code id="gu-addr" style="flex:1;word-break:break-all;font-size:.82rem">${esc(r.address)}</code>
+      <button id="gu-copy" class="splan-btn" style="padding:.35rem .65rem;font-size:.78rem;flex-shrink:0">Copy</button>
+    </div>
+  </div>
+  ${r.qr_url?`<div style="text-align:center;margin-bottom:.65rem"><img src="${esc(r.qr_url)}" style="max-width:150px;width:100%;border-radius:10px;background:#fff;padding:6px" onerror="this.style.display='none'"></div>`:''}
+  <button id="gu-copy-amt" class="splan-btn" style="width:100%;margin-bottom:.5rem">📋 Copy ${r.unique_usdt?.toFixed(4)} USDT</button>
+  <div id="gu-status" style="text-align:center;font-size:.85rem;color:var(--st-muted)">⏳ Waiting for payment confirmation…</div>
+  <p style="font-size:.72rem;color:var(--st-muted);text-align:center;margin-top:.3rem">Credentials will be emailed to you after payment is confirmed</p>
+</div>`);
+
+  const copyText=t=>{try{navigator.clipboard.writeText(t);alert('Copied!');}catch{alert('Copy failed — please copy manually');}};
+  document.getElementById('gu-copy').onclick=()=>copyText(r.address);
+  document.getElementById('gu-copy-amt').onclick=()=>copyText(r.unique_usdt?.toFixed(4));
+
+  let polls=0, errors=0;
+  const maxPolls=Math.ceil((r.window_minutes||20)*60/10);
+  const timer=setInterval(async()=>{
+    if(!document.body.contains(ov)){clearInterval(timer);return;}
+    polls++;
+    if(polls>maxPolls){clearInterval(timer);document.getElementById('gu-status').innerHTML='⏱ Timed out. If you paid, check your email.';return;}
+    try{
+      const s=await fetch(`/user/api/guest-checkout/poll/${r.topup_id}?token=${encodeURIComponent(r.guest_token)}`).then(x=>x.json());
+      errors=0;
+      if(s.status==='paid'){clearInterval(timer);ov.remove();showGuestSuccess(plan);}
+      else if(s.status==='expired'){clearInterval(timer);document.getElementById('gu-status').innerHTML='⏱ Payment window expired.';}
+    }catch{
+      if(++errors>=4)document.getElementById('gu-status').innerHTML='⚠️ Connection issue. Retrying…';
+    }
+  },10000);
+}
+
+function showGuestSuccess(plan){
+  openPlanModal(`
+<div style="text-align:center;padding:1rem 0">
+  <div style="font-size:3rem;margin-bottom:.5rem">✅</div>
+  <h3 style="margin:0 0 .5rem;font-size:1.15rem;font-weight:800">Payment Confirmed!</h3>
+  <p style="font-size:.9rem;color:var(--st-muted);margin:0 0 .75rem">Your order for <strong>${esc(plan.name)}</strong> is being processed.</p>
+  <p style="font-size:.85rem;color:var(--st-muted)">📧 Credentials will be emailed to you shortly.</p>
+  <p style="font-size:.8rem;color:var(--st-muted);margin-top:.5rem">Want to track your order? <a href="/my" style="color:var(--st-accent)">Create an account</a></p>
+</div>`);
+}
+
+// Simple modal helper for plans page (no /my dependency)
+function openPlanModal(html){
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(6px)';
+  const box=document.createElement('div');
+  box.style.cssText='background:var(--st-bg);border:1px solid var(--st-border);border-radius:18px;padding:1.35rem;width:100%;max-width:400px;max-height:85vh;overflow-y:auto;position:relative;box-shadow:0 24px 64px rgba(0,0,0,.5)';
+  box.innerHTML=`<button style="position:absolute;top:.75rem;right:.75rem;background:rgba(255,255,255,.06);border:none;color:var(--st-muted);border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center" id="pm-close">✕</button>${html}`;
+  ov.appendChild(box);
+  document.body.appendChild(ov);
+  box.querySelector('#pm-close').onclick=()=>ov.remove();
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+  document.addEventListener('keydown',function handler(e){if(e.key==='Escape'){ov.remove();document.removeEventListener('keydown',handler);}});
+  return ov;
 }
 
 function planCard(p){
