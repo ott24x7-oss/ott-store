@@ -54,10 +54,21 @@ function clearFailedLogin(email) {
   _failMap.delete(email);
 }
 
+// Sends an OTP / magic link / WhatsApp tap-to-login link — these endpoints
+// fire an email or WhatsApp message, so abuse means the customer's bot inbox
+// (or our IMAP-monitored inbox) gets flooded. Strict per-IP cap of 5/min.
+const sendLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  message: { error: 'Too many requests. Wait a minute, then try again.' },
+  standardHeaders: true, legacyHeaders: false,
+});
+
 module.exports = {
   loginLimiter,
   registerLimiter,
   apiLimiter,
+  sendLimiter,
   checkCredentialThrottle,
   recordFailedLogin,
   clearFailedLogin,

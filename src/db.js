@@ -395,6 +395,25 @@ function migrate(db) {
   try { db.run(`DELETE FROM settings WHERE key IN ('razorpay_enabled','razorpay_key_id','razorpay_key_secret','upi_manual_enabled')`); } catch {}
   // Cancel any in-flight wallet topups still pending — the route is gone.
   try { db.run(`UPDATE topups SET status='cancelled' WHERE status='pending' AND COALESCE(purpose,'wallet')='wallet'`); } catch {}
+
+  // ── Indexes for hot-path queries ──────────────────────────────────────────
+  // Customer-facing endpoints repeatedly filter orders/topups/audit_log by jid
+  // and by status. Without these indexes sql.js would table-scan every time —
+  // fine at 100 customers, painful at 10k+.
+  try { db.run(`CREATE INDEX IF NOT EXISTS idx_orders_customer_jid ON orders(customer_jid)`); } catch {}
+  try { db.run(`CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)`); } catch {}
+  try { db.run(`CREATE INDEX IF NOT EXISTS idx_topups_customer_jid ON topups(customer_jid)`); } catch {}
+  try { db.run(`CREATE INDEX IF NOT EXISTS idx_topups_status_purpose ON topups(status, purpose)`); } catch {}
+  try { db.run(`CREATE INDEX IF NOT EXISTS idx_topups_order_id ON topups(order_id)`); } catch {}
+  try { db.run(`CREATE INDEX IF NOT EXISTS idx_audit_target ON audit_log(target_kind, target_id, action)`); } catch {}
+  try { db.run(`CREATE INDEX IF NOT EXISTS idx_auth_tokens_expires ON auth_tokens(expires_at)`); } catch {}
+
+  // ── auth_tokens housekeeping ─────────────────────────────────────────────
+  // Magic-link / OTP / wa_magic rows accumulate forever otherwise. Wipe used
+  // tokens after 1 day and unused-but-expired tokens after the same window.
+  // Cheap; runs on every boot.
+  try { db.run(`DELETE FROM auth_tokens WHERE used=1 AND created_at < datetime('now', '-1 day')`); } catch {}
+  try { db.run(`DELETE FROM auth_tokens WHERE expires_at < datetime('now', '-1 day')`); } catch {}
 }
 
 function seedPlansData(db) {

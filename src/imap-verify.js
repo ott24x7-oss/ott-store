@@ -66,8 +66,12 @@ function fetchMessages(imap, since) {
 async function parseAndMatch(rawMessages) {
   const db = await getDb();
   // Fetch pending direct-checkout topups (INR via UPI IMAP, or USDT via 3 networks)
-  // Auto-expire any pending payment past its window before matching.
-  try { run(db, `UPDATE topups SET status='expired' WHERE status='pending' AND expires_at IS NOT NULL AND datetime(expires_at) < datetime('now')`); } catch {}
+  // Auto-expire any pending payment past its window before matching. A 5-minute
+  // grace period protects the customer from losing an order when the bank /
+  // exchange notification email arrives a few minutes after the strict window
+  // (e.g. delayed Gmail delivery, IMAP poll interval): a real payment whose
+  // email lands within 5 min of expiry still gets matched.
+  try { run(db, `UPDATE topups SET status='expired' WHERE status='pending' AND expires_at IS NOT NULL AND datetime(expires_at) < datetime('now', '-5 minutes')`); } catch {}
   const pending = all(db, `SELECT * FROM topups
     WHERE status='pending' AND purpose='order'
       AND (
@@ -124,6 +128,27 @@ async function handleDirectCheckout(db, topup, cust) {
   if (!plan) return;
   if (plan.stock === 0) return;
 
+  // Idempotency guard: if this topup already produced an order (e.g. retry
+  // after a worker crash), don't create a second one. The previous code wrote
+  // order_id AFTER the INSERT, so a race could double-create.
+  if (topup.order_id) return;
+  const existing = get(db, `SELECT id FROM orders o WHERE EXISTS (SELECT 1 FROM topups WHERE order_id=o.id AND id=?)`, [topup.id]);
+  if (existing) return;
+
+  // Atomic stock decrement for finite-stock plans. We deduct first; if the
+  // affected-rows count is zero the plan is sold out under us — abort BEFORE
+  // creating the order. This prevents the "two customers, last unit" race.
+  if (plan.stock > 0) {
+    const dec = run(db, `UPDATE plans SET stock=stock-1 WHERE id=? AND stock > 0`, [topup.plan_id]);
+    if (!dec.changes) {
+      run(db, `UPDATE topups SET status='refund_needed' WHERE id=?`, [topup.id]);
+      run(db, `INSERT INTO audit_log (actor_kind,actor_label,action,target_kind,target_id,after_json) VALUES (?,?,?,?,?,?)`,
+        ['system', 'imap-verify', 'out_of_stock_after_payment', 'topup', String(topup.id),
+         JSON.stringify({ plan_id: topup.plan_id, amount: topup.amount_inr, note: 'Paid topup needs manual refund — plan sold out' })]);
+      return;
+    }
+  }
+
   const expiresAt = plan.duration_days
     ? new Date(Date.now() + plan.duration_days * 86400000).toISOString()
     : null;
@@ -132,14 +157,14 @@ async function handleDirectCheckout(db, topup, cust) {
     [topup.customer_jid, topup.plan_id, topup.amount_inr, 'pending', expiresAt]);
   const orderId = result.lastInsertRowid;
 
-  if (plan.stock > 0) run(db, `UPDATE plans SET stock=stock-1 WHERE id=?`, [topup.plan_id]);
-
-  // Link order back to topup for polling
+  // Link order back to topup IMMEDIATELY so any retry of this function sees
+  // topup.order_id set and short-circuits the duplicate-create guard above.
   run(db, `UPDATE topups SET order_id=? WHERE id=?`, [orderId, topup.id]);
 
   // Record referral reward on first order (no wallet — admin reviews pending rewards).
+  // Filter by both referrer + referred so a re-referred customer isn't double-counted.
   if (cust?.referred_by) {
-    const alreadyRewarded = get(db, `SELECT id FROM referral_rewards WHERE referred_jid=?`, [topup.customer_jid]);
+    const alreadyRewarded = get(db, `SELECT id FROM referral_rewards WHERE referrer_jid=? AND referred_jid=?`, [cust.referred_by, topup.customer_jid]);
     if (!alreadyRewarded) {
       const rewardInr = parseFloat(await getSetting('referral_reward_inr') || '20');
       run(db, `INSERT OR IGNORE INTO referral_rewards (referrer_jid,referred_jid,reward_inr,order_id) VALUES (?,?,?,?)`,

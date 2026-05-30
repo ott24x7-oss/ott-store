@@ -502,8 +502,15 @@ fetch('/user/api/plans').then(r=>r.json()).then(plans=>{
   const top4=plans.slice(0,4);
   document.getElementById('mv-product-list').innerHTML=top4.map(p=>{
     const dur=!p.duration_days?'Lifetime':p.duration_days>=365?Math.round(p.duration_days/365)+' yr':p.duration_days>=30?Math.round(p.duration_days/30)+' months':p.duration_days+' days';
-    return `<a class="product-row" href="/my">${thumb(p,'product-thumb')}<div style="flex:1;min-width:0"><strong>${esc(p.platform||'')} ${esc(p.name||'')}</strong><small>${esc(dur)} · Instant delivery</small></div><span class="price-pill">${fmtInr(p.price_inr)}</span></a>`;
+    return `<a class="product-row" data-buy-id="${p.id}" href="/my?buy=${p.id}">${thumb(p,'product-thumb')}<div style="flex:1;min-width:0"><strong>${esc(p.platform||'')} ${esc(p.name||'')}</strong><small>${esc(dur)} · Instant delivery</small></div><span class="price-pill">${fmtInr(p.price_inr)}</span></a>`;
   }).join('');
+  // Persist buy intent in localStorage too — if the customer isn't logged in,
+  // the auth redirect on /my will drop the ?buy= query param, but the SPA's
+  // boot flow also reads localStorage.pendingBuyPlanId and fires confirmBuy
+  // automatically after login.
+  document.querySelectorAll('#mv-product-list [data-buy-id]').forEach(a=>{
+    a.addEventListener('click',()=>{ try { localStorage.setItem('pendingBuyPlanId', a.dataset.buyId); } catch {} });
+  });
 }).catch(()=>{});
 
 // Auth check — flip Account label

@@ -254,9 +254,15 @@ router.put('/orders/:id', requireAdmin, async (req, res) => {
                            WHERE o.id=?`, [req.params.id]);
     if (!order) return res.status(404).json({ error: 'Order not found' });
     const credsJson = credentials ? JSON.stringify(credentials) : order.credentials;
-    const deliveredAt = status === 'delivered' && order.status !== 'delivered' ? `datetime('now')` : `'${order.delivered_at}'`;
-    run(db, `UPDATE orders SET status=?, credentials=?, delivery_note=?, expires_at=?, delivered_at=${deliveredAt} WHERE id=?`,
-      [status || order.status, credsJson, delivery_note ?? order.delivery_note, expires_at ?? order.expires_at, req.params.id]);
+    // Compute the new delivered_at as a real value (not a SQL fragment) — the
+    // previous code interpolated `order.delivered_at` straight into the SQL
+    // string, opening a SQL-injection path if any caller ever poisoned that
+    // column. We now bind it as a parameter.
+    const deliveredAt = status === 'delivered' && order.status !== 'delivered'
+      ? new Date().toISOString()
+      : (order.delivered_at || null);
+    run(db, `UPDATE orders SET status=?, credentials=?, delivery_note=?, expires_at=?, delivered_at=? WHERE id=?`,
+      [status || order.status, credsJson, delivery_note ?? order.delivery_note, expires_at ?? order.expires_at, deliveredAt, req.params.id]);
     if (status === 'delivered' && order.status !== 'delivered' && order.email) {
       const creds = credentials || (order.credentials ? JSON.parse(order.credentials) : {});
       sendOrderDelivery(order.email, order.cname, order, creds).catch(() => {});

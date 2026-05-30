@@ -157,8 +157,15 @@ async function runFulfillmentTick() {
         const poll = await pollResellKeysOrder(db, job.provider_order_id);
         if (poll.status === 'completed' || poll.status === 'delivered' || poll.key) {
           const creds = { key: poll.key, provider_order: job.provider_order_id };
-          run(db, `UPDATE orders SET status='delivered', credentials=?, delivered_at=datetime('now') WHERE id=?`,
+          // Guard: only mark delivered if the order hasn't been delivered already.
+          // Prevents overwriting credentials if the worker ticks twice for the
+          // same order (concurrent polls, retry after a soft failure, etc.).
+          const upd = run(db, `UPDATE orders SET status='delivered', credentials=?, delivered_at=datetime('now') WHERE id=? AND status<>'delivered'`,
             [JSON.stringify(creds), job.order_id]);
+          if (!upd.changes) {
+            run(db, `UPDATE fulfillment_jobs SET status='delivered' WHERE id=?`, [job.id]);
+            continue;
+          }
           run(db, `UPDATE fulfillment_jobs SET status='delivered', delivered_at=datetime('now'), raw_response=? WHERE id=?`,
             [poll.raw, job.id]);
           // Send delivery email/WA

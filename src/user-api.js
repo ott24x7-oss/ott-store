@@ -8,7 +8,7 @@ const path = require('path');
 const fs = require('fs');
 const cfg = require('./config');
 const { getDb, getSetting, all, get, run } = require('./db');
-const { loginLimiter, registerLimiter, checkCredentialThrottle, recordFailedLogin, clearFailedLogin } = require('./security');
+const { loginLimiter, registerLimiter, sendLimiter, checkCredentialThrottle, recordFailedLogin, clearFailedLogin } = require('./security');
 const { audit } = require('./audit');
 const { sendPasswordReset, sendOrderDelivery, sendOtpEmail, sendMagicLinkEmail } = require('./mailer');
 
@@ -328,7 +328,7 @@ router.post('/reset-password', async (req, res) => {
 });
 
 // ─── OTP Login ────────────────────────────────────────────────────────────────
-router.post('/send-otp', async (req, res) => {
+router.post('/send-otp', sendLimiter, async (req, res) => {
   try {
     const { email } = req.body;
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
@@ -379,7 +379,7 @@ router.post('/verify-otp', async (req, res) => {
 });
 
 // ─── Magic Link ────────────────────────────────────────────────────────────────
-router.post('/send-magic-link', async (req, res) => {
+router.post('/send-magic-link', sendLimiter, async (req, res) => {
   try {
     const { email } = req.body;
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
@@ -430,7 +430,7 @@ router.get('/auth/magic', async (req, res) => {
 });
 
 // ─── WhatsApp OTP Login ────────────────────────────────────────────────────────
-router.post('/send-wa-otp', async (req, res) => {
+router.post('/send-wa-otp', sendLimiter, async (req, res) => {
   try {
     const { phone } = req.body;
     if (!phone) return res.status(400).json({ error: 'Phone number required' });
@@ -484,7 +484,7 @@ router.post('/verify-wa-otp', async (req, res) => {
 });
 
 // ─── WhatsApp Magic Link (1-tap login, mirrors email magic-link) ──────────────
-router.post('/send-wa-magic', async (req, res) => {
+router.post('/send-wa-magic', sendLimiter, async (req, res) => {
   try {
     const { phone } = req.body;
     if (!phone) return res.status(400).json({ error: 'Phone number required' });
