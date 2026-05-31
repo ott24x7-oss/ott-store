@@ -310,6 +310,16 @@ async function startBaileysBot() {
         // human support line.
         try { if (/^\d{6,}$/.test(connectedNumber)) setSettingSync('wa_bot_number', connectedNumber); } catch {}
         console.log(`[wa-bot] Connected as ${connectedNumber}`);
+        // Registration sanity: a "ghost" session (registered:false) opens a
+        // socket and reports a number, but WhatsApp delivers NO messages to it —
+        // the bot looks connected yet silently never replies. Make that loud.
+        try {
+          if (state?.creds?.registered === false) {
+            console.warn('[wa-bot] ⚠️ SESSION NOT REGISTERED (ghost link) — WhatsApp will NOT deliver messages here. Re-link: Admin → WhatsApp → Logout → Connect → scan the QR with the bot phone.');
+          } else {
+            console.log('[wa-bot] session registered ✓ (messages will be delivered)');
+          }
+        } catch {}
         try { if (typeof sock.uploadPreKeysToServerIfRequired === 'function') await sock.uploadPreKeysToServerIfRequired(); } catch {}
         try { await sock.sendPresenceUpdate('available'); } catch {}
       }
