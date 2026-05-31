@@ -16,6 +16,21 @@ const app = express();
 // per-IP rate limiters never trip (every request looks like the same client).
 app.set('trust proxy', true);
 app.use(compression());
+
+// Baseline security headers on every response. CSP is intentionally omitted —
+// the storefront depends on inline scripts/handlers a strict policy would break;
+// add a report-only CSP separately if you want to tighten further. HSTS is set
+// only in production (the public edge is HTTPS via Cloudflare); no
+// includeSubDomains/preload, to avoid affecting any non-HTTPS subdomain.
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000');
+  }
+  next();
+});
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 app.use(cookieParser(cfg.sessionSecret));
@@ -274,9 +289,13 @@ app.get('/plans', async (req, res) => {
   try {
     const storeTheme = await getActiveTheme();
     const base = ((await getSetting('base_url')) || cfg.baseUrl).replace(/\/$/, '');
+    const db = await getDb();
+    const siteName = (await getSetting('site_name')) || 'OTT Store';
+    const products = all(db, `SELECT slug, platform, name FROM plans WHERE active=1 AND slug IS NOT NULL AND slug != '' ORDER BY sort_order ASC, id ASC`);
     let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'store', 'plans.html'), 'utf8');
     html = html.replace(/data-store-theme="[^"]*"/, `data-store-theme="${storeTheme}"`);
-    html = html.replace('</head>', `<link rel="canonical" href="${esc(base)}/plans">\n</head>`);
+    const headInject = `<link rel="canonical" href="${esc(base)}/plans">\n${buildPlansListJsonLd(products, base, siteName)}`;
+    html = html.replace('</head>', headInject + '\n</head>');
     res.type('text/html').send(html);
   } catch {
     res.sendFile(path.join(__dirname, '..', 'public', 'store', 'plans.html'));
@@ -740,6 +759,35 @@ function buildProductJsonLd(p, base, siteName) {
     ],
   };
   return `<script type="application/ld+json">${ldjson(product)}</script>\n<script type="application/ld+json">${ldjson(breadcrumb)}</script>`;
+}
+
+// /plans listing: CollectionPage + ItemList (helps Google understand the catalog
+// and is eligible for list rich results) + a Home › Plans BreadcrumbList. The
+// ItemList is capped to keep the HTML reasonable; the sitemap covers full
+// discovery.
+function buildPlansListJsonLd(products, base, siteName) {
+  const collection = {
+    '@context': 'https://schema.org', '@type': 'CollectionPage',
+    name: `All Plans — ${siteName}`,
+    url: `${base}/plans`,
+    mainEntity: {
+      '@type': 'ItemList',
+      numberOfItems: products.length,
+      itemListElement: products.slice(0, 100).map((p, i) => ({
+        '@type': 'ListItem', position: i + 1,
+        url: `${base}/plans/${p.slug}`,
+        name: ((p.platform && p.platform.toLowerCase() !== 'other') ? `${p.platform} — ` : '') + p.name,
+      })),
+    },
+  };
+  const breadcrumb = {
+    '@context': 'https://schema.org', '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: `${base}/` },
+      { '@type': 'ListItem', position: 2, name: 'Plans', item: `${base}/plans` },
+    ],
+  };
+  return `<script type="application/ld+json">${ldjson(collection)}</script>\n<script type="application/ld+json">${ldjson(breadcrumb)}</script>`;
 }
 
 // ─── Helpers: simple server-rendered pages ────────────────────────────────────
