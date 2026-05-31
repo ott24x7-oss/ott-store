@@ -78,6 +78,7 @@ function isLoginTrigger(text) {
 
 async function handleLoginTrigger(msg, jid, text) {
   if (!isLoginTrigger(text)) return false;
+  console.log(`[wadbg] login trigger MATCHED jid=${jid} wa_enabled=${getSettingSync('wa_enabled')}`);
   try {
     const waEnabled = getSettingSync('wa_enabled');
     if (waEnabled === '0') return false; // bot not active for logins
@@ -109,6 +110,7 @@ async function handleLoginTrigger(msg, jid, text) {
     const magicUrl = `${baseUrl}/user/api/auth/wa-magic?token=${token}`;
 
     const s = getActiveSock();
+    console.log(`[wadbg] login trigger sending magic link to ${jid} sock=${!!s}`);
     if (s) {
       await s.sendMessage(jid, {
         text:
@@ -116,6 +118,7 @@ async function handleLoginTrigger(msg, jid, text) {
           `Tap this link to sign in instantly:\n${magicUrl}\n\n` +
           `Valid for 10 minutes. Do not share with anyone.`,
       });
+      console.log('[wadbg] login trigger magic link SENT ok');
     }
     return true; // handled — suppress AI reply
   } catch (e) {
@@ -132,6 +135,7 @@ async function processIncomingWA(msg) {
   if (msg.key.fromMe) return;
 
   const text = extractWAText(msg);
+  console.log(`[wadbg] processIncoming jid=${jid} hasMsg=${!!msg.message} stub=${msg.messageStubType ?? '-'} text=${JSON.stringify((text || '').slice(0, 60))}`);
   if (!text || text.trim().length < 1) return;
 
   // ── Owner admin commands (.deliver / .orders / .verify …) ──────────────────
@@ -209,7 +213,9 @@ async function processIncomingWA(msg) {
     // Send reply via Baileys or Meta. Convert the AI's markdown bold (**…**) to
     // WhatsApp's native *…* so it renders bold instead of showing literal "**".
     const s = getActiveSock();
-    if (s) await s.sendMessage(jid, { text: mdToWhatsApp(reply) });
+    console.log(`[wadbg] AI reply ready sock=${!!s} reply=${JSON.stringify(reply.slice(0, 40))}`);
+    if (s) { await s.sendMessage(jid, { text: mdToWhatsApp(reply) }); console.log('[wadbg] AI reply SENT ok'); }
+    else console.log('[wadbg] AI reply FAILED — no active sock');
   } catch (e) {
     console.error('[wa-bot] AI reply error:', e.message);
   }
@@ -319,6 +325,7 @@ async function startBaileysBot() {
 
     sock.ev.on('messages.upsert', ({ messages, type }) => {
       for (const msg of messages) {
+        try { console.log(`[wadbg] upsert type=${type} fromMe=${msg.key?.fromMe} hasMsg=${!!msg.message} stub=${msg.messageStubType ?? '-'} jid=${msg.key?.remoteJid}`); } catch {}
         // Cache own sent messages (needed for retry/re-encrypt)
         if (msg.key.fromMe && msg.key.id && msg.message) {
           sentCache.set(msg.key.id, msg.message);
