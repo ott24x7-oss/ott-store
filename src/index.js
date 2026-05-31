@@ -124,22 +124,55 @@ self.addEventListener('notificationclick',e=>{
 // ─── SEO: robots.txt ─────────────────────────────────────────────────────────
 app.get('/robots.txt', async (req, res) => {
   try {
-    const txt = await getSetting('robots_txt') || 'User-agent: *\nAllow: /';
+    const base = ((await getSetting('base_url')) || cfg.baseUrl).replace(/\/$/, '');
+    let txt = await getSetting('robots_txt') || 'User-agent: *\nAllow: /';
+    if (!/^\s*sitemap:/im.test(txt)) txt += `\nSitemap: ${base}/sitemap.xml`;
     res.type('text/plain').send(txt);
   } catch { res.type('text/plain').send('User-agent: *\nAllow: /'); }
+});
+
+// ─── GEO: llms.txt — a Markdown map of the store for AI crawlers ──────────────
+// Note: this only helps AI engines that are actually allowed to crawl. If
+// Cloudflare's managed robots.txt is blocking GPTBot/ClaudeBot/etc., unblock
+// them in the Cloudflare dashboard for this to have any effect.
+app.get('/llms.txt', async (req, res) => {
+  try {
+    const db = await getDb();
+    const base = ((await getSetting('base_url')) || cfg.baseUrl).replace(/\/$/, '');
+    const siteName = await getSetting('site_name') || 'OTT Store';
+    const tagline = await getSetting('site_tagline') || '';
+    const products = all(db, `SELECT slug, platform, name, price_inr FROM plans WHERE active=1 AND slug IS NOT NULL AND slug != '' ORDER BY platform ASC, price_inr ASC`).slice(0, 300);
+    let txt = `# ${siteName}\n`;
+    if (tagline) txt += `\n> ${tagline}\n`;
+    txt += `\n${siteName} sells digital subscriptions and software (OTT/streaming, music, AI tools, cloud storage, productivity & software keys) with instant digital delivery and UPI/USDT checkout.\n`;
+    txt += `\n## Key pages\n- [All plans](${base}/plans)\n- [Blog](${base}/blog)\n- [Contact / Support](${base}/contact)\n- [Refund policy](${base}/refund)\n`;
+    txt += `\n## Products\n`;
+    for (const p of products) {
+      const plat = (p.platform && p.platform.toLowerCase() !== 'other') ? `${p.platform} — ` : '';
+      txt += `- [${plat}${p.name} (₹${p.price_inr})](${base}/plans/${p.slug})\n`;
+    }
+    res.type('text/plain').send(txt);
+  } catch { res.type('text/plain').send(''); }
 });
 
 // ─── SEO: sitemap.xml ─────────────────────────────────────────────────────────
 app.get('/sitemap.xml', async (req, res) => {
   try {
     const db = await getDb();
-    const baseUrl = await getSetting('base_url') || cfg.baseUrl;
+    const baseUrl = (await getSetting('base_url') || cfg.baseUrl).replace(/\/$/, '');
     const posts = all(db, `SELECT slug, created_at FROM blog_posts WHERE published=1`);
+    const products = all(db, `SELECT slug, created_at FROM plans WHERE active=1 AND slug IS NOT NULL AND slug != ''`);
     const staticPages = ['/', '/plans', '/blog', '/about', '/contact', '/privacy', '/terms', '/refund'];
     let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`;
     for (const p of staticPages) {
       xml += `\n  <url><loc>${baseUrl}${p}</loc><changefreq>weekly</changefreq></url>`;
+    }
+    // Product pages — the bulk of the catalog. Without these, Google can only
+    // find products via JS-rendered links on /plans.
+    for (const pr of products) {
+      const lastmod = (pr.created_at || '').replace(' ', 'T').split('T')[0];
+      xml += `\n  <url><loc>${baseUrl}/plans/${pr.slug}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}<changefreq>weekly</changefreq></url>`;
     }
     for (const post of posts) {
       const lastmod = (post.created_at || '').replace(' ', 'T').split('T')[0];
@@ -240,8 +273,10 @@ for (const [route, slug] of Object.entries(staticRoutes)) {
 app.get('/plans', async (req, res) => {
   try {
     const storeTheme = await getActiveTheme();
+    const base = ((await getSetting('base_url')) || cfg.baseUrl).replace(/\/$/, '');
     let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'store', 'plans.html'), 'utf8');
     html = html.replace(/data-store-theme="[^"]*"/, `data-store-theme="${storeTheme}"`);
+    html = html.replace('</head>', `<link rel="canonical" href="${esc(base)}/plans">\n</head>`);
     res.type('text/html').send(html);
   } catch {
     res.sendFile(path.join(__dirname, '..', 'public', 'store', 'plans.html'));
@@ -256,26 +291,49 @@ app.get('/plans/:slug', async (req, res) => {
     const { getDb, get: dbGet } = require('./db');
     const db = await getDb();
     const slug = req.params.slug.toLowerCase().replace(/[^a-z0-9-]/g, '');
-    const plan = dbGet(db, `SELECT id, name, platform, slug FROM plans WHERE slug=? AND active=1`, [slug]);
-
-    if (!plan) {
-      // Slug not found — fall through to plans page with search pre-filled
-      const storeTheme = await getActiveTheme();
-      let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'store', 'plans.html'), 'utf8');
-      html = html.replace(/data-store-theme="[^"]*"/, `data-store-theme="${storeTheme}"`);
-      return res.status(404).type('text/html').send(html);
-    }
-
-    // Render plans page with the plan's slug as the hash anchor.
-    // The page reads the URL hash after load and smooth-scrolls to #plan-{slug}.
+    const plan = dbGet(db, `SELECT * FROM plans WHERE slug=? AND active=1`, [slug]);
+    const base = ((await getSetting('base_url')) || cfg.baseUrl).replace(/\/$/, '');
     const storeTheme = await getActiveTheme();
     let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'store', 'plans.html'), 'utf8');
     html = html.replace(/data-store-theme="[^"]*"/, `data-store-theme="${storeTheme}"`);
-    // Inject OG / title meta for this specific product so social previews work
+
+    if (!plan) {
+      // Slug not found — show the catalog, canonical to /plans so the dead URL
+      // doesn't compete for indexing.
+      html = html.replace('</head>', `<link rel="canonical" href="${esc(base)}/plans">\n</head>`);
+      return res.status(404).type('text/html').send(html);
+    }
+
+    const siteName = (await getSetting('site_name')) || 'OTT Store';
+    const url = `${base}/plans/${plan.slug}`;
+    const platPrefix = (plan.platform && plan.platform.toLowerCase() !== 'other') ? `${plan.platform} — ` : '';
+    const titleText = `${platPrefix}${plan.name} | ${siteName}`;
+    const descText = `Buy ${platPrefix}${plan.name} at ${siteName} — ₹${Number(plan.price_inr).toLocaleString('en-IN')}. ${plan.delivery_type === 'instant' ? 'Instant digital delivery.' : 'Fast digital delivery.'}`;
+    const ogImg = plan.image_url || (await getSetting('seo_og_image')) || '';
+
+    // Per-product <title> + <meta description> (C1/H3)
     html = html
-      .replace(/<title>[^<]*<\/title>/, `<title>${esc(plan.platform)} — ${esc(plan.name)}</title>`)
-      .replace(/<meta name="description"[^>]*>/, `<meta name="description" content="Buy ${esc(plan.platform)} — ${esc(plan.name)} at OTT Store. Instant digital delivery.">`)
-      .replace('</head>', `<script>window.__PLAN_SLUG__="${esc(plan.slug)}";window.__PLAN_ID__=${plan.id};</script>\n</head>`);
+      .replace(/<title>[^<]*<\/title>/, `<title>${esc(titleText)}</title>`)
+      .replace(/<meta name="description"[^>]*>/, `<meta name="description" content="${esc(descText)}">`);
+    // Canonical + Open Graph + Product/Breadcrumb JSON-LD + deep-link globals (C2/C4/H1)
+    const headInject = [
+      `<link rel="canonical" href="${esc(url)}">`,
+      `<meta property="og:title" content="${esc(plan.name)}">`,
+      `<meta property="og:type" content="product">`,
+      `<meta property="og:url" content="${esc(url)}">`,
+      ogImg ? `<meta property="og:image" content="${esc(ogImg)}">` : '',
+      `<meta property="product:price:amount" content="${Number(plan.price_inr)}">`,
+      `<meta property="product:price:currency" content="INR">`,
+      buildProductJsonLd(plan, base, siteName),
+      `<script>window.__PLAN_SLUG__="${esc(plan.slug)}";window.__PLAN_ID__=${plan.id};window.__HAS_PRODUCT_HERO__=1;</script>`,
+    ].filter(Boolean).join('\n');
+    html = html.replace('</head>', headInject + '\n</head>');
+    // Inject the server-rendered product hero above the catalog and demote the
+    // catalog's "Browse All Subscriptions" heading to H2 so the product name is
+    // the page's single H1 (C1).
+    html = html
+      .replace('<h1>Browse All <span>Subscriptions</span></h1>', '<h2>Browse All <span>Subscriptions</span></h2>')
+      .replace('<!-- Page Header -->', `${buildProductHero(plan)}\n<!-- Page Header -->`);
     res.type('text/html').send(html);
   } catch (e) {
     res.sendFile(path.join(__dirname, '..', 'public', 'store', 'plans.html'));
@@ -598,6 +656,90 @@ async function injectDefaultHomeDynamic(html, siteName) {
   } catch {
     return html;
   }
+}
+
+// ─── Product page (/plans/:slug) ──────────────────────────────────────────────
+// Escape JSON-LD so a value can't break out of the <script> tag.
+function ldjson(obj) { return JSON.stringify(obj).replace(/</g, '\\u003c'); }
+
+function productDur(p) {
+  return !p.duration_days ? 'Lifetime'
+    : p.duration_days >= 365 ? `${Math.round(p.duration_days / 365)} Year${p.duration_days >= 730 ? 's' : ''}`
+    : p.duration_days >= 30 ? `${Math.round(p.duration_days / 30)} Month${p.duration_days >= 60 ? 's' : ''}`
+    : `${p.duration_days} Days`;
+}
+
+// Server-rendered, crawlable product hero: unique H1 (product name), key facts,
+// description, features, breadcrumb, and Login/Guest checkout CTAs. This is what
+// makes each /plans/:slug a real, indexable product page instead of a duplicate
+// of the catalog.
+function buildProductHero(p) {
+  let features = [];
+  try { features = JSON.parse(p.features || '[]'); } catch {}
+  if (!Array.isArray(features)) features = [];
+  const dur = productDur(p);
+  const price = Number(p.price_inr).toLocaleString('en-IN');
+  const hasOrig = p.original_price_inr && p.original_price_inr > p.price_inr;
+  const off = hasOrig ? Math.round((1 - p.price_inr / p.original_price_inr) * 100) : 0;
+  const oos = p.stock === 0;
+  const platLabel = (p.platform && p.platform.toLowerCase() !== 'other') ? esc(p.platform) : 'Digital Product';
+  const img = p.image_url
+    ? `<img src="${esc(p.image_url)}" alt="${esc((p.platform ? p.platform + ' ' : '') + p.name)}" style="max-width:170px;max-height:120px;object-fit:contain">`
+    : `<div style="font-size:3rem">📦</div>`;
+  return `
+<section id="product-hero" style="max-width:980px;margin:0 auto;padding:1.5rem 1.5rem 0">
+  <nav aria-label="Breadcrumb" style="font-size:.8rem;color:var(--st-muted);margin-bottom:1rem">
+    <a href="/" style="color:var(--st-muted);text-decoration:none">Home</a> ›
+    <a href="/plans" style="color:var(--st-muted);text-decoration:none">Plans</a> ›
+    <span style="color:var(--st-text)">${esc(p.name)}</span>
+  </nav>
+  <div style="display:flex;gap:1.5rem;flex-wrap:wrap;align-items:center;background:var(--st-card-solid);border:1.5px solid var(--st-border);border-radius:18px;padding:1.5rem">
+    <div style="flex:0 0 auto;width:190px;height:130px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.2);border-radius:12px">${img}</div>
+    <div style="flex:1;min-width:240px">
+      <div style="font-size:.74rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--st-accent)">${platLabel}</div>
+      <h1 style="font-size:1.55rem;font-weight:900;margin:.2rem 0 .45rem;line-height:1.2">${esc(p.name)}</h1>
+      <div style="font-size:.82rem;color:var(--st-muted);margin-bottom:.6rem">⏱ ${dur} validity${p.delivery_type === 'instant' ? ' · ⚡ Instant delivery' : ''} · <strong style="color:${oos ? '#ef4444' : '#10b981'}">${oos ? 'Out of stock' : 'In stock'}</strong></div>
+      <div style="display:flex;align-items:baseline;gap:.55rem;margin-bottom:.9rem">
+        <span style="font-size:1.85rem;font-weight:900;color:var(--st-accent)">₹${price}</span>
+        ${hasOrig ? `<span style="text-decoration:line-through;color:var(--st-muted);font-size:.95rem">₹${Number(p.original_price_inr).toLocaleString('en-IN')}</span><span style="background:rgba(16,185,129,.15);color:#10b981;border-radius:6px;padding:.12rem .5rem;font-size:.72rem;font-weight:800">${off}% OFF</span>` : ''}
+      </div>
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+        <a class="splan-btn" id="ph-login" href="/my?buy=${p.id}" onclick="try{localStorage.setItem('pendingBuyPlanId','${p.id}')}catch(e){}" style="width:auto;padding:.7rem 1.25rem;text-decoration:none;display:inline-block">🔐 Login to Checkout</a>
+        <button class="splan-btn" id="ph-guest" ${oos ? 'disabled' : ''} style="width:auto;padding:.7rem 1.25rem;background:linear-gradient(135deg,#7c3aed,#6d28d9)">📧 Guest Checkout</button>
+      </div>
+    </div>
+  </div>
+  ${p.description ? `<p style="color:var(--st-muted);font-size:.92rem;line-height:1.6;margin:1.1rem 0 0">${esc(p.description)}</p>` : ''}
+  ${features.length ? `<ul style="margin:1rem 0 0;padding-left:1.25rem;color:var(--st-text);font-size:.9rem;line-height:1.75">${features.map(f => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
+  <p style="margin:1.25rem 0 0;font-size:.85rem"><a href="/plans" style="color:var(--st-accent);text-decoration:none">↓ Browse all plans</a></p>
+</section>`;
+}
+
+function buildProductJsonLd(p, base, siteName) {
+  const url = `${base}/plans/${p.slug}`;
+  const product = {
+    '@context': 'https://schema.org', '@type': 'Product',
+    name: p.name,
+    ...(p.image_url ? { image: p.image_url } : {}),
+    description: p.description || `Buy ${p.name} at ${siteName}. Instant digital delivery.`,
+    ...(p.platform && p.platform.toLowerCase() !== 'other' ? { brand: { '@type': 'Brand', name: p.platform } } : {}),
+    offers: {
+      '@type': 'Offer',
+      price: Number(p.price_inr),
+      priceCurrency: 'INR',
+      availability: p.stock === 0 ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
+      url,
+    },
+  };
+  const breadcrumb = {
+    '@context': 'https://schema.org', '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: `${base}/` },
+      { '@type': 'ListItem', position: 2, name: 'Plans', item: `${base}/plans` },
+      { '@type': 'ListItem', position: 3, name: p.name, item: url },
+    ],
+  };
+  return `<script type="application/ld+json">${ldjson(product)}</script>\n<script type="application/ld+json">${ldjson(breadcrumb)}</script>`;
 }
 
 // ─── Helpers: simple server-rendered pages ────────────────────────────────────
