@@ -289,6 +289,10 @@ async function startBaileysBot() {
         connStatus       = 'connected';
         connectedNumber  = sock.user?.id?.split(':')[0] || sock.user?.id || 'Unknown';
         _waReconnectAttempts = 0; // happy path resets the backoff
+        // Persist the bot's own number so the storefront 1-tap WhatsApp login
+        // sends users to the bot (which auto-replies a magic link), not the
+        // human support line.
+        try { if (/^\d{6,}$/.test(connectedNumber)) setSettingSync('wa_bot_number', connectedNumber); } catch {}
         console.log(`[wa-bot] Connected as ${connectedNumber}`);
         try { if (typeof sock.uploadPreKeysToServerIfRequired === 'function') await sock.uploadPreKeysToServerIfRequired(); } catch {}
         try { await sock.sendPresenceUpdate('available'); } catch {}
@@ -439,6 +443,7 @@ async function logout() {
   currentQR       = null;
   connStatus       = 'logged_out';
   connectedNumber  = null;
+  try { setSettingSync('wa_bot_number', ''); } catch {}
 }
 
 async function reconnect() {

@@ -105,7 +105,7 @@ router.get('/store', noStoreCache, async (req, res) => {
     const db = await getDb();
     const rows = all(db, `SELECT key, value FROM settings WHERE key IN
       ('site_name','site_tagline','hero_title','hero_title2','hero_subtext','logo_url','logo_light_url','logo_dark_url','announcement','upi_id','upi_name',
-       'support_whatsapp','support_email',
+       'support_whatsapp','support_email','wa_bot_number',
        'pwa_force_prompt','vapid_public_key','store_theme','wa_enabled','imap_enabled',
        'usdt_inr_rate','usdt_fee_pct','usdt_payment_window_minutes',
        'usdt_binance_enabled','usdt_binance_uid','usdt_binance_qr_url',
@@ -113,6 +113,15 @@ router.get('/store', noStoreCache, async (req, res) => {
        'usdt_trc20_enabled','usdt_trc20_address','usdt_trc20_qr_url')`, []);
     const s = {};
     rows.forEach(r => s[r.key] = r.value);
+    // Prefer the bot's live connected number (Baileys) so 1-tap WhatsApp login
+    // works the moment the bot is online, even before the persisted setting is
+    // written. Falls back to the stored wa_bot_number, then support_whatsapp.
+    try {
+      const waStatus = require('./wa-bot').getStatus();
+      if (waStatus && waStatus.mode === 'baileys' && /^\d{6,}$/.test(String(waStatus.number || ''))) {
+        s.wa_bot_number = String(waStatus.number);
+      }
+    } catch {}
     s.payment_methods = all(db, `SELECT id, name, type, address, instructions, qr_url FROM payment_methods WHERE enabled=1 ORDER BY sort_order ASC, id ASC`);
     // Resolve effective UPI (setting, else configured UPI payment method) so the
     // storefront shows a real UPI ID/QR even when the upi_id setting is blank.

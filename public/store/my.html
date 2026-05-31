@@ -583,7 +583,9 @@ function renderAuth(initMethod, msgHtml){
   // with a 10-minute magic-link.
   const wa1tap=document.getElementById('wa-1tap-btn');
   if(wa1tap){
-    const botPhone=String(STORE.support_whatsapp||'').replace(/\D/g,'');
+    // Prefer the bot's own number (it auto-replies the magic link); only fall
+    // back to the human support line if no bot number is known.
+    const botPhone=String(STORE.wa_bot_number||STORE.support_whatsapp||'').replace(/\D/g,'');
     const brand=STORE.site_name||'OTT Store';
     if(botPhone){
       const text=`Help me login to ${brand}`;
