@@ -928,7 +928,7 @@ async function start() {
   try { require('./delivery-worker').startDeliveryWorker(); } catch (e) { console.error('delivery-worker error:', e.message); }
   try { require('./renewal-worker').startRenewalWorker(); } catch (e) { console.error('renewal-worker error:', e.message); }
   try { require('./autopost-worker').startAutopostWorker(); } catch (e) { console.error('autopost-worker error:', e.message); }
-  try { require('./fulfillment-worker').startFulfillmentWorker(); } catch (e) { console.error('fulfillment-worker error:', e.message); }
+  // ResellKeys auto-fulfillment worker removed — scrape-only integration now.
   try { require('./imap-verify').startImapWorker(); } catch (e) { console.error('imap-verify error:', e.message); }
 
   // WhatsApp Bot + WA worker
