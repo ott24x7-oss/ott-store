@@ -2969,6 +2969,7 @@ views['wa-session'] = async function () {
 
     setMain(`
 <div style="max-width:560px;margin:0 auto">
+<span id="wa-session-active" hidden></span>
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem">
   <h2 style="font-weight:800;margin:0">📱 WhatsApp Session</h2>
   <button class="btn btn-sm btn-secondary" onclick="views['wa-session']()">↻ Refresh</button>
@@ -2997,9 +2998,9 @@ views['wa-session'] = async function () {
 ${isBaileys && isWaitingQR && status.qrDataUrl ? `
 <div class="card" style="text-align:center;margin-bottom:1rem">
   <div style="font-weight:700;margin-bottom:.75rem;font-size:1rem">Scan with WhatsApp to connect</div>
-  <img src="${status.qrDataUrl}" style="width:240px;height:240px;border:3px solid var(--border);border-radius:16px" alt="QR Code">
+  <img id="wa-qr-img" src="${status.qrDataUrl}" style="width:240px;height:240px;border:3px solid var(--border);border-radius:16px" alt="QR Code">
   <div style="margin-top:.75rem;font-size:.82rem;color:var(--muted)">Open WhatsApp → Linked Devices → Link a device → Scan this QR</div>
-  <div style="margin-top:.5rem;font-size:.78rem;color:var(--muted)">Auto-refreshes every 20s · QR expires in ~60s</div>
+  <div style="margin-top:.5rem;font-size:.78rem;color:var(--muted)">🔄 Live — refreshes automatically. Just scan the code shown.</div>
   <button class="btn btn-sm btn-secondary" style="margin-top:.75rem" onclick="views['wa-session']()">🔄 Refresh QR</button>
 </div>` : ''}
 
@@ -3129,6 +3130,22 @@ ${isBaileys && isWaitingQR ? `
         if (el) el.innerHTML = `<div class="alert alert-success">Your pairing code: <strong style="font-size:1.2rem;letter-spacing:.1em">${esc(r.code)}</strong><br><span style="font-size:.8rem">Enter this in WhatsApp → Linked Devices → Link with phone number</span></div>`;
       } catch(e) { if (el) el.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
     };
+
+    // ── Live QR / status auto-refresh ─────────────────────────────────────────
+    // The bot regenerates the QR every ~20s (and on any reconnect), so a STATIC
+    // image goes stale and scanning it does nothing. Poll status, swap the QR in
+    // place, and re-render on any state change. Stops when the user leaves the
+    // view (the #wa-session-active marker disappears).
+    clearInterval(window._waQrTimer);
+    window._waQrTimer = setInterval(async () => {
+      if (!document.getElementById('wa-session-active')) { clearInterval(window._waQrTimer); return; }
+      try {
+        const s = await api('/whatsapp/status');
+        if (s.status !== status.status) { clearInterval(window._waQrTimer); return views['wa-session'](); }
+        const img = document.getElementById('wa-qr-img');
+        if (img && s.qrDataUrl && img.getAttribute('src') !== s.qrDataUrl) img.setAttribute('src', s.qrDataUrl);
+      } catch {}
+    }, 8000);
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };
 
