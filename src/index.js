@@ -320,6 +320,11 @@ app.get('/', async (req, res) => {
       bingCode ? `<meta name="msvalidate.01" content="${esc(bingCode)}">` : '',
     ].filter(Boolean).join('\n');
     html = html.replace('</head>', inject + '\n</head>');
+    // Server-render the MovieVerse home's dynamic bits so there's no flash of
+    // template placeholders before the client fetch resolves.
+    if (homeFile === 'movieverse-home.html') {
+      html = await injectMovieverseDynamic(html, name);
+    }
     res.type('text/html').send(html);
   } catch {
     res.sendFile(path.join(__dirname, '..', 'public', 'store', 'index.html'));
@@ -483,6 +488,72 @@ async function getLogoUrls() {
     const dark  = (get(db, `SELECT value FROM settings WHERE key='logo_dark_url'`)  || {}).value || '';
     return { light, dark };
   } catch { return { light: '', dark: '' }; }
+}
+
+// ─── MovieVerse home: server-render the dynamic content ───────────────────────
+// movieverse-home.html ships with template placeholders (brand, hero copy,
+// stats, plan cards) that it fills CLIENT-side after fetching /user/api/store +
+// /user/api/plans. On a slow connection that shows the template values for a few
+// seconds before the real ones swap in — the "flash of other content" users see
+// on refresh. We pre-render the real values here so the first paint is already
+// correct; the client's later re-render then produces identical DOM (no flash).
+// Mirrors the client formatting in movieverse-home.html exactly. Never throws —
+// any failure just leaves the placeholders for the client to fill as before.
+async function injectMovieverseDynamic(html, siteName) {
+  try {
+    const db = await getDb();
+    const [heroTitle, heroTitle2, heroSub, tagline] = await Promise.all([
+      getSetting('hero_title'), getSetting('hero_title2'), getSetting('hero_subtext'), getSetting('site_tagline'),
+    ]);
+    const logos = await getLogoUrls();
+    const plans = all(db, `SELECT id,platform,name,duration_days,price_inr,image_url,stock FROM plans WHERE active=1 ORDER BY sort_order ASC, id ASC`);
+    const platCount = new Set(plans.map(p => p.platform)).size;
+    const statCategories = platCount >= 10 ? `${platCount}+` : '50+'; // mirror /user/api/store stat_platforms
+
+    // Brand — logo if configured, else the store name
+    const logo = logos.dark || logos.light;
+    if (logo) {
+      html = html.replace(/<a class="brand" href="\/" id="mv-brand">[\s\S]*?<\/a>/,
+        `<a class="brand" href="/" id="mv-brand"><img src="${esc(logo)}" alt="${esc(siteName)}" style="max-height:40px;max-width:170px;object-fit:contain"></a>`);
+    } else {
+      html = html.replace(/(<span id="mv-brand-name">)[^<]*(<\/span>)/, `$1${esc(siteName)}$2`);
+    }
+
+    // Hero copy — only override the template when the store has configured it
+    if (heroTitle)  html = html.replace(/(<span class="gradient-text" id="mv-hero-title">)[^<]*(<\/span>)/, `$1${esc(heroTitle)}$2`);
+    if (heroTitle2) html = html.replace(/(<span id="mv-hero-title2">)[^<]*(<\/span>)/, `$1${esc(heroTitle2)}$2`);
+    const sub = heroSub || tagline;
+    if (sub) html = html.replace(/(<p id="mv-hero-sub">)[\s\S]*?(<\/p>)/, `$1${esc(sub)}$2`);
+
+    // Stats
+    html = html.replace(/(<strong id="mv-stat-products">)[^<]*(<\/strong>)/, `$1${plans.length}+$2`);
+    html = html.replace(/(<strong id="mv-stat-categories">)[^<]*(<\/strong>)/, `$1${esc(statCategories)}$2`);
+
+    // Plan cards — mirror the client markup so its re-render is a visual no-op
+    const fmtInr = n => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+    const durOf = p => !p.duration_days ? 'Lifetime'
+      : p.duration_days >= 365 ? Math.round(p.duration_days / 365) + ' yr'
+      : p.duration_days >= 30 ? Math.round(p.duration_days / 30) + ' months'
+      : p.duration_days + ' days';
+    const initials = p => (p.platform || p.name || '?').trim().charAt(0).toUpperCase();
+    const thumb = (p, cls) => p.image_url
+      ? `<div class="${cls}"><img src="${esc(p.image_url)}" alt="${esc(p.platform || p.name || '')}" loading="lazy" onerror="this.parentNode.textContent='${esc(initials(p))}'"></div>`
+      : `<div class="${cls}">${esc(initials(p))}</div>`;
+
+    const top2 = plans.filter(p => p.stock !== 0).slice(0, 2);
+    const heroPlansHtml = top2.map(p =>
+      `<div class="plan-card">${thumb(p, 'plan-card-thumb')}<div style="flex:1;min-width:0"><strong>${esc(p.platform || '')} ${esc(p.name || '')}</strong><small>${esc(durOf(p))} · Fast activation</small></div><span class="price-pill">${fmtInr(p.price_inr)}</span></div>`).join('');
+    html = html.replace('<div id="mv-hero-plans"></div>', `<div id="mv-hero-plans">${heroPlansHtml}</div>`);
+
+    const top4 = plans.slice(0, 4);
+    const productListHtml = top4.map(p =>
+      `<a class="product-row" data-buy-id="${p.id}" href="/my?buy=${p.id}">${thumb(p, 'product-thumb')}<div style="flex:1;min-width:0"><strong>${esc(p.platform || '')} ${esc(p.name || '')}</strong><small>${esc(durOf(p))} · Instant delivery</small></div><span class="price-pill">${fmtInr(p.price_inr)}</span></a>`).join('');
+    html = html.replace('<div class="product-row"><div><strong>Loading plans…</strong><small>Fetching from catalog</small></div></div>', productListHtml);
+
+    return html;
+  } catch {
+    return html;
+  }
 }
 
 // ─── Helpers: simple server-rendered pages ────────────────────────────────────
