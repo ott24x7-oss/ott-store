@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>OTT Cinematic — Theme Preview v2</title>
+<style>
+/* ══════════════════════════════════════════════
+   OTT CINEMATIC — Design System v2
+   ══════════════════════════════════════════════ */
+:root{
+  --bg:#04040d;
+  --bg2:#07071a;
+  --panel:rgba(255,255,255,.06);
+  --panel2:rgba(255,255,255,.11);
+  --text:#f0f2ff;
+  --muted:#8890b8;
+  --red:#ff2040;
+  --orange:#ff7a00;
+  --cyan:#00e8ff;
+  --green:#00ffaa;
+  --purple:#9b5cff;
+  --pink:#ff44cc;
+  --border:rgba(255,255,255,.13);
+  --glass:rgba(255,255,255,.07);
+  --glow-red:rgba(255,32,64,.38);
+  --glow-cyan:rgba(0,232,255,.3);
+  --glow-purple:rgba(155,92,255,.32);
+  --r:2.5rem;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:'Inter',ui-sans-serif,system-ui,-apple-system,sans-serif;
+  background:var(--bg);color:var(--text);overflow-x:hidden;min-height:100vh;
+}
+
+/* ── Ambient background ── */
+.ambient{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.ambient-orb{position:absolute;border-radius:50%;filter:blur(80px);opacity:.55}
+.ao1{width:500px;height:500px;background:radial-gradient(circle,var(--red),transparent 70%);top:-10%;left:-8%;animation:orbDrift 14s ease-in-out infinite alternate}
+.ao2{width:420px;height:420px;background:radial-gradient(circle,var(--cyan),transparent 70%);top:15%;right:-10%;animation:orbDrift 11s ease-in-out infinite alternate-reverse}
+.ao3{width:380px;height:380px;background:radial-gradient(circle,var(--purple),transparent 70%);bottom:-5%;left:40%;animation:orbDrift 16s ease-in-out infinite alternate}
+.ao4{width:250px;height:250px;background:radial-gradient(circle,var(--pink),transparent 70%);top:55%;left:10%;opacity:.3;animation:orbDrift 9s ease-in-out infinite alternate-reverse}
+@keyframes orbDrift{to{transform:translate(50px,40px) scale(1.12)}}
+
+/* Scanline / noise */
+.noise{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.08;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.scanline{position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.04) 2px,rgba(0,0,0,.04) 4px)}
+
+/* ── Layout helpers ── */
+.wrap{width:min(1200px,94vw);margin:0 auto;position:relative;z-index:3}
+
+/* ════════════════════════════════════
+   NAV
+════════════════════════════════════ */
+.nav{
+  position:sticky;top:0;z-index:100;padding:0 1.5rem;
+  background:rgba(4,4,13,.72);backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+.nav-inner{
+  width:min(1200px,94vw);margin:0 auto;height:64px;
+  display:flex;align-items:center;justify-content:space-between;gap:1rem;
+}
+.brand{display:flex;align-items:center;gap:.75rem;text-decoration:none}
+.brand-icon{
+  width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-size:1.1rem;
+  background:linear-gradient(135deg,var(--red),var(--orange));
+  box-shadow:0 0 22px var(--glow-red), inset 0 1px 6px rgba(255,255,255,.3);
+  transform:rotate(-5deg);transition:transform .25s;
+}
+.brand:hover .brand-icon{transform:rotate(0deg) scale(1.08)}
+.brand-name{font-size:1.25rem;font-weight:900;letter-spacing:-.5px;color:var(--text)}
+.nav-links{display:flex;align-items:center;gap:.25rem}
+.nav-links a{
+  color:var(--muted);font-size:.85rem;font-weight:600;padding:.45rem .85rem;border-radius:999px;
+  text-decoration:none;transition:all .18s;
+}
+.nav-links a:hover{color:var(--text);background:rgba(255,255,255,.08)}
+.nav-cta{
+  background:linear-gradient(135deg,var(--red),var(--orange)) !important;
+  color:#fff !important;font-weight:900 !important;
+  box-shadow:0 8px 28px var(--glow-red);border-radius:999px !important;
+}
+.nav-cta:hover{transform:translateY(-2px);box-shadow:0 14px 36px var(--glow-red) !important}
+
+/* ════════════════════════════════════
+   HERO
+════════════════════════════════════ */
+.hero{
+  position:relative;z-index:3;padding:5rem 0 3rem;
+  width:min(1200px,94vw);margin:0 auto;
+  display:grid;grid-template-columns:1.05fr .95fr;gap:3rem;align-items:center;min-height:calc(100vh - 64px);
+}
+
+/* Left: text */
+.hero-eyebrow{
+  display:inline-flex;align-items:center;gap:.6rem;
+  padding:.55rem 1rem;border-radius:999px;
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);
+  backdrop-filter:blur(18px);font-size:.78rem;font-weight:800;letter-spacing:.06em;
+  text-transform:uppercase;color:#c8d0ff;margin-bottom:1.5rem;
+}
+.live-dot{
+  width:8px;height:8px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 0 0 rgba(0,255,170,.6);animation:livePulse 1.8s infinite;
+}
+@keyframes livePulse{0%,100%{box-shadow:0 0 0 0 rgba(0,255,170,.6)}60%{box-shadow:0 0 0 10px rgba(0,255,170,0)}}
+
+.hero-title{
+  font-size:clamp(3rem,6.5vw,5.5rem);
+  line-height:.9;letter-spacing:-3px;font-weight:900;
+  margin-bottom:1.5rem;
+}
+.hero-title .line1{display:block;color:var(--text)}
+.hero-title .line2{
+  display:block;
+  background:linear-gradient(100deg,var(--red) 0%,var(--orange) 28%,var(--cyan) 62%,var(--purple) 100%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 6px 28px rgba(255,32,64,.22));
+  background-size:200%;
+  animation:gradShift 5s ease infinite alternate;
+}
+@keyframes gradShift{to{background-position:100%}}
+
+.hero-sub{color:var(--muted);font-size:clamp(1rem,1.6vw,1.15rem);line-height:1.75;max-width:580px;margin-bottom:2rem}
+
+.hero-actions{display:flex;gap:.85rem;flex-wrap:wrap;margin-bottom:2.25rem}
+.btn{
+  display:inline-flex;align-items:center;gap:.6rem;
+  padding:.85rem 1.65rem;border-radius:16px;font-weight:800;font-size:.9rem;
+  text-decoration:none;border:0;cursor:pointer;transition:transform .22s,box-shadow .22s;
+}
+.btn:hover{transform:translateY(-3px)}
+.btn-primary{
+  background:linear-gradient(135deg,var(--red) 0%,var(--orange) 100%);
+  color:#fff;box-shadow:0 14px 48px var(--glow-red);
+}
+.btn-primary:hover{box-shadow:0 22px 60px var(--glow-red)}
+.btn-wa{
+  background:linear-gradient(135deg,#1acd5e,#0ea84a);
+  color:#f9fff5;box-shadow:0 12px 40px rgba(26,205,94,.3);
+}
+.btn-ghost{
+  background:var(--glass);border:1px solid var(--border);
+  color:var(--text);backdrop-filter:blur(14px);
+}
+
+/* Stats */
+.hero-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem}
+.stat-card{
+  background:var(--panel);border:1px solid var(--border);border-radius:18px;
+  padding:1rem .85rem;backdrop-filter:blur(14px);
+  transition:transform .2s,border-color .2s;
+}
+.stat-card:hover{transform:translateY(-4px);border-color:rgba(255,255,255,.28)}
+.stat-num{font-size:1.7rem;font-weight:900;line-height:1;margin-bottom:.25rem}
+.stat-num.c1{color:var(--red)}
+.stat-num.c2{color:var(--cyan)}
+.stat-num.c3{color:var(--green)}
+.stat-num.c4{color:var(--purple)}
+.stat-lbl{font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+
+/* ── Right: 3D Stage ── */
+.hero-stage{position:relative;height:680px;perspective:1100px;transform-style:preserve-3d}
+
+/* Spinning rings */
+.ring{
+  position:absolute;left:50%;top:50%;border-radius:50%;
+  border:1px solid;transform-origin:center;
+}
+.ring-1{
+  width:500px;height:500px;margin:-250px 0 0 -250px;
+  border-color:rgba(255,32,64,.3);
+  box-shadow:0 0 60px rgba(255,32,64,.12) inset, 0 0 60px rgba(255,32,64,.08);
+  transform:translate(-50%,-50%) rotateX(70deg);
+  animation:ringSpinCW 18s linear infinite;
+}
+.ring-2{
+  width:360px;height:360px;margin:-180px 0 0 -180px;
+  border-color:rgba(0,232,255,.28);
+  box-shadow:0 0 50px rgba(0,232,255,.12) inset;
+  transform:translate(-50%,-50%) rotateX(70deg);
+  animation:ringSpinCCW 12s linear infinite;
+}
+.ring-3{
+  width:220px;height:220px;margin:-110px 0 0 -110px;
+  border-color:rgba(155,92,255,.35);
+  transform:translate(-50%,-50%) rotateX(70deg);
+  animation:ringSpinCW 8s linear infinite;
+}
+@keyframes ringSpinCW{to{transform:translate(-50%,-50%) rotateX(70deg) rotateZ(360deg)}}
+@keyframes ringSpinCCW{to{transform:translate(-50%,-50%) rotateX(70deg) rotateZ(-360deg)}}
+
+/* Center orb */
+.stage-center{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-55%);
+  width:70px;height:70px;border-radius:50%;z-index:2;
+  background:radial-gradient(circle at 35% 35%,#fff 0%,var(--red) 45%,var(--orange));
+  box-shadow:0 0 40px var(--glow-red), 0 0 80px var(--glow-red), 0 0 4px #fff inset;
+  animation:centerPulse 3s ease-in-out infinite;
+}
+@keyframes centerPulse{50%{box-shadow:0 0 60px var(--glow-red), 0 0 120px var(--glow-red), 0 0 4px #fff inset;transform:translate(-50%,-55%) scale(1.12)}}
+
+/* Floating platform icons */
+.platform-icon{
+  position:absolute;width:80px;height:80px;border-radius:22px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  border:1px solid rgba(255,255,255,.18);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  box-shadow:0 20px 60px rgba(0,0,0,.45), inset 0 1px 10px rgba(255,255,255,.18);
+  animation:iconFloat 5s ease-in-out infinite;
+  cursor:default;z-index:4;transition:transform .2s;
+}
+.platform-icon:hover{transform:scale(1.12) translateY(-4px) !important}
+.pi-emoji{font-size:1.8rem;line-height:1}
+.pi-name{font-size:.52rem;font-weight:800;color:rgba(255,255,255,.75);text-transform:uppercase;letter-spacing:.05em}
+.platform-icon:nth-child(1){top:8%;left:4%;background:linear-gradient(145deg,#141414,#1a0a08);animation-delay:0s}
+.platform-icon:nth-child(2){top:5%;right:10%;background:linear-gradient(145deg,#001a30,#003366);animation-delay:.6s}
+.platform-icon:nth-child(3){top:42%;left:1%;background:linear-gradient(145deg,#0d1a00,#1a3300);animation-delay:1.2s}
+.platform-icon:nth-child(4){top:38%;right:3%;background:linear-gradient(145deg,#15001a,#300060);animation-delay:1.8s}
+.platform-icon:nth-child(5){bottom:12%;left:8%;background:linear-gradient(145deg,#001a1a,#004444);animation-delay:2.4s}
+.platform-icon:nth-child(6){bottom:8%;right:7%;background:linear-gradient(145deg,#1a1a00,#3a2800);animation-delay:3s}
+.platform-icon:nth-child(7){top:72%;left:38%;background:linear-gradient(145deg,#1a001a,#2d0040);animation-delay:.4s}
+.platform-icon:nth-child(8){top:16%;left:42%;background:linear-gradient(145deg,#1a0a00,#3a1400);animation-delay:1.6s}
+@keyframes iconFloat{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-20px) rotate(2deg)}}
+
+/* Phone mockup */
+.phone-wrap{
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%) rotateY(-18deg) rotateX(6deg) rotateZ(2deg);
+  animation:phoneTilt 6s ease-in-out infinite;
+  z-index:3;
+}
+@keyframes phoneTilt{
+  0%,100%{transform:translate(-50%,-50%) rotateY(-18deg) rotateX(6deg) rotateZ(2deg)}
+  50%{transform:translate(-50%,-58%) rotateY(-12deg) rotateX(3deg) rotateZ(0deg)}
+}
+.phone{
+  width:240px;height:460px;border-radius:40px;position:relative;
+  background:linear-gradient(160deg,rgba(255,255,255,.22) 0%,rgba(255,255,255,.06) 100%);
+  border:1px solid rgba(255,255,255,.25);
+  box-shadow:0 50px 130px rgba(0,0,0,.6),
+             0 0 0 1px rgba(255,255,255,.04),
+             inset 0 1px 0 rgba(255,255,255,.35);
+  overflow:hidden;
+}
+.phone::before{
+  content:'';position:absolute;top:13px;left:50%;transform:translateX(-50%);
+  width:80px;height:22px;border-radius:999px;background:var(--bg);z-index:5;
+}
+.phone-screen{
+  position:absolute;inset:38px 10px 10px;border-radius:28px;overflow:hidden;
+  background:linear-gradient(160deg,#0d1022 0%,#05060f 100%);
+  padding:1rem .85rem;
+}
+/* screen glow */
+.phone-screen::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:100px;
+  background:radial-gradient(ellipse at 50% 0%,rgba(255,32,64,.22),transparent 70%);
+  pointer-events:none;
+}
+.ps-tag{
+  display:inline-flex;align-items:center;gap:.35rem;font-size:.6rem;font-weight:800;
+  color:var(--orange);background:rgba(255,122,0,.12);border:1px solid rgba(255,122,0,.3);
+  padding:.25rem .55rem;border-radius:999px;margin-bottom:.6rem;text-transform:uppercase;
+}
+.ps-title{font-size:.9rem;font-weight:900;margin-bottom:.35rem;letter-spacing:-.3px}
+.ps-sub{font-size:.62rem;color:var(--muted);margin-bottom:.85rem;line-height:1.5}
+.ps-card{
+  display:flex;align-items:center;gap:.65rem;padding:.65rem .55rem;border-radius:14px;
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);margin-bottom:.55rem;
+}
+.ps-icon{
+  width:32px;height:32px;border-radius:10px;display:grid;place-items:center;
+  font-size:1rem;flex-shrink:0;
+}
+.ps-card-title{font-size:.68rem;font-weight:800;line-height:1.2}
+.ps-card-price{font-size:.62rem;color:var(--muted)}
+.ps-card-price s{color:var(--muted);margin-right:.3rem}
+.ps-card-price b{color:var(--green)}
+
+/* ════════════════════════════════════
+   TICKER
+════════════════════════════════════ */
+.ticker{
+  position:relative;z-index:3;
+  padding:1.1rem 0;overflow:hidden;
+  border-top:1px solid rgba(255,255,255,.08);
+  border-bottom:1px solid rgba(255,255,255,.08);
+  background:rgba(255,255,255,.03);
+}
+.ticker::before,.ticker::after{
+  content:'';position:absolute;top:0;bottom:0;width:120px;z-index:2;pointer-events:none;
+}
+.ticker::before{left:0;background:linear-gradient(to right,var(--bg),transparent)}
+.ticker::after{right:0;background:linear-gradient(to left,var(--bg),transparent)}
+.ticker-track{
+  display:inline-flex;gap:1rem;white-space:nowrap;
+  animation:ticker 25s linear infinite;
+}
+.ticker-item{
+  display:inline-flex;align-items:center;gap:.55rem;padding:.55rem 1.1rem;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:999px;
+  font-size:.8rem;font-weight:700;color:#d8dcff;
+}
+.ticker-icon{font-size:1rem}
+@keyframes ticker{to{transform:translateX(-50%)}}
+
+/* ════════════════════════════════════
+   SECTION SHARED
+════════════════════════════════════ */
+.section{padding:5.5rem 0}
+.section-badge{
+  display:inline-flex;align-items:center;gap:.5rem;
+  padding:.4rem .9rem;border-radius:999px;font-size:.72rem;font-weight:800;
+  text-transform:uppercase;letter-spacing:.08em;margin-bottom:.85rem;
+}
+.badge-red{background:rgba(255,32,64,.1);border:1px solid rgba(255,32,64,.3);color:var(--red)}
+.badge-cyan{background:rgba(0,232,255,.08);border:1px solid rgba(0,232,255,.25);color:var(--cyan)}
+.badge-purple{background:rgba(155,92,255,.1);border:1px solid rgba(155,92,255,.28);color:var(--purple)}
+.badge-green{background:rgba(0,255,170,.08);border:1px solid rgba(0,255,170,.25);color:var(--green)}
+
+.section-title{
+  font-size:clamp(2rem,4vw,3.2rem);font-weight:900;line-height:1.05;letter-spacing:-2px;margin-bottom:.75rem;
+}
+.section-sub{color:var(--muted);font-size:1rem;line-height:1.7;max-width:580px}
+.section-head{display:flex;justify-content:space-between;align-items:flex-end;gap:2rem;margin-bottom:2.5rem;flex-wrap:wrap}
+
+/* ════════════════════════════════════
+   CATEGORIES
+════════════════════════════════════ */
+.cat-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:1.1rem;
+}
+.cat-card{
+  position:relative;overflow:hidden;border-radius:24px;padding:1.75rem 1.5rem;
+  background:var(--panel);border:1px solid var(--border);
+  backdrop-filter:blur(14px);
+  transition:transform .25s,border-color .25s,box-shadow .25s;
+  cursor:pointer;
+}
+.cat-card::before{
+  content:'';position:absolute;inset:-50% -50%;width:200%;height:200%;
+  border-radius:50%;opacity:0;transition:opacity .35s;pointer-events:none;
+}
+.cat-card:hover{transform:translateY(-8px);box-shadow:0 30px 80px rgba(0,0,0,.4)}
+.cat-card:hover::before{opacity:1}
+.cc1::before{background:radial-gradient(circle,rgba(255,32,64,.2),transparent 60%)}
+.cc2::before{background:radial-gradient(circle,rgba(155,92,255,.2),transparent 60%)}
+.cc3::before{background:radial-gradient(circle,rgba(0,232,255,.18),transparent 60%)}
+.cc4::before{background:radial-gradient(circle,rgba(0,255,170,.15),transparent 60%)}
+.cc5::before{background:radial-gradient(circle,rgba(255,122,0,.2),transparent 60%)}
+.cc6::before{background:radial-gradient(circle,rgba(255,68,204,.18),transparent 60%)}
+.cc7::before{background:radial-gradient(circle,rgba(255,32,64,.18),transparent 60%)}
+.cc8::before{background:radial-gradient(circle,rgba(0,232,255,.15),transparent 60%)}
+.cc1:hover{border-color:rgba(255,32,64,.4)}
+.cc2:hover{border-color:rgba(155,92,255,.4)}
+.cc3:hover{border-color:rgba(0,232,255,.35)}
+.cc4:hover{border-color:rgba(0,255,170,.3)}
+.cc5:hover{border-color:rgba(255,122,0,.4)}
+.cc6:hover{border-color:rgba(255,68,204,.35)}
+.cc7:hover{border-color:rgba(255,32,64,.35)}
+.cc8:hover{border-color:rgba(0,232,255,.3)}
+
+.cat-icon-wrap{
+  width:56px;height:56px;border-radius:18px;display:grid;place-items:center;
+  font-size:1.8rem;margin-bottom:1.15rem;position:relative;z-index:1;
+}
+.ci1{background:linear-gradient(135deg,rgba(255,32,64,.2),rgba(255,122,0,.15));border:1px solid rgba(255,32,64,.3)}
+.ci2{background:linear-gradient(135deg,rgba(155,92,255,.2),rgba(255,68,204,.15));border:1px solid rgba(155,92,255,.3)}
+.ci3{background:linear-gradient(135deg,rgba(0,232,255,.15),rgba(0,120,255,.15));border:1px solid rgba(0,232,255,.25)}
+.ci4{background:linear-gradient(135deg,rgba(0,255,170,.12),rgba(0,200,100,.12));border:1px solid rgba(0,255,170,.25)}
+.ci5{background:linear-gradient(135deg,rgba(255,122,0,.2),rgba(255,200,0,.12));border:1px solid rgba(255,122,0,.3)}
+.ci6{background:linear-gradient(135deg,rgba(255,68,204,.18),rgba(155,92,255,.15));border:1px solid rgba(255,68,204,.28)}
+.ci7{background:linear-gradient(135deg,rgba(255,32,64,.18),rgba(155,0,100,.12));border:1px solid rgba(255,32,64,.25)}
+.ci8{background:linear-gradient(135deg,rgba(0,200,255,.15),rgba(0,100,255,.12));border:1px solid rgba(0,200,255,.22)}
+
+.cat-name{font-size:1rem;font-weight:800;margin-bottom:.35rem;position:relative;z-index:1}
+.cat-desc{font-size:.78rem;color:var(--muted);line-height:1.55;position:relative;z-index:1}
+.cat-count{
+  display:inline-flex;margin-top:.75rem;font-size:.7rem;font-weight:800;
+  color:var(--muted);background:rgba(255,255,255,.06);
+  padding:.25rem .65rem;border-radius:999px;border:1px solid var(--border);
+  position:relative;z-index:1;
+}
+
+/* ════════════════════════════════════
+   PRODUCT CARDS
+════════════════════════════════════ */
+.product-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.1rem}
+.product-card{
+  background:var(--panel);border:1px solid var(--border);border-radius:22px;
+  overflow:hidden;transition:transform .25s,border-color .25s,box-shadow .25s;
+  cursor:pointer;
+}
+.product-card:hover{transform:translateY(-7px);box-shadow:0 28px 70px rgba(0,0,0,.42);border-color:rgba(255,255,255,.25)}
+.pc-thumb{
+  height:120px;display:flex;align-items:center;justify-content:center;font-size:3rem;
+  position:relative;overflow:hidden;
+}
+.pc-body{padding:1.1rem 1rem 1.25rem}
+.pc-platform{font-size:.68rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.3rem}
+.pc-title{font-size:.95rem;font-weight:800;margin-bottom:.4rem;line-height:1.3}
+.pc-features{display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.85rem}
+.pc-feat{font-size:.65rem;font-weight:700;color:var(--muted);background:rgba(255,255,255,.05);border:1px solid var(--border);padding:.2rem .5rem;border-radius:6px}
+.pc-footer{display:flex;align-items:center;justify-content:space-between}
+.pc-price{font-size:1.1rem;font-weight:900}
+.pc-original{font-size:.78rem;color:var(--muted);text-decoration:line-through;margin-right:.35rem}
+.pc-buy{
+  font-size:.75rem;font-weight:800;padding:.45rem .9rem;border-radius:10px;border:0;cursor:pointer;
+  background:linear-gradient(135deg,var(--red),var(--orange));color:#fff;
+  transition:transform .2s,box-shadow .2s;
+}
+.pc-buy:hover{transform:scale(1.06);box-shadow:0 8px 24px var(--glow-red)}
+.pc-badge{
+  position:absolute;top:10px;right:10px;font-size:.65rem;font-weight:900;
+  padding:.3rem .6rem;border-radius:999px;
+}
+.badge-hot{background:rgba(255,32,64,.18);color:var(--red);border:1px solid rgba(255,32,64,.3)}
+.badge-new{background:rgba(0,255,170,.1);color:var(--green);border:1px solid rgba(0,255,170,.25)}
+.badge-off{background:rgba(255,122,0,.15);color:var(--orange);border:1px solid rgba(255,122,0,.3)}
+
+/* ════════════════════════════════════
+   HOW IT WORKS
+════════════════════════════════════ */
+.how-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.5rem;position:relative}
+.how-grid::before{
+  content:'';position:absolute;top:52px;left:12.5%;right:12.5%;height:1px;
+  background:linear-gradient(to right,transparent,rgba(255,255,255,.15) 20%,rgba(255,255,255,.15) 80%,transparent);
+  pointer-events:none;
+}
+.how-step{text-align:center;padding:1.5rem 1rem}
+.step-num{
+  width:72px;height:72px;border-radius:50%;margin:0 auto 1.25rem;
+  display:grid;place-items:center;font-size:1.5rem;font-weight:900;
+  border:1px solid var(--border);background:var(--panel);
+  position:relative;
+}
+.step-num::after{
+  content:attr(data-n);position:absolute;top:-8px;right:-6px;
+  width:22px;height:22px;border-radius:50%;display:grid;place-items:center;
+  font-size:.65rem;font-weight:900;background:var(--red);color:#fff;
+}
+.step-title{font-size:1rem;font-weight:800;margin-bottom:.4rem}
+.step-desc{font-size:.82rem;color:var(--muted);line-height:1.6}
+
+/* ════════════════════════════════════
+   TRUST / WHY US
+════════════════════════════════════ */
+.trust-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.1rem}
+.trust-card{
+  padding:1.75rem 1.5rem;border-radius:22px;background:var(--panel);
+  border:1px solid var(--border);transition:transform .2s,border-color .2s;
+}
+.trust-card:hover{transform:translateY(-5px);border-color:rgba(255,255,255,.22)}
+.tc-icon{font-size:2rem;margin-bottom:.85rem}
+.tc-title{font-size:1rem;font-weight:800;margin-bottom:.4rem}
+.tc-desc{font-size:.82rem;color:var(--muted);line-height:1.65}
+
+/* ════════════════════════════════════
+   FINAL CTA
+════════════════════════════════════ */
+.final-cta{
+  position:relative;z-index:3;margin:0 auto 4rem;width:min(1200px,94vw);
+  padding:3.5rem 3rem;border-radius:32px;text-align:center;overflow:hidden;
+  background:linear-gradient(135deg,rgba(255,32,64,.18) 0%,rgba(0,0,0,0) 45%,rgba(0,232,255,.12) 100%),
+             rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.15);
+  backdrop-filter:blur(20px);
+  box-shadow:0 40px 120px rgba(0,0,0,.35);
+}
+.final-cta::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 80% 50% at 50% -10%,rgba(255,32,64,.2),transparent 60%);
+  pointer-events:none;
+}
+.final-cta h2{font-size:clamp(1.8rem,4vw,3rem);font-weight:900;letter-spacing:-1.5px;margin-bottom:.65rem;position:relative;z-index:1}
+.final-cta p{color:var(--muted);margin-bottom:2rem;font-size:1.05rem;position:relative;z-index:1}
+.cta-actions{display:flex;justify-content:center;gap:1rem;flex-wrap:wrap;position:relative;z-index:1}
+
+/* ════════════════════════════════════
+   FOOTER
+════════════════════════════════════ */
+.footer{
+  position:relative;z-index:3;border-top:1px solid rgba(255,255,255,.07);
+  padding:2.5rem 0;background:rgba(0,0,0,.3);
+}
+.footer-inner{display:flex;align-items:center;justify-content:space-between;gap:1.5rem;flex-wrap:wrap}
+.footer-brand{font-weight:900;font-size:1.1rem;display:flex;align-items:center;gap:.6rem}
+.footer-links{display:flex;gap:1.25rem;flex-wrap:wrap}
+.footer-links a{color:var(--muted);text-decoration:none;font-size:.8rem;font-weight:600;transition:color .15s}
+.footer-links a:hover{color:var(--text)}
+.footer-copy{color:var(--muted);font-size:.78rem}
+
+/* ════════════════════════════════════
+   RESPONSIVE
+════════════════════════════════════ */
+@media(max-width:1024px){
+  .cat-grid{grid-template-columns:repeat(3,1fr)}
+  .product-grid{grid-template-columns:repeat(3,1fr)}
+  .trust-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:860px){
+  .nav-links a:not(.nav-cta){display:none}
+  .hero{grid-template-columns:1fr;min-height:auto;padding:2.5rem 0 2rem}
+  .hero-stage{height:420px;order:-1}
+  .ring-1{width:360px;height:360px}
+  .ring-2{width:260px;height:260px}
+  .ring-3{width:160px;height:160px}
+  .phone{width:200px;height:380px}
+  .platform-icon{width:64px;height:64px;border-radius:16px}
+  .pi-emoji{font-size:1.4rem}
+  .hero-stats{grid-template-columns:repeat(2,1fr)}
+  .cat-grid{grid-template-columns:repeat(2,1fr)}
+  .product-grid{grid-template-columns:repeat(2,1fr)}
+  .how-grid{grid-template-columns:repeat(2,1fr)}
+  .how-grid::before{display:none}
+}
+@media(max-width:560px){
+  .hero-title{letter-spacing:-1.5px}
+  .cat-grid{grid-template-columns:repeat(2,1fr)}
+  .product-grid{grid-template-columns:1fr 1fr}
+  .trust-grid{grid-template-columns:1fr}
+  .how-grid{grid-template-columns:1fr 1fr}
+  .final-cta{padding:2.5rem 1.5rem}
+  .section{padding:3.5rem 0}
+  .platform-icon{width:56px;height:56px;border-radius:14px}
+  .pi-name{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+  *{animation:none !important;transition:none !important}
+}
+</style>
+</head>
+<body>
+
+<div class="ambient">
+  <div class="ambient-orb ao1"></div>
+  <div class="ambient-orb ao2"></div>
+  <div class="ambient-orb ao3"></div>
+  <div class="ambient-orb ao4"></div>
+</div>
+<div class="noise"></div>
+<div class="scanline"></div>
+
+<!-- ══ NAV ══ -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="#" class="brand">
+      <div class="brand-icon">⚡</div>
+      <span class="brand-name">OTT24x7</span>
+    </a>
+    <div class="nav-links">
+      <a href="#">Home</a>
+      <a href="#">Products</a>
+      <a href="#">Categories</a>
+      <a href="#">My Orders</a>
+      <a href="#" class="nav-cta">Browse Products →</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ══ HERO ══ -->
+<section class="hero wrap">
+  <!-- Left -->
+  <div>
+    <div class="hero-eyebrow">
+      <span class="live-dot"></span>
+      Live store · Instant digital delivery
+    </div>
+    <h1 class="hero-title">
+      <span class="line1">Premium digital</span>
+      <span class="line2">products.</span>
+    </h1>
+    <p class="hero-sub">Buy OTT subscriptions, AI tools, cloud storage, software keys and productivity products — with fast WhatsApp support, secure UPI payments, and clean account delivery.</p>
+    <div class="hero-actions">
+      <a href="#" class="btn btn-primary">⚡ Browse Products</a>
+      <a href="#" class="btn btn-wa">💬 WhatsApp Order</a>
+      <a href="#" class="btn btn-ghost">🎬 View Categories</a>
+    </div>
+    <div class="hero-stats">
+      <div class="stat-card"><div class="stat-num c1">120+</div><div class="stat-lbl">Products</div></div>
+      <div class="stat-card"><div class="stat-num c2">17</div><div class="stat-lbl">Categories</div></div>
+      <div class="stat-card"><div class="stat-num c3">24×7</div><div class="stat-lbl">Support</div></div>
+      <div class="stat-card"><div class="stat-num c4">UPI</div><div class="stat-lbl">Cards / Crypto</div></div>
+    </div>
+  </div>
+
+  <!-- Right: 3D stage -->
+  <div class="hero-stage">
+    <!-- Rings -->
+    <div class="ring ring-1"></div>
+    <div class="ring ring-2"></div>
+    <div class="ring ring-3"></div>
+    <!-- Center orb -->
+    <div class="stage-center"></div>
+    <!-- Floating icons -->
+    <div class="platform-icon"><span class="pi-emoji">🎬</span><span class="pi-name">Netflix</span></div>
+    <div class="platform-icon"><span class="pi-emoji">🤖</span><span class="pi-name">ChatGPT</span></div>
+    <div class="platform-icon"><span class="pi-emoji">🎵</span><span class="pi-name">Spotify</span></div>
+    <div class="platform-icon"><span class="pi-emoji">💻</span><span class="pi-name">MS365</span></div>
+    <div class="platform-icon"><span class="pi-emoji">☁️</span><span class="pi-name">Drive</span></div>
+    <div class="platform-icon"><span class="pi-emoji">🎨</span><span class="pi-name">Canva</span></div>
+    <div class="platform-icon"><span class="pi-emoji">🔐</span><span class="pi-name">VPN</span></div>
+    <div class="platform-icon"><span class="pi-emoji">📺</span><span class="pi-name">Prime</span></div>
+    <!-- Phone mockup -->
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="phone-screen">
+          <div class="ps-tag">⚡ Hot Picks</div>
+          <div class="ps-title">OTT24x7 Store</div>
+          <div class="ps-sub">Premium digital access in minutes. Choose, pay, delivered.</div>
+          <div class="ps-card">
+            <div class="ps-icon" style="background:linear-gradient(135deg,#e50914,#7a0000)">🎬</div>
+            <div>
+              <div class="ps-card-title">Netflix 4K 1M</div>
+              <div class="ps-card-price"><s>₹299</s><b>₹149</b></div>
+            </div>
+          </div>
+          <div class="ps-card">
+            <div class="ps-icon" style="background:linear-gradient(135deg,#10a37f,#0d5c48)">🤖</div>
+            <div>
+              <div class="ps-card-title">ChatGPT Plus 1M</div>
+              <div class="ps-card-price"><s>₹1800</s><b>₹899</b></div>
+            </div>
+          </div>
+          <div class="ps-card">
+            <div class="ps-icon" style="background:linear-gradient(135deg,#0078d4,#003e70)">💻</div>
+            <div>
+              <div class="ps-card-title">MS Office 365</div>
+              <div class="ps-card-price"><s>₹899</s><b>₹349</b></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ TICKER ══ -->
+<div class="ticker">
+  <div class="ticker-track">
+    <span class="ticker-item"><span class="ticker-icon">⚡</span>Instant Delivery</span>
+    <span class="ticker-item"><span class="ticker-icon">✅</span>Verified Products</span>
+    <span class="ticker-item"><span class="ticker-icon">💬</span>WhatsApp Support 24×7</span>
+    <span class="ticker-item"><span class="ticker-icon">🔐</span>Secure UPI Checkout</span>
+    <span class="ticker-item"><span class="ticker-icon">🎬</span>OTT Streaming Plans</span>
+    <span class="ticker-item"><span class="ticker-icon">🤖</span>AI & Writing Tools</span>
+    <span class="ticker-item"><span class="ticker-icon">☁️</span>Cloud & Productivity</span>
+    <span class="ticker-item"><span class="ticker-icon">🖥️</span>Software Licenses</span>
+    <span class="ticker-item"><span class="ticker-icon">🔒</span>VPN & Security</span>
+    <span class="ticker-item"><span class="ticker-icon">📚</span>Learning & Courses</span>
+    <!-- Duplicate for seamless loop -->
+    <span class="ticker-item"><span class="ticker-icon">⚡</span>Instant Delivery</span>
+    <span class="ticker-item"><span class="ticker-icon">✅</span>Verified Products</span>
+    <span class="ticker-item"><span class="ticker-icon">💬</span>WhatsApp Support 24×7</span>
+    <span class="ticker-item"><span class="ticker-icon">🔐</span>Secure UPI Checkout</span>
+    <span class="ticker-item"><span class="ticker-icon">🎬</span>OTT Streaming Plans</span>
+    <span class="ticker-item"><span class="ticker-icon">🤖</span>AI & Writing Tools</span>
+    <span class="ticker-item"><span class="ticker-icon">☁️</span>Cloud & Productivity</span>
+    <span class="ticker-item"><span class="ticker-icon">🖥️</span>Software Licenses</span>
+    <span class="ticker-item"><span class="ticker-icon">🔒</span>VPN & Security</span>
+    <span class="ticker-item"><span class="ticker-icon">📚</span>Learning & Courses</span>
+  </div>
+</div>
+
+<!-- ══ CATEGORIES ══ -->
+<div class="section wrap">
+  <div class="section-head">
+    <div>
+      <div class="section-badge badge-red">🗂 Categories</div>
+      <h2 class="section-title">Explore every category</h2>
+      <p class="section-sub">From OTT entertainment to AI tools, productivity software, VPN, and learning — all in one place.</p>
+    </div>
+    <a href="#" class="btn btn-ghost">View All →</a>
+  </div>
+  <div class="cat-grid">
+    <div class="cat-card cc1"><div class="cat-icon-wrap ci1">🎬</div><div class="cat-name">Streaming & OTT</div><div class="cat-desc">Netflix, Prime, Hotstar, ZEE5, SonyLiv, Apple TV+</div><span class="cat-count">24 products</span></div>
+    <div class="cat-card cc2"><div class="cat-icon-wrap ci2">🤖</div><div class="cat-name">AI & Writing Tools</div><div class="cat-desc">ChatGPT Plus, Midjourney, Grammarly, Jasper, Quillbot</div><span class="cat-count">18 products</span></div>
+    <div class="cat-card cc3"><div class="cat-icon-wrap ci3">☁️</div><div class="cat-name">Cloud & Storage</div><div class="cat-desc">Google Drive, OneDrive, Dropbox, iCloud, pCloud</div><span class="cat-count">12 products</span></div>
+    <div class="cat-card cc4"><div class="cat-icon-wrap ci4">💻</div><div class="cat-name">Microsoft Suite</div><div class="cat-desc">MS 365, Office 2021, Teams, Visio, Project keys</div><span class="cat-count">20 products</span></div>
+    <div class="cat-card cc5"><div class="cat-icon-wrap ci5">🖥️</div><div class="cat-name">Software Licenses</div><div class="cat-desc">Windows 11, Antivirus, Adobe, Dev tools, Keys</div><span class="cat-count">16 products</span></div>
+    <div class="cat-card cc6"><div class="cat-icon-wrap ci6">🎵</div><div class="cat-name">Music & Audio</div><div class="cat-desc">Spotify, YouTube Music, Apple Music, Deezer</div><span class="cat-count">9 products</span></div>
+    <div class="cat-card cc7"><div class="cat-icon-wrap ci7">🔒</div><div class="cat-name">VPN & Security</div><div class="cat-desc">NordVPN, ExpressVPN, ProtonVPN, Password managers</div><span class="cat-count">11 products</span></div>
+    <div class="cat-card cc8"><div class="cat-icon-wrap ci8">📚</div><div class="cat-name">Learning & Courses</div><div class="cat-desc">Coursera, Udemy, LinkedIn Learning, Skillshare</div><span class="cat-count">14 products</span></div>
+  </div>
+</div>
+
+<!-- ══ FEATURED PRODUCTS ══ -->
+<div class="section wrap">
+  <div class="section-head">
+    <div>
+      <div class="section-badge badge-cyan">🔥 Hot Deals</div>
+      <h2 class="section-title">Featured products</h2>
+      <p class="section-sub">Best sellers at unbeatable prices — verified, instant delivery to WhatsApp and email.</p>
+    </div>
+    <a href="#" class="btn btn-ghost">All Products →</a>
+  </div>
+  <div class="product-grid">
+
+    <div class="product-card">
+      <div class="pc-thumb" style="background:linear-gradient(135deg,#1a0000,#4a0000)">
+        🎬<span class="pc-badge badge-hot">HOT</span>
+      </div>
+      <div class="pc-body">
+        <div class="pc-platform">Netflix</div>
+        <div class="pc-title">Netflix 4K Ultra HD — 1 Month</div>
+        <div class="pc-features">
+          <span class="pc-feat">4 Screens</span><span class="pc-feat">4K UHD</span><span class="pc-feat">Instant</span>
+        </div>
+        <div class="pc-footer">
+          <div><span class="pc-original">₹299</span><span class="pc-price" style="color:var(--red)">₹149</span></div>
+          <button class="pc-buy">Buy Now</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="product-card">
+      <div class="pc-thumb" style="background:linear-gradient(135deg,#001a0f,#003322)">
+        🤖<span class="pc-badge badge-new">NEW</span>
+      </div>
+      <div class="pc-body">
+        <div class="pc-platform">OpenAI</div>
+        <div class="pc-title">ChatGPT Plus GPT-4 — 1 Month</div>
+        <div class="pc-features">
+          <span class="pc-feat">GPT-4o</span><span class="pc-feat">DALL-E 3</span><span class="pc-feat">API</span>
+        </div>
+        <div class="pc-footer">
+          <div><span class="pc-original">₹1800</span><span class="pc-price" style="color:var(--cyan)">₹899</span></div>
+          <button class="pc-buy">Buy Now</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="product-card">
+      <div class="pc-thumb" style="background:linear-gradient(135deg,#001020,#002040)">
+        💻<span class="pc-badge badge-off">-61%</span>
+      </div>
+      <div class="pc-body">
+        <div class="pc-platform">Microsoft</div>
+        <div class="pc-title">Microsoft 365 Family — 1 Year</div>
+        <div class="pc-features">
+          <span class="pc-feat">6 Users</span><span class="pc-feat">Office Apps</span><span class="pc-feat">1TB</span>
+        </div>
+        <div class="pc-footer">
+          <div><span class="pc-original">₹5299</span><span class="pc-price" style="color:var(--purple)">₹2049</span></div>
+          <button class="pc-buy">Buy Now</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="product-card">
+      <div class="pc-thumb" style="background:linear-gradient(135deg,#0a1200,#1a2800)">
+        🎵<span class="pc-badge badge-hot">HOT</span>
+      </div>
+      <div class="pc-body">
+        <div class="pc-platform">Spotify</div>
+        <div class="pc-title">Spotify Premium — 3 Months</div>
+        <div class="pc-features">
+          <span class="pc-feat">Ad-free</span><span class="pc-feat">Offline</span><span class="pc-feat">HD Audio</span>
+        </div>
+        <div class="pc-footer">
+          <div><span class="pc-original">₹459</span><span class="pc-price" style="color:var(--green)">₹189</span></div>
+          <button class="pc-buy">Buy Now</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ HOW IT WORKS ══ -->
+<div class="section wrap">
+  <div style="text-align:center;margin-bottom:3rem">
+    <div class="section-badge badge-purple" style="margin-bottom:.85rem">⚡ Simple Process</div>
+    <h2 class="section-title">Get your product in 4 steps</h2>
+    <p class="section-sub" style="margin:0 auto">Simple, fast, and reliable. Your digital products delivered directly on WhatsApp and email within minutes.</p>
+  </div>
+  <div class="how-grid">
+    <div class="how-step">
+      <div class="step-num" data-n="1">🛒</div>
+      <div class="step-title">Choose Product</div>
+      <div class="step-desc">Browse 120+ premium digital products across 17 categories. Filter by type, price, or popularity.</div>
+    </div>
+    <div class="how-step">
+      <div class="step-num" data-n="2">💳</div>
+      <div class="step-title">Complete Payment</div>
+      <div class="step-desc">Pay securely via UPI, PhonePe, GPay, Paytm, cards, or crypto. Instant confirmation on every order.</div>
+    </div>
+    <div class="how-step">
+      <div class="step-num" data-n="3">📋</div>
+      <div class="step-title">Share Your Details</div>
+      <div class="step-desc">Enter your name, email, and WhatsApp number. Share your payment transaction ID for verification.</div>
+    </div>
+    <div class="how-step">
+      <div class="step-num" data-n="4">📱</div>
+      <div class="step-title">Receive on WhatsApp</div>
+      <div class="step-desc">Get your login credentials or product key delivered instantly to your WhatsApp and email.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ WHY CHOOSE US ══ -->
+<div class="section wrap">
+  <div style="text-align:center;margin-bottom:3rem">
+    <div class="section-badge badge-green" style="margin-bottom:.85rem">🏆 Why OTT24x7</div>
+    <h2 class="section-title">The OTT24x7 difference</h2>
+  </div>
+  <div class="trust-grid">
+    <div class="trust-card"><div class="tc-icon">⚡</div><div class="tc-title">Instant Delivery</div><div class="tc-desc">Credentials delivered automatically to WhatsApp and email seconds after payment confirmation. No waiting, no manual delays.</div></div>
+    <div class="trust-card"><div class="tc-icon">✅</div><div class="tc-title">100% Verified Products</div><div class="tc-desc">Every account and license is tested and verified before delivery. If you face issues, we replace or refund instantly.</div></div>
+    <div class="trust-card"><div class="tc-icon">💬</div><div class="tc-title">24×7 WhatsApp Support</div><div class="tc-desc">Real humans behind every conversation. Get help for orders, delivery issues, or general queries anytime of the day.</div></div>
+    <div class="trust-card"><div class="tc-icon">🔐</div><div class="tc-title">Secure UPI Payments</div><div class="tc-desc">Pay via any UPI app — GPay, PhonePe, Paytm, BHIM. All transactions are fully encrypted and protected.</div></div>
+    <div class="trust-card"><div class="tc-icon">💰</div><div class="tc-title">Lowest Prices Guaranteed</div><div class="tc-desc">Save up to 80% vs official pricing. We source directly and pass all savings to you. Price match available.</div></div>
+    <div class="trust-card"><div class="tc-icon">🔄</div><div class="tc-title">Easy Renewals</div><div class="tc-desc">Your dashboard tracks all active subscriptions. Renew with one click before expiry. Never lose access again.</div></div>
+  </div>
+</div>
+
+<!-- ══ FINAL CTA ══ -->
+<div class="wrap">
+  <div class="final-cta">
+    <h2>Ready to upgrade your digital access?</h2>
+    <p>Join thousands of customers who save up to 80% on premium digital products, delivered instantly.</p>
+    <div class="cta-actions">
+      <a href="#" class="btn btn-primary">⚡ Browse Products →</a>
+      <a href="#" class="btn btn-wa">💬 WhatsApp Order</a>
+    </div>
+  </div>
+</div>
+
+<!-- ══ FOOTER ══ -->
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <div class="footer-brand">
+      <div class="brand-icon" style="width:30px;height:30px;border-radius:9px;font-size:.85rem;transform:none">⚡</div>
+      OTT24x7
+    </div>
+    <div class="footer-links">
+      <a href="#">Privacy Policy</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Refund Policy</a>
+      <a href="#">About Us</a>
+      <a href="#">Contact</a>
+      <a href="#">Blog</a>
+    </div>
+    <div class="footer-copy">© 2025 OTT24x7. All rights reserved.</div>
+  </div>
+</footer>
+
+</body>
+</html>
