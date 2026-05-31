@@ -99,6 +99,8 @@ html[data-theme="dark"] .snav-logo .logo-dark{display:block}
 .splan-btn{margin-top:auto;padding:.6rem 1rem;background:var(--st-btn);color:#fff;border:none;border-radius:10px;font-size:.85rem;font-weight:700;cursor:pointer;width:100%;transition:opacity .15s}
 .splan-btn:hover:not(:disabled){opacity:.85}
 .splan-btn:disabled{background:var(--st-card);color:var(--st-muted);cursor:not-allowed}
+/* Whole card is clickable → opens the product detail view */
+.splan-card{cursor:pointer}
 /* Clickable product link (card image/header + name) → opens the product URL */
 .splan-link{text-decoration:none;color:inherit;display:block;cursor:pointer}
 a.splan-name{color:var(--st-text);transition:color .15s}
@@ -345,7 +347,7 @@ fetch('/user/api/plans').then(r=>r.json()).then(plans=>{
   //   3. URL hash #plan-{id}    e.g. /plans#plan-42 (legacy)
   const target=resolveDeepLinkTarget();
   if(target){
-    revealProduct(target);
+    openProductDetail(target,{push:false}); // URL is already /plans/{slug}
   } else if(/^\/plans\/.+/.test(location.pathname)){
     // A product URL was requested but no matching active plan exists.
     const c=document.getElementById('results-count');
@@ -459,14 +461,89 @@ function revealProduct(plan,opts){
   },120);
 }
 
-// Click handler for a product (image/header or name): push the clean product URL
-// into the address bar (so it's shareable and reflects the exact product) and
-// focus the card — no full page reload.
-function selectProduct(plan){
-  const url=plan.slug?('/plans/'+plan.slug):('/plans#'+planCardId(plan));
-  try{history.pushState({id:plan.id,slug:plan.slug||null},'',url);}catch(e){}
+// ── Product detail view ───────────────────────────────────────────────────────
+let _detailOv=null;   // currently-open product-detail overlay (or null)
+let _detailKey=null;  // slug (or id) of the open product
+
+// Open the product detail modal: reflect the product in the URL (shareable),
+// focus its card underneath, and show full details + Login / Guest checkout.
+function openProductDetail(plan,opts){
+  if(!plan)return;
+  const push=!opts||opts.push!==false;
+  if(push){
+    const url=plan.slug?('/plans/'+plan.slug):('/plans#'+planCardId(plan));
+    try{history.pushState({id:plan.id,slug:plan.slug||null,detail:1},'',url);}catch(e){}
+  }
   if(plan.platform&&plan.name)document.title=`${plan.platform} — ${plan.name}`;
-  revealProduct(plan,{resetIfHidden:false});
+  revealProduct(plan,{resetIfHidden:false}); // render + scroll the card behind the modal
+  if(_detailOv){_detailOv._close(true);_detailOv=null;} // replace any open detail (no URL reset)
+  _detailKey=plan.slug||String(plan.id);
+
+  const ov=openPlanModal(buildDetailHtml(plan),()=>{
+    // onClose (✕ / backdrop / Escape): drop back to the list URL + clear highlight
+    _detailOv=null;_detailKey=null;
+    document.title=(STORE&&STORE.site_name)?`All Plans — ${STORE.site_name}`:'All Plans — OTT Store';
+    document.querySelectorAll('.splan-card.splan-focus').forEach(el=>el.classList.remove('splan-focus'));
+    if(/^\/plans\/.+/.test(location.pathname)){try{history.pushState({},'', '/plans');}catch(e){}}
+  });
+  _detailOv=ov;
+
+  const oos=plan.stock===0;
+  const loginBtn=ov.querySelector('#pd-login');
+  const guestBtn=ov.querySelector('#pd-guest');
+  if(loginBtn)loginBtn.onclick=()=>{
+    if(oos)return;
+    try{localStorage.setItem('pendingBuyPlanId',String(plan.id));}catch(e){}
+    window.location.href='/my?buy='+plan.id;
+  };
+  if(guestBtn)guestBtn.onclick=()=>{
+    if(oos)return;
+    ov._close(true);_detailOv=null;_detailKey=null; // keep the product URL — guest is checking out this product
+    openGuestForm(plan);
+  };
+}
+
+// Inner HTML for the product detail modal.
+function buildDetailHtml(p){
+  const features=Array.isArray(p.features)?p.features:[];
+  const icon=ICONS[p.platform]||'📺';
+  const cols=COLORS[p.platform]||COLORS['default'];
+  const grad=`linear-gradient(135deg,${cols[0]},${cols[1]})`;
+  const dur=!p.duration_days?'Lifetime'
+    :p.duration_days>=365?`${Math.round(p.duration_days/365)} Year${p.duration_days>=730?'s':''}`
+    :p.duration_days>=30?`${Math.round(p.duration_days/30)} Month${p.duration_days>=60?'s':''}`
+    :`${p.duration_days} Days`;
+  const price=Number(p.price_inr).toLocaleString('en-IN');
+  const hasOrig=p.original_price_inr&&p.original_price_inr>p.price_inr;
+  const orig=hasOrig?`<span style="font-size:1rem;color:var(--st-muted);text-decoration:line-through;margin-left:.55rem">₹${Number(p.original_price_inr).toLocaleString('en-IN')}</span>`:'';
+  const off=hasOrig?Math.round((1-p.price_inr/p.original_price_inr)*100):0;
+  const offBadge=off>0?`<span style="background:rgba(16,185,129,.15);color:#10b981;border-radius:6px;padding:.15rem .5rem;font-size:.74rem;font-weight:800;margin-left:.55rem">${off}% OFF</span>`:'';
+  const oos=p.stock===0;
+  const header=p.image_url
+    ?`<img src="${esc(p.image_url)}" alt="${esc(p.platform)}" style="max-width:100%;max-height:100%;object-fit:contain" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;gap:.5rem;background:${grad}"><span style="font-size:2rem">${icon}</span><span style="font-weight:800;color:#fff">${esc(p.platform)}</span></div>`
+    :`<div style="display:flex;width:100%;height:100%;align-items:center;justify-content:center;gap:.5rem;background:${grad}"><span style="font-size:2rem">${icon}</span><span style="font-weight:800;color:#fff">${esc(p.platform)}</span></div>`;
+  const loginLabel=isLoggedIn?'🛒 Proceed to Checkout':'🔐 Login to Checkout';
+  return `
+<div style="margin-top:.25rem">
+  <div style="height:140px;border-radius:14px;overflow:hidden;background:rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;padding:.6rem;margin-bottom:.85rem">${header}</div>
+  <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--st-accent)">${esc(p.platform)}</div>
+  <h2 style="margin:.15rem 0 .45rem;font-size:1.15rem;font-weight:800;line-height:1.3">${esc(p.name)}</h2>
+  <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;font-size:.77rem;color:var(--st-muted);margin-bottom:.65rem">
+    <span>⏱ ${dur} validity</span>
+    ${p.delivery_type==='instant'?'<span style="color:#10b981;font-weight:700">⚡ Instant Delivery</span>':(p.delivery_time_est?`<span>🚚 ${esc(p.delivery_time_est)}</span>`:'')}
+    <span style="color:${oos?'#ef4444':'#10b981'};font-weight:700">${oos?'🔴 Out of Stock':'🟢 In Stock'}</span>
+  </div>
+  <div style="display:flex;align-items:baseline;margin-bottom:.8rem">
+    <span style="font-size:1.75rem;font-weight:900;color:var(--st-accent)">₹${price}</span>${orig}${offBadge}
+  </div>
+  ${features.length?`<ul style="list-style:none;margin:0 0 .8rem;padding:0;display:flex;flex-direction:column;gap:.32rem">${features.map(f=>`<li style="font-size:.82rem;color:var(--st-text);padding-left:1.35em;position:relative"><span style="position:absolute;left:0;color:var(--st-accent)">✓</span>${esc(f)}</li>`).join('')}</ul>`:''}
+  ${p.description?`<p style="font-size:.82rem;color:var(--st-muted);line-height:1.55;margin:0 0 .9rem">${esc(p.description)}</p>`:''}
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:.25rem">
+    <button id="pd-login" class="splan-btn" ${oos?'disabled':''} style="padding:.78rem .5rem;font-size:.85rem;border-radius:12px;line-height:1.25">${oos?'🔴 Out of Stock':loginLabel}</button>
+    <button id="pd-guest" class="splan-btn" ${oos?'disabled':''} style="padding:.78rem .5rem;font-size:.85rem;border-radius:12px;line-height:1.25;background:linear-gradient(135deg,#7c3aed,#6d28d9)">📧 Guest Checkout</button>
+  </div>
+  <p style="font-size:.71rem;color:var(--st-muted);text-align:center;margin:.65rem 0 0">🔒 Secure checkout · Credentials delivered to your email${p.delivery_type==='instant'?' instantly':''}</p>
+</div>`;
 }
 
 function renderPlans(){
@@ -485,64 +562,34 @@ function renderPlans(){
   noPlans.style.display='none';
   grid.style.display='grid';
   grid.innerHTML=plans.slice(0,_visible).map(p=>planCard(p)).join('');
-  grid.querySelectorAll('.splan-btn').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      const plan=ALL_PLANS.find(p=>p.id===Number(btn.dataset.id));
-      if(!plan)return;
-      openBuyChoice(plan);
+  // The whole card opens the product detail view (image, price, features +
+  // Login / Guest checkout). The image + name stay real <a href="/plans/{slug}">
+  // links so middle/ctrl-click still opens the product URL in a new tab.
+  grid.querySelectorAll('.splan-card').forEach(card=>{
+    card.addEventListener('click',()=>{
+      const plan=ALL_PLANS.find(p=>p.id===Number(card.dataset.id));
+      if(plan)openProductDetail(plan);
     });
   });
-  // Clicking the product image/header or its name opens the product URL
-  // (/plans/{slug}) and focuses the exact product — without a full reload.
-  // Modifier / middle clicks fall through so the link opens in a new tab.
+  grid.querySelectorAll('.splan-btn').forEach(btn=>{
+    btn.addEventListener('click',e=>{
+      e.stopPropagation(); // don't double-fire the card handler
+      const plan=ALL_PLANS.find(p=>p.id===Number(btn.dataset.id));
+      if(plan)openProductDetail(plan);
+    });
+  });
   grid.querySelectorAll('.splan-link').forEach(a=>{
     a.addEventListener('click',e=>{
-      if(e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
-      e.preventDefault();
+      if(e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return; // allow new-tab
+      e.preventDefault();e.stopPropagation();
       const plan=ALL_PLANS.find(p=>p.id===Number(a.dataset.id));
-      if(plan)selectProduct(plan);
+      if(plan)openProductDetail(plan);
     });
   });
   showMore.style.display=plans.length>_visible?'block':'none';
   if(plans.length>_visible){
     document.getElementById('show-more-btn').textContent=`Show ${plans.length-_visible} more plans ↓`;
   }
-}
-
-// ── Guest / Login buy choice ──────────────────────────────────────────────────
-function openBuyChoice(plan){
-  // If already logged in, skip the choice and go straight to /my checkout
-  if(isLoggedIn){
-    try { localStorage.setItem('pendingBuyPlanId', String(plan.id)); } catch {}
-    window.location.href='/my?buy='+plan.id;
-    return;
-  }
-
-  const ov=openPlanModal(`
-<div style="text-align:center;padding:1rem 0 .5rem">
-  <div style="font-size:2rem;margin-bottom:.5rem">🛒</div>
-  <h3 style="margin:0 0 .25rem;font-size:1.1rem;font-weight:800">${esc(plan.name)}</h3>
-  <div style="font-size:1.4rem;font-weight:900;color:var(--st-accent);margin-bottom:.75rem">₹${Number(plan.price_inr).toLocaleString('en-IN')}</div>
-  <p style="font-size:.85rem;color:var(--st-muted);margin:0 0 1.25rem">How would you like to continue?</p>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.7rem;max-width:360px;margin:0 auto">
-    <button id="bc-login" class="splan-btn" style="padding:.8rem;font-size:.9rem;border-radius:12px">
-      🔐 Sign In<br><small style="font-weight:400;opacity:.8">Track orders, history</small>
-    </button>
-    <button id="bc-guest" class="splan-btn" style="padding:.8rem;font-size:.9rem;border-radius:12px;background:linear-gradient(135deg,#7c3aed,#6d28d9)">
-      📧 Guest Checkout<br><small style="font-weight:400;opacity:.8">Email delivery only</small>
-    </button>
-  </div>
-</div>`);
-
-  document.getElementById('bc-login').onclick=()=>{
-    ov.remove();
-    try { localStorage.setItem('pendingBuyPlanId', String(plan.id)); } catch {}
-    window.location.href='/my?buy='+plan.id;
-  };
-  document.getElementById('bc-guest').onclick=()=>{
-    ov.remove();
-    openGuestForm(plan);
-  };
 }
 
 function openGuestForm(plan){
@@ -592,7 +639,7 @@ function openGuestForm(plan){
   }
   renderMethods();
 
-  document.getElementById('gf-back').onclick=()=>{ov.remove();openBuyChoice(plan);};
+  document.getElementById('gf-back').onclick=()=>{ov.remove();openProductDetail(plan,{push:false});};
   document.getElementById('gf-proceed').onclick=async()=>{
     const name=document.getElementById('gf-name').value.trim();
     const email=document.getElementById('gf-email').value.trim();
@@ -725,18 +772,29 @@ function showGuestSuccess(plan){
 </div>`);
 }
 
-// Simple modal helper for plans page (no /my dependency)
-function openPlanModal(html){
+// Simple modal helper for plans page (no /my dependency). Optional onClose fires
+// for every close path (✕ / backdrop / Escape). ov._close(silent) closes it
+// programmatically; pass silent=true to skip onClose (e.g. swapping modals).
+function openPlanModal(html,onClose){
   const ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(6px)';
   const box=document.createElement('div');
   box.style.cssText='background:var(--st-bg);border:1px solid var(--st-border);border-radius:18px;padding:1.35rem;width:100%;max-width:400px;max-height:85vh;overflow-y:auto;position:relative;box-shadow:0 24px 64px rgba(0,0,0,.5)';
-  box.innerHTML=`<button style="position:absolute;top:.75rem;right:.75rem;background:rgba(255,255,255,.06);border:none;color:var(--st-muted);border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center" id="pm-close">✕</button>${html}`;
+  box.innerHTML=`<button style="position:absolute;top:.75rem;right:.75rem;background:rgba(255,255,255,.06);border:none;color:var(--st-muted);border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;z-index:1" id="pm-close">✕</button>${html}`;
   ov.appendChild(box);
   document.body.appendChild(ov);
-  box.querySelector('#pm-close').onclick=()=>ov.remove();
-  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
-  document.addEventListener('keydown',function handler(e){if(e.key==='Escape'){ov.remove();document.removeEventListener('keydown',handler);}});
+  let closed=false;
+  function close(silent){
+    if(closed)return; closed=true;
+    ov.remove();
+    document.removeEventListener('keydown',handler);
+    if(silent!==true&&typeof onClose==='function')onClose();
+  }
+  function handler(e){if(e.key==='Escape')close();}
+  box.querySelector('#pm-close').onclick=()=>close();
+  ov.addEventListener('click',e=>{if(e.target===ov)close();});
+  document.addEventListener('keydown',handler);
+  ov._close=close;
   return ov;
 }
 
@@ -773,14 +831,17 @@ function planCard(p){
 
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
-// Back/forward between /plans and /plans/{slug} re-focuses (or un-focuses) the
-// matching product without a reload.
+// Back/forward: /plans/{slug} opens that product's detail view; /plans closes it.
 window.addEventListener('popstate',()=>{
   const m=location.pathname.match(/^\/plans\/([a-z0-9-]+)\/?$/i);
   if(m){
     const plan=ALL_PLANS.find(p=>p.slug===m[1]);
-    if(plan){revealProduct(plan,{resetIfHidden:false});return;}
+    const key=plan?(plan.slug||String(plan.id)):null;
+    if(plan&&key!==_detailKey)openProductDetail(plan,{push:false});
+    return;
   }
+  // Back to the list URL → close any open detail + clear the highlight.
+  if(_detailOv)_detailOv._close();
   document.querySelectorAll('.splan-card.splan-focus').forEach(el=>el.classList.remove('splan-focus'));
 });
 })();
