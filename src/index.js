@@ -8,13 +8,28 @@ const cfg = require('./config');
 const { getDb, getSetting, all, get } = require('./db');
 const { apiLimiter } = require('./security');
 
+// ── Crash guards ─────────────────────────────────────────────────────────────
+// Keep the process (and the WhatsApp bot's in-progress QR pairing) alive through
+// stray async errors. Without these, a single unhandled rejection — e.g. an
+// express-rate-limit validation throwing under a misconfigured 'trust proxy' —
+// exits Node, Railway restarts the container, and any WhatsApp pairing handshake
+// is interrupted. That crash-restart loop is exactly what kept the bot from ever
+// completing a link. Log loudly; never exit.
+process.on('unhandledRejection', (reason) => {
+  console.error('[fatal-guard] unhandledRejection:', reason && reason.stack ? reason.stack : reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[fatal-guard] uncaughtException:', err && err.stack ? err.stack : err);
+});
+
 const app = express();
 
-// Cloudflare in front of Railway in front of the app = 2 trusted hops. Setting
-// to `true` lets Express use the leftmost X-Forwarded-For value (the real
-// client). Without this, req.ip resolves to the Cloudflare proxy IP and the
-// per-IP rate limiters never trip (every request looks like the same client).
-app.set('trust proxy', true);
+// Cloudflare in front of Railway in front of the app = 2 trusted hops. We set
+// the COUNT (2) rather than `true`: express-rate-limit v7 rejects a permissive
+// `true` with a ValidationError (which was surfacing as an unhandled rejection
+// and crash-looping the container). A fixed hop count resolves the real client
+// IP for the per-IP limiters without tripping that validation.
+app.set('trust proxy', 2);
 app.use(compression());
 
 // Baseline security headers on every response. CSP is intentionally omitted —
