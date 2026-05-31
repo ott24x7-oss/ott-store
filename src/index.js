@@ -320,11 +320,11 @@ app.get('/', async (req, res) => {
       bingCode ? `<meta name="msvalidate.01" content="${esc(bingCode)}">` : '',
     ].filter(Boolean).join('\n');
     html = html.replace('</head>', inject + '\n</head>');
-    // Server-render the MovieVerse home's dynamic bits so there's no flash of
-    // template placeholders before the client fetch resolves.
-    if (homeFile === 'movieverse-home.html') {
-      html = await injectMovieverseDynamic(html, name);
-    }
+    // Server-render the home's dynamic bits so there's no flash of template
+    // placeholders before the client /user/api/store fetch resolves.
+    html = homeFile === 'movieverse-home.html'
+      ? await injectMovieverseDynamic(html, name)
+      : await injectDefaultHomeDynamic(html, name);
     res.type('text/html').send(html);
   } catch {
     res.sendFile(path.join(__dirname, '..', 'public', 'store', 'index.html'));
@@ -549,6 +549,50 @@ async function injectMovieverseDynamic(html, siteName) {
     const productListHtml = top4.map(p =>
       `<a class="product-row" data-buy-id="${p.id}" href="/my?buy=${p.id}">${thumb(p, 'product-thumb')}<div style="flex:1;min-width:0"><strong>${esc(p.platform || '')} ${esc(p.name || '')}</strong><small>${esc(durOf(p))} · Instant delivery</small></div><span class="price-pill">${fmtInr(p.price_inr)}</span></a>`).join('');
     html = html.replace('<div class="product-row"><div><strong>Loading plans…</strong><small>Fetching from catalog</small></div></div>', productListHtml);
+
+    return html;
+  } catch {
+    return html;
+  }
+}
+
+// ─── Default home (index.html): server-render the dynamic content ─────────────
+// Same idea as injectMovieverseDynamic, for the non-MovieVerse home. index.html
+// fills the brand, phone mock, CTA title, footer copy and hero copy client-side
+// after fetching /user/api/store; on a slow connection those show their template
+// defaults first (incl. a stale "© 2025" and "…access?" vs "…access on {store}?")
+// then swap. Pre-render them so the first paint is final. Mirrors the client
+// formatting; never throws.
+async function injectDefaultHomeDynamic(html, siteName) {
+  try {
+    const [heroTitle, heroTitle2, heroSub, tagline] = await Promise.all([
+      getSetting('hero_title'), getSetting('hero_title2'), getSetting('hero_subtext'), getSetting('site_tagline'),
+    ]);
+    const logos = await getLogoUrls();
+    const year = new Date().getFullYear();
+
+    // Brand (header + footer) — logo images if configured, else the store name
+    if (logos.light || logos.dark) {
+      const light = logos.light || logos.dark;
+      const dark = logos.dark || logos.light;
+      const imgs = (h, w) => `<img src="${esc(light)}" class="logo-light" alt="${esc(siteName)}" style="max-height:${h}px;max-width:${w}px;object-fit:contain"><img src="${esc(dark)}" class="logo-dark" alt="${esc(siteName)}" style="max-height:${h}px;max-width:${w}px;object-fit:contain">`;
+      html = html.replace(/(<span class="brand-name" id="nav-logo">)[^<]*(<\/span>)/, `$1${imgs(36, 150)}$2`);
+      html = html.replace(/(<a class="footer-logo" href="\/" id="footer-name">)[^<]*(<\/a>)/, `$1${imgs(28, 120)}$2`);
+    } else {
+      html = html.replace(/(<span class="brand-name" id="nav-logo">)[^<]*(<\/span>)/, `$1${esc(siteName)}$2`);
+      html = html.replace(/(<a class="footer-logo" href="\/" id="footer-name">)[^<]*(<\/a>)/, `$1${esc(siteName)}$2`);
+    }
+
+    // Phone mock name, CTA title, footer copyright (mirror the client)
+    html = html.replace(/(<h3 id="phone-name">)[^<]*(<\/h3>)/, `$1${esc(siteName)}$2`);
+    html = html.replace(/(<h2 id="cta-title">)[^<]*(<\/h2>)/, `$1Ready to upgrade your digital access on ${esc(siteName)}?$2`);
+    html = html.replace(/(<span class="footer-copy" id="footer-copy">)[^<]*(<\/span>)/, `$1© ${year} ${esc(siteName)}. All rights reserved.$2`);
+
+    // Hero copy — only override the template when the store has configured it
+    if (heroTitle)  html = html.replace(/(<span class="gradient" id="hero-title">)[^<]*(<\/span>)/, `$1${esc(heroTitle)}$2`);
+    if (heroTitle2) html = html.replace(/(<span id="hero-title2">)[^<]*(<\/span>)/, `$1${esc(heroTitle2)}$2`);
+    const sub = heroSub || tagline;
+    if (sub) html = html.replace(/(<p id="hero-sub">)[\s\S]*?(<\/p>)/, `$1${esc(sub)}$2`);
 
     return html;
   } catch {
