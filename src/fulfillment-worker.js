@@ -356,7 +356,26 @@ function rkRawHttp(url, { method = 'GET', headers = {}, body = null, timeout = 1
   });
 }
 
+// Public entry used by the admin "Test Connection" button. Prefers the REAL
+// browser login (validates the whole Playwright/Chromium stack on Railway); if
+// Playwright/Chromium isn't available in this environment, falls back to the
+// lightweight HTTP login check below.
 async function testResellKeysLogin() {
+  try {
+    const provider = require('./providers/resellkeys');
+    return await provider.testLogin();
+  } catch (e) {
+    if (e && e.code === 'NO_BROWSER') {
+      const r = await testResellKeysLoginHttp();
+      r.message = '⚠️ Browser engine not available here — ran the lightweight HTTP check instead.\n' + r.message;
+      r.via = 'http_fallback';
+      return r;
+    }
+    return { ok: false, stage: 'browser', message: `Browser login error: ${e.message}` };
+  }
+}
+
+async function testResellKeysLoginHttp() {
   const db = await getDb();
   const cfg = await getResellKeysConfig(db);
   const root = String(cfg.apiUrl || 'https://resellkeys.com')

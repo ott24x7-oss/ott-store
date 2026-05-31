@@ -1,0 +1,13 @@
+# Rebuilt in the image / provided at runtime — never ship from local context.
+node_modules
+data
+.git
+.github
+.claude
+*.db
+*.db-journal
+.env
+.env.*
+npm-debug.log*
+.DS_Store
+Thumbs.db
