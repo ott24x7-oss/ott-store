@@ -3441,11 +3441,33 @@ views['wa-offers'] = async function () {
 </div>
 <div class="modal-footer"><button class="btn btn-primary" onclick="saveWaOffer(${o.id||'null'})">Save</button></div>`);
 
+      // Downscale + compress the chosen image to a WhatsApp-friendly JPEG before
+      // base64-encoding it. Phone photos are 2-5MB and the raw base64 blows past
+      // the JSON body limit, so the upload silently failed; resizing keeps it to
+      // a couple hundred KB and works every time.
       window.readWaImg = (inp) => {
         const file = inp.files[0];
         if (!file) return;
+        const out = document.getElementById('waof-img-b64');
         const reader = new FileReader();
-        reader.onload = (e) => { document.getElementById('waof-img-b64').value = e.target.result.split(',')[1]; };
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            const MAX = 1600;
+            let w = img.width, h = img.height;
+            if (Math.max(w, h) > MAX) { const sc = MAX / Math.max(w, h); w = Math.round(w * sc); h = Math.round(h * sc); }
+            const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+            cv.getContext('2d').drawImage(img, 0, 0, w, h);
+            const dataUrl = cv.toDataURL('image/jpeg', 0.82);
+            out.value = dataUrl.split(',')[1];
+            let prev = document.getElementById('waof-img-prev');
+            if (!prev) { prev = document.createElement('div'); prev.id = 'waof-img-prev'; prev.style.cssText = 'margin-top:.5rem;font-size:.8rem;color:#16a34a'; inp.parentNode.appendChild(prev); }
+            const kb = Math.round((out.value.length * 3 / 4) / 1024);
+            prev.innerHTML = `<img src="${dataUrl}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;display:block;margin-bottom:.25rem">✓ Image ready — ${w}×${h}, ~${kb} KB`;
+          };
+          img.onerror = () => { out.value = e.target.result.split(',')[1]; };
+          img.src = e.target.result;
+        };
         reader.readAsDataURL(file);
       };
 
