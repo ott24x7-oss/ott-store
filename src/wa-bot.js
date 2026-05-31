@@ -251,7 +251,21 @@ async function startBaileysBot() {
 
     fs.mkdirSync(SESSION_DIR, { recursive: true });
 
-    const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
+    let { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
+    // ── Auto-recover from a "ghost" session ──────────────────────────────────
+    // registered:false WITH a number (me) set means a previous pairing saved
+    // keys/me but never completed registration — a silent ghost WhatsApp won't
+    // deliver any messages to. Wipe it so we boot straight into a clean QR
+    // pairing instead of pretending to be connected. (A normal first run is
+    // registered:false + NO me; a healthy link is registered:true — neither
+    // matches, so good sessions are never touched.)
+    if (state?.creds?.registered === false && state?.creds?.me) {
+      console.warn('[wa-bot] incomplete/ghost session detected (registered:false) — clearing it to force a fresh QR pairing');
+      try { fs.rmSync(SESSION_DIR, { recursive: true, force: true }); } catch {}
+      fs.mkdirSync(SESSION_DIR, { recursive: true });
+      ({ state, saveCreds } = await useMultiFileAuthState(SESSION_DIR));
+      try { setSettingSync('wa_bot_number', ''); } catch {}
+    }
     const { version }          = await fetchLatestBaileysVersion();
 
     // Minimal silent pino logger; fallback to no-op if pino not installed
