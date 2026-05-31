@@ -1369,12 +1369,15 @@ router.post('/suppliers/:id/notify', requireAdmin, async (req, res) => {
 router.get('/ai-settings', requireAdmin, async (req, res) => {
   try {
     const db = await getDb();
-    const keys = ['ai_enabled','ai_provider','ai_model','ai_persona','ai_daily_cap','ai_fallback_message'];
+    const keys = ['ai_enabled','ai_provider','ai_model','ai_persona','ai_daily_cap','ai_fallback_message','ai_base_url'];
     const rows = all(db, `SELECT key, value FROM settings WHERE key IN (${keys.map(()=>'?').join(',')})`, keys);
     const out = {};
     for (const r of rows) out[r.key] = r.value;
     const ak = get(db, `SELECT value FROM settings WHERE key='ai_api_key'`);
     out.ai_api_key = ak?.value ? '••••••••' + String(ak.value).slice(-4) : '';
+    // Surface whether an active AI channel actually exists (i.e. the AI will work).
+    const activeCh = get(db, `SELECT label, url, model FROM api_channels WHERE active=1 ORDER BY id ASC LIMIT 1`);
+    out._active_channel = activeCh ? { label: activeCh.label, url: activeCh.url, model: activeCh.model } : null;
     res.json(out);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1382,15 +1385,68 @@ router.get('/ai-settings', requireAdmin, async (req, res) => {
 router.post('/ai-settings', requireAdmin, async (req, res) => {
   try {
     const db = await getDb();
-    const allowed = ['ai_enabled','ai_provider','ai_model','ai_persona','ai_daily_cap','ai_fallback_message'];
+    const allowed = ['ai_enabled','ai_provider','ai_model','ai_persona','ai_daily_cap','ai_fallback_message','ai_base_url'];
     for (const k of allowed) {
       if (k in req.body) run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, [k, String(req.body[k] ?? '')]);
     }
     if (req.body.ai_api_key && !String(req.body.ai_api_key).startsWith('••••••••')) {
       run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, ['ai_api_key', req.body.ai_api_key]);
     }
+
+    // ── Bridge: make the AI Agent page actually drive the live AI ──────────────
+    // ai.js chat() uses the ACTIVE row in api_channels (OpenAI-compatible
+    // /v1/chat/completions). Previously the AI Agent page only wrote ai_*
+    // settings that nothing consumed, so the bot never replied. Here we mirror
+    // the page's provider/key/model into one auto-managed channel and activate
+    // it — so saving this page is all that's needed to turn the AI on.
+    try {
+      const sval = (k) => get(db, `SELECT value FROM settings WHERE key=?`, [k])?.value || '';
+      const provider = String((req.body.ai_provider ?? sval('ai_provider')) || '').toLowerCase().trim();
+      const realKey  = sval('ai_api_key');
+      const model    = String((req.body.ai_model ?? sval('ai_model')) || '').trim();
+      const customBase = String((req.body.ai_base_url ?? sval('ai_base_url')) || '').trim().replace(/\/+$/, '');
+      const baseMap = {
+        tokenclub: 'https://s1.tokenclub.top',
+        'token club': 'https://s1.tokenclub.top',
+        openrouter: 'https://openrouter.ai/api',
+        openai: 'https://api.openai.com',
+      };
+      const base = customBase || baseMap[provider] || '';
+      if (base && realKey) {
+        const defModel = model || 'gpt-4o-mini';
+        const existing = get(db, `SELECT id FROM api_channels WHERE label='AI Agent'`);
+        if (existing) {
+          run(db, `UPDATE api_channels SET type='newapi_channel_conn', url=?, api_key=?, model=?, active=1, notes='Auto-managed by the AI Agent page' WHERE id=?`,
+            [base, realKey, defModel, existing.id]);
+        } else {
+          run(db, `INSERT INTO api_channels (label,type,url,api_key,model,active,notes) VALUES ('AI Agent','newapi_channel_conn',?,?,?,1,'Auto-managed by the AI Agent page')`,
+            [base, realKey, defModel]);
+        }
+        // Exactly one active channel.
+        run(db, `UPDATE api_channels SET active=0 WHERE label<>'AI Agent'`);
+        // Align the WhatsApp AI gate with the page's enable toggle.
+        const enabled = String(req.body.ai_enabled ?? sval('ai_enabled')) === '0' ? '0' : '1';
+        run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES ('wa_ai_reply_enabled', ?)`, [enabled]);
+      }
+    } catch (bridgeErr) {
+      console.error('[ai-settings] channel bridge failed:', bridgeErr.message);
+      // never fail the save because of bridging
+    }
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Test the currently-active AI channel (the one the AI Agent page just wired up)
+// with a tiny live completion, so the admin gets instant confirmation.
+router.post('/ai-settings/test', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const ch = get(db, `SELECT id, url, model FROM api_channels WHERE active=1 ORDER BY id ASC LIMIT 1`);
+    if (!ch) return res.json({ ok: false, error: 'No active AI channel yet. Pick a provider, paste your API key, and click Save first.' });
+    const { testChannel } = require('./ai');
+    const r = await testChannel(ch.id);
+    res.json({ ok: true, model: r.model, reply: r.reply, url: ch.url });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
 });
 
 // ─── Order enhancements ───────────────────────────────────────────────────────

@@ -3360,7 +3360,7 @@ views['wa-offers'] = async function () {
       <div style="font-size:.78rem;font-weight:700;color:var(--muted,#8b949e);margin-bottom:.5rem">🔜 Upcoming posting order — ${_waQueue.length} active, cycles in this order</div>
       ${_waQueue.slice(0, 6).map((o, i) => `<div style="display:flex;align-items:center;gap:.55rem;font-size:.82rem;padding:.18rem 0">
         <span style="flex:0 0 auto;min-width:46px;text-align:center;font-weight:700;font-size:.62rem;padding:.18rem .5rem;border-radius:20px;${i === 0 ? 'background:#16a34a;color:#fff' : 'background:#1e293b;color:var(--muted,#8b949e)'}">${i === 0 ? 'NEXT' : '#' + (i + 1)}</span>
-        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;${i === 0 ? 'font-weight:600' : ''}">${esc((o.text || '').replace(/\s+/g, ' ').slice(0, 90))}</span>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;color:${i === 0 ? '#ffffff;font-weight:600' : '#c9d1d9'}">${esc((o.text || '').replace(/\s+/g, ' ').slice(0, 90))}</span>
       </div>`).join('')}
       ${_waQueue.length > 6 ? `<div style="font-size:.72rem;color:var(--muted,#8b949e);padding:.25rem 0 0 52px">+ ${_waQueue.length - 6} more in rotation…</div>` : ''}
     </div>` : '';
@@ -3368,6 +3368,7 @@ views['wa-offers'] = async function () {
       <span id="waof-bulk-count" style="font-size:.8rem;color:var(--muted,#8b949e);min-width:70px">0 selected</span>
       <button class="btn btn-sm btn-secondary" onclick="waBulkActive(1)">▶ Activate</button>
       <button class="btn btn-sm btn-secondary" onclick="waBulkActive(0)">⏸ Pause</button>
+      <button class="btn btn-sm btn-secondary" onclick="waBulkEdit()">✏️ Edit Content</button>
       <button class="btn btn-sm btn-secondary" onclick="waBulkReplace()">🔁 Find &amp; Replace…</button>
       <button class="btn btn-sm btn-danger" onclick="waBulkDelete()">🗑 Delete</button>
     </div>` : '';
@@ -3551,6 +3552,41 @@ views['wa-offers'] = async function () {
       const ids = waSelectedIds(); if (!ids.length) return showToast('Select offers first');
       for (const id of ids) { const o = offers.find(x => x.id === id); if (!o) continue; try { await api('/wa-offers/' + id, { method: 'PUT', body: JSON.stringify({ text: o.text, active }) }); } catch (e) {} }
       showToast((active ? 'Activated ' : 'Paused ') + ids.length + ' offer' + (ids.length > 1 ? 's' : '')); views['wa-offers']();
+    };
+    window.waBulkEdit = () => {
+      const ids = waSelectedIds(); if (!ids.length) return showToast('Select offers first');
+      const sel = ids.map(id => offers.find(x => x.id === id)).filter(Boolean);
+      const ov = openModal(`
+<div class="modal-header"><h3>✏️ Edit ${sel.length} Post${sel.length > 1 ? 's' : ''}</h3><button class="btn-icon" data-close>✕</button></div>
+<div class="modal-body" style="max-height:70vh;overflow-y:auto">
+  <div id="wabe-msg"></div>
+  <p class="muted" style="font-size:.8rem;margin-bottom:.75rem">Edit the text of each selected post, then Save All. Unchanged posts are skipped.</p>
+  ${sel.map(o => `<div class="form-group" style="margin-bottom:1rem">
+    <label class="form-label" style="font-size:.78rem">#${o.id} ${o.active ? '· <span style="color:#16a34a">Active</span>' : '· <span class="muted">Paused</span>'}</label>
+    <textarea class="form-input wabe-text" data-id="${o.id}" rows="4">${esc(o.text || '')}</textarea>
+  </div>`).join('')}
+</div>
+<div class="modal-footer" style="gap:.5rem">
+  <button class="btn btn-secondary" data-close>Cancel</button>
+  <button class="btn btn-primary" id="wabe-save">💾 Save All</button>
+</div>`);
+      document.getElementById('wabe-save').onclick = async () => {
+        const msg = document.getElementById('wabe-msg');
+        const btn = document.getElementById('wabe-save');
+        btn.disabled = true;
+        msg.innerHTML = '<div class="alert">Saving…</div>';
+        let saved = 0, failed = 0;
+        for (const ta of document.querySelectorAll('.wabe-text')) {
+          const id = Number(ta.dataset.id);
+          const o = offers.find(x => x.id === id);
+          if (!o || ta.value === o.text) continue; // skip unchanged
+          try { await api('/wa-offers/' + id, { method: 'PUT', body: JSON.stringify({ text: ta.value, active: o.active }) }); saved++; }
+          catch (e) { failed++; }
+        }
+        ov.remove();
+        showToast(`Saved ${saved} post${saved !== 1 ? 's' : ''}${failed ? `, ${failed} failed` : ''}`);
+        views['wa-offers']();
+      };
     };
     window.waBulkDelete = async () => {
       const ids = waSelectedIds(); if (!ids.length) return showToast('Select offers first');
@@ -3882,32 +3918,44 @@ views['ai-agent'] = async function () {
 <h2 style="font-weight:800;margin-bottom:1.5rem">AI Agent Settings</h2>
 <div class="card" style="max-width:680px">
   <div id="ai-msg"></div>
-  <p class="muted" style="font-size:.85rem;margin-bottom:1rem">
-    Configure an AI assistant that auto-replies to WhatsApp messages (when bot is in human mode).
-    Supports Google Gemini and OpenRouter (any free model).
+  <p class="muted" style="font-size:.85rem;margin-bottom:.75rem">
+    Powers AI replies on WhatsApp <b>and</b> the website chat. Use an OpenAI-compatible provider —
+    <b>Token Club</b> (recommended), OpenRouter, OpenAI, or a custom endpoint. Saving here wires the
+    AI on automatically.
   </p>
-  <label style="display:flex;align-items:center;gap:.5rem;margin-bottom:1rem"><input type="checkbox" id="ai-enabled" ${s.ai_enabled==='1'?'checked':''}> Enable AI Auto-Reply on WhatsApp</label>
+  ${s._active_channel
+    ? `<div class="alert alert-success" style="font-size:.82rem">✅ AI is live — channel <b>${esc(s._active_channel.url)}</b> · model <b>${esc(s._active_channel.model||'')}</b></div>`
+    : `<div class="alert" style="font-size:.82rem;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412">⚠️ No active AI channel yet — pick a provider, paste your API key, and Save to switch the AI on.</div>`}
+  <label style="display:flex;align-items:center;gap:.5rem;margin:.75rem 0 1rem"><input type="checkbox" id="ai-enabled" ${s.ai_enabled==='1'?'checked':''}> Enable AI Auto-Reply on WhatsApp</label>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
     <div class="form-group">
       <label class="form-label">Provider</label>
       <select class="form-input" id="ai-provider">
-        <option value="gemini" ${s.ai_provider==='gemini'?'selected':''}>Google Gemini (free tier)</option>
-        <option value="openrouter" ${s.ai_provider==='openrouter'?'selected':''}>OpenRouter (any model)</option>
+        <option value="tokenclub" ${(!['openrouter','openai','custom'].includes(s.ai_provider))?'selected':''}>Token Club (recommended)</option>
+        <option value="openrouter" ${s.ai_provider==='openrouter'?'selected':''}>OpenRouter</option>
+        <option value="openai" ${s.ai_provider==='openai'?'selected':''}>OpenAI</option>
+        <option value="custom" ${s.ai_provider==='custom'?'selected':''}>Custom (OpenAI-compatible)</option>
       </select>
     </div>
     <div class="form-group">
       <label class="form-label">Model <span class="muted">(leave blank for default)</span></label>
-      <input class="form-input" id="ai-model" value="${esc(s.ai_model||'')}" placeholder="gemini-2.0-flash or leave blank">
+      <input class="form-input" id="ai-model" value="${esc(s.ai_model||'')}" placeholder="gpt-4o-mini or leave blank">
     </div>
     <div class="form-group">
       <label class="form-label">API Key</label>
-      <input class="form-input" type="password" id="ai-key" value="${esc(s.ai_api_key||'')}" placeholder="Google AI Studio or OpenRouter key">
+      <input class="form-input" type="password" id="ai-key" value="${esc(s.ai_api_key||'')}" placeholder="Your provider API key (sk-...)">
     </div>
     <div class="form-group">
       <label class="form-label">Daily Message Cap</label>
       <input class="form-input" type="number" id="ai-cap" value="${esc(s.ai_daily_cap||'500')}" style="width:100px">
     </div>
+  </div>
+
+  <div class="form-group mt-2">
+    <label class="form-label">Base URL <span class="muted">(provider endpoint, without /v1)</span></label>
+    <input class="form-input" id="ai-base" value="${esc(s.ai_base_url||'')}" placeholder="https://s1.tokenclub.top">
+    <p class="muted mt-1" style="font-size:.8rem">Leave blank for Token Club's default (<code>s1.tokenclub.top</code>). Required only for "Custom".</p>
   </div>
 
   <div class="form-group mt-2">
@@ -3922,7 +3970,10 @@ views['ai-agent'] = async function () {
     <p class="muted mt-1" style="font-size:.8rem">Leave blank to stay silent (seller can reply manually).</p>
   </div>
 
-  <button class="btn btn-primary mt-3" onclick="saveAiSettings()">Save AI Settings</button>
+  <div style="display:flex;gap:.5rem;align-items:center;margin-top:1rem;flex-wrap:wrap">
+    <button class="btn btn-primary" onclick="saveAiSettings()">Save AI Settings</button>
+    <button class="btn btn-secondary" onclick="testAiSettings()">⚡ Save & Test</button>
+  </div>
 </div>`);
 
     window.saveAiSettings = async () => {
@@ -3933,13 +3984,25 @@ views['ai-agent'] = async function () {
           ai_provider: document.getElementById('ai-provider').value,
           ai_model: document.getElementById('ai-model').value,
           ai_api_key: document.getElementById('ai-key').value,
+          ai_base_url: document.getElementById('ai-base').value,
           ai_daily_cap: document.getElementById('ai-cap').value,
           ai_persona: document.getElementById('ai-persona').value,
           ai_fallback_message: document.getElementById('ai-fallback').value,
         })});
-        msg.innerHTML='<div class="alert alert-success">Saved!</div>';
-        setTimeout(()=>msg.innerHTML='',2000);
-      } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+        msg.innerHTML='<div class="alert alert-success">Saved! AI channel updated.</div>';
+        return true;
+      } catch(e) { msg.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; return false; }
+    };
+    window.testAiSettings = async () => {
+      const msg = document.getElementById('ai-msg');
+      if (!(await saveAiSettings())) return;
+      msg.innerHTML='<div class="alert">⏳ Testing your AI provider…</div>';
+      try {
+        const r = await api('/ai-settings/test', { method:'POST', body: JSON.stringify({}) });
+        msg.innerHTML = r.ok
+          ? `<div class="alert alert-success">✅ AI works! <b>${esc(r.model||'')}</b> replied: "${esc((r.reply||'').slice(0,80))}"</div>`
+          : `<div class="alert alert-error">❌ ${esc(r.error||'Test failed')}</div>`;
+      } catch(e) { msg.innerHTML=`<div class="alert alert-error">❌ ${esc(e.message)}</div>`; }
     };
 
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
