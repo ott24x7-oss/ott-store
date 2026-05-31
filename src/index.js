@@ -393,8 +393,8 @@ app.get('/', async (req, res) => {
         `<script id="ld-org" type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', '@type': 'Store', name, url: base })}</script>`);
     const inject = [
       `<link rel="canonical" href="${esc(base)}/">`,
-      gscCode ? `<meta name="google-site-verification" content="${esc(gscCode)}">` : '',
-      bingCode ? `<meta name="msvalidate.01" content="${esc(bingCode)}">` : '',
+      gscCode ? `<meta name="google-site-verification" content="${esc(metaToken(gscCode))}">` : '',
+      bingCode ? `<meta name="msvalidate.01" content="${esc(metaToken(bingCode))}">` : '',
     ].filter(Boolean).join('\n');
     html = html.replace('</head>', inject + '\n</head>');
     // Server-render the home's dynamic bits so there's no flash of template
@@ -411,6 +411,18 @@ app.get('/', async (req, res) => {
 // ─── Shared premium page shell ────────────────────────────────────────────────
 function esc(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Normalize a site-verification value the admin may paste in any form — a bare
+// token, "google-site-verification=TOKEN", or a full <meta ... content="TOKEN">
+// tag — down to just the token, so the rendered <meta> is always valid. This is
+// what makes pasting the wrong format from Search Console / Bing not silently
+// break verification.
+function metaToken(v) {
+  v = String(v || '').trim();
+  const tag = v.match(/content\s*=\s*["']([^"']+)["']/i);
+  if (tag) return tag[1].trim();
+  return v.replace(/^google-site-verification\s*=\s*/i, '').trim();
 }
 
 const SHARED_STYLES = `

@@ -1995,7 +1995,7 @@ views.seo = async function () {
     </div>
   </div>
   <div class="form-row">
-    <div class="form-group"><label class="form-label">GSC Verification Code</label><input class="form-input" name="seo_gsc_verification" value="${esc(s.seo_gsc_verification||'')}" placeholder="google-site-verification=..."></div>
+    <div class="form-group"><label class="form-label">GSC Verification Code</label><input class="form-input" name="seo_gsc_verification" value="${esc(s.seo_gsc_verification||'')}" placeholder="Paste the code or full meta tag from Search Console"></div>
     <div class="form-group"><label class="form-label">Bing Verification</label><input class="form-input" name="seo_bing_verification" value="${esc(s.seo_bing_verification||'')}"></div>
   </div>
 </div>
