@@ -33,6 +33,7 @@ let wdLastChange     = Date.now();
 let wdLastStatus     = 'disconnected';
 const sentCache      = new Map();
 const SENT_CACHE_MAX = 500;
+let _ghostCheckDone  = false; // stale-ghost auto-clear runs at most once per process (never during a pairing)
 
 // ─── WA AI reply sessions (per JID conversation history) ─────────────────────
 const _waSessions    = new Map(); // jid → { messages: [], lastActive: ms }
@@ -252,19 +253,26 @@ async function startBaileysBot() {
     fs.mkdirSync(SESSION_DIR, { recursive: true });
 
     let { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
-    // ── Auto-recover from a "ghost" session ──────────────────────────────────
-    // registered:false WITH a number (me) set means a previous pairing saved
-    // keys/me but never completed registration — a silent ghost WhatsApp won't
-    // deliver any messages to. Wipe it so we boot straight into a clean QR
-    // pairing instead of pretending to be connected. (A normal first run is
-    // registered:false + NO me; a healthy link is registered:true — neither
-    // matches, so good sessions are never touched.)
-    if (state?.creds?.registered === false && state?.creds?.me) {
-      console.warn('[wa-bot] incomplete/ghost session detected (registered:false) — clearing it to force a fresh QR pairing');
-      try { fs.rmSync(SESSION_DIR, { recursive: true, force: true }); } catch {}
-      fs.mkdirSync(SESSION_DIR, { recursive: true });
-      ({ state, saveCreds } = await useMultiFileAuthState(SESSION_DIR));
-      try { setSettingSync('wa_bot_number', ''); } catch {}
+    // ── Auto-recover from a STALE "ghost" session — ONCE per process ──────────
+    // A leftover registered:false+me session (a previously-interrupted pairing)
+    // is a silent ghost WhatsApp delivers no messages to. We clear it ONCE, on
+    // the first connect after boot, so we start from a clean QR.
+    //
+    // CRITICAL: we must NOT re-check on later in-process reconnects. Right after
+    // a fresh QR scan Baileys closes with a 515 "restart required" and the new
+    // creds momentarily read registered:false+me — wiping THEN would destroy the
+    // just-scanned session and the phone would spin forever in a re-pair loop.
+    // The once-per-process guard (_ghostCheckDone) ensures the auto-clear only
+    // runs at boot, never during a pairing.
+    if (!_ghostCheckDone) {
+      _ghostCheckDone = true;
+      if (state?.creds?.registered === false && state?.creds?.me) {
+        console.warn('[wa-bot] stale/ghost session detected at boot (registered:false) — clearing once for a fresh QR pairing');
+        try { fs.rmSync(SESSION_DIR, { recursive: true, force: true }); } catch {}
+        fs.mkdirSync(SESSION_DIR, { recursive: true });
+        ({ state, saveCreds } = await useMultiFileAuthState(SESSION_DIR));
+        try { setSettingSync('wa_bot_number', ''); } catch {}
+      }
     }
     const { version }          = await fetchLatestBaileysVersion();
 
