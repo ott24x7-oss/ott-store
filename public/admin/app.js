@@ -3325,6 +3325,30 @@ views['wa-offers'] = async function () {
 
     const groupsStr = settings.wa_autopost_groups || '[]';
 
+    // Upcoming posting order — mirrors wa-worker.js next-pick: active offers,
+    // never-posted first, then oldest last_posted_at, then id.
+    const _waQueue = offers.filter(o => o.active).slice().sort((a, b) => {
+      const an = a.last_posted_at == null, bn = b.last_posted_at == null;
+      if (an !== bn) return an ? -1 : 1;
+      if (!an) { const at = new Date(a.last_posted_at).getTime(), bt = new Date(b.last_posted_at).getTime(); if (at !== bt) return at - bt; }
+      return (a.id || 0) - (b.id || 0);
+    });
+    const _waUpcomingHtml = _waQueue.length ? `<div style="background:#161b22;border:1px solid var(--border,#30363d);border-radius:10px;padding:.75rem .9rem;margin-bottom:.85rem">
+      <div style="font-size:.78rem;font-weight:700;color:var(--muted,#8b949e);margin-bottom:.5rem">🔜 Upcoming posting order — ${_waQueue.length} active, cycles in this order</div>
+      ${_waQueue.slice(0, 6).map((o, i) => `<div style="display:flex;align-items:center;gap:.55rem;font-size:.82rem;padding:.18rem 0">
+        <span style="flex:0 0 auto;min-width:46px;text-align:center;font-weight:700;font-size:.62rem;padding:.18rem .5rem;border-radius:20px;${i === 0 ? 'background:#16a34a;color:#fff' : 'background:#1e293b;color:var(--muted,#8b949e)'}">${i === 0 ? 'NEXT' : '#' + (i + 1)}</span>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;${i === 0 ? 'font-weight:600' : ''}">${esc((o.text || '').replace(/\s+/g, ' ').slice(0, 90))}</span>
+      </div>`).join('')}
+      ${_waQueue.length > 6 ? `<div style="font-size:.72rem;color:var(--muted,#8b949e);padding:.25rem 0 0 52px">+ ${_waQueue.length - 6} more in rotation…</div>` : ''}
+    </div>` : '';
+    const _waBulkBar = offers.length ? `<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.6rem">
+      <span id="waof-bulk-count" style="font-size:.8rem;color:var(--muted,#8b949e);min-width:70px">0 selected</span>
+      <button class="btn btn-sm btn-secondary" onclick="waBulkActive(1)">▶ Activate</button>
+      <button class="btn btn-sm btn-secondary" onclick="waBulkActive(0)">⏸ Pause</button>
+      <button class="btn btn-sm btn-secondary" onclick="waBulkReplace()">🔁 Find &amp; Replace…</button>
+      <button class="btn btn-sm btn-danger" onclick="waBulkDelete()">🗑 Delete</button>
+    </div>` : '';
+
     setMain(`
 <h2 style="font-weight:800;margin-bottom:1.5rem">WA Group Offers</h2>
 <div style="max-width:780px;display:flex;flex-direction:column;gap:1.25rem">
@@ -3359,9 +3383,10 @@ views['wa-offers'] = async function () {
     </div>
   </div>
   <div id="waof-list">
-  ${offers.length ? `<div class="table-wrap"><table>
-    <thead><tr><th style="width:32px">#</th><th style="width:56px">Image</th><th>Post</th><th style="width:90px">Sent</th><th style="width:100px">Last Sent</th><th style="width:70px">Status</th><th style="width:120px">Actions</th></tr></thead>
+  ${_waUpcomingHtml}${_waBulkBar}${offers.length ? `<div class="table-wrap"><table>
+    <thead><tr><th style="width:30px;text-align:center"><input type="checkbox" id="waof-check-all" onclick="waToggleAll(this)" title="Select all"></th><th style="width:32px">#</th><th style="width:56px">Image</th><th>Post</th><th style="width:90px">Sent</th><th style="width:100px">Last Sent</th><th style="width:70px">Status</th><th style="width:120px">Actions</th></tr></thead>
     <tbody>${offers.map((o,i)=>`<tr>
+      <td style="text-align:center"><input type="checkbox" class="waof-chk" value="${o.id}" onclick="waUpdateBulk()"></td>
       <td class="muted" style="font-size:.82rem">${i+1}</td>
       <td>${o.has_image
         ? `<img src="/admin/api/wa-offers/${o.id}/image" style="width:44px;height:44px;object-fit:cover;border-radius:6px;display:block">`
@@ -3489,6 +3514,37 @@ views['wa-offers'] = async function () {
     };
 
     window.addWaOffer = () => offerModal(null);
+
+    // ── Bulk actions over selected WA offers (reuse the per-offer endpoints) ──
+    const waSelectedIds = () => [...document.querySelectorAll('.waof-chk:checked')].map(el => Number(el.value));
+    window.waToggleAll = (cb) => { document.querySelectorAll('.waof-chk').forEach(el => { el.checked = cb.checked; }); window.waUpdateBulk(); };
+    window.waUpdateBulk = () => {
+      const n = waSelectedIds().length;
+      const c = document.getElementById('waof-bulk-count'); if (c) c.textContent = n + ' selected';
+      const all = document.getElementById('waof-check-all'); const total = document.querySelectorAll('.waof-chk').length;
+      if (all) all.checked = n > 0 && n === total;
+    };
+    window.waBulkActive = async (active) => {
+      const ids = waSelectedIds(); if (!ids.length) return showToast('Select offers first');
+      for (const id of ids) { const o = offers.find(x => x.id === id); if (!o) continue; try { await api('/wa-offers/' + id, { method: 'PUT', body: JSON.stringify({ text: o.text, active }) }); } catch (e) {} }
+      showToast((active ? 'Activated ' : 'Paused ') + ids.length + ' offer' + (ids.length > 1 ? 's' : '')); views['wa-offers']();
+    };
+    window.waBulkDelete = async () => {
+      const ids = waSelectedIds(); if (!ids.length) return showToast('Select offers first');
+      if (!confirm('Delete ' + ids.length + ' selected offer' + (ids.length > 1 ? 's' : '') + '? This cannot be undone.')) return;
+      for (const id of ids) { try { await api('/wa-offers/' + id, { method: 'DELETE' }); } catch (e) {} }
+      showToast('Deleted ' + ids.length + ' offer' + (ids.length > 1 ? 's' : '')); views['wa-offers']();
+    };
+    window.waBulkReplace = async () => {
+      const ids = waSelectedIds(); if (!ids.length) return showToast('Select offers first');
+      const find = prompt('Find this text across the ' + ids.length + ' selected offer' + (ids.length > 1 ? 's' : '') + ':');
+      if (!find) return;
+      const repl = prompt('Replace "' + find + '" with (leave blank to remove it):', '');
+      if (repl === null) return;
+      let changed = 0;
+      for (const id of ids) { const o = offers.find(x => x.id === id); if (!o || !o.text || o.text.indexOf(find) < 0) continue; try { await api('/wa-offers/' + id, { method: 'PUT', body: JSON.stringify({ text: o.text.split(find).join(repl), active: o.active }) }); changed++; } catch (e) {} }
+      showToast(changed + ' offer' + (changed === 1 ? '' : 's') + ' updated'); views['wa-offers']();
+    };
     window.editWaOffer = async (id) => {
       const o = await api(`/wa-offers/${id}`);
       offerModal(o);
