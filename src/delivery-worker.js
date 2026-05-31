@@ -104,6 +104,65 @@ async function autoDeliverForCustomer(customerJid) {
   }
 }
 
+// Deliver an order with explicitly-supplied credentials (manual / WhatsApp
+// `.deliver` command / admin panel) — does NOT touch stock_credentials. Marks
+// the order delivered, then emails + WhatsApps the customer using the SAME
+// notification path as auto-delivery. Returns false if the order was already
+// delivered (guards against double-send when a tick + an admin command race).
+async function deliverWithCredentials(db, order, credentials, opts = {}) {
+  const note = opts.note || order.delivery_note || 'Delivered by admin';
+  const upd = run(db,
+    `UPDATE orders SET status='delivered', credentials=?, delivery_note=?, delivered_at=datetime('now')
+     WHERE id=? AND status<>'delivered'`,
+    [JSON.stringify(credentials), note, order.id]);
+  if (!upd.changes) return false; // already delivered — don't re-notify
+
+  run(db, `INSERT INTO audit_log (actor_kind,actor_label,action,target_kind,target_id,after_json) VALUES (?,?,?,?,?,?)`,
+    [opts.actorKind || 'admin', opts.actorLabel || 'wa-admin', 'manual_deliver', 'order', String(order.id),
+     JSON.stringify({ via: opts.via || 'whatsapp' })]);
+
+  // Email customer
+  const cust = get(db, 'SELECT email, name, phone FROM customers WHERE jid=?', [order.customer_jid]);
+  const plan = get(db, 'SELECT name, platform FROM plans WHERE id=?', [order.plan_id]);
+  if (cust?.email && plan) {
+    const credsHtml = Object.entries(credentials)
+      .map(([k, v]) => `<tr><td style="padding:4px 8px;font-weight:600;text-transform:capitalize">${k}</td><td style="padding:4px 8px;font-family:monospace">${v}</td></tr>`)
+      .join('');
+    sendMail({
+      to: cust.email,
+      subject: `Your ${plan.platform} – ${plan.name} is ready!`,
+      html: `<p>Hi ${cust.name},</p>
+<p>Your <strong>${plan.name}</strong> subscription credentials are ready:</p>
+<table style="border-collapse:collapse;background:#f5f5f5;border-radius:6px;padding:8px;width:100%">
+${credsHtml}
+</table>
+<p style="color:#666;font-size:12px">Keep these credentials safe. Do not share with anyone.</p>
+<p>Thank you for your order!</p>`,
+    }).catch(() => {});
+  }
+
+  // WhatsApp delivery notification (best-effort)
+  const phone = cust?.phone || (order.customer_jid && !order.customer_jid.includes('@') ? order.customer_jid : null)
+    || (order.customer_jid ? order.customer_jid.split('@')[0] : null);
+  if (phone && /^\d{7,}$/.test(String(phone).replace(/\D/g, ''))) {
+    try {
+      const { sendToPhone } = require('./wa-bot');
+      const credsLines = Object.entries(credentials)
+        .filter(([k]) => !['line1', 'line2'].includes(k))
+        .map(([k, v]) => `  *${k.charAt(0).toUpperCase() + k.slice(1)}:* ${v}`)
+        .join('\n');
+      const waMsg =
+        `✅ *Order Delivered!*\n\n` +
+        `📦 *${plan?.platform || ''} – ${plan?.name || ''}*\n\n` +
+        `🔑 *Your Credentials:*\n${credsLines || Object.values(credentials).join(' / ')}\n\n` +
+        `_Keep safe. Do not share._`;
+      sendToPhone(phone, waMsg).catch(() => {});
+    } catch {}
+  }
+
+  return true;
+}
+
 // Main worker tick — process all pending orders that have stock available
 async function deliveryTick() {
   try {
@@ -120,4 +179,4 @@ function startDeliveryWorker() {
   deliveryTick();
 }
 
-module.exports = { startDeliveryWorker, autoDeliverForCustomer, autoDeliverOrder };
+module.exports = { startDeliveryWorker, autoDeliverForCustomer, autoDeliverOrder, deliverWithCredentials };

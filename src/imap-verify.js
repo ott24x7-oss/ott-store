@@ -210,7 +210,7 @@ async function handleDirectCheckout(db, topup, cust) {
 
   // Notify owner via WhatsApp
   const payTag = isUsdt ? `USDT ${topup.method.replace('usdt_','').toUpperCase()}` : 'UPI Direct';
-  notifyOwner(db, `🛍️ *New Order (${payTag})*\nCustomer: ${cust?.name || topup.customer_jid}\nPlan: ${plan.platform} — ${plan.name}\nAmount: ${paidDesc}\nOrder ID: #${orderId}`).catch(() => {});
+  notifyOwner(db, `🛍️ *New Order (${payTag})*\nCustomer: ${cust?.name || topup.customer_jid}\nPlan: ${plan.platform} — ${plan.name}\nAmount: ${paidDesc}\nOrder ID: #${orderId}\n\n🚀 Reply *.deliver ${orderId}* to deliver from stock\n   or *.deliver ${orderId} <credentials>* to send typed creds\nℹ️ *.order ${orderId}* for details`).catch(() => {});
 
   // Trigger auto-delivery
   triggerDelivery(topup.customer_jid).catch(() => {});
@@ -218,9 +218,10 @@ async function handleDirectCheckout(db, topup, cust) {
 
 async function notifyOwner(db, message) {
   try {
-    const supportPhone = get(db, `SELECT value FROM settings WHERE key='support_whatsapp'`)?.value || '';
-    if (!supportPhone) return;
-    const phone = String(supportPhone).replace(/\D/g, '');
+    // Prefer the dedicated owner number; fall back to the public support line.
+    const ownerPhone = get(db, `SELECT value FROM settings WHERE key='wa_owner_number'`)?.value
+      || get(db, `SELECT value FROM settings WHERE key='support_whatsapp'`)?.value || '';
+    const phone = String(ownerPhone).replace(/\D/g, '');
     if (!phone) return;
     const { sendToPhone } = require('./wa-bot');
     await sendToPhone(phone, message);

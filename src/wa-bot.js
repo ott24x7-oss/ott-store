@@ -134,6 +134,22 @@ async function processIncomingWA(msg) {
   const text = extractWAText(msg);
   if (!text || text.trim().length < 1) return;
 
+  // ── Owner admin commands (.deliver / .orders / .verify …) ──────────────────
+  // Highest priority: handled even when the AI bot is disabled, and only for
+  // the store owner (wa_owner_number / support_whatsapp). A non-owner who types
+  // a "." message just falls through to the normal AI flow.
+  if (text.trim().startsWith('.')) {
+    try {
+      const waAdmin = require('./wa-admin');
+      if (waAdmin.isOwnerJid(jid)) {
+        await waAdmin.handleAdminCommand(jid, text);
+        return;
+      }
+    } catch (e) {
+      console.error('[wa-bot] admin command error:', e.message);
+    }
+  }
+
   // 1-tap login trigger runs BEFORE rate-limit + AI checks so the magic link
   // still goes out even if the AI bot is disabled.
   if (await handleLoginTrigger(msg, jid, text)) return;

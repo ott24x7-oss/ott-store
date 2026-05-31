@@ -321,9 +321,107 @@ async function runFulfillmentTick() {
   }
 }
 
+// ─── Test ResellKeys (supplier) login connection ─────────────────────────────
+//
+// resellkeys.com is an OpenCart storefront. We test the *real* login the same
+// way the Phase-2 browser automation will: GET the login page to grab the
+// session cookie, then POST the stored email/password to route=account/login
+// and inspect the response. A 302 to route=account/account ⇒ valid creds; a
+// bounce back to route=account/login (or the "No match" warning) ⇒ bad creds.
+//
+// Cloudflare / bot-challenge pages are reported honestly so the admin knows the
+// HTTP test can't confirm it (the headless-browser path in Phase 2 can).
+const RK_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
+
+function rkRawHttp(url, { method = 'GET', headers = {}, body = null, timeout = 15000 } = {}) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const lib = u.protocol === 'https:' ? https : http;
+    const req = lib.request({
+      hostname: u.hostname,
+      port: u.port || (u.protocol === 'https:' ? 443 : 80),
+      path: u.pathname + u.search,
+      method,
+      timeout,
+      headers: { 'User-Agent': RK_UA, 'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8', ...headers },
+    }, res => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: data }));
+    });
+    req.on('timeout', () => req.destroy(new Error('timeout')));
+    req.on('error', reject);
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
+async function testResellKeysLogin() {
+  const db = await getDb();
+  const cfg = await getResellKeysConfig(db);
+  const root = String(cfg.apiUrl || 'https://resellkeys.com')
+    .replace(/\/index\.php.*$/i, '').replace(/\/+$/, '') || 'https://resellkeys.com';
+
+  if (!cfg.email || !cfg.password) {
+    return { ok: false, stage: 'config', message: 'ResellKeys email and/or password are not set. Add them in Settings first.' };
+  }
+
+  const loginUrl = `${root}/index.php?route=account/login`;
+
+  // 1. GET login page → capture session cookie
+  let g;
+  try { g = await rkRawHttp(loginUrl); }
+  catch (e) { return { ok: false, stage: 'reach', message: `Could not reach ${root} — ${e.message}` }; }
+
+  if (g.status === 403 || g.status === 503 || /cf-browser-verification|Just a moment|challenge-platform/i.test(g.body || '')) {
+    return { ok: false, stage: 'challenge', message: `${root} is behind a bot-challenge (Cloudflare). The HTTP test can't log in — the Phase-2 browser automation will. Credentials were NOT verified.` };
+  }
+  if (g.status >= 400) return { ok: false, stage: 'reach', message: `Login page returned HTTP ${g.status}.` };
+
+  const cookie = (g.headers['set-cookie'] || []).map(c => c.split(';')[0]).join('; ');
+
+  // 2. POST credentials (form-urlencoded), do NOT auto-follow the redirect
+  const form = `email=${encodeURIComponent(cfg.email)}&password=${encodeURIComponent(cfg.password)}`;
+  let p;
+  try {
+    p = await rkRawHttp(loginUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Length': Buffer.byteLength(form),
+        'Cookie': cookie,
+        'Referer': loginUrl,
+        'Origin': root,
+      },
+      body: form,
+    });
+  } catch (e) { return { ok: false, stage: 'login', message: `Login request failed — ${e.message}` }; }
+
+  const loc = String(p.headers.location || '');
+  const body = String(p.body || '');
+
+  if (/route=account\/(account|wishlist|dashboard)/i.test(loc)) {
+    return { ok: true, stage: 'ok', message: `Connected ✓ Logged in to ${root} as ${cfg.email}.`, account: cfg.email };
+  }
+  if (/route=account\/login/i.test(loc) || /No match for (the )?E-?Mail/i.test(body) || /Warning:[^<]*password/i.test(body)) {
+    return { ok: false, stage: 'auth', message: 'Login rejected — wrong ResellKeys email or password.' };
+  }
+  if (p.status === 302 && loc) {
+    // Redirect somewhere other than login — most OpenCart themes only redirect
+    // away from the login route on success. Confirm by loading the account page.
+    try {
+      const acct = await rkRawHttp(`${root}/index.php?route=account/account`, { headers: { Cookie: cookie } });
+      if (acct.status === 200 && /route=account\/logout|Edit your account|My Account/i.test(acct.body || '')) {
+        return { ok: true, stage: 'ok', message: `Connected ✓ Logged in to ${root} as ${cfg.email}.`, account: cfg.email };
+      }
+    } catch {}
+  }
+  return { ok: false, stage: 'unknown', message: `Could not confirm login (HTTP ${p.status}). The site may have changed its login form.` };
+}
+
 function startFulfillmentWorker() {
   setInterval(runFulfillmentTick, 2 * 60 * 1000); // every 2 min
   runFulfillmentTick(); // run immediately on startup
 }
 
-module.exports = { startFulfillmentWorker, runFulfillmentTick, scrapeResellKeysProducts, parseResellKeysCatalogHtml };
+module.exports = { startFulfillmentWorker, runFulfillmentTick, scrapeResellKeysProducts, parseResellKeysCatalogHtml, testResellKeysLogin };

@@ -869,9 +869,32 @@ function renderPlansTable(plans, catFilter) {
 </div>
 <div class="modal-footer" style="gap:.5rem;flex-wrap:wrap">
   <button class="btn btn-secondary" data-close>Cancel</button>
+  <button class="btn btn-secondary" id="rk-test-btn">🔌 Test Connection</button>
   <button class="btn btn-secondary" id="rk-sync-btn">🔄 Sync All Prices Now</button>
   <button class="btn btn-primary" id="rk-save-btn">💾 Save Settings</button>
 </div>`);
+
+    document.getElementById('rk-test-btn').onclick = async () => {
+      const msg = document.getElementById('rk-msg');
+      const btn = document.getElementById('rk-test-btn');
+      const old = btn.textContent;
+      btn.disabled = true; btn.textContent = '⏳ Testing…';
+      msg.innerHTML = '<div class="alert">Connecting to ResellKeys and signing in…</div>';
+      try {
+        // Persist the current field values first so we test exactly what's shown.
+        await api('/fulfillment-settings', { method:'POST', body: JSON.stringify({
+          resellkeys_api_url: document.getElementById('rk-url').value.trim(),
+          resellkeys_email: document.getElementById('rk-email').value.trim(),
+          resellkeys_password: document.getElementById('rk-pass').value,
+        })});
+        const r = await api('/resellkeys/test', { method:'POST', body: JSON.stringify({}) });
+        msg.innerHTML = r.ok
+          ? `<div class="alert alert-success">✅ ${esc(r.message)}</div>`
+          : `<div class="alert alert-error">❌ ${esc(r.message)}</div>`;
+      } catch(e) {
+        msg.innerHTML = `<div class="alert alert-error">❌ ${esc(e.message)}</div>`;
+      } finally { btn.disabled = false; btn.textContent = old; }
+    };
 
     document.getElementById('rk-save-btn').onclick = async () => {
       const msg = document.getElementById('rk-msg');

@@ -808,6 +808,19 @@ router.get('/imap/status', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── Test ResellKeys (supplier) website login connection ───────────────────────
+// Tests the currently-saved credentials. The admin panel persists the latest
+// field values (via POST /fulfillment-settings) right before calling this, so
+// "Test Connection" always reflects what's on screen.
+router.post('/resellkeys/test', requireAdmin, async (req, res) => {
+  try {
+    const { testResellKeysLogin } = require('./fulfillment-worker');
+    const result = await testResellKeysLogin();
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'resellkeys_test', targetKind: 'supplier', targetId: 'resellkeys', ip: req.ip });
+    res.json(result);
+  } catch (e) { res.status(500).json({ ok: false, message: e.message }); }
+});
+
 // ─── Resellers ────────────────────────────────────────────────────────────────
 router.get('/resellers', requireAdmin, async (req, res) => {
   try {
