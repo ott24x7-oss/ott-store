@@ -212,6 +212,26 @@ async function handleDirectCheckout(db, topup, cust) {
   const payTag = isUsdt ? `USDT ${topup.method.replace('usdt_','').toUpperCase()}` : 'UPI Direct';
   notifyOwner(db, `🛍️ *New Order (${payTag})*\nCustomer: ${cust?.name || topup.customer_jid}\nPlan: ${plan.platform} — ${plan.name}\nAmount: ${paidDesc}\nOrder ID: #${orderId}\n\n🚀 Reply *.deliver ${orderId}* to deliver from stock\n   or *.deliver ${orderId} <credentials>* to send typed creds\nℹ️ *.order ${orderId}* for details`).catch(() => {});
 
+  // Also email the admin — works even when the WhatsApp bot is offline, so new
+  // orders are never missed. Goes to order_notify_email, else stock-alert/support.
+  try {
+    const adminEmail = (await getSetting('order_notify_email')) || (await getSetting('stock_alert_email')) || (await getSetting('support_email'));
+    if (adminEmail) {
+      sendMail({
+        to: adminEmail,
+        subject: `🛍️ New Order #${orderId} — ${plan.platform} ${plan.name} (${paidDesc})`,
+        html: `<p style="font-size:15px"><strong>New order received</strong></p>
+<table style="border-collapse:collapse;font-size:14px">
+<tr><td style="padding:3px 10px;font-weight:600">Order</td><td style="padding:3px 10px">#${orderId}</td></tr>
+<tr><td style="padding:3px 10px;font-weight:600">Plan</td><td style="padding:3px 10px">${plan.platform} — ${plan.name}</td></tr>
+<tr><td style="padding:3px 10px;font-weight:600">Amount</td><td style="padding:3px 10px">${paidDesc} (${payTag})</td></tr>
+<tr><td style="padding:3px 10px;font-weight:600">Customer</td><td style="padding:3px 10px">${cust?.name || ''} ${cust?.email || ''} ${cust?.phone || ''}</td></tr>
+</table>
+<p style="color:#666;font-size:12px;margin-top:10px">Deliver it from Admin → Orders → Manage.</p>`,
+      }).catch(() => {});
+    }
+  } catch {}
+
   // Trigger auto-delivery
   triggerDelivery(topup.customer_jid).catch(() => {});
 }
