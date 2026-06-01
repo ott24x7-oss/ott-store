@@ -248,10 +248,12 @@ app.get('/blog', async (req, res) => {
   try {
     const db = await getDb();
     const posts = all(db, `SELECT id,slug,title,meta_desc,created_at FROM blog_posts WHERE published=1 ORDER BY created_at DESC`);
-    const [siteName, seoDesc, baseUrl, logos, storeTheme] = await Promise.all([
+    const [siteName, seoDesc, baseUrl, logos, storeTheme, seoTop, seoBottom] = await Promise.all([
       getSetting('site_name'), getSetting('seo_blog_desc'), getSetting('base_url'), getLogoUrls(), getActiveTheme(),
+      getSetting('seo_blog_top'), getSetting('seo_blog_bottom'),
     ]);
-    res.send(buildBlogIndexPage(posts, siteName || 'OTT Store', seoDesc || '', baseUrl || cfg.baseUrl, logos, storeTheme));
+    const stripScripts = (s) => String(s || '').replace(/<script[\s\S]*?<\/script>/gi, '');
+    res.send(buildBlogIndexPage(posts, siteName || 'OTT Store', seoDesc || '', baseUrl || cfg.baseUrl, logos, storeTheme, stripScripts(seoTop), stripScripts(seoBottom)));
   } catch (e) { res.status(500).send('Server error'); }
 });
 
@@ -512,6 +514,12 @@ a:hover{color:#8af1ff;text-decoration:underline}
 .blog-body a{color:var(--sp-accent,#7c3aed);text-decoration:underline}
 .blog-body blockquote{border-left:3px solid var(--sp-accent,#7c3aed);padding-left:1rem;margin:1rem 0;color:var(--sp-muted)}
 .blog-body a.blog-btn{display:inline-block;background:var(--sp-accent,#7c3aed);color:#fff;padding:.7rem 1.4rem;border-radius:9px;text-decoration:none;font-weight:600;margin:.5rem .5rem .5rem 0}
+.bc-readmore{display:inline-block;margin-top:.85rem;color:var(--sp-accent,#7c3aed);font-weight:600;font-size:.875rem;text-decoration:none}
+.bc-readmore:hover{text-decoration:underline}
+.blog-seo-section{max-width:840px;margin:1.5rem auto 2rem;padding:1.25rem 1.5rem;background:rgba(255,255,255,.03);border:1px solid var(--sp-border,rgba(255,255,255,.08));border-radius:14px;line-height:1.75;color:var(--sp-muted)}
+.blog-seo-section h2,.blog-seo-section h3{color:var(--sp-text);font-weight:700;margin:.5rem 0 .6rem}
+.blog-seo-section a{color:var(--sp-accent,#7c3aed)}
+.blog-seo-section img{max-width:100%;border-radius:10px}
 /* Legal styles */
 .legal-page h1{font-size:1.8rem;font-weight:800;margin-bottom:.75rem;color:var(--sp-text)}
 .legal-page .legal-updated{font-size:.82rem;color:var(--sp-muted);margin-bottom:2rem}
@@ -828,17 +836,37 @@ function buildPlansListJsonLd(products, base, siteName) {
 // ALLOWED_THEMES upstream). It is injected into the <html data-store-theme="…">
 // attribute so themes.css overrides apply globally to blog / about / contact /
 // privacy / terms / refund pages, the same way they do for the main storefront.
+// Lightweight Markdown -> HTML for legacy/imported posts: headings, bullet & numbered
+// lists, links, images, bold/italic/code, and paragraphs.
+function mdToHtml(md) {
+  const inline = (t) => String(t)
+    .replace(/!\[([^\]]*)\]\(([^)\s]+)[^)]*\)/g, '<img src="$2" alt="$1" loading="lazy">')
+    .replace(/\[([^\]]+)\]\(([^)\s]+)[^)]*\)/g, '<a href="$2">$1</a>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>');
+  const lines = String(md || '').replace(/\r\n/g, '\n').split('\n');
+  const out = []; let para = [], list = null;
+  const flushP = () => { if (para.length) { out.push('<p>' + inline(para.join(' ')) + '</p>'); para = []; } };
+  const flushL = () => { if (list) { out.push('</' + list + '>'); list = null; } };
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t) { flushP(); flushL(); continue; }
+    let m;
+    if ((m = t.match(/^(#{1,6})\s+(.+)$/))) { flushP(); flushL(); const h = m[1].length <= 2 ? 'h2' : (m[1].length === 3 ? 'h3' : 'h4'); out.push(`<${h}>${inline(m[2])}</${h}>`); }
+    else if ((m = t.match(/^[-*+]\s+(.+)$/))) { flushP(); if (list !== 'ul') { flushL(); out.push('<ul>'); list = 'ul'; } out.push(`<li>${inline(m[1])}</li>`); }
+    else if ((m = t.match(/^\d+[.)]\s+(.+)$/))) { flushP(); if (list !== 'ol') { flushL(); out.push('<ol>'); list = 'ol'; } out.push(`<li>${inline(m[1])}</li>`); }
+    else { flushL(); para.push(t); }
+  }
+  flushP(); flushL();
+  return out.join('\n');
+}
+
 function buildBlogPostPage(post, siteName, ogImage, baseUrl, logos = {}, storeTheme = 'midnight-purple') {
-  // Body may be rich HTML (from the visual editor) or legacy Markdown-ish text.
-  // Strip <script> for safety, then render HTML as-is, or transform Markdown.
+  // Body may be rich HTML (visual editor / WordPress import) or legacy Markdown.
   const rawBody = String(post.body || '').replace(/<script[\s\S]*?<\/script>/gi, '');
   const looksHtml = /<(p|div|h[1-6]|img|ul|ol|li|a|br|strong|em|blockquote|figure|table)\b/i.test(rawBody);
-  const bodyHtml = looksHtml
-    ? rawBody
-    : '<p>' + rawBody
-        .replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>') + '</p>';
+  const bodyHtml = looksHtml ? rawBody : mdToHtml(rawBody);
   const canonical = `${baseUrl}/blog/${post.slug}`;
   const pubDate = (post.created_at || '').replace(' ', 'T').split('T')[0];
   const ldjson = JSON.stringify({ '@context':'https://schema.org','@type':'Article','headline':post.title,'datePublished':pubDate,'description':post.meta_desc||'','url':canonical });
@@ -870,13 +898,14 @@ ${spFooter(siteName)}
 </body></html>`;
 }
 
-function buildBlogIndexPage(posts, siteName, seoDesc, baseUrl, logos = {}, storeTheme = 'midnight-purple') {
+function buildBlogIndexPage(posts, siteName, seoDesc, baseUrl, logos = {}, storeTheme = 'midnight-purple', seoTop = '', seoBottom = '') {
   const items = posts.map(p => {
     const d = (p.created_at || '').replace(' ', 'T').split('T')[0];
     return `<article class="blog-card">
 <div class="bc-meta">${d}</div>
 <h2><a href="/blog/${esc(p.slug)}">${esc(p.title)}</a></h2>
 <div class="bc-desc">${esc(p.meta_desc || '')}</div>
+<a class="bc-readmore" href="/blog/${esc(p.slug)}">Read More →</a>
 </article>`;
   }).join('');
   const desc = seoDesc || `Read the latest articles and guides from ${siteName}.`;
@@ -897,7 +926,9 @@ ${spNav(siteName, logos.light, logos.dark)}
   <h1>Blog</h1>
   <p>${esc(desc)}</p>
 </div>
+${seoTop ? `<section class="blog-seo-section">${seoTop}</section>` : ''}
 <div class="blog-grid">${items || emptyHtml}</div>
+${seoBottom ? `<section class="blog-seo-section">${seoBottom}</section>` : ''}
 </main>
 ${spFooter(siteName)}
 </body></html>`;

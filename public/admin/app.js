@@ -2110,6 +2110,12 @@ views.seo = async function () {
   <div style="font-weight:700;margin-bottom:.75rem">Per-Page Meta</div>
   ${pageFields}
 </div>
+<div class="card" style="padding:1.1rem">
+  <div style="font-weight:700;margin-bottom:.4rem">Blog Page — SEO Sections</div>
+  <p class="muted" style="font-size:.8rem;margin-bottom:.75rem">Optional HTML shown at the top and bottom of the <code>/blog</code> page — great for SEO keywords + internal links. Headings, links and images are supported.</p>
+  <div class="form-group"><label class="form-label">Top Section (above the posts)</label><textarea class="form-input" name="seo_blog_top" rows="4" placeholder="&lt;h2&gt;Guides &amp; Tutorials&lt;/h2&gt;&lt;p&gt;Helpful articles about ...&lt;/p&gt;">${esc(s.seo_blog_top||'')}</textarea></div>
+  <div class="form-group"><label class="form-label">Bottom Section (below the posts)</label><textarea class="form-input" name="seo_blog_bottom" rows="4" placeholder="&lt;h2&gt;Why choose us&lt;/h2&gt;&lt;p&gt;...&lt;/p&gt;">${esc(s.seo_blog_bottom||'')}</textarea></div>
+</div>
 <button type="submit" class="btn btn-primary" style="width:200px">Save SEO Settings</button>
 </form></div>`);
 
