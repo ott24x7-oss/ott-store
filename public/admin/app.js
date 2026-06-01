@@ -1924,9 +1924,12 @@ views.blog = async function () {
   </td>
 </tr>`).join('');
     setMain(`
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;gap:.5rem;flex-wrap:wrap">
   <h2 style="font-weight:800">Blog CMS</h2>
-  <button class="btn btn-primary" onclick="openBlogModal()">+ New Post</button>
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+    <button class="btn btn-secondary" onclick="importWpBlog()" title="Re-import posts with images from a WordPress site">⬇ Import from WordPress</button>
+    <button class="btn btn-primary" onclick="openBlogModal()">+ New Post</button>
+  </div>
 </div>
 <div class="table-wrap"><table>
   <thead><tr><th>Title</th><th>Slug</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
@@ -2051,6 +2054,17 @@ window.deleteBlog = async function (id) {
   if (!confirm('Delete this post?')) return;
   try { await api(`/blog/${id}`, { method: 'DELETE' }); showToast('Post deleted'); views.blog(); }
   catch (e) { showToast(e.message, 'error'); }
+};
+
+window.importWpBlog = async function () {
+  const url = prompt('WordPress site URL to re-import posts (with images) from:', 'https://greenyellow-zebra-929829.hostingersite.com');
+  if (!url) return;
+  showToast('Importing from WordPress…');
+  try {
+    const r = await api('/blog/import-wordpress', { method: 'POST', body: JSON.stringify({ url }) });
+    showToast(`✓ ${r.updated} updated · ${r.imported} new (of ${r.total}) — images restored`);
+    views.blog();
+  } catch (e) { showToast(e.message, 'error'); }
 };
 
 // ── views.seo ─────────────────────────────────────────────────────────────────

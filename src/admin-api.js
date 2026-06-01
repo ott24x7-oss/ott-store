@@ -535,6 +535,65 @@ router.post('/blog/upload-image', requireAdmin, upload.single('image'), async (r
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Re-import blog posts WITH their images/full HTML from a WordPress site's REST
+// API. The prior migration kept only text and dropped in-content images; the WP
+// `content.rendered` field is the rich HTML (images, headings, lists, links).
+// Matches existing posts by slug / normalised title so it UPDATES rather than
+// duplicating, and our public renderer renders the HTML as-is.
+router.post('/blog/import-wordpress', requireAdmin, async (req, res) => {
+  try {
+    let url = String(req.body?.url || '').trim();
+    if (!url) return res.status(400).json({ error: 'WordPress site URL required' });
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    const base = url.replace(/\/+$/, '').replace(/\/wp-json.*$/i, '');
+    const apiUrl = `${base}/wp-json/wp/v2/posts?per_page=100&_fields=slug,title,content,excerpt,date`;
+
+    let posts;
+    try {
+      const r = await fetch(apiUrl, { headers: { 'User-Agent': 'OTTStore/1.0', 'Accept': 'application/json' } });
+      posts = await r.json();
+    } catch (e) { return res.status(400).json({ error: `Could not reach ${base}/wp-json — ${e.message}` }); }
+    if (!Array.isArray(posts)) return res.status(400).json({ error: 'That URL did not return a WordPress posts API (no wp-json).' });
+
+    const decode = (s) => String(s || '')
+      .replace(/&amp;/g, '&').replace(/&#0?38;/g, '&')
+      .replace(/&#8217;|&#039;|&#39;/g, "'").replace(/&#8216;/g, "'")
+      .replace(/&#8220;|&#8221;|&quot;/g, '"').replace(/&#8211;|&#8212;/g, '–')
+      .replace(/&hellip;/g, '…').replace(/&nbsp;/g, ' ');
+    const stripTags = (s) => decode(String(s || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+    const norm = (t) => String(t || '').toLowerCase().replace(/\(with image\)/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+
+    const db = await getDb();
+    const existingPosts = all(db, `SELECT id, slug, title FROM blog_posts`);
+    let imported = 0, updated = 0;
+
+    for (const p of posts) {
+      const wpSlug = String(p.slug || '').trim();
+      if (!wpSlug) continue;
+      const title = decode(p.title?.rendered || wpSlug);
+      const body = String(p.content?.rendered || '').replace(/<script[\s\S]*?<\/script>/gi, '');
+      const meta = stripTags(p.excerpt?.rendered || '').slice(0, 300);
+      const tNorm = norm(title);
+
+      const match = existingPosts.find(e => e.slug === wpSlug)
+        || existingPosts.find(e => norm(e.title) === tNorm)
+        || existingPosts.find(e => e.slug && (e.slug.startsWith(wpSlug) || wpSlug.startsWith(e.slug)));
+
+      if (match) {
+        run(db, `UPDATE blog_posts SET title=?, body=?, meta_desc=COALESCE(NULLIF(meta_desc,''),?), published=1 WHERE id=?`,
+          [title, body, meta, match.id]);
+        updated++;
+      } else {
+        run(db, `INSERT INTO blog_posts (slug,title,body,meta_desc,published) VALUES (?,?,?,?,1)`,
+          [wpSlug, title, body, meta]);
+        imported++;
+      }
+    }
+    try { await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'blog_import_wordpress', targetKind: 'blog', targetId: base, ip: req.ip }); } catch {}
+    res.json({ ok: true, imported, updated, total: posts.length, source: base });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── Audit log ────────────────────────────────────────────────────────────────
 router.get('/audit-log', requireAdmin, async (req, res) => {
   try {
