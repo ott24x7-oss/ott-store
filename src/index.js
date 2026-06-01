@@ -506,6 +506,12 @@ a:hover{color:#8af1ff;text-decoration:underline}
 .blog-body{line-height:1.8;font-size:.975rem;color:var(--sp-text)}
 .blog-body h2,.blog-body h3{font-weight:700;margin:1.5rem 0 .75rem;color:var(--sp-text)}
 .blog-body p{margin-bottom:1rem;color:var(--sp-muted)}
+.blog-body img{max-width:100%;height:auto;border-radius:12px;margin:1.25rem 0;display:block}
+.blog-body ul,.blog-body ol{margin:0 0 1rem 1.5rem;color:var(--sp-muted)}
+.blog-body li{margin-bottom:.4rem}
+.blog-body a{color:var(--sp-accent,#7c3aed);text-decoration:underline}
+.blog-body blockquote{border-left:3px solid var(--sp-accent,#7c3aed);padding-left:1rem;margin:1rem 0;color:var(--sp-muted)}
+.blog-body a.blog-btn{display:inline-block;background:var(--sp-accent,#7c3aed);color:#fff;padding:.7rem 1.4rem;border-radius:9px;text-decoration:none;font-weight:600;margin:.5rem .5rem .5rem 0}
 /* Legal styles */
 .legal-page h1{font-size:1.8rem;font-weight:800;margin-bottom:.75rem;color:var(--sp-text)}
 .legal-page .legal-updated{font-size:.82rem;color:var(--sp-muted);margin-bottom:2rem}
@@ -823,10 +829,16 @@ function buildPlansListJsonLd(products, base, siteName) {
 // attribute so themes.css overrides apply globally to blog / about / contact /
 // privacy / terms / refund pages, the same way they do for the main storefront.
 function buildBlogPostPage(post, siteName, ogImage, baseUrl, logos = {}, storeTheme = 'midnight-purple') {
-  const bodyHtml = post.body
-    .replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>');
+  // Body may be rich HTML (from the visual editor) or legacy Markdown-ish text.
+  // Strip <script> for safety, then render HTML as-is, or transform Markdown.
+  const rawBody = String(post.body || '').replace(/<script[\s\S]*?<\/script>/gi, '');
+  const looksHtml = /<(p|div|h[1-6]|img|ul|ol|li|a|br|strong|em|blockquote|figure|table)\b/i.test(rawBody);
+  const bodyHtml = looksHtml
+    ? rawBody
+    : '<p>' + rawBody
+        .replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>') + '</p>';
   const canonical = `${baseUrl}/blog/${post.slug}`;
   const pubDate = (post.created_at || '').replace(' ', 'T').split('T')[0];
   const ldjson = JSON.stringify({ '@context':'https://schema.org','@type':'Article','headline':post.title,'datePublished':pubDate,'description':post.meta_desc||'','url':canonical });
@@ -850,7 +862,7 @@ ${spNav(siteName, logos.light, logos.dark)}
 <div class="blog-post-page">
 <h1>${esc(post.title)}</h1>
 <time datetime="${pubDate}">${pubDate}</time>
-<div class="blog-body"><p>${bodyHtml}</p></div>
+<div class="blog-body">${bodyHtml}</div>
 <p style="margin-top:2rem"><a href="/blog" style="color:var(--sp-muted);font-size:.875rem">← Back to Blog</a></p>
 </div>
 </main>

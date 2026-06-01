@@ -521,6 +521,20 @@ router.delete('/blog/:id', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Inline image upload for the blog editor. Stores under data/uploads (served
+// statically at /data/uploads, volume-backed so images persist) and returns a
+// real URL to embed in the post body — no base64 bloat.
+router.post('/blog/upload-image', requireAdmin, upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No image uploaded' });
+    const m = (req.file.originalname || '').match(/\.(jpe?g|png|gif|webp|avif)$/i);
+    const ext = m ? m[0].toLowerCase() : '.jpg';
+    const filename = `blog-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+    fs.writeFileSync(path.join(UPLOADS_DIR, filename), req.file.buffer);
+    res.json({ ok: true, url: `/data/uploads/${filename}` });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── Audit log ────────────────────────────────────────────────────────────────
 router.get('/audit-log', requireAdmin, async (req, res) => {
   try {

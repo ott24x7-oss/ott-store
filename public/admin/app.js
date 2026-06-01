@@ -1945,7 +1945,26 @@ window.openBlogModal = async function (id = null) {
   <div id="blog-err"></div>
   <div class="form-group"><label class="form-label">Title *</label><input class="form-input" id="bl-title" value="${esc(p.title||'')}" oninput="autoSlug()"></div>
   <div class="form-group"><label class="form-label">Slug</label><input class="form-input" id="bl-slug" value="${esc(p.slug||'')}" placeholder="auto-generated"></div>
-  <div class="form-group"><label class="form-label">Body (Markdown supported)</label><textarea class="form-input" id="bl-body" rows="10" style="font-family:monospace">${esc(p.body||'')}</textarea></div>
+  <div class="form-group">
+    <label class="form-label">Body</label>
+    <div style="display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.4rem">
+      <button type="button" class="btn btn-sm btn-secondary" onmousedown="event.preventDefault()" onclick="blExec('bold')" title="Bold"><b>B</b></button>
+      <button type="button" class="btn btn-sm btn-secondary" onmousedown="event.preventDefault()" onclick="blExec('italic')" title="Italic"><i>I</i></button>
+      <button type="button" class="btn btn-sm btn-secondary" onmousedown="event.preventDefault()" onclick="blBlock('h2')" title="Heading">H2</button>
+      <button type="button" class="btn btn-sm btn-secondary" onmousedown="event.preventDefault()" onclick="blBlock('h3')" title="Subheading">H3</button>
+      <button type="button" class="btn btn-sm btn-secondary" onmousedown="event.preventDefault()" onclick="blBlock('p')" title="Normal text">¶</button>
+      <button type="button" class="btn btn-sm btn-secondary" onmousedown="event.preventDefault()" onclick="blExec('insertUnorderedList')" title="Bullet list">• List</button>
+      <button type="button" class="btn btn-sm btn-secondary" onmousedown="event.preventDefault()" onclick="blLink()" title="Insert link">🔗</button>
+      <button type="button" class="btn btn-sm btn-secondary" onmousedown="event.preventDefault()" onclick="blImage()" title="Insert image">🖼 Image</button>
+      <button type="button" class="btn btn-sm btn-secondary" onmousedown="event.preventDefault()" onclick="blButton()" title="Insert button">🔘 Button</button>
+      <button type="button" class="btn btn-sm btn-secondary" onmousedown="event.preventDefault()" onclick="blExec('removeFormat')" title="Clear formatting">✖</button>
+      <button type="button" class="btn btn-sm btn-secondary" id="bl-html-btn" onclick="blToggleHtml()" title="Edit raw HTML">&lt;/&gt;</button>
+    </div>
+    <div id="bl-body-rich" contenteditable="true" class="form-input" style="min-height:260px;max-height:50vh;overflow-y:auto;line-height:1.7;padding:.75rem"></div>
+    <textarea id="bl-body" class="form-input" rows="14" style="display:none;font-family:monospace"></textarea>
+    <input type="file" id="bl-img-file" accept="image/*" style="display:none">
+    <p class="muted" style="font-size:.78rem;margin-top:.35rem">Type or paste content directly · use the toolbar for headings, images &amp; buttons.</p>
+  </div>
   <div class="form-group"><label class="form-label">Meta Description</label><textarea class="form-input" id="bl-meta" rows="2">${esc(p.meta_desc||'')}</textarea></div>
   <div class="form-group"><label class="form-label">OG Image URL</label><input class="form-input" id="bl-og" value="${esc(p.og_image||'')}"></div>
   <div style="display:flex;align-items:center;gap:.75rem;margin-top:.25rem">
@@ -1963,11 +1982,58 @@ window.openBlogModal = async function (id = null) {
     document.getElementById('bl-slug').value = t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   };
 
+  // ── Visual body editor ──────────────────────────────────────────────────────
+  const _rich = document.getElementById('bl-body-rich');
+  const _ta = document.getElementById('bl-body');
+  _rich.innerHTML = p.body || '';
+  _ta.value = p.body || '';
+  const blGetBody = () => (_ta.style.display === 'none') ? _rich.innerHTML : _ta.value;
+
+  window.blExec  = (cmd) => { _rich.focus(); document.execCommand(cmd, false, null); };
+  window.blBlock = (tag) => { _rich.focus(); document.execCommand('formatBlock', false, tag); };
+  window.blLink  = () => { const u = prompt('Link URL:', 'https://'); if (u) { _rich.focus(); document.execCommand('createLink', false, u); } };
+  window.blButton = () => {
+    const label = prompt('Button text:', 'Buy Now'); if (!label) return;
+    const url = prompt('Button link (URL):', 'https://'); if (!url) return;
+    _rich.focus();
+    document.execCommand('insertHTML', false, `<a class="blog-btn" href="${esc(url)}" style="display:inline-block;background:#7c3aed;color:#fff;padding:.6rem 1.3rem;border-radius:9px;text-decoration:none;font-weight:600;margin:.4rem .4rem .4rem 0">${esc(label)}</a>&nbsp;`);
+  };
+  window.blImage = () => document.getElementById('bl-img-file').click();
+  document.getElementById('bl-img-file').onchange = function () {
+    const file = this.files[0]; this.value = ''; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 1600; let w = img.width, h = img.height;
+        if (Math.max(w, h) > MAX) { const sc = MAX / Math.max(w, h); w = Math.round(w * sc); h = Math.round(h * sc); }
+        const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        cv.getContext('2d').drawImage(img, 0, 0, w, h);
+        cv.toBlob(async (blob) => {
+          const fd = new FormData(); fd.append('image', blob, 'blog.jpg');
+          try {
+            const r = await fetch('/admin/api/blog/upload-image', { method: 'POST', credentials: 'include', headers: { 'X-CSRF-Token': getCsrfToken() }, body: fd });
+            const j = await r.json();
+            if (j.url) { _rich.focus(); document.execCommand('insertHTML', false, `<img src="${j.url}" alt="" style="max-width:100%;border-radius:12px;margin:1rem 0">`); }
+            else showToast(j.error || 'Upload failed', 'error');
+          } catch (ex) { showToast(ex.message, 'error'); }
+        }, 'image/jpeg', 0.85);
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+  window.blToggleHtml = () => {
+    const btn = document.getElementById('bl-html-btn');
+    if (_ta.style.display === 'none') { _ta.value = _rich.innerHTML; _ta.style.display = ''; _rich.style.display = 'none'; btn.classList.add('btn-primary'); }
+    else { _rich.innerHTML = _ta.value; _ta.style.display = 'none'; _rich.style.display = ''; btn.classList.remove('btn-primary'); }
+  };
+
   document.getElementById('save-blog-btn').addEventListener('click', async () => {
     const body = {
       title: document.getElementById('bl-title').value.trim(),
       slug: document.getElementById('bl-slug').value.trim(),
-      body: document.getElementById('bl-body').value,
+      body: blGetBody(),
       meta_desc: document.getElementById('bl-meta').value,
       og_image: document.getElementById('bl-og').value,
       published: document.getElementById('bl-pub').checked ? 1 : 0,
