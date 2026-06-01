@@ -1589,6 +1589,41 @@ router.post('/orders/:id/wa-deliver', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Deliver from LOCAL STOCK — picks an available stock credential, marks it sold
+// (stock decremented), marks the order delivered, and notifies the customer by
+// email + WhatsApp. Mirrors store.watshop.in's "Deliver" button.
+router.post('/orders/:id/deliver-stock', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const order = get(db, `SELECT * FROM orders WHERE id=?`, [req.params.id]);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (order.status === 'delivered') return res.status(400).json({ error: 'Order is already delivered.' });
+    const { autoDeliverOrder } = require('./delivery-worker');
+    const ok = await autoDeliverOrder(order, db);
+    if (!ok) return res.status(400).json({ error: 'No stock available for this plan — use Manual Deliver to enter credentials.' });
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'order_deliver_stock', targetKind: 'order', targetId: String(order.id), ip: req.ip });
+    res.json({ ok: true, message: 'Delivered from stock — customer notified by email + WhatsApp.' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Manual delivery with admin-entered credentials → marks delivered, saves creds,
+// and sends to the customer by WhatsApp AND email at the same time.
+router.post('/orders/:id/manual-deliver', requireAdmin, async (req, res) => {
+  try {
+    const { credentials, note } = req.body;
+    if (!credentials || typeof credentials !== 'object' || !Object.keys(credentials).length) {
+      return res.status(400).json({ error: 'Enter at least one credential field first.' });
+    }
+    const db = await getDb();
+    const order = get(db, `SELECT * FROM orders WHERE id=?`, [req.params.id]);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    const { deliverWithCredentials } = require('./delivery-worker');
+    const ok = await deliverWithCredentials(db, order, credentials, { note: note || 'Delivered by admin', via: 'admin_manual', actorLabel: 'admin' });
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'order_manual_deliver', targetKind: 'order', targetId: String(order.id), ip: req.ip });
+    res.json({ ok: true, redelivered: !ok, message: ok ? 'Delivered — sent via WhatsApp + email.' : 'Order was already delivered (no re-send).' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── WA Offer clone ───────────────────────────────────────────────────────────
 router.post('/wa-offers/:id/clone', requireAdmin, async (req, res) => {
   try {

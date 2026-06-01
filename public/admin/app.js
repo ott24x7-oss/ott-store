@@ -1391,6 +1391,7 @@ views.orders = async function (filters = {}) {
     const qs = new URLSearchParams(filters).toString();
     const orders = await api('/orders' + (qs ? '?' + qs : ''));
     PENDING_ORDERS = orders.filter(o => o.status === 'pending').length;
+    window._ordersCache = {}; orders.forEach(o => { window._ordersCache[o.id] = o; });
     buildSidebar();
     const rows = orders.map(o => `
 <tr>
@@ -1402,7 +1403,7 @@ views.orders = async function (filters = {}) {
   <td>${fmtDateShort(o.expires_at)}</td>
   <td>${fmtDateShort(o.created_at)}</td>
   <td>
-    <button class="btn btn-secondary btn-sm" onclick="openOrderModal(${JSON.stringify(esc(JSON.stringify(o)))})">Manage</button>
+    <button class="btn btn-secondary btn-sm" onclick="openOrderModal(${o.id})">Manage</button>
   </td>
 </tr>`).join('');
 
@@ -1430,73 +1431,97 @@ window.filterOrders = function () {
   views.orders({ ...(status && { status }), ...(q && { q }) });
 };
 
-window.openOrderModal = function (orderJson) {
-  const o = JSON.parse(orderJson);
-  const creds = o.credentials || {};
-  const credFields = ['username', 'password', 'pin', 'email', 'notes'].map(k => `
-<div class="form-group"><label class="form-label">${k.charAt(0).toUpperCase()+k.slice(1)}</label>
+window.openOrderModal = function (id) {
+  const o = (window._ordersCache && window._ordersCache[id]) || { id };
+  const creds = (o.credentials && typeof o.credentials === 'object') ? o.credentials : {};
+  const credKeys = ['email', 'password', 'key', 'link', 'pin', 'notes'];
+  const credFields = credKeys.map(k => `
+<div class="form-group" style="margin-bottom:.5rem"><label class="form-label" style="text-transform:capitalize">${k}</label>
 <input class="form-input" id="oc-${k}" value="${esc(creds[k] || '')}" placeholder="${k}"></div>`).join('');
+  const delivered = o.status === 'delivered';
 
   const ov = openModal(`
-<div class="modal-header"><h3>Order #${o.id}</h3><button class="btn-icon" data-close>✕</button></div>
-<div class="modal-body" style="max-height:75vh;overflow-y:auto">
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;background:var(--input-bg);border-radius:var(--radius-sm);padding:.9rem;margin-bottom:.5rem">
-    <div><div class="muted" style="font-size:.73rem">CUSTOMER</div><div style="font-weight:600">${esc(o.customer_email||'—')}</div></div>
+<div class="modal-header"><h3>Order #${o.id} — Manage &amp; Deliver</h3><button class="btn-icon" data-close>✕</button></div>
+<div class="modal-body" style="max-height:78vh;overflow-y:auto">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;background:var(--input-bg);border-radius:var(--radius-sm);padding:.9rem;margin-bottom:.6rem">
+    <div><div class="muted" style="font-size:.73rem">CUSTOMER</div><div style="font-weight:600">${esc(o.customer_email||o.customer_name||'—')}</div></div>
     <div><div class="muted" style="font-size:.73rem">PLAN</div><div style="font-weight:600">${esc(o.platform||'')} — ${esc(o.plan_name||'')}</div></div>
     <div><div class="muted" style="font-size:.73rem">AMOUNT</div><div style="font-weight:600">${fmt(o.amount_inr)}</div></div>
     <div><div class="muted" style="font-size:.73rem">STATUS</div><div>${statusBadge(o.status)}</div></div>
   </div>
-  <div class="form-group">
-    <label class="form-label">Status</label>
-    <select class="form-input" id="oc-status">
-      ${['pending','processing','delivered','expired','cancelled'].map(s=>`<option ${o.status===s?'selected':''}>${s}</option>`).join('')}
-    </select>
-  </div>
-  <div style="font-weight:700;margin:.5rem 0 .25rem">Credentials</div>
+
+  ${!delivered ? `<div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.3);border-radius:10px;padding:.75rem;margin-bottom:.75rem">
+    <button class="btn btn-sm" id="deliver-stock-btn" style="background:#16a34a;border-color:#16a34a;color:#fff">🚀 Deliver from Stock</button>
+    <div class="muted" style="font-size:.76rem;margin-top:.45rem">Pulls the next available stock credential, decrements stock, and notifies the customer by email + WhatsApp.</div>
+  </div>` : ''}
+
+  <div style="font-weight:700;margin:.4rem 0 .35rem">Credentials ${delivered ? '<span class="muted" style="font-weight:400;font-size:.78rem">(already delivered)</span>' : '<span class="muted" style="font-weight:400;font-size:.78rem">(enter to deliver manually)</span>'}</div>
   ${credFields}
   <div class="form-group"><label class="form-label">Delivery Note (shown to customer)</label>
     <textarea class="form-input" id="oc-note" rows="2">${esc(o.delivery_note||'')}</textarea></div>
+
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin:.5rem 0 .9rem">
+    <button class="btn btn-primary" id="manual-deliver-btn">📤 Deliver — WhatsApp + Email</button>
+    <button class="btn btn-secondary" id="copy-creds-btn">📋 Copy</button>
+    <button class="btn btn-secondary" id="resend-email-btn">📧 Resend Email</button>
+    <button class="btn btn-secondary" id="wa-deliver-btn">💬 Resend WhatsApp</button>
+  </div>
+
+  <div class="form-group"><label class="form-label">Status</label>
+    <select class="form-input" id="oc-status">${['pending','processing','delivered','expired','cancelled'].map(s=>`<option ${o.status===s?'selected':''}>${s}</option>`).join('')}</select></div>
   <div class="form-group"><label class="form-label">Expires At</label>
     <input class="form-input" id="oc-expires" type="datetime-local" value="${o.expires_at ? o.expires_at.replace(' ','T').slice(0,16) : ''}"></div>
 </div>
-<div class="modal-footer" style="flex-wrap:wrap;gap:.4rem">
-  <button class="btn btn-secondary" data-close>Cancel</button>
-  <button class="btn btn-secondary" id="copy-creds-btn" title="Copy credentials to clipboard">📋 Copy Creds</button>
-  <button class="btn btn-secondary" id="resend-email-btn" title="Re-send delivery email">📧 Resend Email</button>
-  <button class="btn btn-secondary" id="wa-deliver-btn" title="Send via WhatsApp">💬 WA Deliver</button>
-  <button class="btn btn-primary" id="save-order-btn">Save Changes</button>
+<div class="modal-footer">
+  <button class="btn btn-secondary" data-close>Close</button>
+  <button class="btn btn-primary" id="save-order-btn">💾 Save Changes</button>
 </div>`);
 
+  const readCreds = () => {
+    const c = {};
+    credKeys.forEach(k => { const v = document.getElementById(`oc-${k}`)?.value.trim(); if (v) c[k] = v; });
+    return c;
+  };
+
+  const stockBtn = document.getElementById('deliver-stock-btn');
+  if (stockBtn) stockBtn.addEventListener('click', async () => {
+    if (!confirm('Deliver this order from stock? Customer will be notified by email + WhatsApp.')) return;
+    stockBtn.disabled = true;
+    try { const r = await api(`/orders/${o.id}/deliver-stock`, { method: 'POST' }); ov.remove(); showToast(r.message || 'Delivered from stock'); views.orders(); }
+    catch (ex) { stockBtn.disabled = false; showToast(ex.message, 'error'); }
+  });
+
+  document.getElementById('manual-deliver-btn').addEventListener('click', async () => {
+    const credentials = readCreds();
+    if (!Object.keys(credentials).length) return showToast('Enter at least one credential field first', 'error');
+    if (!confirm('Send these credentials to the customer now via WhatsApp + Email?')) return;
+    const btn = document.getElementById('manual-deliver-btn'); btn.disabled = true;
+    try {
+      const r = await api(`/orders/${o.id}/manual-deliver`, { method: 'POST', body: JSON.stringify({ credentials, note: document.getElementById('oc-note').value.trim() }) });
+      ov.remove(); showToast(r.message || 'Delivered'); views.orders();
+    } catch (ex) { btn.disabled = false; showToast(ex.message, 'error'); }
+  });
+
   document.getElementById('copy-creds-btn').addEventListener('click', () => {
-    const lines = ['username','password','pin','email','notes']
-      .map(k => { const v = document.getElementById(`oc-${k}`)?.value.trim(); return v ? `${k}: ${v}` : null; })
-      .filter(Boolean);
-    if (!lines.length) { showToast('No credentials to copy', 'error'); return; }
+    const lines = credKeys.map(k => { const v = document.getElementById(`oc-${k}`)?.value.trim(); return v ? `${k}: ${v}` : null; }).filter(Boolean);
+    if (!lines.length) return showToast('No credentials to copy', 'error');
     navigator.clipboard.writeText(lines.join('\n')).then(() => showToast('Credentials copied!'));
   });
 
   document.getElementById('resend-email-btn').addEventListener('click', async () => {
-    if (!confirm('Re-send delivery email to customer?')) return;
-    try {
-      await api(`/orders/${o.id}/resend-email`, { method: 'POST' });
-      showToast('Email sent!');
-    } catch (ex) { showToast(ex.message, 'error'); }
+    if (!confirm('Re-send the delivery email to the customer?')) return;
+    try { await api(`/orders/${o.id}/resend-email`, { method: 'POST' }); showToast('Email sent!'); }
+    catch (ex) { showToast(ex.message, 'error'); }
   });
 
   document.getElementById('wa-deliver-btn').addEventListener('click', async () => {
-    if (!confirm('Send credentials via WhatsApp to customer?')) return;
-    try {
-      await api(`/orders/${o.id}/wa-deliver`, { method: 'POST' });
-      showToast('Sent via WhatsApp!');
-    } catch (ex) { showToast(ex.message, 'error'); }
+    if (!confirm('Re-send the saved credentials via WhatsApp?')) return;
+    try { await api(`/orders/${o.id}/wa-deliver`, { method: 'POST' }); showToast('Sent via WhatsApp!'); }
+    catch (ex) { showToast(ex.message, 'error'); }
   });
 
   document.getElementById('save-order-btn').addEventListener('click', async () => {
-    const credentials = {};
-    ['username','password','pin','email','notes'].forEach(k => {
-      const v = document.getElementById(`oc-${k}`)?.value.trim();
-      if (v) credentials[k] = v;
-    });
+    const credentials = readCreds();
     try {
       await api(`/orders/${o.id}`, { method: 'PUT', body: JSON.stringify({
         status: document.getElementById('oc-status').value,
