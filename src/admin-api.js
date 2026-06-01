@@ -1476,7 +1476,7 @@ router.post('/suppliers/:id/notify', requireAdmin, async (req, res) => {
 router.get('/ai-settings', requireAdmin, async (req, res) => {
   try {
     const db = await getDb();
-    const keys = ['ai_enabled','ai_provider','ai_model','ai_persona','ai_daily_cap','ai_fallback_message','ai_base_url'];
+    const keys = ['ai_enabled','ai_provider','ai_model','ai_persona','ai_daily_cap','ai_fallback_message','ai_base_url','ai_order_playbook'];
     const rows = all(db, `SELECT key, value FROM settings WHERE key IN (${keys.map(()=>'?').join(',')})`, keys);
     const out = {};
     for (const r of rows) out[r.key] = r.value;
@@ -1492,7 +1492,7 @@ router.get('/ai-settings', requireAdmin, async (req, res) => {
 router.post('/ai-settings', requireAdmin, async (req, res) => {
   try {
     const db = await getDb();
-    const allowed = ['ai_enabled','ai_provider','ai_model','ai_persona','ai_daily_cap','ai_fallback_message','ai_base_url'];
+    const allowed = ['ai_enabled','ai_provider','ai_model','ai_persona','ai_daily_cap','ai_fallback_message','ai_base_url','ai_order_playbook'];
     for (const k of allowed) {
       if (k in req.body) run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, [k, String(req.body[k] ?? '')]);
     }

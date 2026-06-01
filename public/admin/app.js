@@ -4093,6 +4093,12 @@ views['ai-agent'] = async function () {
   </div>
 
   <div class="form-group mt-2">
+    <label class="form-label">📦 Order Playbook — delivery rules the AI follows</label>
+    <textarea class="form-input" id="ai-playbook" rows="5" placeholder="e.g. Deliver in-stock orders instantly; otherwise promise within 30 min and notify admin. If a customer says the login doesn't work, escalate. Refunds only within 24h. Be warm and use Hinglish for Hindi customers.">${esc(s.ai_order_playbook||'')}</textarea>
+    <p class="muted mt-1" style="font-size:.8rem">Your delivery / escalation / refund policy &amp; tone. The order concierge follows this when talking to customers <b>and</b> to you. The AI also auto-detects English vs Hinglish.</p>
+  </div>
+
+  <div class="form-group mt-2">
     <label class="form-label">Fallback Message (when AI fails / quota exceeded)</label>
     <input class="form-input" id="ai-fallback" value="${esc(s.ai_fallback_message||'')}" placeholder="Thank you! Our team will get back to you shortly.">
     <p class="muted mt-1" style="font-size:.8rem">Leave blank to stay silent (seller can reply manually).</p>
@@ -4115,6 +4121,7 @@ views['ai-agent'] = async function () {
           ai_base_url: document.getElementById('ai-base').value,
           ai_daily_cap: document.getElementById('ai-cap').value,
           ai_persona: document.getElementById('ai-persona').value,
+          ai_order_playbook: document.getElementById('ai-playbook').value,
           ai_fallback_message: document.getElementById('ai-fallback').value,
         })});
         msg.innerHTML='<div class="alert alert-success">Saved! AI channel updated.</div>';

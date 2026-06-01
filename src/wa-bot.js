@@ -155,60 +155,38 @@ async function processIncomingWA(msg) {
   // still goes out even if the AI bot is disabled.
   if (await handleLoginTrigger(msg, jid, text)) return;
 
-  // Check if WA AI reply is enabled
-  const waAiEnabled = getSettingSync('wa_ai_reply_enabled');
-  if (waAiEnabled === '0') return;
-  const botEnabled = getSettingSync('bot_enabled');
-  if (botEnabled === '0') return;
+  // ── AI: order concierge (customer) + order-ops (owner) ─────────────────────
+  const db = await getDb();
+  let isOwner = false;
+  try { isOwner = require('./wa-admin').isOwnerJid(jid); } catch {}
 
-  // Enforce per-JID rate limit: 10 messages / minute
+  // The customer concierge is gated by the AI toggles; the owner's order-ops AI
+  // always runs (when an AI channel is set) so the seller can manage via chat.
+  if (!isOwner) {
+    if (getSettingSync('wa_ai_reply_enabled') === '0') return;
+    if (getSettingSync('bot_enabled') === '0') return;
+  }
+
+  // Per-JID rate limit (owner exempt) + rolling conversation history.
   const now = Date.now();
   const session = _waSessions.get(jid) || { messages: [], lastActive: now, count: 0, countTs: now };
   if (now - session.countTs > 60000) { session.count = 0; session.countTs = now; }
   session.count = (session.count || 0) + 1;
-  if (session.count > 10) return; // silent rate limit
-
-  // Reset session if idle > TTL
-  if (now - session.lastActive > WA_SESSION_TTL) {
-    session.messages = [];
-  }
+  if (!isOwner && session.count > 10) return; // silent rate limit
+  if (now - session.lastActive > WA_SESSION_TTL) session.messages = [];
   session.lastActive = now;
-
-  // Append user message to history
   session.messages.push({ role: 'user', content: text.trim() });
-  if (session.messages.length > WA_MAX_HISTORY) {
-    session.messages = session.messages.slice(-WA_MAX_HISTORY);
-  }
+  if (session.messages.length > WA_MAX_HISTORY) session.messages = session.messages.slice(-WA_MAX_HISTORY);
   _waSessions.set(jid, session);
 
   try {
-    const db = await getDb();
-    const { chat, buildStoreSystemPrompt } = require('./ai');
-    const systemPrompt = await buildStoreSystemPrompt(db);
-
-    // WA-specific tweak: no [BUTTONS:] syntax for WhatsApp
-    const waSystemPrompt = systemPrompt.replace(
-      /- Add action buttons at end.*\[BUTTONS.*\]\(max 4\)/,
-      '- Do NOT use [BUTTONS:] syntax — this is WhatsApp. Give options as numbered list if needed.'
-    );
-
-    const rawReply = await chat(session.messages, {
-      max_tokens: 300,
-      _systemOverride: waSystemPrompt,
-    });
-
-    // Strip any [BUTTONS: ...] that slipped through
-    const reply = rawReply.replace(/\[BUTTONS:[^\]]*\]/gi, '').trim();
+    const aiOrders = require('./ai-orders');
+    const reply = isOwner
+      ? await aiOrders.runAdminTurn(db, jid, session.messages)
+      : await aiOrders.runCustomerTurn(db, jid, session.messages);
     if (!reply) return;
-
-    // Append assistant reply to history
     session.messages.push({ role: 'assistant', content: reply });
-    if (session.messages.length > WA_MAX_HISTORY) {
-      session.messages = session.messages.slice(-WA_MAX_HISTORY);
-    }
-
-    // Send reply via Baileys or Meta. Convert the AI's markdown bold (**…**) to
-    // WhatsApp's native *…* so it renders bold instead of showing literal "**".
+    if (session.messages.length > WA_MAX_HISTORY) session.messages = session.messages.slice(-WA_MAX_HISTORY);
     const s = getActiveSock();
     if (s) await s.sendMessage(jid, { text: mdToWhatsApp(reply) });
   } catch (e) {
