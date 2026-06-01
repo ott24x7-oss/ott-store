@@ -545,15 +545,24 @@ router.post('/blog/import-wordpress', requireAdmin, async (req, res) => {
     let url = String(req.body?.url || '').trim();
     if (!url) return res.status(400).json({ error: 'WordPress site URL required' });
     if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-    const base = url.replace(/\/+$/, '').replace(/\/wp-json.*$/i, '');
+    // Use just the site ORIGIN (protocol + host) so a full post URL still works —
+    // /wp-json must hang off the site root, not a post path.
+    let base;
+    try { const u = new URL(url); base = `${u.protocol}//${u.host}`; }
+    catch { return res.status(400).json({ error: 'Invalid URL — use your site domain, e.g. https://yoursite.com' }); }
     const apiUrl = `${base}/wp-json/wp/v2/posts?per_page=100&_fields=slug,title,content,excerpt,date`;
 
     let posts;
     try {
       const r = await fetch(apiUrl, { headers: { 'User-Agent': 'OTTStore/1.0', 'Accept': 'application/json' } });
-      posts = await r.json();
-    } catch (e) { return res.status(400).json({ error: `Could not reach ${base}/wp-json — ${e.message}` }); }
-    if (!Array.isArray(posts)) return res.status(400).json({ error: 'That URL did not return a WordPress posts API (no wp-json).' });
+      const text = await r.text();
+      if (text.trim().startsWith('<')) {
+        return res.status(400).json({ error: `${base} didn't return the WordPress API (got an HTML page, HTTP ${r.status}). Enter just the site domain (https://yoursite.com) and ensure the WordPress REST API is enabled.` });
+      }
+      posts = JSON.parse(text);
+    } catch (e) { return res.status(400).json({ error: `Could not read ${base}/wp-json/wp/v2/posts — ${e.message}` }); }
+    if (!Array.isArray(posts)) return res.status(400).json({ error: `That site did not return a posts list (got ${typeof posts}). Is it a WordPress site with the REST API enabled?` });
+    if (!posts.length) return res.status(400).json({ error: `Connected to ${base} but it has 0 published posts.` });
 
     const decode = (s) => String(s || '')
       .replace(/&amp;/g, '&').replace(/&#0?38;/g, '&')

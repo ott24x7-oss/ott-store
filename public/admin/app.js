@@ -2057,7 +2057,7 @@ window.deleteBlog = async function (id) {
 };
 
 window.importWpBlog = async function () {
-  const url = prompt('WordPress site URL to re-import posts (with images) from:', 'https://greenyellow-zebra-929829.hostingersite.com');
+  const url = prompt('Your WordPress SITE domain (NOT a post URL) — e.g. https://yoursite.com:', 'https://greenyellow-zebra-929829.hostingersite.com');
   if (!url) return;
   showToast('Importing from WordPress…');
   try {
