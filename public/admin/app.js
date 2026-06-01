@@ -2062,7 +2062,7 @@ window.importWpBlog = async function () {
   showToast('Importing from WordPress…');
   try {
     const r = await api('/blog/import-wordpress', { method: 'POST', body: JSON.stringify({ url }) });
-    showToast(`✓ ${r.updated} updated · ${r.imported} new (of ${r.total}) — images restored`);
+    showToast(`✓ Cloned ${r.total} posts (${r.updated} updated, ${r.imported} new) · ${r.images} images self-hosted`);
     views.blog();
   } catch (e) { showToast(e.message, 'error'); }
 };

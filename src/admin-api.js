@@ -572,15 +572,40 @@ router.post('/blog/import-wordpress', requireAdmin, async (req, res) => {
     const stripTags = (s) => decode(String(s || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
     const norm = (t) => String(t || '').toLowerCase().replace(/\(with image\)/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 
+    // Download each in-content image onto our own server (/data/uploads, volume-
+    // backed) and rewrite the src, so the cloned blog is fully self-hosted and
+    // won't break if the WordPress site goes away.
+    const selfHostImages = async (html) => {
+      const urls = new Set();
+      let m; const re = /<img[^>]+src=["']([^"']+)["']/gi;
+      while ((m = re.exec(html))) { if (/^https?:\/\//i.test(m[1])) urls.add(m[1]); }
+      let out = html.replace(/\s+srcset=["'][^"']*["']/gi, ''); // strip srcset (still points to WP)
+      for (const u of urls) {
+        try {
+          const ir = await fetch(u, { headers: { 'User-Agent': 'OTTStore/1.0' } });
+          if (!ir.ok) continue;
+          const buf = Buffer.from(await ir.arrayBuffer());
+          if (!buf.length || buf.length > 6 * 1024 * 1024) continue;
+          const em = u.split('?')[0].match(/\.(jpe?g|png|gif|webp|avif|svg)$/i);
+          const ext = em ? '.' + em[1].toLowerCase() : '.jpg';
+          const fn = `blog-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+          fs.writeFileSync(path.join(UPLOADS_DIR, fn), buf);
+          out = out.split(u).join(`/data/uploads/${fn}`);
+          imagesSaved++;
+        } catch {}
+      }
+      return out;
+    };
+
     const db = await getDb();
     const existingPosts = all(db, `SELECT id, slug, title FROM blog_posts`);
-    let imported = 0, updated = 0;
+    let imported = 0, updated = 0, imagesSaved = 0;
 
     for (const p of posts) {
       const wpSlug = String(p.slug || '').trim();
       if (!wpSlug) continue;
       const title = decode(p.title?.rendered || wpSlug);
-      const body = String(p.content?.rendered || '').replace(/<script[\s\S]*?<\/script>/gi, '');
+      const body = await selfHostImages(String(p.content?.rendered || '').replace(/<script[\s\S]*?<\/script>/gi, ''));
       const meta = stripTags(p.excerpt?.rendered || '').slice(0, 300);
       const tNorm = norm(title);
 
@@ -599,7 +624,7 @@ router.post('/blog/import-wordpress', requireAdmin, async (req, res) => {
       }
     }
     try { await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'blog_import_wordpress', targetKind: 'blog', targetId: base, ip: req.ip }); } catch {}
-    res.json({ ok: true, imported, updated, total: posts.length, source: base });
+    res.json({ ok: true, imported, updated, total: posts.length, images: imagesSaved, source: base });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
