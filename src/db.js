@@ -756,6 +756,7 @@ function seedDefaults(db) {
     upi_id: '',
     upi_name: '',
     upi_unique_max_delta: '6', // unique payment amount = price ± 1..N whole rupees (collision-aware)
+    upi_unique_direction: 'both', // 'both' = ±; 'up' = never charge below the price
     // USDT direct checkout (replaces wallet/Razorpay/manual UPI)
     usdt_inr_rate: '99',
     usdt_fee_pct: '1.5',

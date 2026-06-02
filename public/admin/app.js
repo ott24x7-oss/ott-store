@@ -2846,6 +2846,16 @@ views.payments = async function () {
   </div>
   <div class="form-group mt-2"><label class="form-label">UPI QR Image URL</label><input class="form-input" id="upi-qr" value="${esc(s.upi_qr_url||'')}"></div>
   <p class="muted" style="font-size:.8rem;margin-top:.5rem">UPI direct-checkout payments are auto-verified by reading the bank notification email via IMAP (configure below).</p>
+  <div style="border-top:1px solid var(--border);margin:.85rem 0 .6rem;padding-top:.7rem;font-weight:700;font-size:.9rem">Unique payment amount</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+    <div class="form-group"><label class="form-label">Range (± whole ₹)</label><input class="form-input" id="upi-delta" type="number" min="1" max="50" value="${esc(s.upi_unique_max_delta||'6')}"></div>
+    <div class="form-group"><label class="form-label">Direction</label>
+      <select class="form-input" id="upi-dir">
+        <option value="both" ${(s.upi_unique_direction||'both')==='both'?'selected':''}>Both ± (may pay slightly less)</option>
+        <option value="up" ${s.upi_unique_direction==='up'?'selected':''}>Up only (never below price)</option>
+      </select></div>
+  </div>
+  <p class="muted" style="font-size:.78rem;margin-top:.35rem">Each order gets a clean whole-rupee amount near the price (e.g. ₹200 → ₹197 or ₹203) so customers don't round it off. <b>Up only</b> never charges below the price.</p>
   <button class="btn btn-primary btn-sm mt-3" onclick="saveUpi()">Save UPI</button>
 </div>
 
@@ -2947,6 +2957,8 @@ views.payments = async function () {
           upi_id: document.getElementById('upi-id').value,
           upi_name: document.getElementById('upi-name').value,
           upi_qr_url: document.getElementById('upi-qr').value,
+          upi_unique_max_delta: document.getElementById('upi-delta').value,
+          upi_unique_direction: document.getElementById('upi-dir').value,
         })});
         msg.innerHTML='<div class="alert alert-success">Saved!</div>';
         setTimeout(()=>msg.innerHTML='',2000);

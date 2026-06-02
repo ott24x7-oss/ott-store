@@ -376,12 +376,13 @@ function getImapStatus() { return _status; }
 // amount already used by another pending order (which would make matching
 // ambiguous); if every whole-rupee slot in the range is taken, falls back to a
 // free paise amount so two orders never share an amount.
-function generateUniqueAmount(baseAmount, usedUniques = [], maxDelta = 6) {
+function generateUniqueAmount(baseAmount, usedUniques = [], maxDelta = 6, direction = 'both') {
   const base = Math.round(parseFloat(baseAmount) || 0);
   const used = new Set((usedUniques || []).map(u => Math.round(parseFloat(u) * 100) / 100));
   const max  = Math.max(1, Math.min(50, parseInt(maxDelta, 10) || 6));
+  const upOnly = String(direction) === 'up'; // 'up' → never charge below the price
   const deltas = [];
-  for (let d = 1; d <= max; d++) { deltas.push(d, -d); } // ±1, ±2, … ±max
+  for (let d = 1; d <= max; d++) { deltas.push(d); if (!upOnly) deltas.push(-d); } // +1..+max (and -1..-max unless up-only)
   for (let i = deltas.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [deltas[i], deltas[j]] = [deltas[j], deltas[i]]; }
   for (const d of deltas) {
     const cand = base + d;

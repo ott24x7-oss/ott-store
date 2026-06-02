@@ -668,7 +668,8 @@ router.post('/checkout/upi-direct', requireCustomer, async (req, res) => {
     const { generateUniqueAmount } = require('./imap-verify');
     const usedUniques = all(db, `SELECT unique_amount FROM topups WHERE status='pending' AND purpose='order' AND method='upi_imap' AND unique_amount IS NOT NULL`).map(r => r.unique_amount);
     const uniqueMaxDelta = parseInt(await getSetting('upi_unique_max_delta') || '6', 10);
-    const uniqueAmount = generateUniqueAmount(price, usedUniques, uniqueMaxDelta);
+    const uniqueDir = await getSetting('upi_unique_direction') || 'both';
+    const uniqueAmount = generateUniqueAmount(price, usedUniques, uniqueMaxDelta, uniqueDir);
     const eupi = await getEffectiveUpi(db);
     const upiId = eupi.upi_id;
     const upiName = (eupi.upi_name || '').replace(/[^a-zA-Z0-9 ]/g, '');
@@ -860,7 +861,8 @@ router.post('/guest-checkout/upi', guestLimiter, async (req, res) => {
     const { generateUniqueAmount } = require('./imap-verify');
     const usedUniques = all(db, `SELECT unique_amount FROM topups WHERE status='pending' AND purpose='order' AND method='upi_imap' AND unique_amount IS NOT NULL`).map(r => r.unique_amount);
     const uniqueMaxDelta = parseInt(await getSetting('upi_unique_max_delta') || '6', 10);
-    const uniqueAmount = generateUniqueAmount(price, usedUniques, uniqueMaxDelta);
+    const uniqueDir = await getSetting('upi_unique_direction') || 'both';
+    const uniqueAmount = generateUniqueAmount(price, usedUniques, uniqueMaxDelta, uniqueDir);
     const eupi = await getEffectiveUpi(db);
     const windowMin = parseInt(await getSetting('usdt_payment_window_minutes') || '20', 10);
     const expiresAt = new Date(Date.now() + windowMin * 60 * 1000).toISOString();
