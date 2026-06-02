@@ -13,6 +13,7 @@ const path = require('path');
 const fs   = require('fs');
 const https = require('https');
 const { getSettingSync, setSettingSync, getDb } = require('./db');
+const waSession = require('./wa-session-store');
 
 const SESSION_DIR = path.join(__dirname, '..', 'data', 'wa-session');
 
@@ -28,6 +29,7 @@ let watchdogTimer    = null;
 // and either rate-bans the number or pegs CPU. Track consecutive failures and
 // scale: 3s → 6s → 12s → 24s → 48s → 60s (cap).
 let _waReconnectAttempts = 0;
+let _stoodDown       = false; // set after connectionReplaced — blocks the watchdog from auto-reconnecting so a dying container can't steal the session back from the live one
 let probeFails       = 0;
 let wdLastChange     = Date.now();
 let wdLastStatus     = 'disconnected';
@@ -230,6 +232,14 @@ async function startBaileysBot() {
 
     fs.mkdirSync(SESSION_DIR, { recursive: true });
 
+    // Secure session: if the on-disk session is gone (Railway FS reset, an
+    // overlapping deploy, or a prior auto-clear), repopulate it from the DB mirror
+    // BEFORE Baileys reads the auth state — so a deploy never forces a fresh QR
+    // scan. Only restores when creds.json is absent (never clobbers a live session).
+    if (!fs.existsSync(path.join(SESSION_DIR, 'creds.json'))) {
+      try { await waSession.restoreSession(SESSION_DIR); } catch {}
+    }
+
     let { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
     // ── Auto-recover from a STALE "ghost" session — ONCE per process ──────────
     // A leftover registered:false+me session (a previously-interrupted pairing)
@@ -248,6 +258,7 @@ async function startBaileysBot() {
         console.warn('[wa-bot] stale/ghost session detected at boot (registered:false) — clearing once for a fresh QR pairing');
         try { fs.rmSync(SESSION_DIR, { recursive: true, force: true }); } catch {}
         fs.mkdirSync(SESSION_DIR, { recursive: true });
+        try { await waSession.clearSavedSession(); } catch {} // drop the ghost from the DB mirror too, so it isn't restored
         ({ state, saveCreds } = await useMultiFileAuthState(SESSION_DIR));
         try { setSettingSync('wa_bot_number', ''); } catch {}
       }
@@ -284,9 +295,24 @@ async function startBaileysBot() {
       if (connection === 'close') {
         currentQR       = null;
         const code      = new Boom(lastDisconnect?.error)?.output?.statusCode;
-        const reconnect = (code !== DisconnectReason.loggedOut);
         connStatus       = 'disconnected';
         connectedNumber  = null;
+
+        // Another instance took over this exact session — almost always the NEW
+        // container during an overlapping Railway deploy. Reconnecting here would
+        // fight it (connectionReplaced ping-pong), and that storm is what makes
+        // WhatsApp eventually invalidate the link. Stand down quietly and KEEP the
+        // session — the new instance owns it now (this old container will exit on
+        // its own SIGTERM shortly).
+        if (code === DisconnectReason.connectionReplaced) {
+          isStarting = false;
+          _waReconnectAttempts = 0;
+          _stoodDown = true; // don't let the watchdog auto-reconnect and steal the session from the live instance
+          console.log('[wa-bot] connection replaced by another instance — standing down, session preserved');
+          return;
+        }
+
+        const reconnect = (code !== DisconnectReason.loggedOut);
         if (reconnect) {
           isStarting = false;
           _waReconnectAttempts = Math.min(_waReconnectAttempts + 1, 6);
@@ -294,9 +320,13 @@ async function startBaileysBot() {
           console.log(`[wa-bot] reconnect attempt #${_waReconnectAttempts} in ${delayMs}ms (close code ${code})`);
           setTimeout(() => startBaileysBot(), delayMs);
         } else {
+          // WhatsApp logged us out (genuine unlink, or a conflict that escalated).
+          // The session is dead — drop the DB mirror so we don't restore it and
+          // loop forever; the admin re-links once from Admin → WhatsApp.
           connStatus = 'logged_out';
           isStarting = false;
           _waReconnectAttempts = 0;
+          try { await waSession.clearSavedSession(); } catch {}
         }
       }
 
@@ -305,6 +335,7 @@ async function startBaileysBot() {
         connStatus       = 'connected';
         connectedNumber  = sock.user?.id?.split(':')[0] || sock.user?.id || 'Unknown';
         _waReconnectAttempts = 0; // happy path resets the backoff
+        _stoodDown = false;       // we own the connection again
         // Persist the bot's own number so the storefront 1-tap WhatsApp login
         // sends users to the bot (which auto-replies a magic link), not the
         // human support line.
@@ -325,7 +356,11 @@ async function startBaileysBot() {
       }
     });
 
-    sock.ev.on('creds.update', saveCreds);
+    sock.ev.on('creds.update', async () => {
+      try { await saveCreds(); } catch {}
+      // Mirror the updated session into the DB (debounced) so it survives redeploys.
+      waSession.backupSession(SESSION_DIR);
+    });
 
     sock.ev.on('messages.upsert', ({ messages, type }) => {
       for (const msg of messages) {
@@ -470,6 +505,7 @@ async function logout() {
   connStatus       = 'logged_out';
   connectedNumber  = null;
   try { setSettingSync('wa_bot_number', ''); } catch {}
+  try { await waSession.clearSavedSession(); } catch {} // intentional unlink — clear the DB mirror
 }
 
 async function reconnect() {
@@ -490,6 +526,7 @@ async function clearSession() {
   if (fs.existsSync(SESSION_DIR)) {
     try { fs.rmSync(SESSION_DIR, { recursive: true, force: true }); } catch {}
   }
+  try { await waSession.clearSavedSession(); } catch {} // wipe the DB mirror too, else next boot restores it
   connStatus = 'disconnected';
 }
 
@@ -595,7 +632,7 @@ function startWatchdog() {
       }
       const stuckMs = Date.now() - wdLastChange;
 
-      if (connStatus === 'disconnected' && !isStarting && stuckMs > 90000) {
+      if (connStatus === 'disconnected' && !isStarting && !_stoodDown && stuckMs > 90000) {
         wdLastChange = Date.now();
         try { await startBaileysBot(); } catch {}
       } else if (connStatus === 'connected' && sock && !isStarting) {
@@ -623,8 +660,18 @@ function startWatchdog() {
   }, 60 * 1000);
 }
 
+// Graceful shutdown — close the socket WITHOUT logging out + flush a final session
+// backup. Called from index.js on SIGTERM/SIGINT (Railway deploys), so the old
+// container stops using the WhatsApp connection during an overlapping deploy.
+function shutdownBot() {
+  try { waSession.backupSession(SESSION_DIR, true); } catch {}
+  try { if (sock) { sock.ev.removeAllListeners(); sock.end(); } } catch {}
+  sock = null;
+  connStatus = 'disconnected';
+}
+
 module.exports = {
-  connect, disconnect, logout, reconnect, clearSession, requestPairingCode,
+  connect, disconnect, logout, reconnect, clearSession, requestPairingCode, shutdownBot,
   getStatus, getQR, getQRBase64, getActiveSock,
   sendToPhone, sendToGroup,
   getGroups, testMetaCreds, startWatchdog,

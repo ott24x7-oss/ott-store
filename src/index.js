@@ -22,6 +22,22 @@ process.on('uncaughtException', (err) => {
   console.error('[fatal-guard] uncaughtException:', err && err.stack ? err.stack : err);
 });
 
+// Graceful shutdown — Railway sends SIGTERM to the OLD container when a new deploy
+// goes live. Close the WhatsApp socket cleanly (WITHOUT logging out) and flush a
+// final session backup, so the old instance stops fighting the new one for the
+// WhatsApp connection — the connection-replaced churn that was logging the bot out
+// on every deploy. Then exit.
+let _shuttingDown = false;
+function gracefulShutdown(signal) {
+  if (_shuttingDown) return;
+  _shuttingDown = true;
+  console.log(`[shutdown] ${signal} — closing WhatsApp socket cleanly (session preserved)`);
+  try { const wa = require('./wa-bot'); if (wa.shutdownBot) wa.shutdownBot(); } catch (e) { console.warn('[shutdown] wa-bot:', e.message); }
+  setTimeout(() => process.exit(0), 1500);
+}
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT',  () => gracefulShutdown('SIGINT'));
+
 const app = express();
 
 // Cloudflare in front of Railway in front of the app = 2 trusted hops. We set

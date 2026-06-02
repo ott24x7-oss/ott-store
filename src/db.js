@@ -36,6 +36,13 @@ function migrate(db) {
     key TEXT PRIMARY KEY,
     value TEXT
   )`);
+  // Secure WhatsApp session: mirror of the Baileys auth files so the linked
+  // device survives Railway redeploys / filesystem resets (see wa-session-store.js).
+  db.run(`CREATE TABLE IF NOT EXISTS wa_session_files (
+    filename TEXT PRIMARY KEY,
+    content TEXT,
+    updated_at TEXT DEFAULT (datetime('now'))
+  )`);
   db.run(`CREATE TABLE IF NOT EXISTS customers (
     jid TEXT PRIMARY KEY,
     name TEXT, email TEXT, phone TEXT,
