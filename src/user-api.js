@@ -676,12 +676,25 @@ router.post('/checkout/upi-direct', requireCustomer, async (req, res) => {
     const r = run(db, `INSERT INTO topups (customer_jid,amount_inr,unique_amount,method,status,purpose,plan_id,currency,expires_at) VALUES (?,?,?,?,?,?,?,?,?)`,
       [c.jid, price, uniqueAmount, 'upi_imap', 'pending', 'order', plan_id, 'INR', expiresAt]);
 
+    // Pre-fill the EXACT amount in a UPI deep link + QR so the customer can't pay
+    // the rounded figure they remember (₹200 instead of ₹200.50). On mobile the
+    // link opens the UPI app with the amount LOCKED; the QR encodes the same, so
+    // scanning fills it too. Falls back to the static UPI ID/QR if upi_id is unset.
+    let upiLink = '', upiQr = '';
+    if (upiId) {
+      const tn = String(plan.name || 'Order').replace(/[^a-zA-Z0-9 ]/g, '').slice(0, 30) || 'Order';
+      upiLink = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(upiName || 'Store')}&am=${uniqueAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(tn)}`;
+      try { upiQr = await require('qrcode').toDataURL(upiLink, { width: 240, margin: 1 }); } catch {}
+    }
+
     res.json({
       ok: true,
       topup_id: r.lastInsertRowid,
       unique_amount: uniqueAmount,
       upi_id: upiId,
       upi_name: upiName,
+      upi_link: upiLink,
+      upi_qr: upiQr,
       qr_url: eupi.qr_url || '',
       plan_name: plan.name,
       plan_price: price,
@@ -852,12 +865,20 @@ router.post('/guest-checkout/upi', guestLimiter, async (req, res) => {
     const r = run(db, `INSERT INTO topups (customer_jid,amount_inr,unique_amount,method,status,purpose,plan_id,currency,expires_at,guest_token) VALUES (?,?,?,?,?,?,?,?,?,?)`,
       [cust.jid, price, uniqueAmount, 'upi_imap', 'pending', 'order', plan_id, 'INR', expiresAt, guestToken]);
 
+    const gUpiName = (eupi.upi_name || '').replace(/[^a-zA-Z0-9 ]/g, '');
+    let gUpiLink = '', gUpiQr = '';
+    if (eupi.upi_id) {
+      const tn = String(plan.name || 'Order').replace(/[^a-zA-Z0-9 ]/g, '').slice(0, 30) || 'Order';
+      gUpiLink = `upi://pay?pa=${encodeURIComponent(eupi.upi_id)}&pn=${encodeURIComponent(gUpiName || 'Store')}&am=${uniqueAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(tn)}`;
+      try { gUpiQr = await require('qrcode').toDataURL(gUpiLink, { width: 240, margin: 1 }); } catch {}
+    }
     res.json({
       ok: true, guest: true,
       topup_id: r.lastInsertRowid,
       guest_token: guestToken,
       unique_amount: uniqueAmount,
-      upi_id: eupi.upi_id, upi_name: (eupi.upi_name || '').replace(/[^a-zA-Z0-9 ]/g, ''),
+      upi_id: eupi.upi_id, upi_name: gUpiName,
+      upi_link: gUpiLink, upi_qr: gUpiQr,
       qr_url: eupi.qr_url || '',
       plan_name: plan.name, plan_price: price,
       expires_at: expiresAt, window_minutes: windowMin,

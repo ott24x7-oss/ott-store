@@ -1318,16 +1318,17 @@ function confirmBuy(planId,planName,price){
 }
 
 function showUpiPaymentStep(modalEl,area,r,planName){
-  const upiLink=`upi://pay?pa=${encodeURIComponent(r.upi_id)}&pn=${encodeURIComponent(r.upi_name||'Store')}&am=${r.unique_amount}&cu=INR`;
-  // Prefer the QR returned by the server (from settings or payment_methods);
-  // fall back to STORE.upi_qr_url if it's somehow missing.
-  const qr=(r.qr_url||STORE.upi_qr_url||'').trim();
+  const upiLink=r.upi_link||`upi://pay?pa=${encodeURIComponent(r.upi_id)}&pn=${encodeURIComponent(r.upi_name||'Store')}&am=${r.unique_amount}&cu=INR`;
+  // Prefer the DYNAMIC QR (exact amount baked in) so scanning can't pay the wrong
+  // figure; fall back to the static merchant QR only if it's missing.
+  const dynamicQr=!!r.upi_qr;
+  const qr=(r.upi_qr||r.qr_url||STORE.upi_qr_url||'').trim();
   area.innerHTML=`
 <div style="text-align:center;padding:.5rem 0">
   <div style="font-size:.8rem;color:var(--muted);margin-bottom:.25rem">Pay exactly</div>
   <div style="font-size:2rem;font-weight:900;color:var(--green)" class="grad-text">₹${r.unique_amount}</div>
-  <div style="font-size:.75rem;color:var(--muted);margin-bottom:1rem">(unique amount — do not round off)</div>
-  ${qr?`<div style="display:flex;justify-content:center;margin-bottom:.75rem"><img src="${esc(qr)}" alt="UPI QR" style="width:180px;height:180px;border-radius:14px;background:#fff;padding:8px;object-fit:contain" loading="lazy" onerror="this.style.display='none'"></div>`:''}
+  <div style="font-size:.75rem;color:var(--muted);margin-bottom:1rem">${dynamicQr?'Scan the QR or tap below — the exact amount is filled in for you':'(unique amount — do not round off)'}</div>
+  ${qr?`<div style="display:flex;justify-content:center;margin-bottom:.4rem"><img src="${esc(qr)}" alt="UPI QR" style="width:180px;height:180px;border-radius:14px;background:#fff;padding:8px;object-fit:contain" loading="lazy" onerror="this.style.display='none'"></div>${dynamicQr?'<div style="font-size:.72rem;color:var(--green);margin-bottom:.6rem">✓ Amount auto-filled — just confirm in your UPI app</div>':''}`:''}
   <div style="background:var(--input-bg);border-radius:var(--radius-sm);padding:.75rem;margin-bottom:.75rem">
     <div style="font-size:.75rem;color:var(--muted)">UPI ID</div>
     <div style="font-weight:700;font-size:1rem;word-break:break-all">${esc(r.upi_id)}</div>
