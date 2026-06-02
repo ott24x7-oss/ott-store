@@ -4305,6 +4305,19 @@ views['chat-bot'] = async function () {
   <button class="btn btn-primary" onclick="saveBotSettings()">Save Widget Settings</button>
 </div>
 
+<div class="card" style="border-left:3px solid #25D366">
+  <div style="font-weight:700;margin-bottom:.4rem">📱 Contact Buttons — WhatsApp &amp; Telegram</div>
+  <p class="muted" style="font-size:.83rem;margin-bottom:.9rem">These show inside the floating widget's <b>“Chat with us”</b> menu on your store. Leave a field empty to hide that button.</p>
+  <div id="contact-msg"></div>
+  <div class="form-group"><label class="form-label">🟢 WhatsApp Number</label>
+    <input class="form-input" id="cw-whatsapp" value="${esc(s.support_whatsapp||'')}" placeholder="+91 98765 43210">
+    <p class="muted" style="font-size:.78rem;margin-top:.3rem">Opens a <code>wa.me</code> chat with a pre-filled message.</p></div>
+  <div class="form-group"><label class="form-label">🔵 Telegram</label>
+    <input class="form-input" id="cw-telegram" value="${esc(s.support_telegram||'')}" placeholder="@yourchannel or https://t.me/yourchannel">
+    <p class="muted" style="font-size:.78rem;margin-top:.3rem">A username (<code>@name</code>) or a full <code>t.me/…</code> link.</p></div>
+  <button class="btn btn-primary" onclick="saveContactChannels()">Save Contact Buttons</button>
+</div>
+
 <div class="card">
   <div style="font-weight:700;margin-bottom:.5rem">Custom AI Instructions <span class="muted" style="font-weight:400;font-size:.83rem">(optional)</span></div>
   <p class="muted" style="font-size:.83rem;margin-bottom:.75rem">The bot is auto-trained with your live products &amp; pricing. Use this field to add extra rules — tone, special offers, things to avoid, etc.</p>
@@ -4347,6 +4360,19 @@ views['chat-bot'] = async function () {
         await api('/bot-settings', { method: 'POST', body: JSON.stringify(body) });
         msg.innerHTML = '<div class="alert alert-success">Saved!</div>';
         setTimeout(() => msg.innerHTML = '', 2500);
+      } catch(e) { msg.innerHTML = `<div class="alert alert-error">${esc(e.message)}</div>`; }
+    };
+
+    window.saveContactChannels = async () => {
+      const msg = document.getElementById('contact-msg');
+      const body = {
+        support_whatsapp: document.getElementById('cw-whatsapp').value.trim(),
+        support_telegram: document.getElementById('cw-telegram').value.trim(),
+      };
+      try {
+        await api('/bot-settings', { method: 'POST', body: JSON.stringify(body) });
+        msg.innerHTML = '<div class="alert alert-success">Saved! The WhatsApp/Telegram buttons now show on your store widget (hard-refresh the store to see them).</div>';
+        setTimeout(() => msg.innerHTML = '', 4000);
       } catch(e) { msg.innerHTML = `<div class="alert alert-error">${esc(e.message)}</div>`; }
     };
 

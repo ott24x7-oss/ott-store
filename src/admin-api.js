@@ -2246,7 +2246,7 @@ router.post('/autopost-settings', requireAdmin, async (req, res) => {
 router.get('/bot-settings', requireAdmin, async (req, res) => {
   try {
     const db = await getDb();
-    const keys = ['bot_enabled','bot_name','bot_tagline','bot_avatar','bot_accent','bot_greeting','bot_system_prompt'];
+    const keys = ['bot_enabled','bot_name','bot_tagline','bot_avatar','bot_accent','bot_greeting','bot_system_prompt','support_whatsapp','support_telegram'];
     const rows = all(db, `SELECT key,value FROM settings WHERE key IN (${keys.map(()=>'?').join(',')})`, keys);
     const s = {};
     rows.forEach(r => s[r.key] = r.value);
@@ -2257,7 +2257,7 @@ router.get('/bot-settings', requireAdmin, async (req, res) => {
 router.post('/bot-settings', requireAdmin, async (req, res) => {
   try {
     const db = await getDb();
-    const allowed = ['bot_enabled','bot_name','bot_tagline','bot_avatar','bot_accent','bot_greeting','bot_system_prompt'];
+    const allowed = ['bot_enabled','bot_name','bot_tagline','bot_avatar','bot_accent','bot_greeting','bot_system_prompt','support_whatsapp','support_telegram'];
     for (const k of allowed) {
       if (k in req.body) run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, [k, String(req.body[k] ?? '')]);
     }
