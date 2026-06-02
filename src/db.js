@@ -43,6 +43,16 @@ function migrate(db) {
     content TEXT,
     updated_at TEXT DEFAULT (datetime('now'))
   )`);
+  // Point-in-time encrypted session snapshots (payload is a .enc file on the
+  // volume; this table holds only metadata). See wa-session-store.js.
+  db.run(`CREATE TABLE IF NOT EXISTS wa_session_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    label TEXT,
+    file_count INTEGER,
+    size_bytes INTEGER,
+    filename TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
   db.run(`CREATE TABLE IF NOT EXISTS customers (
     jid TEXT PRIMARY KEY,
     name TEXT, email TEXT, phone TEXT,

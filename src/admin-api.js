@@ -1205,6 +1205,78 @@ router.post('/whatsapp/pairing-code', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── Secure Session: encryption + snapshots + offsite bundle ───────────────────
+let _keySuggestion = null; // generated once per process; never persisted to the DB
+router.get('/whatsapp/secure-session', requireAdmin, async (req, res) => {
+  try {
+    const waSession = require('./wa-session-store');
+    const waCrypto  = require('./wa-crypto');
+    const status = await waSession.getStatus();
+    if (!status.encryptionOn) {
+      if (!_keySuggestion) _keySuggestion = waCrypto.generateKey();
+      status.suggestedKey = _keySuggestion; // copy into Railway env to enable encryption
+    }
+    res.json(status);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/whatsapp/secure-session/snapshot', requireAdmin, async (req, res) => {
+  try {
+    const waSession = require('./wa-session-store');
+    const snap = await waSession.createSnapshot('manual');
+    if (!snap) return res.status(400).json({ error: 'Nothing to snapshot — the bot is not linked yet.' });
+    res.json({ ok: true, snapshot: snap });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/whatsapp/secure-session/snapshot/:id/restore', requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const waSession = require('./wa-session-store');
+    const waBot = require('./wa-bot');
+    await waBot.disconnect();
+    const n = await waSession.restoreSnapshotToDisk(id);
+    setTimeout(() => { try { waBot.connect(); } catch {} }, 300); // restart on the restored keys
+    res.json({ ok: true, restored: n });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/whatsapp/secure-session/snapshot/:id', requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const waSession = require('./wa-session-store');
+    const ok = await waSession.deleteSnapshot(id);
+    res.json({ ok });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Download one sealed blob (live session + all snapshots) for offsite storage.
+router.get('/whatsapp/secure-session/bundle', requireAdmin, async (req, res) => {
+  try {
+    const waSession = require('./wa-session-store');
+    const blob = await waSession.exportBundle();
+    const stamp = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="ott24x7-wa-session-${stamp}.enc"`);
+    res.send(blob);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Restore from an uploaded bundle. Raw text body (can be many MB) with a high limit.
+router.post('/whatsapp/secure-session/bundle', requireAdmin, express.text({ limit: '128mb', type: () => true }), async (req, res) => {
+  try {
+    const blob = String(req.body || '').trim();
+    if (!blob) return res.status(400).json({ error: 'Empty bundle' });
+    const merge = req.query.merge === '1';
+    const waSession = require('./wa-session-store');
+    const waBot = require('./wa-bot');
+    await waBot.disconnect();
+    const n = await waSession.importBundle(blob, { merge });
+    setTimeout(() => { try { waBot.connect(); } catch {} }, 300);
+    res.json({ ok: true, restored: n });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 router.get('/whatsapp/groups', requireAdmin, async (req, res) => {
   try {
     const waBot = require('./wa-bot');

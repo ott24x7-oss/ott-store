@@ -30,6 +30,8 @@ let watchdogTimer    = null;
 // scale: 3s → 6s → 12s → 24s → 48s → 60s (cap).
 let _waReconnectAttempts = 0;
 let _stoodDown       = false; // set after connectionReplaced — blocks the watchdog from auto-reconnecting so a dying container can't steal the session back from the live one
+let _snapTimer       = null;  // hourly secure-session snapshot timer
+let _lastSnapAt      = 0;     // cooldown for on-connect snapshots
 let probeFails       = 0;
 let wdLastChange     = Date.now();
 let wdLastStatus     = 'disconnected';
@@ -232,13 +234,12 @@ async function startBaileysBot() {
 
     fs.mkdirSync(SESSION_DIR, { recursive: true });
 
-    // Secure session: if the on-disk session is gone (Railway FS reset, an
-    // overlapping deploy, or a prior auto-clear), repopulate it from the DB mirror
-    // BEFORE Baileys reads the auth state — so a deploy never forces a fresh QR
-    // scan. Only restores when creds.json is absent (never clobbers a live session).
-    if (!fs.existsSync(path.join(SESSION_DIR, 'creds.json'))) {
-      try { await waSession.restoreSession(SESSION_DIR); } catch {}
-    }
+    // Secure session: rebuild the live session from the newest encrypted snapshot
+    // if it's gone (volume reset / accidental clear) BEFORE Baileys reads the auth
+    // state, retire the old per-file mirror, and re-index any orphan snapshots.
+    try { await waSession.restoreSession(); } catch {}
+    try { await waSession.dropLegacyMirror(); } catch {}
+    try { await waSession.reconcileSnapshots(); } catch {}
 
     let { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
     // ── Auto-recover from a STALE "ghost" session — ONCE per process ──────────
@@ -255,12 +256,12 @@ async function startBaileysBot() {
     if (!_ghostCheckDone) {
       _ghostCheckDone = true;
       if (state?.creds?.registered === false && state?.creds?.me) {
-        console.warn('[wa-bot] stale/ghost session detected at boot (registered:false) — clearing once for a fresh QR pairing');
-        try { fs.rmSync(SESSION_DIR, { recursive: true, force: true }); } catch {}
-        fs.mkdirSync(SESSION_DIR, { recursive: true });
-        try { await waSession.clearSavedSession(); } catch {} // drop the ghost from the DB mirror too, so it isn't restored
-        ({ state, saveCreds } = await useMultiFileAuthState(SESSION_DIR));
-        try { setSettingSync('wa_bot_number', ''); } catch {}
+        // We used to WIPE a registered:false session here. That was destructive:
+        // on Baileys 7.x a working multi-device link can legitimately read
+        // registered:false, so the wipe was logging out good sessions on every
+        // boot/deploy. We NEVER auto-wipe now — if the link is truly dead the admin
+        // re-links or restores a snapshot from Admin → Secure Session.
+        console.warn('[wa-bot] session reports registered:false — NOT auto-wiping. If the bot is not delivering messages, re-link or restore a snapshot from Admin → Secure Session.');
       }
     }
     const { version }          = await fetchLatestBaileysVersion();
@@ -321,12 +322,11 @@ async function startBaileysBot() {
           setTimeout(() => startBaileysBot(), delayMs);
         } else {
           // WhatsApp logged us out (genuine unlink, or a conflict that escalated).
-          // The session is dead — drop the DB mirror so we don't restore it and
-          // loop forever; the admin re-links once from Admin → WhatsApp.
+          // Keep snapshots so the admin can roll back if it was accidental; the
+          // dead live session just sits until they re-link or restore a snapshot.
           connStatus = 'logged_out';
           isStarting = false;
           _waReconnectAttempts = 0;
-          try { await waSession.clearSavedSession(); } catch {}
         }
       }
 
@@ -353,14 +353,14 @@ async function startBaileysBot() {
         } catch {}
         try { if (typeof sock.uploadPreKeysToServerIfRequired === 'function') await sock.uploadPreKeysToServerIfRequired(); } catch {}
         try { await sock.sendPresenceUpdate('available'); } catch {}
+        // Secure session: snapshot on connect (cooldown-guarded) + ensure the
+        // hourly snapshot timer is running.
+        maybeSnapshot('on_connect');
+        startSnapshotTimer();
       }
     });
 
-    sock.ev.on('creds.update', async () => {
-      try { await saveCreds(); } catch {}
-      // Mirror the updated session into the DB (debounced) so it survives redeploys.
-      waSession.backupSession(SESSION_DIR);
-    });
+    sock.ev.on('creds.update', saveCreds); // live session persists on the volume; snapshots are the backup
 
     sock.ev.on('messages.upsert', ({ messages, type }) => {
       for (const msg of messages) {
@@ -505,7 +505,7 @@ async function logout() {
   connStatus       = 'logged_out';
   connectedNumber  = null;
   try { setSettingSync('wa_bot_number', ''); } catch {}
-  try { await waSession.clearSavedSession(); } catch {} // intentional unlink — clear the DB mirror
+  // Keep snapshots on logout so an accidental unlink can still be rolled back.
 }
 
 async function reconnect() {
@@ -526,7 +526,7 @@ async function clearSession() {
   if (fs.existsSync(SESSION_DIR)) {
     try { fs.rmSync(SESSION_DIR, { recursive: true, force: true }); } catch {}
   }
-  try { await waSession.clearSavedSession(); } catch {} // wipe the DB mirror too, else next boot restores it
+  try { await waSession.clearAll(); } catch {} // wipe snapshots too, else next boot restores them
   connStatus = 'disconnected';
 }
 
@@ -660,11 +660,25 @@ function startWatchdog() {
   }, 60 * 1000);
 }
 
-// Graceful shutdown — close the socket WITHOUT logging out + flush a final session
-// backup. Called from index.js on SIGTERM/SIGINT (Railway deploys), so the old
+// Secure-session snapshot helpers.
+function maybeSnapshot(label) {
+  const now = Date.now();
+  if (label === 'on_connect' && now - _lastSnapAt < 120000) return; // cooldown: don't spam on reconnect flaps
+  _lastSnapAt = now;
+  waSession.createSnapshot(label).catch(() => {});
+}
+function startSnapshotTimer() {
+  if (_snapTimer) return;
+  _snapTimer = setInterval(() => {
+    if (connStatus === 'connected') waSession.createSnapshot('hourly').catch(() => {});
+  }, 60 * 60 * 1000);
+}
+
+// Graceful shutdown — snapshot the latest state + close the socket WITHOUT logging
+// out. Called from index.js on SIGTERM/SIGINT (Railway deploys), so the old
 // container stops using the WhatsApp connection during an overlapping deploy.
 function shutdownBot() {
-  try { waSession.backupSession(SESSION_DIR, true); } catch {}
+  try { waSession.createSnapshot('pre_shutdown'); } catch {} // capture latest state before Railway kills us
   try { if (sock) { sock.ev.removeAllListeners(); sock.end(); } } catch {}
   sock = null;
   connStatus = 'disconnected';

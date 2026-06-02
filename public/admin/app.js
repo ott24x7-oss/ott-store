@@ -21,6 +21,7 @@ const MENU = [
   { id: 'referrals',      label: 'Referrals',     icon: '🔗' },
   { group: 'WHATSAPP' },
   { id: 'wa-session',     label: 'WA Session',    icon: '📱' },
+  { id: 'secure-session', label: 'Secure Session', icon: '🔒' },
   { id: 'whatsapp',       label: 'WA Bot',        icon: '💬' },
   { id: 'wa-offers',      label: 'WA Offers',     icon: '📋' },
   { id: 'contact-team',   label: 'Support Team',  icon: '👥' },
@@ -3062,6 +3063,128 @@ views.payments = async function () {
       views.payments();
     };
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
+
+// ── views['secure-session'] ───────────────────────────────────────────────────
+views['secure-session'] = async function () {
+  setMain('<div class="spinner"></div>');
+  try {
+    const s = await api('/whatsapp/secure-session');
+    const fmtBytes = (b) => b >= 1048576 ? (b/1048576).toFixed(1)+' MB' : b >= 1024 ? (b/1024).toFixed(0)+' KB' : (b||0)+' B';
+    const fmtTime = (iso) => iso ? new Date(iso).toLocaleString() : '—';
+    const volOk = s.volumeMount && s.dbPath && s.dbPath.indexOf(s.volumeMount) === 0;
+    const chip = (t) => `<span style="background:var(--input-bg);padding:.12rem .55rem;border-radius:10px;font-size:.74rem">${esc(t)}</span>`;
+
+    const snapRows = (s.snapshots||[]).map(sn => `
+      <tr style="border-top:1px solid var(--border)">
+        <td style="padding:.55rem .6rem;white-space:nowrap">${fmtTime(sn.created_at)}</td>
+        <td style="padding:.55rem .6rem">${chip(sn.label||'manual')}</td>
+        <td style="padding:.55rem .6rem;text-align:right">${sn.file_count||0}</td>
+        <td style="padding:.55rem .6rem;text-align:right;color:var(--muted)">${fmtBytes(sn.size_bytes)}</td>
+        <td style="padding:.55rem .6rem;text-align:right;white-space:nowrap">
+          <button class="btn btn-sm btn-secondary" onclick="ssRestore(${sn.id})">↩ Restore</button>
+          <button class="btn btn-sm btn-secondary" onclick="ssDeleteSnap(${sn.id})" style="color:#ef4444">🗑</button>
+        </td>
+      </tr>`).join('') || `<tr><td colspan="5" style="padding:.8rem;color:var(--muted)">No snapshots yet — they're taken automatically on connect, hourly, and before each deploy.</td></tr>`;
+
+    setMain(`
+<div style="max-width:920px;margin:0 auto">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:.5rem">
+  <h2 style="font-weight:800;margin:0">🔒 Secure Session</h2>
+  <div style="display:flex;gap:.4rem">
+    <button class="btn btn-sm btn-secondary" onclick="views['secure-session']()">↻ Refresh</button>
+    <button class="btn btn-sm btn-primary" onclick="ssSnapshot()">📸 Snapshot now</button>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:1rem;border-left:3px solid ${volOk?'#22c55e':'#f59e0b'}">
+  <div style="font-weight:700">${volOk?'✅ DB looks persistent':'⚠️ DB persistence unconfirmed'}</div>
+  <div style="font-size:.85rem;color:var(--muted);margin-top:.3rem">
+    ${s.volumeMount ? `RAILWAY_VOLUME_MOUNT_PATH=<code>${esc(s.volumeMount)}</code> covers <code>${esc(s.dbPath||'')}</code>` : 'No Railway volume detected — mount a volume at /app/data so the session + snapshots survive redeploys.'}
+  </div>
+  <div style="font-size:.78rem;color:var(--muted);margin-top:.25rem">File: <code>${esc(s.dbPath||'')}</code> · ${fmtBytes(s.dbSizeBytes)} · mtime ${fmtTime(s.dbMtime)}</div>
+</div>
+
+<div class="card" style="margin-bottom:1rem">
+  <div style="font-weight:700;margin-bottom:.4rem">🔑 At-rest encryption</div>
+  ${s.encryptionOn ? `
+    <div style="color:#22c55e;font-weight:600">✅ Encryption ON — snapshots are AES-256-GCM sealed (key fingerprint <code>${esc(s.keyFingerprint||'')}</code>).</div>
+    <div style="font-size:.83rem;color:var(--muted);margin-top:.3rem">The key lives only in the Railway <code>WA_SESSION_KEY</code> env var, never in the DB. Keep a copy offsite — if you lose it AND the DB, the session is unrecoverable.</div>
+  ` : `
+    <div style="color:#f59e0b;font-weight:600">⚠️ Sessions are stored as plaintext. A DB leak = full WhatsApp impersonation.</div>
+    <div style="font-size:.85rem;color:var(--muted);margin:.5rem 0">To enable encryption, set this env var on Railway, then redeploy:</div>
+    <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+      <input class="form-input" id="ss-key" readonly value="WA_SESSION_KEY=${esc(s.suggestedKey||'')}" style="flex:1;min-width:300px;font-family:monospace;font-size:.8rem">
+      <button class="btn btn-sm btn-secondary" onclick="ssCopyKey()">📋 Copy</button>
+    </div>
+    <div style="font-size:.78rem;color:var(--muted);margin-top:.4rem">Save this key OFFSITE (password manager). If you lose it AND the DB, the session is unrecoverable.</div>
+  `}
+</div>
+
+<div class="card" style="margin-bottom:1rem">
+  <div style="font-weight:700;margin-bottom:.6rem">📊 Live session</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem">
+    <div><div style="font-size:.75rem;color:var(--muted)">Files</div><div style="font-size:1.4rem;font-weight:800">${s.liveFiles||0}</div></div>
+    <div><div style="font-size:.75rem;color:var(--muted)">Last update</div><div style="font-weight:700">${fmtTime(s.lastUpdate)}</div></div>
+    <div><div style="font-size:.75rem;color:var(--muted)">Snapshots</div><div style="font-size:1.4rem;font-weight:800">${s.snapshotCount||0}</div></div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:1rem">
+  <div style="font-weight:700;margin-bottom:.4rem">💾 Offsite backup (encrypted)</div>
+  <div style="font-size:.83rem;color:var(--muted);margin-bottom:.7rem">Bundle = the live session + every snapshot, packed into one AES-256-GCM blob. Useless without WA_SESSION_KEY. Recommended: download monthly, store in a different cloud.</div>
+  <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+    <button class="btn btn-sm btn-secondary" onclick="ssDownloadBundle()">⬇ Download encrypted bundle</button>
+    <input type="file" id="ss-bundle-file" accept=".enc" style="display:none" onchange="ssUploadBundle(this)">
+    <button class="btn btn-sm btn-secondary" onclick="document.getElementById('ss-bundle-file').click()">⬆ Upload bundle (restore)</button>
+    <label style="font-size:.83rem;display:flex;align-items:center;gap:.3rem"><input type="checkbox" id="ss-merge"> Merge instead of replace</label>
+  </div>
+</div>
+
+<div class="card">
+  <div style="font-weight:700;margin-bottom:.5rem">📸 Snapshots <span style="font-weight:400;color:var(--muted);font-size:.82rem">— auto-taken on connect, hourly, and before every shutdown (SIGTERM)</span></div>
+  <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:.86rem">
+      <thead><tr style="text-align:left;color:var(--muted);font-size:.72rem;letter-spacing:.05em">
+        <th style="padding:.5rem .6rem">WHEN</th><th style="padding:.5rem .6rem">LABEL</th>
+        <th style="padding:.5rem .6rem;text-align:right">FILES</th><th style="padding:.5rem .6rem;text-align:right">SIZE</th>
+        <th style="padding:.5rem .6rem;text-align:right">ACTIONS</th>
+      </tr></thead>
+      <tbody>${snapRows}</tbody>
+    </table>
+  </div>
+</div>
+</div>`);
+
+    window.ssCopyKey = () => { const i=document.getElementById('ss-key'); const k=i.value.replace(/^WA_SESSION_KEY=/,''); navigator.clipboard.writeText(k).then(()=>showToast('Key copied — paste into Railway → Variables')).catch(()=>{ i.select(); document.execCommand('copy'); showToast('Key copied'); }); };
+    window.ssSnapshot = async () => { try { await api('/whatsapp/secure-session/snapshot', { method:'POST' }); showToast('Snapshot saved'); views['secure-session'](); } catch(e){ showToast(e.message,'error'); } };
+    window.ssDeleteSnap = async (id) => { if(!confirm('Delete this snapshot?'))return; try { await api('/whatsapp/secure-session/snapshot/'+id, { method:'DELETE' }); showToast('Deleted'); views['secure-session'](); } catch(e){ showToast(e.message,'error'); } };
+    window.ssRestore = async (id) => { if(!confirm('Restore this snapshot? The bot will stop, swap in these keys, and restart. Only restore if the bot is broken — a stale snapshot may itself trigger a re-pair.'))return; try { const r=await api('/whatsapp/secure-session/snapshot/'+id+'/restore', { method:'POST' }); showToast('Restored '+r.restored+' files — reconnecting…'); setTimeout(()=>views['secure-session'](), 5000); } catch(e){ showToast(e.message,'error'); } };
+    window.ssDownloadBundle = async () => {
+      try {
+        showToast('Building encrypted bundle…');
+        const res = await fetch('/admin/api/whatsapp/secure-session/bundle', { credentials:'include' });
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href=url; a.download='ott24x7-wa-session-'+new Date().toISOString().slice(0,10)+'.enc'; document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+      } catch(e){ showToast(e.message,'error'); }
+    };
+    window.ssUploadBundle = async (input) => {
+      const file = input.files[0]; if(!file) return;
+      if(!confirm('Restore from this bundle? The bot will stop and load the session from the file.')) { input.value=''; return; }
+      try {
+        const text = await file.text();
+        const merge = document.getElementById('ss-merge').checked ? '1' : '0';
+        const res = await fetch('/admin/api/whatsapp/secure-session/bundle?merge='+merge, { method:'POST', credentials:'include', headers:{ 'X-CSRF-Token': getCsrfToken(), 'Content-Type':'text/plain' }, body: text });
+        const j = await res.json().catch(()=>({}));
+        if(!res.ok) throw new Error(j.error||('HTTP '+res.status));
+        showToast('Restored '+j.restored+' files — reconnecting…'); setTimeout(()=>views['secure-session'](), 5000);
+      } catch(e){ showToast(e.message,'error'); }
+      input.value='';
+    };
+  } catch(e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };
 
 // ── views['wa-session'] ───────────────────────────────────────────────────────
