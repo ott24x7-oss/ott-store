@@ -1015,6 +1015,7 @@ async function renderDashboard(){
   main.innerHTML=`<div class="spinner"></div>`;
   try{
     ORDERS=await api('/orders');
+    const wallet=await api('/wallet').catch(()=>({balance:0,txns:[]})); window.WALLET=wallet;
     const now=new Date();
     const activeSubs=ORDERS.filter(o=>o.status==='delivered'&&o.expires_at&&new Date(o.expires_at)>now);
     const totalSpent=ORDERS.filter(o=>o.status!=='cancelled').reduce((s,o)=>s+Number(o.amount_inr||0),0);
@@ -1058,6 +1059,11 @@ ${expiring.length?`<div class="alert alert-warn" style="margin-bottom:1rem">⚠�
     <div class="my-stat-icon my-stat-icon-spent">💸</div>
     <div class="my-stat-label">Spent</div>
     <div class="my-stat-val">${fmt(totalSpent)}</div>
+  </div>
+  <div class="card my-stat-card" onclick="showWalletHistory()" style="cursor:pointer">
+    <div class="my-stat-icon my-stat-icon-wallet">💰</div>
+    <div class="my-stat-label">Wallet</div>
+    <div class="my-stat-val">${fmt(wallet.balance)}</div>
   </div>
 </div>`;
 
@@ -1211,6 +1217,25 @@ function bindPlanBtns(){
   });
 }
 
+window.showWalletHistory = async function(){
+  let w = window.WALLET || { balance: 0, txns: [] };
+  try { w = await api('/wallet'); window.WALLET = w; } catch (e) {}
+  const txns = (w && w.txns) || [];
+  const rows = txns.length ? txns.map(t => {
+    const credit = Number(t.amount_inr) >= 0;
+    const lbl = t.label || ({refund:'Refund',purchase:'Purchase',adjust:'Adjustment',credit:'Credit',debit:'Debit'}[t.type] || t.type || '');
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:.55rem 0;border-bottom:1px solid var(--border)">'
+      +'<div><div style="font-weight:600;font-size:.9rem">'+esc(lbl)+'</div><div style="font-size:.72rem;color:var(--muted)">'+esc(String(t.created_at||'').replace('T',' ').slice(0,16))+(t.ref_id?' · #'+esc(t.ref_id):'')+'</div></div>'
+      +'<div style="font-weight:800;color:'+(credit?'#16a34a':'#dc2626')+'">'+(credit?'+':'−')+fmt(Math.abs(Number(t.amount_inr)))+'</div></div>';
+  }).join('') : '<div class="muted" style="text-align:center;padding:1.5rem">No wallet activity yet.</div>';
+  openModal('<div class="modal-header"><h3>💰 Wallet</h3><button class="btn-icon" data-close>✕</button></div>'
+    +'<div class="modal-body" style="max-height:75vh;overflow-y:auto">'
+    +'<div style="text-align:center;padding:.5rem 0 1rem"><div style="font-size:.8rem;color:var(--muted)">Balance</div>'
+    +'<div style="font-size:2.4rem;font-weight:900" class="grad-text">'+fmt((w&&w.balance)||0)+'</div>'
+    +'<div style="font-size:.78rem;color:var(--muted)">Use it at checkout — pick “Pay with Wallet”.</div></div>'
+    +'<div style="font-weight:700;margin-bottom:.25rem">History</div>'+rows+'</div>');
+};
+
 function confirmBuy(planId,planName,price){
   // Pre-flight: refuse to open the modal if the plan no longer exists in the
   // current ALL_PLANS list (admin deleted it, or buy intent was stored
@@ -1315,6 +1340,33 @@ function confirmBuy(planId,planName,price){
       }
     });
   });
+
+  // Pay-with-wallet (instant, no UPI step) — offered at the top when the wallet
+  // balance covers the full price.
+  (async () => {
+    try {
+      const w = await api('/wallet'); const bal = Number(w.balance || 0);
+      if (bal + 0.001 < cost) return;
+      const area = document.getElementById('buy-payment-area'); if (!area) return;
+      const tile = document.createElement('button');
+      tile.className = 'my-topup-m'; tile.type = 'button';
+      tile.style.cssText = 'text-align:left;width:100%;border:1px solid rgba(34,197,94,.55);margin-bottom:.5rem';
+      tile.innerHTML = '<div style="display:flex;align-items:center;gap:.7rem"><div class="my-topup-icon" style="margin:0;background:linear-gradient(135deg,rgba(34,197,94,.2),rgba(16,185,129,.15))">💰</div><div style="flex:1"><div class="my-topup-name">Pay with Wallet</div><div class="my-topup-sub">Instant · balance '+fmt(bal)+'</div></div><div style="font-size:1.2rem;color:var(--muted)">›</div></div>';
+      tile.addEventListener('click', async () => {
+        if (!confirm('Pay '+fmt(cost)+' from your wallet (balance '+fmt(bal)+')?')) return;
+        const a = document.getElementById('buy-payment-area'); a.innerHTML = '<div class="spinner" style="margin:1rem auto"></div>';
+        try {
+          const r = await api('/checkout/wallet', { method: 'POST', body: JSON.stringify({ plan_id: Number(planId) }) });
+          a.innerHTML = '<div style="text-align:center;padding:1rem 0"><div style="font-size:2.6rem">✅</div><div style="font-weight:800;margin:.4rem 0">Order placed!</div><div class="muted" style="font-size:.85rem">Paid '+fmt(cost)+' from wallet · new balance '+fmt(r.new_balance)+'.<br>Your credentials are being delivered to your email.</div><button class="btn btn-primary btn-block mt-2" data-close>Done</button></div>';
+          a.querySelector('[data-close]').addEventListener('click', () => { ov.remove(); if (typeof renderDashboard === 'function') renderDashboard(); });
+        } catch (e) {
+          a.innerHTML = '<div class="alert alert-error">'+esc(e.message)+'</div><button class="btn btn-secondary btn-block mt-2" id="wb-back">← Back</button>';
+          document.getElementById('wb-back').addEventListener('click', () => { ov.remove(); confirmBuy(planId, planName, price); });
+        }
+      });
+      area.insertBefore(tile, area.firstChild);
+    } catch (e) {}
+  })();
 }
 
 // ── Unique-amount alert: popup + chime so the customer can't miss the exact ₹ ──

@@ -294,6 +294,54 @@ router.put('/orders/:id', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Cancel a paid order and refund its amount to the customer's store wallet.
+router.post('/orders/:id/refund-wallet', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const order = get(db, `SELECT o.*, c.name AS cname, c.email, c.phone FROM orders o LEFT JOIN customers c ON o.customer_jid=c.jid WHERE o.id=?`, [req.params.id]);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (order.status === 'cancelled') return res.status(400).json({ error: 'Order is already cancelled' });
+    const amount = Math.round((parseFloat(order.amount_inr) || 0) * 100) / 100;
+    if (amount <= 0) return res.status(400).json({ error: 'Order amount is ₹0 — nothing to refund' });
+    if (!order.customer_jid) return res.status(400).json({ error: 'Order has no customer to refund' });
+    const dup = get(db, `SELECT id FROM wallet_txns WHERE type='refund' AND ref_id=? LIMIT 1`, [String(order.id)]);
+    if (dup) return res.status(400).json({ error: 'This order was already refunded' });
+
+    const { creditWallet } = require('./wallet');
+    const newBal = creditWallet(db, order.customer_jid, amount, { type: 'refund', label: `Refund — order #${order.id}`, ref_id: order.id });
+    run(db, `UPDATE orders SET status='cancelled' WHERE id=?`, [order.id]);
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'order_refund_wallet', targetKind: 'order', targetId: String(order.id), ip: req.ip });
+
+    try {
+      if (order.email) {
+        sendMail({ to: order.email, subject: `Refund — order #${order.id}`,
+          html: `<p>Hi ${order.cname || ''},</p><p>Your order <b>#${order.id}</b> was cancelled and <b>₹${amount.toFixed(2)}</b> has been added to your store wallet.</p><p>Wallet balance: <b>₹${newBal.toFixed(2)}</b> — use it on your next purchase at checkout.</p>` }).catch(() => {});
+      }
+      const phone = String(order.phone || '').replace(/\D/g, '');
+      if (phone.length >= 10) { const { sendToPhone } = require('./wa-bot'); sendToPhone(phone, `💰 *Refund processed*\nOrder #${order.id} cancelled — *₹${amount.toFixed(2)}* added to your wallet.\nBalance: *₹${newBal.toFixed(2)}*. Use it at checkout on your next order.`).catch(() => {}); }
+    } catch {}
+    res.json({ ok: true, refunded: amount, new_balance: newBal });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Manually add/deduct a customer's wallet credit (signed amount: +credit / −debit).
+router.post('/customers/:jid/wallet-adjust', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const jid = req.params.jid;
+    const amount = parseFloat(req.body.amount);
+    const note = String(req.body.note || '').slice(0, 120);
+    if (!amount || isNaN(amount)) return res.status(400).json({ error: 'Enter a non-zero amount (+credit / −debit)' });
+    if (!get(db, `SELECT jid FROM customers WHERE jid=?`, [jid])) return res.status(404).json({ error: 'Customer not found' });
+    const { adjustWallet } = require('./wallet');
+    let newBal;
+    try { newBal = adjustWallet(db, jid, amount, note || (amount > 0 ? 'Admin credit' : 'Admin debit')); }
+    catch (e) { if (e.code === 'INSUFFICIENT_FUNDS') return res.status(400).json({ error: `Insufficient balance (₹${e.balance.toFixed(2)})` }); throw e; }
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'wallet_adjust', targetKind: 'customer', targetId: jid, ip: req.ip });
+    res.json({ ok: true, new_balance: newBal });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── Topups ───────────────────────────────────────────────────────────────────
 router.get('/topups', requireAdmin, async (req, res) => {
   try {

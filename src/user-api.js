@@ -707,6 +707,55 @@ router.post('/checkout/upi-direct', requireCustomer, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── Store wallet ─────────────────────────────────────────────────────────────
+router.get('/wallet', requireCustomer, async (req, res) => {
+  try {
+    const db = await getDb();
+    const { getBalance, getTxns } = require('./wallet');
+    res.json({ balance: getBalance(db, req.customer.jid), txns: getTxns(db, req.customer.jid, 50) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Pay for a plan entirely from the wallet (instant — no UPI step). Requires the
+// balance to cover the full price.
+router.post('/checkout/wallet', requireCustomer, async (req, res) => {
+  try {
+    const { plan_id } = req.body;
+    if (!plan_id) return res.status(400).json({ error: 'plan_id required' });
+    const db = await getDb();
+    const plan = get(db, 'SELECT * FROM plans WHERE id=? AND active=1', [plan_id]);
+    if (!plan) return res.status(404).json({ error: 'Plan not found or unavailable' });
+    if (plan.stock === 0) return res.status(400).json({ error: 'Out of stock' });
+    const c = get(db, 'SELECT * FROM customers WHERE jid=?', [req.customer.jid]);
+    if (!c) return res.status(404).json({ error: 'Customer not found' });
+    const price = computePlanPrice(db, plan, c, plan_id);
+
+    const { getBalance, debitWallet, creditWallet } = require('./wallet');
+    const bal = getBalance(db, c.jid);
+    if (bal + 0.001 < price) return res.status(400).json({ error: `Insufficient wallet balance — you have ₹${bal.toFixed(2)}, need ₹${price.toFixed(2)}.` });
+
+    // Debit, then run the SAME order-creation path as a paid checkout (stock
+    // decrement → order insert → admin alert → auto-deliver → customer email).
+    debitWallet(db, c.jid, price, { type: 'purchase', label: `${plan.platform || ''} ${plan.name}`.trim() });
+    const r = run(db, `INSERT INTO topups (customer_jid,amount_inr,unique_amount,method,status,purpose,plan_id,currency) VALUES (?,?,?,?,?,?,?,?)`,
+      [c.jid, price, price, 'wallet', 'approved', 'order', plan_id, 'INR']);
+    const topup = get(db, `SELECT * FROM topups WHERE id=?`, [r.lastInsertRowid]);
+    const { handleDirectCheckout } = require('./imap-verify');
+    await handleDirectCheckout(db, topup, c);
+
+    const fresh = get(db, `SELECT order_id FROM topups WHERE id=?`, [topup.id]);
+    if (!fresh || !fresh.order_id) {
+      // Couldn't create the order (e.g. sold out under us) — refund the wallet.
+      creditWallet(db, c.jid, price, { type: 'refund', label: `Refund — ${plan.name} (could not fulfill)` });
+      return res.status(400).json({ error: 'Could not place the order (out of stock). Your wallet was not charged.' });
+    }
+    res.json({ ok: true, order_id: fresh.order_id, new_balance: getBalance(db, c.jid) });
+  } catch (e) {
+    if (e.code === 'INSUFFICIENT_FUNDS') return res.status(400).json({ error: `Insufficient wallet balance (₹${e.balance.toFixed(2)})` });
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── Direct Checkout (USDT — Binance / BEP20 / TRC20, IMAP-verified) ──────────
 // Customer pays USDT to one of the configured addresses; provider emails
 // (Binance / BscScan / Tronscan) trigger IMAP match against the unique USDT

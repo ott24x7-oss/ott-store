@@ -426,10 +426,9 @@ function migrate(db) {
   // build URLs like https://site.com//user/api/auth/magic (broke magic links).
   try { db.run(`UPDATE settings SET value = rtrim(value, '/') WHERE key='base_url' AND value LIKE '%/'`); } catch {}
 
-  // ── 2026-05 refactor: drop wallet + Razorpay + manual UPI; USDT direct checkout ──
-  // Zero all customer wallet balances (system removed; users who had credit must be
-  // refunded manually). Column kept for backwards compat but unused going forward.
-  try { db.run(`UPDATE customers SET wallet_inr=0 WHERE wallet_inr IS NOT NULL AND wallet_inr <> 0`); } catch {}
+  // ── 2026-05 refactor: drop Razorpay + manual UPI; USDT direct checkout ──
+  // NOTE: the customer wallet was RE-ENABLED 2026-06 (order refunds + pay-with-wallet),
+  // so we no longer zero wallet_inr here — that line wiped every balance on each boot.
   // Remove dead Razorpay / manual-UPI settings so nothing reads stale values.
   try { db.run(`DELETE FROM settings WHERE key IN ('razorpay_enabled','razorpay_key_id','razorpay_key_secret','upi_manual_enabled')`); } catch {}
   // Cancel any in-flight wallet topups still pending — the route is gone.

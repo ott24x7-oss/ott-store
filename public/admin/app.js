@@ -1474,6 +1474,7 @@ window.openOrderModal = function (id) {
     <input class="form-input" id="oc-expires" type="datetime-local" value="${o.expires_at ? o.expires_at.replace(' ','T').slice(0,16) : ''}"></div>
 </div>
 <div class="modal-footer">
+  ${o.status !== 'cancelled' && Number(o.amount_inr) > 0 ? `<button class="btn" id="refund-wallet-btn" style="background:#dc2626;border-color:#dc2626;color:#fff;margin-right:auto">↩ Cancel &amp; Refund ${fmt(o.amount_inr)} to Wallet</button>` : ''}
   <button class="btn btn-secondary" data-close>Close</button>
   <button class="btn btn-primary" id="save-order-btn">💾 Save Changes</button>
 </div>`);
@@ -1519,6 +1520,16 @@ window.openOrderModal = function (id) {
     if (!confirm('Re-send the saved credentials via WhatsApp?')) return;
     try { await api(`/orders/${o.id}/wa-deliver`, { method: 'POST' }); showToast('Sent via WhatsApp!'); }
     catch (ex) { showToast(ex.message, 'error'); }
+  });
+
+  const refundBtn = document.getElementById('refund-wallet-btn');
+  if (refundBtn) refundBtn.addEventListener('click', async () => {
+    if (!confirm(`Cancel order #${o.id} and refund ${fmt(o.amount_inr)} to the customer's wallet?\n\nThe order is marked cancelled and the customer is notified by email + WhatsApp.`)) return;
+    refundBtn.disabled = true;
+    try {
+      const r = await api(`/orders/${o.id}/refund-wallet`, { method: 'POST' });
+      ov.remove(); showToast(`Refunded ${fmt(r.refunded)} → wallet balance ${fmt(r.new_balance)}`); views.orders();
+    } catch (ex) { refundBtn.disabled = false; showToast(ex.message, 'error'); }
   });
 
   document.getElementById('save-order-btn').addEventListener('click', async () => {
@@ -1697,6 +1708,19 @@ window.openCustomerModal = async function (jid) {
     </div>
   </div>
 
+  <!-- Wallet -->
+  <div style="background:linear-gradient(135deg,rgba(34,197,94,.1),rgba(16,185,129,.06));border:1px solid rgba(34,197,94,.3);border-radius:10px;padding:.85rem;margin-bottom:1.25rem">
+    <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">💰 Wallet balance</div>
+    <div style="font-weight:900;font-size:1.5rem;color:#16a34a" id="cm-wallet-bal">${fmtInr(c.wallet_inr)}</div>
+    <div id="cm-wallet-msg"></div>
+    <div style="display:grid;grid-template-columns:110px 1fr auto;gap:.5rem;align-items:end;margin-top:.5rem">
+      <div class="form-group" style="margin:0"><label class="form-label" style="font-size:.72rem">Amount (±)</label><input class="form-input" id="cm-wallet-amt" type="number" step="0.01" placeholder="+100 / -50"></div>
+      <div class="form-group" style="margin:0"><label class="form-label" style="font-size:.72rem">Note</label><input class="form-input" id="cm-wallet-note" placeholder="reason (optional)"></div>
+      <button class="btn btn-sm btn-primary" id="cm-wallet-apply">Apply</button>
+    </div>
+    <div class="muted" style="font-size:.72rem;margin-top:.35rem">+ adds credit, − deducts. Order refunds land here automatically.</div>
+  </div>
+
   <!-- Profile fields -->
   <div style="font-weight:700;margin-bottom:.5rem">Profile</div>
   <div class="form-row">
@@ -1753,6 +1777,19 @@ window.openCustomerModal = async function (jid) {
       try { navigator.clipboard.writeText(c.jid); showToast('JID copied'); } catch { showToast('Copy failed', 'error'); }
     });
     document.getElementById('cm-resetpass').addEventListener('click', () => window.resetCustPass(c.jid));
+    document.getElementById('cm-wallet-apply').addEventListener('click', async () => {
+      const amt = parseFloat(document.getElementById('cm-wallet-amt').value);
+      const note = document.getElementById('cm-wallet-note').value.trim();
+      const msg = document.getElementById('cm-wallet-msg');
+      if (!amt) { msg.innerHTML = '<div class="alert alert-error">Enter a non-zero amount (+ credit / − debit)</div>'; return; }
+      if (!confirm(`${amt > 0 ? 'Add' : 'Deduct'} ${fmtInr(Math.abs(amt))} ${amt > 0 ? 'to' : 'from'} ${c.name || 'this customer'}'s wallet?`)) return;
+      try {
+        const r = await api(`/customers/${encodeURIComponent(c.jid)}/wallet-adjust`, { method: 'POST', body: JSON.stringify({ amount: amt, note }) });
+        document.getElementById('cm-wallet-bal').textContent = fmtInr(r.new_balance);
+        document.getElementById('cm-wallet-amt').value = ''; document.getElementById('cm-wallet-note').value = '';
+        msg.innerHTML = '<div class="alert alert-success">Wallet updated</div>'; setTimeout(() => msg.innerHTML = '', 2500);
+      } catch (ex) { msg.innerHTML = `<div class="alert alert-error">${esc(ex.message)}</div>`; }
+    });
     document.getElementById('save-cust-btn').addEventListener('click', async () => {
       try {
         await api(`/customers/${encodeURIComponent(c.jid)}`, { method: 'PUT', body: JSON.stringify({

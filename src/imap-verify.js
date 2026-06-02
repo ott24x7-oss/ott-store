@@ -241,7 +241,7 @@ async function handleDirectCheckout(db, topup, cust) {
   }
 
   // Notify owner via WhatsApp
-  const payTag = isUsdt ? `USDT ${topup.method.replace('usdt_','').toUpperCase()}` : 'UPI Direct';
+  const payTag = topup.method === 'wallet' ? 'Wallet' : isUsdt ? `USDT ${topup.method.replace('usdt_','').toUpperCase()}` : 'UPI Direct';
   notifyOwner(db, `🛍️ *New Order (${payTag})*\nCustomer: ${cust?.name || topup.customer_jid}\nPlan: ${plan.platform} — ${plan.name}\nAmount: ${paidDesc}\nOrder ID: #${orderId}\n\n🚀 Reply *.deliver ${orderId}* to deliver from stock\n   or *.deliver ${orderId} <credentials>* to send typed creds\nℹ️ *.order ${orderId}* for details`).catch(() => {});
 
   // Also email the admin — works even when the WhatsApp bot is offline, so new
@@ -434,4 +434,4 @@ async function manualVerifyTopup(topupId) {
   return { ok: true, orderId: fresh.order_id };
 }
 
-module.exports = { startImapWorker, getImapStatus, testImapConnection, generateUniqueAmount, generateUniqueUsdtAmount, triggerDelivery, manualVerifyTopup };
+module.exports = { startImapWorker, getImapStatus, testImapConnection, generateUniqueAmount, generateUniqueUsdtAmount, triggerDelivery, manualVerifyTopup, handleDirectCheckout };
