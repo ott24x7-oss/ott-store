@@ -248,46 +248,6 @@ footer{
 #back-top.visible{display:flex}
 #back-top:hover{border-color:var(--red);color:var(--red)}
 
-/* Chat widget — keep original styles */
-#chat-fab{position:fixed;bottom:24px;right:80px;z-index:10000;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--red),var(--orange));border:none;cursor:pointer;box-shadow:0 4px 20px rgba(255,43,79,.4);display:none;align-items:center;justify-content:center;transition:transform .2s,box-shadow .2s}
-#chat-fab:hover{transform:scale(1.1)}
-#chat-fab .ic-close{display:none}
-#chat-fab.open .ic-chat{display:none}
-#chat-fab.open .ic-close{display:block}
-#chat-panel{position:fixed;bottom:92px;right:24px;z-index:9999;width:340px;max-width:calc(100vw - 16px);height:520px;max-height:calc(100vh - 110px);background:#0d0d1a;border:1px solid rgba(255,43,79,.25);border-radius:20px;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.55);transform:scale(.85) translateY(20px);opacity:0;pointer-events:none;transition:transform .25s cubic-bezier(.34,1.56,.64,1),opacity .2s}
-#chat-panel.open{transform:scale(1) translateY(0);opacity:1;pointer-events:all}
-.ch{display:flex;align-items:center;gap:.65rem;padding:.85rem 1rem;border-bottom:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.03);border-radius:20px 20px 0 0;flex-shrink:0}
-.ch-av{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--red),var(--orange));display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;overflow:hidden}
-.ch-av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
-.ch-info{flex:1;min-width:0}
-.ch-name{font-weight:700;font-size:.92rem;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ch-status{font-size:.71rem;color:#4ade80;display:flex;align-items:center;gap:.3rem}
-.ch-status::before{content:'';width:6px;height:6px;background:#4ade80;border-radius:50%;display:inline-block;animation:pulse 2s infinite}
-.cm-list{flex:1;overflow-y:auto;padding:.85rem .9rem;display:flex;flex-direction:column;gap:.6rem;scroll-behavior:smooth}
-.cm-list::-webkit-scrollbar{width:3px}
-.cm-list::-webkit-scrollbar-thumb{background:rgba(255,43,79,.4);border-radius:3px}
-.cm{display:flex;flex-direction:column;max-width:86%}
-.cm.bot{align-self:flex-start}
-.cm.user{align-self:flex-end;align-items:flex-end}
-.cm-b{padding:.5rem .82rem;border-radius:16px;font-size:.87rem;line-height:1.55;word-break:break-word;white-space:pre-wrap}
-.cm.bot .cm-b{background:rgba(255,43,79,.15);color:#ffd0d8;border-bottom-left-radius:4px}
-.cm.user .cm-b{background:linear-gradient(135deg,var(--red),var(--orange));color:#fff;border-bottom-right-radius:4px}
-.cm-t{font-size:.63rem;color:rgba(255,255,255,.3);padding:.1rem .3rem}
-.cq-wrap{display:flex;flex-wrap:wrap;gap:.4rem;padding:.1rem .9rem .6rem;flex-shrink:0}
-.cq{background:rgba(255,43,79,.1);border:1px solid rgba(255,43,79,.3);color:#ff9aaa;padding:.35rem .72rem;border-radius:18px;font-size:.8rem;cursor:pointer;transition:all .15s;white-space:nowrap}
-.cq:hover{background:rgba(255,43,79,.25);border-color:var(--red);color:#fff}
-.cm-typing{display:flex;gap:.35rem;align-items:center;padding:.45rem .75rem;background:rgba(255,43,79,.12);border-radius:12px;border-bottom-left-radius:4px;width:fit-content}
-.cm-typing span{width:7px;height:7px;background:var(--red);border-radius:50%;animation:tdot .9s infinite}
-.cm-typing span:nth-child(2){animation-delay:.18s}
-.cm-typing span:nth-child(3){animation-delay:.36s}
-@keyframes tdot{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
-.ci-row{display:flex;align-items:center;gap:.5rem;padding:.65rem .8rem;border-top:1px solid rgba(255,255,255,.06);flex-shrink:0}
-.ci{flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,43,79,.2);border-radius:22px;padding:.48rem .9rem;color:#fff;font-size:.86rem;outline:none;transition:border-color .2s}
-.ci:focus{border-color:var(--red)}
-.ci::placeholder{color:rgba(255,255,255,.3)}
-.cs{width:36px;height:36px;background:linear-gradient(135deg,var(--red),var(--orange));border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.cs:hover{opacity:.85}
-.cs svg,.cs path{width:15px;height:15px;fill:#fff}
 
 /* PWA install */
 #pwa-install-bar{position:fixed;bottom:0;left:0;right:0;z-index:9997;background:rgba(5,5,11,.95);border-top:1px solid var(--border);padding:.75rem 1rem;display:flex;align-items:center;gap:.75rem;box-shadow:0 -2px 20px rgba(0,0,0,.3);color:var(--text)}
@@ -333,8 +293,6 @@ footer{
 @media(max-width:760px){
   .home-bnav{display:grid}
   body{padding-bottom:58px}
-  #chat-fab{bottom:72px;right:16px}
-  #chat-panel{bottom:136px;right:8px;width:calc(100vw - 16px)}
 }
 /* logo light/dark swap — present at first paint so server-rendered logos show correctly */
 .logo-light{display:block}.logo-dark{display:none}
@@ -511,28 +469,6 @@ html[data-theme="dark"] .logo-light{display:none}html[data-theme="dark"] .logo-d
 <!-- Scroll to top -->
 <button id="back-top" title="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
 
-<!-- ── Chat Widget ── -->
-<button id="chat-fab" aria-label="Chat with us" style="display:none">
-  <svg class="ic-chat" viewBox="0 0 24 24" style="width:22px;height:22px;fill:#fff"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
-  <svg class="ic-close" viewBox="0 0 24 24" style="width:22px;height:22px;fill:#fff;display:none"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-</button>
-<div id="chat-panel" role="dialog" aria-label="Chat">
-  <div class="ch">
-    <div class="ch-av" id="cw-avatar">🤖</div>
-    <div class="ch-info">
-      <div class="ch-name" id="cw-name">AI Assistant</div>
-      <div class="ch-status" id="cw-status">Online · Replies instantly</div>
-    </div>
-  </div>
-  <div class="cm-list" id="cw-msgs"></div>
-  <div class="cq-wrap" id="cw-btns"></div>
-  <div class="ci-row">
-    <input class="ci" id="cw-input" type="text" placeholder="Ask anything…" autocomplete="off" maxlength="400">
-    <button class="cs" id="cw-send" aria-label="Send">
-      <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="#fff"/></svg>
-    </button>
-  </div>
-</div>
 
 <script>
 (function(){
@@ -617,52 +553,6 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catc
 })();
 </script>
 
-<!-- ── Chat Widget JS ── -->
-<script>
-(function(){
-'use strict';
-const fab=document.getElementById('chat-fab');
-const panel=document.getElementById('chat-panel');
-const msgList=document.getElementById('cw-msgs');
-const btnsWrap=document.getElementById('cw-btns');
-const input=document.getElementById('cw-input');
-const sendBtn=document.getElementById('cw-send');
-let history=[],isOpen=false,isThinking=false;
-const QUICK_START=[
-  {label:'🛒 Buy a Service',msg:'I want to buy a subscription'},
-  {label:'📦 Track My Order',msg:'I want to track my order'},
-  {label:'💳 Add Wallet Funds',msg:'How do I add wallet balance?'},
-  {label:'🎧 Get Support',msg:'I need customer support'},
-];
-function now(){return new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});}
-function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');}
-function addMsg(role,text){const div=document.createElement('div');div.className='cm '+role;div.innerHTML=`<div class="cm-b">${esc(text)}</div><div class="cm-t">${now()}</div>`;msgList.appendChild(div);msgList.scrollTop=msgList.scrollHeight;}
-function showTyping(){const div=document.createElement('div');div.className='cm bot';div.id='cw-typing';div.innerHTML=`<div class="cm-typing"><span></span><span></span><span></span></div>`;msgList.appendChild(div);msgList.scrollTop=msgList.scrollHeight;}
-function removeTyping(){const e=document.getElementById('cw-typing');if(e)e.remove();}
-function setButtons(btns){btnsWrap.innerHTML='';if(!btns||!btns.length)return;const l2m={};QUICK_START.forEach(q=>l2m[q.label]=q.msg);btns.forEach(label=>{const b=document.createElement('button');b.className='cq';b.textContent=label;b.onclick=()=>send(l2m[label]||label);btnsWrap.appendChild(b);});}
-async function send(text){text=text||input.value.trim();if(!text||isThinking)return;input.value='';setButtons([]);addMsg('user',text);history.push({role:'user',content:text});isThinking=true;showTyping();
-  try{const res=await fetch('/user/api/ai-chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history.slice(-12)})});const data=await res.json();removeTyping();if(!res.ok)throw new Error(data.error||'Failed');const reply=data.text||'Sorry, I could not understand that.';addMsg('bot',reply);history.push({role:'assistant',content:reply});if(data.buttons&&data.buttons.length)setButtons(data.buttons);}
-  catch(e){removeTyping();addMsg('bot','⚠️ '+(e.message||'Something went wrong.'));}
-  isThinking=false;
-}
-fab.addEventListener('click',()=>{isOpen=!isOpen;fab.classList.toggle('open',isOpen);panel.classList.toggle('open',isOpen);if(isOpen)input.focus();});
-sendBtn.addEventListener('click',()=>send());
-input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}});
-fetch('/user/api/bot-config').then(r=>r.json()).then(cfg=>{
-  if(cfg.bot_enabled!=='1')return;
-  if(cfg.bot_accent){fab.style.background=`linear-gradient(135deg,${cfg.bot_accent},#ff8a00)`;}
-  const av=document.getElementById('cw-avatar');
-  if(cfg.bot_avatar&&cfg.bot_avatar.length>10)av.innerHTML=`<img src="data:image/png;base64,${cfg.bot_avatar}" alt="bot">`;
-  document.getElementById('cw-name').textContent=cfg.bot_name||'AI Assistant';
-  if(cfg.bot_tagline)document.getElementById('cw-status').textContent=cfg.bot_tagline;
-  const siteName=cfg.site_name||'OTT Store';
-  const greeting=(cfg.bot_greeting||'👋 Hi! What can I help you with?').replace('{site_name}',siteName).replace(/\*/g,'');
-  addMsg('bot',greeting);history.push({role:'assistant',content:greeting});
-  setButtons(QUICK_START.map(q=>q.label));
-  fab.style.display='flex';
-}).catch(()=>{});
-})();
-</script>
 
 <!-- Mobile Bottom Nav -->
 <div class="home-bnav" id="home-bnav">

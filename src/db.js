@@ -730,6 +730,7 @@ function seedDefaults(db) {
     hero_subtext: 'Buy OTT, AI tools, cloud storage, software keys and productivity products with fast WhatsApp support, secure payments and clean account delivery.',
     support_email: '',
     support_whatsapp: '',
+    support_telegram: '',
     announcement: '',
     timezone: 'Asia/Kolkata',
     logo_url: '',

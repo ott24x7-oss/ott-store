@@ -1831,7 +1831,8 @@ views.mystore = async function () {
   </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Support Email</label><input class="form-input" name="support_email" type="email" value="${esc(s.support_email||'')}"></div>
-    <div class="form-group"><label class="form-label">WhatsApp Support</label><input class="form-input" name="support_whatsapp" value="${esc(s.support_whatsapp||'')}" placeholder="+91..."></div>
+    <div class="form-group"><label class="form-label">WhatsApp Support</label><input class="form-input" name="support_whatsapp" value="${esc(s.support_whatsapp||'')}" placeholder="+91... (green WhatsApp button in chat widget)"></div>
+    <div class="form-group"><label class="form-label">Telegram Support</label><input class="form-input" name="support_telegram" value="${esc(s.support_telegram||'')}" placeholder="@username or https://t.me/... (Telegram button in widget)"></div>
   </div>
   <div class="form-group"><label class="form-label">Announcement Banner</label><textarea class="form-input" name="announcement" rows="2" placeholder="Shown in customer dashboard">${esc(s.announcement||'')}</textarea></div>
   <div class="form-group"><label class="form-label">Timezone</label>

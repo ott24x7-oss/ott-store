@@ -1,13 +1,19 @@
-/* OTT Store AI Chat Widget — shared across all store pages.
-   Include once via <script src="/store/chat-widget.js"></script>
-   near the closing </body>. It self-initialises on DOMContentLoaded
-   (or immediately if the DOM is already ready) and fetches
-   /user/api/bot-config to decide whether to show the FAB. */
+/* OTT Store Chat Widget — shared across ALL store pages.
+   Include once via <script src="/store/chat-widget.js"></script> near </body>.
+   Self-initialises on DOMContentLoaded (or immediately if DOM is ready) and
+   fetches /user/api/bot-config to decide what to show.
+
+   Behaviour: a floating button opens a "CHAT WITH US" menu offering — when
+   configured — WhatsApp, Telegram, and the in-page AI Assistant. The FAB is
+   hidden entirely if none of the three are available.
+
+   States: 'closed' | 'menu' | 'chat'. */
 (function(){
 'use strict';
 
-// --- inject CSS only once ------------------------------------------------
 if(document.getElementById('cw-style'))return; // already loaded
+
+// ── styles ───────────────────────────────────────────────────────────────────
 const STYLE=`
 #chat-fab{position:fixed;bottom:24px;right:24px;z-index:10001;width:58px;height:58px;border-radius:50%;
   background:linear-gradient(135deg,#ff2a4d,#ff8b22);border:none;cursor:pointer;
@@ -17,15 +23,43 @@ const STYLE=`
 #chat-fab .cw-ic-close{display:none}
 #chat-fab.open .cw-ic-chat{display:none}
 #chat-fab.open .cw-ic-close{display:block}
+
+/* ── launcher menu (CHAT WITH US) ── */
+#cw-menu{position:fixed;bottom:96px;right:24px;z-index:10000;width:300px;max-width:calc(100vw - 32px);
+  background:#0b0712;border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:14px;
+  box-shadow:0 24px 70px rgba(0,0,0,.6);
+  transform:scale(.85) translateY(20px);opacity:0;pointer-events:none;
+  transition:transform .25s cubic-bezier(.34,1.56,.64,1),opacity .2s}
+#cw-menu.open{transform:scale(1) translateY(0);opacity:1;pointer-events:all}
+.cw-menu-title{font-size:.7rem;font-weight:800;letter-spacing:.13em;color:rgba(255,255,255,.42);
+  text-transform:uppercase;padding:.15rem .35rem .65rem}
+.cw-opt{display:flex;align-items:center;gap:.75rem;width:100%;padding:.78rem .9rem;border-radius:14px;
+  border:none;cursor:pointer;color:#fff;margin-bottom:.5rem;font-family:inherit;text-align:left;
+  text-decoration:none;transition:transform .15s,filter .15s;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+.cw-opt:last-child{margin-bottom:0}
+.cw-opt:hover{transform:translateY(-2px);filter:brightness(1.08)}
+.cw-opt-ic{width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.3rem}
+.cw-opt-ic svg{width:28px;height:28px}
+.cw-opt-txt{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+.cw-opt-name{font-weight:800;font-size:.95rem}
+.cw-opt-sub{font-size:.72rem;font-weight:500;opacity:.85}
+.cw-opt-wa{background:#25D366}
+.cw-opt-tg{background:#229ED9}
+.cw-opt-ai{background:linear-gradient(135deg,#ff2a4d,#ff8b22)}
+
+/* ── AI chat panel ── */
 #chat-panel{position:fixed;bottom:96px;right:24px;z-index:10000;width:354px;max-width:calc(100vw - 16px);
   height:540px;max-height:calc(100vh - 130px);background:#0b0712;
   border:1px solid rgba(255,42,77,.28);border-radius:22px;display:flex;flex-direction:column;
   box-shadow:0 24px 70px rgba(0,0,0,.6);transform:scale(.85) translateY(20px);opacity:0;pointer-events:none;
   transition:transform .25s cubic-bezier(.34,1.56,.64,1),opacity .2s;overflow:hidden}
 #chat-panel.open{transform:scale(1) translateY(0);opacity:1;pointer-events:all}
-.cw-head{display:flex;align-items:center;gap:.65rem;padding:.95rem 1.05rem;
+.cw-head{display:flex;align-items:center;gap:.55rem;padding:.95rem 1.05rem;
   border-bottom:1px solid rgba(255,255,255,.07);
   background:linear-gradient(135deg,rgba(255,42,77,.14),rgba(141,92,255,.14));flex-shrink:0}
+.cw-back{background:none;border:none;color:#fff;font-size:1.55rem;line-height:1;cursor:pointer;
+  padding:0 .15rem 0 0;flex-shrink:0;opacity:.75;transition:opacity .15s}
+.cw-back:hover{opacity:1}
 .cw-av{width:40px;height:40px;border-radius:50%;
   background:linear-gradient(135deg,#ff2a4d,#ff8b22);
   display:flex;align-items:center;justify-content:center;font-size:1.15rem;flex-shrink:0;overflow:hidden}
@@ -44,9 +78,7 @@ const STYLE=`
 .cw-mb{padding:.55rem .85rem;border-radius:16px;font-size:.88rem;line-height:1.55;word-break:break-word;white-space:pre-wrap}
 .cw-m.bot .cw-mb{background:rgba(255,42,77,.16);color:#ffd9df;border-bottom-left-radius:5px}
 .cw-m.user .cw-mb{background:linear-gradient(135deg,#ff2a4d,#ff8b22);color:#fff;border-bottom-right-radius:5px}
-/* linkify URLs inside bot messages */
 .cw-m.bot .cw-mb a{color:#ffd9df;text-decoration:underline;word-break:break-all}
-/* markdown bold/italic rendered from AI replies (no literal ** or _) */
 .cw-mb strong{font-weight:800}
 .cw-m.bot .cw-mb strong{color:#fff}
 .cw-mb em{font-style:italic}
@@ -73,35 +105,43 @@ const STYLE=`
 .cw-send svg{width:16px;height:16px;fill:#fff}
 @media(max-width:760px){
   #chat-fab{bottom:78px;right:14px;width:50px;height:50px}
+  #cw-menu{bottom:138px;right:10px;left:10px;width:auto}
   #chat-panel{bottom:140px;right:8px;left:8px;width:auto;height:calc(100vh - 200px)}
 }`;
 const st=document.createElement('style');
-st.id='cw-style';
-st.textContent=STYLE;
-document.head.appendChild(st);
+st.id='cw-style';st.textContent=STYLE;document.head.appendChild(st);
 
-// --- inject HTML ---------------------------------------------------------
+// ── icons ────────────────────────────────────────────────────────────────────
+const ICON_WA='<svg viewBox="0 0 32 32" fill="#fff"><path d="M16 .5C7.4.5.5 7.4.5 16c0 2.8.7 5.4 2 7.8L.5 31.5l7.9-2c2.3 1.2 4.9 1.9 7.6 1.9 8.6 0 15.5-6.9 15.5-15.5S24.6.5 16 .5zm0 28.3c-2.4 0-4.7-.6-6.7-1.8l-.5-.3-4.7 1.2 1.2-4.6-.3-.5c-1.3-2.1-2-4.5-2-7C3.3 9 9 3.3 16 3.3 23 3.3 28.7 9 28.7 16S23 28.8 16 28.8zm7.6-9.8c-.4-.2-2.5-1.2-2.9-1.4-.4-.1-.7-.2-.9.2-.3.4-1 1.4-1.3 1.6-.2.3-.5.3-.9.1-.4-.2-1.8-.7-3.4-2.1-1.2-1.1-2.1-2.5-2.3-2.9-.2-.4 0-.6.2-.8.2-.2.4-.5.6-.7.2-.2.3-.4.4-.7.1-.3 0-.5 0-.7-.1-.2-.9-2.2-1.3-3-.3-.7-.7-.6-.9-.6h-.8c-.3 0-.7.1-1.1.5-.4.4-1.4 1.4-1.4 3.4s1.5 4 1.7 4.2c.2.3 2.9 4.5 7.1 6.3 1 .4 1.8.7 2.4.9 1 .3 1.9.3 2.6.2.8-.1 2.5-1 2.8-2 .3-1 .3-1.8.2-2-.1-.2-.4-.3-.8-.5z"/></svg>';
+const ICON_TG='<svg viewBox="0 0 32 32" fill="#fff"><path d="M16 0C7.2 0 0 7.2 0 16s7.2 16 16 16 16-7.2 16-16S24.8 0 16 0zm7.4 11l-2.5 11.7c-.2.8-.7 1-1.4.6l-3.9-2.9-1.9 1.8c-.2.2-.4.4-.8.4l.3-4.1 7.4-6.7c.3-.3-.1-.4-.5-.2l-9.1 5.7-3.9-1.2c-.8-.3-.9-.8.2-1.2l15.2-5.9c.7-.2 1.3.2 1.1 1.1z"/></svg>';
+
+// ── menu element ─────────────────────────────────────────────────────────────
+const menu=document.createElement('div');
+menu.id='cw-menu';menu.setAttribute('role','dialog');menu.setAttribute('aria-label','Chat with us');
+menu.innerHTML='<div class="cw-menu-title">Chat with us</div><div id="cw-opts"></div>';
+
+// ── FAB ──────────────────────────────────────────────────────────────────────
 const fab=document.createElement('button');
-fab.id='chat-fab';
-fab.setAttribute('aria-label','Chat with us');
-fab.style.display='none';
-fab.innerHTML=`<svg class="cw-ic-chat" viewBox="0 0 24 24" style="width:23px;height:23px;fill:#fff"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg><svg class="cw-ic-close" viewBox="0 0 24 24" style="width:23px;height:23px;fill:#fff;display:none"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>`;
+fab.id='chat-fab';fab.setAttribute('aria-label','Chat with us');fab.style.display='none';
+fab.innerHTML='<svg class="cw-ic-chat" viewBox="0 0 24 24" style="width:23px;height:23px;fill:#fff"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg><svg class="cw-ic-close" viewBox="0 0 24 24" style="width:23px;height:23px;fill:#fff;display:none"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>';
 
+// ── AI chat panel ────────────────────────────────────────────────────────────
 const panel=document.createElement('div');
-panel.id='chat-panel';
-panel.setAttribute('role','dialog');
-panel.setAttribute('aria-label','Chat');
-panel.innerHTML=`<div class="cw-head"><div class="cw-av" id="cw-avatar">🤖</div><div class="cw-info"><div class="cw-name" id="cw-name">AI Assistant</div><div class="cw-status" id="cw-status">Online · Replies instantly</div></div></div><div class="cw-msgs" id="cw-msgs"></div><div class="cw-btns" id="cw-btns"></div><div class="cw-input-row"><input id="cw-input" class="cw-input" type="text" placeholder="Type a message…" autocomplete="off"><button id="cw-send" class="cw-send" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg></button></div>`;
+panel.id='chat-panel';panel.setAttribute('role','dialog');panel.setAttribute('aria-label','AI chat');
+panel.innerHTML='<div class="cw-head"><button class="cw-back" id="cw-back" aria-label="Back">‹</button><div class="cw-av" id="cw-avatar">🤖</div><div class="cw-info"><div class="cw-name" id="cw-name">AI Assistant</div><div class="cw-status" id="cw-status">Online · Replies instantly</div></div></div><div class="cw-msgs" id="cw-msgs"></div><div class="cw-btns" id="cw-btns"></div><div class="cw-input-row"><input id="cw-input" class="cw-input" type="text" placeholder="Type a message…" autocomplete="off"><button id="cw-send" class="cw-send" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg></button></div>';
 
+document.body.appendChild(menu);
 document.body.appendChild(fab);
 document.body.appendChild(panel);
 
-// --- logic ---------------------------------------------------------------
+// ── AI chat logic ────────────────────────────────────────────────────────────
 const msgList=document.getElementById('cw-msgs');
 const btnsWrap=document.getElementById('cw-btns');
 const input=document.getElementById('cw-input');
 const sendBtn=document.getElementById('cw-send');
-let history=[],isOpen=false,isThinking=false;
+const optsWrap=document.getElementById('cw-opts');
+let history=[],isThinking=false,aiInit=false,aiGreeting='';
+let state='closed';   // 'closed' | 'menu' | 'chat'
 
 const QUICK=[
   {label:'🛒 Buy a Plan',msg:'I want to buy a subscription'},
@@ -111,56 +151,38 @@ const QUICK=[
 ];
 
 function now(){return new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});}
-
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
-// Render bot text: escape HTML, apply lightweight markdown (bold/italic), then
-// linkify URLs. The AI emits standard markdown (**bold**); on the website we
-// render it as real bold instead of showing literal asterisks. (WhatsApp gets
-// its own *bold* conversion server-side — see wa-bot.js.)
 function formatBot(text){
   let html=esc(text);
-  // **bold** / __bold__  →  <strong>
   html=html.replace(/\*\*([^\n*]+?)\*\*/g,'<strong>$1</strong>')
            .replace(/__([^\n_]+?)__/g,'<strong>$1</strong>');
-  // _italic_ / *italic*  →  <em>  (boundary-guarded so stray * or _ inside
-  // words/URLs and "* " bullet markers are left alone)
   html=html.replace(/(^|[\s(])\*(?!\s)([^\n*]+?)\*(?=[\s).,!?:;]|$)/g,'$1<em>$2</em>')
            .replace(/(^|[\s(])_(?!\s)([^\n_]+?)_(?=[\s).,!?:;]|$)/g,'$1<em>$2</em>');
-  // plain URLs → clickable links (last, so the regexes above never touch <a> markup)
   html=html.replace(/https?:\/\/[^\s<>"']+/g,url=>`<a href="${url}" target="_blank" rel="noopener">${url}</a>`);
   return html;
 }
-
 function addMsg(role,text){
-  const div=document.createElement('div');
-  div.className='cw-m '+role;
+  const div=document.createElement('div');div.className='cw-m '+role;
   const body=role==='bot'?formatBot(text):esc(text);
   div.innerHTML=`<div class="cw-mb">${body}</div><div class="cw-mt">${now()}</div>`;
-  msgList.appendChild(div);
-  msgList.scrollTop=msgList.scrollHeight;
+  msgList.appendChild(div);msgList.scrollTop=msgList.scrollHeight;
 }
-
 function showTyping(){
-  const d=document.createElement('div');
-  d.className='cw-m bot';d.id='cw-typing';
+  const d=document.createElement('div');d.className='cw-m bot';d.id='cw-typing';
   d.innerHTML='<div class="cw-typing-wrap"><span></span><span></span><span></span></div>';
   msgList.appendChild(d);msgList.scrollTop=msgList.scrollHeight;
 }
 function removeTyping(){const e=document.getElementById('cw-typing');if(e)e.remove();}
-
 function setButtons(btns){
   btnsWrap.innerHTML='';
   if(!btns||!btns.length)return;
   const l2m={};QUICK.forEach(q=>l2m[q.label]=q.msg);
   btns.forEach(label=>{
-    const b=document.createElement('button');
-    b.className='cw-btn';b.textContent=label;
-    b.onclick=()=>send(l2m[label]||label);
-    btnsWrap.appendChild(b);
+    const b=document.createElement('button');b.className='cw-btn';b.textContent=label;
+    b.onclick=()=>send(l2m[label]||label);btnsWrap.appendChild(b);
   });
 }
-
 async function send(text){
   text=text||input.value.trim();
   if(!text||isThinking)return;
@@ -172,34 +194,102 @@ async function send(text){
     const data=await res.json();removeTyping();
     if(!res.ok)throw new Error(data.error||'Failed');
     const reply=data.text||'Sorry, I could not understand that.';
-    addMsg('bot',reply);
-    history.push({role:'assistant',content:reply});
+    addMsg('bot',reply);history.push({role:'assistant',content:reply});
     if(data.buttons&&data.buttons.length)setButtons(data.buttons);
   }catch(e){removeTyping();addMsg('bot','⚠️ '+(e.message||'Something went wrong.'));}
   isThinking=false;
 }
+function initAi(){
+  if(aiInit)return;aiInit=true;
+  addMsg('bot',aiGreeting);history.push({role:'assistant',content:aiGreeting});
+  setButtons(QUICK.map(q=>q.label));
+}
 
-fab.addEventListener('click',()=>{
-  isOpen=!isOpen;
-  fab.classList.toggle('open',isOpen);
-  panel.classList.toggle('open',isOpen);
-  if(isOpen)input.focus();
-});
+// ── state machine ────────────────────────────────────────────────────────────
+function setState(s){
+  state=s;
+  menu.classList.toggle('open',s==='menu');
+  panel.classList.toggle('open',s==='chat');
+  fab.classList.toggle('open',s!=='closed');
+  if(s==='chat'){initAi();setTimeout(()=>{try{input.focus();}catch(e){}},60);}
+}
+fab.addEventListener('click',()=>setState(state==='closed'?'menu':'closed'));
+document.getElementById('cw-back').addEventListener('click',()=>setState('menu'));
 sendBtn.addEventListener('click',()=>send());
 input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}});
+// Esc closes; click outside the menu closes the menu
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&state!=='closed')setState('closed');});
+document.addEventListener('click',e=>{
+  if(state==='menu'&&!menu.contains(e.target)&&!fab.contains(e.target)&&!panel.contains(e.target))setState('closed');
+});
 
+// ── build a menu option ──────────────────────────────────────────────────────
+function addOpt(cls,iconHtml,name,sub,onClick){
+  const b=document.createElement(onClick?'button':'a');
+  b.className='cw-opt '+cls;
+  b.innerHTML=`<span class="cw-opt-ic">${iconHtml}</span><span class="cw-opt-txt"><span class="cw-opt-name">${esc(name)}</span><span class="cw-opt-sub">${esc(sub)}</span></span>`;
+  if(onClick)b.addEventListener('click',onClick);
+  optsWrap.appendChild(b);
+  return b;
+}
+
+// ── normalise contact links ──────────────────────────────────────────────────
+function waLink(raw){
+  const digits=String(raw||'').replace(/\D/g,'');
+  if(digits.length<7)return '';
+  return 'https://wa.me/'+digits;
+}
+function tgLink(raw){
+  let v=String(raw||'').trim();
+  if(!v)return '';
+  if(/^https?:\/\//i.test(v))return v;
+  v=v.replace(/^@/,'').replace(/^t\.me\//i,'');
+  return v?'https://t.me/'+v:'';
+}
+
+// ── boot ─────────────────────────────────────────────────────────────────────
 fetch('/user/api/bot-config').then(r=>r.json()).then(cfg=>{
-  if(cfg.bot_enabled!=='1')return;
-  if(cfg.bot_accent)fab.style.background=`linear-gradient(135deg,${cfg.bot_accent},#ff8a00)`;
-  const av=document.getElementById('cw-avatar');
-  if(cfg.bot_avatar&&cfg.bot_avatar.length>10)av.innerHTML=`<img src="data:image/png;base64,${cfg.bot_avatar}" alt="bot">`;
-  document.getElementById('cw-name').textContent=cfg.bot_name||'AI Assistant';
-  if(cfg.bot_tagline)document.getElementById('cw-status').textContent=cfg.bot_tagline;
   const siteName=cfg.site_name||'OTT Store';
-  const greeting=(cfg.bot_greeting||'👋 Hi! What can I help you with?').replace('{site_name}',siteName).replace(/\*/g,'');
-  addMsg('bot',greeting);
-  history.push({role:'assistant',content:greeting});
-  setButtons(QUICK.map(q=>q.label));
+  const aiEnabled=cfg.bot_enabled==='1';
+  const wa=waLink(cfg.support_whatsapp);
+  const tg=tgLink(cfg.support_telegram);
+  let count=0;
+
+  // AI assistant (first, featured) — only if enabled
+  if(aiEnabled){
+    if(cfg.bot_accent)fab.style.background=`linear-gradient(135deg,${cfg.bot_accent},#ff8a00)`;
+    const av=document.getElementById('cw-avatar');
+    if(cfg.bot_avatar&&cfg.bot_avatar.length>10)av.innerHTML=`<img src="data:image/png;base64,${cfg.bot_avatar}" alt="bot">`;
+    const botName=cfg.bot_name||'AI Assistant';
+    document.getElementById('cw-name').textContent=botName;
+    if(cfg.bot_tagline)document.getElementById('cw-status').textContent=cfg.bot_tagline;
+    aiGreeting=(cfg.bot_greeting||'👋 Hi! What can I help you with?').replace('{site_name}',siteName).replace(/\*/g,'');
+    addOpt('cw-opt-ai','🤖',botName,'Instant answers · 24/7',()=>setState('chat'));
+    count++;
+  }
+  // WhatsApp
+  if(wa){
+    const pre=encodeURIComponent(`Hi 👋 I have a question about ${siteName}.`);
+    addOpt('cw-opt-wa',ICON_WA,'WhatsApp','Chat with us on WhatsApp',()=>{
+      window.open(wa+'?text='+pre,'_blank','noopener');setState('closed');
+    });
+    count++;
+  }
+  // Telegram
+  if(tg){
+    addOpt('cw-opt-tg',ICON_TG,'Telegram','Message us on Telegram',()=>{
+      window.open(tg,'_blank','noopener');setState('closed');
+    });
+    count++;
+  }
+
+  // Nothing configured → no widget at all.
+  if(count===0)return;
+  // Only one option AND it's a contact link → open it directly (skip the menu).
+  if(count===1&&!aiEnabled){
+    const direct=wa?(wa+'?text='+encodeURIComponent(`Hi 👋 I have a question about ${siteName}.`)):tg;
+    fab.addEventListener('click',e=>{e.stopImmediatePropagation();window.open(direct,'_blank','noopener');},true);
+  }
   fab.style.display='flex';
 }).catch(()=>{});
 })();
