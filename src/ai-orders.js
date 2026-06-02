@@ -132,8 +132,9 @@ async function processCustomerActions(db, jid, raw) {
     if (!order) continue;
     if (a.t === 'deliver' && order.status !== 'delivered') {
       const { autoDeliverOrder } = require('./delivery-worker');
-      const ok = await autoDeliverOrder(order, db).catch(() => false);
-      if (!ok) await notifyAdmin(db, `🆘 *Order #${order.id}* — customer asked to deliver but NO STOCK. Customer: ${jidPhone(jid)}. Deliver manually: .deliver ${order.id} <creds>`);
+      // Not silent: the delivery worker notifies the admin of the sale (with creds)
+      // on success, or a deduped OUT-OF-STOCK alert on failure — no extra ping here.
+      await autoDeliverOrder(order, db).catch(() => false);
     } else if (a.t === 'resend' && order.status === 'delivered') {
       await resendCredsToCustomer(db, order, jid);
     } else if (a.t === 'escalate') {
@@ -150,7 +151,7 @@ async function processAdminActions(db, jid, raw) {
     if (!order) { extra += `\n❌ Order #${m[1]} not found.`; continue; }
     if (order.status === 'delivered') { extra += `\n✅ #${order.id} already delivered.`; continue; }
     const { autoDeliverOrder } = require('./delivery-worker');
-    const ok = await autoDeliverOrder(order, db).catch(() => false);
+    const ok = await autoDeliverOrder(order, db, { silent: true }).catch(() => false);
     extra += ok ? `\n✅ Delivered #${order.id} from stock — customer notified.` : `\n❌ No stock for #${order.id}. Use: .deliver ${order.id} <creds>`;
   }
   for (const m of raw.matchAll(/\[ORDER:#?(\d+)\]/gi)) {

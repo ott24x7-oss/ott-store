@@ -188,7 +188,7 @@ ${o.status === 'delivered' ? '' : `→ \`.deliver ${o.id}\` to deliver`}`);
       // Path B: deliver from local stock
       await send(jid, `⏳ Delivering \`#${id}\` from stock…`);
       const { autoDeliverOrder } = require('./delivery-worker');
-      const ok = await autoDeliverOrder(order, db);
+      const ok = await autoDeliverOrder(order, db, { silent: true });
       return send(jid, ok
         ? `✅ Order \`#${id}\` delivered from stock — customer notified.`
         : `❌ No stock for this plan.\n\nDeliver manually:\n\`.deliver ${id} <paste credentials>\``);
@@ -206,7 +206,7 @@ ${o.status === 'delivered' ? '' : `→ \`.deliver ${o.id}\` to deliver`}`);
       if (order.status === 'delivered') return send(jid, `✅ Order \`#${id}\` already delivered.`);
       if (order.status === 'cancelled') run(db, `UPDATE orders SET status='pending' WHERE id=?`, [id]);
       const { autoDeliverOrder } = require('./delivery-worker');
-      const ok = await autoDeliverOrder(order, db);
+      const ok = await autoDeliverOrder(order, db, { silent: true });
       return send(jid, ok
         ? `✅ Verified & delivered \`#${id}\` from stock.`
         : `⚠️ Verified \`#${id}\` but no stock available.\nDeliver manually: \`.deliver ${id} <credentials>\``);
