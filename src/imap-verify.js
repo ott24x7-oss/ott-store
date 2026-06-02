@@ -350,4 +350,35 @@ function generateUniqueUsdtAmount(baseAmount) {
   return Math.round(parseFloat(baseAmount) * 1000 + milli) / 1000;
 }
 
-module.exports = { startImapWorker, getImapStatus, testImapConnection, generateUniqueAmount, generateUniqueUsdtAmount, triggerDelivery };
+// Manually verify a pending payment — the admin clicks "Verify" in the Payment Log
+// when the IMAP auto-match never fired (bank email delayed/never arrived, amount
+// mismatch, etc.). Runs the EXACT same path as auto-verification:
+//   handleDirectCheckout → create order → notify owner (WA+email) → auto-deliver,
+// then mark the topup approved. Idempotent (handleDirectCheckout guards on order_id).
+// SAFETY: the admin must have actually confirmed the money was received — this
+// creates AND delivers the order.
+async function manualVerifyTopup(topupId) {
+  const db = await getDb();
+  const topup = get(db, `SELECT * FROM topups WHERE id=?`, [topupId]);
+  if (!topup) return { ok: false, error: 'Payment not found' };
+  if (topup.order_id) return { ok: false, error: `Already verified — order #${topup.order_id} exists` };
+  if (topup.purpose && topup.purpose !== 'order') return { ok: false, error: 'Not an order payment' };
+  const plan = get(db, `SELECT id, platform, name, stock FROM plans WHERE id=? AND active=1`, [topup.plan_id]);
+  if (!plan) return { ok: false, error: 'Plan not found or inactive' };
+  if (plan.stock === 0) return { ok: false, error: 'Plan is sold out (stock 0) — cannot create order; refund the customer.' };
+
+  const cust = get(db, `SELECT * FROM customers WHERE jid=?`, [topup.customer_jid]);
+  try { await handleDirectCheckout(db, topup, cust); }
+  catch (e) { return { ok: false, error: 'Order creation failed: ' + e.message }; }
+
+  const fresh = get(db, `SELECT order_id, status FROM topups WHERE id=?`, [topup.id]);
+  if (!fresh?.order_id) {
+    return { ok: false, error: fresh?.status === 'refund_needed'
+      ? 'Plan sold out after payment — refund needed.'
+      : 'Could not create an order (check the plan/stock).' };
+  }
+  run(db, `UPDATE topups SET status='approved' WHERE id=?`, [topup.id]);
+  return { ok: true, orderId: fresh.order_id };
+}
+
+module.exports = { startImapWorker, getImapStatus, testImapConnection, generateUniqueAmount, generateUniqueUsdtAmount, triggerDelivery, manualVerifyTopup };

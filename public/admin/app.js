@@ -1553,7 +1553,7 @@ views.topups = async function () {
     const amtCell = t => (t.currency === 'USDT')
       ? `${Number(t.unique_amount_usdt || t.amount_usdt || 0).toFixed(3)} USDT`
       : `${fmt(t.unique_amount || t.amount_inr)}`;
-    const rowOf = t => `
+    const rowOf = (t, action) => `
 <tr>
   <td>#${t.id}</td>
   <td>${esc(t.email||'—')}</td>
@@ -1562,21 +1562,22 @@ views.topups = async function () {
   <td>${statusBadge(t.status)}</td>
   <td>${t.order_id?`<a href="#orders" onclick="views.orders()">#${t.order_id}</a>`:'—'}</td>
   <td style="font-size:.8rem">${fmtDateShort(t.created_at)}</td>
+  ${action ? `<td style="text-align:right"><button class="btn btn-green btn-sm" onclick="verifyTopup(${t.id})">✓ Verify</button></td>` : ''}
 </tr>`;
-    const pendingRows = pending.map(rowOf).join('');
-    const histRows = all.filter(t => t.status !== 'pending').slice(0, 50).map(rowOf).join('');
+    const pendingRows = pending.map(t => rowOf(t, true)).join('');
+    const histRows = all.filter(t => t.status !== 'pending').slice(0, 50).map(t => rowOf(t, false)).join('');
 
     setMain(`
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
   <h2 style="font-weight:800">Payment Log</h2>
   <button class="btn btn-secondary btn-sm" onclick="views.topups()">↻ Refresh</button>
 </div>
-<p class="muted" style="margin-bottom:1rem">Read-only log of direct-checkout payments. All entries are auto-verified by the IMAP worker — there is no manual approval. Pending entries past their window are auto-expired.</p>
+<p class="muted" style="margin-bottom:1rem">Direct-checkout payments are auto-verified by the IMAP worker. If one is stuck <b>In-flight</b> (bank email didn't arrive or the amount mismatched), you can <b>✓ Verify</b> it manually — but only after confirming the money actually arrived, since that creates and delivers the order. Pending entries past their window are auto-expired.</p>
 <div class="card" style="margin-bottom:1.5rem">
   <div style="font-weight:700;margin-bottom:.75rem">In-flight ${pending.length?`<span class="pending-dot">${pending.length}</span>`:''}</div>
   <div class="table-wrap"><table>
-    <thead><tr><th>ID</th><th>Customer</th><th>Amount</th><th>Method</th><th>Status</th><th>Order</th><th>Created</th></tr></thead>
-    <tbody>${pendingRows||'<tr><td colspan="7" class="muted" style="text-align:center;padding:1.5rem">No in-flight payments</td></tr>'}</tbody>
+    <thead><tr><th>ID</th><th>Customer</th><th>Amount</th><th>Method</th><th>Status</th><th>Order</th><th>Created</th><th style="text-align:right">Actions</th></tr></thead>
+    <tbody>${pendingRows||'<tr><td colspan="8" class="muted" style="text-align:center;padding:1.5rem">No in-flight payments</td></tr>'}</tbody>
   </table></div>
 </div>
 <div class="card">
@@ -1586,6 +1587,15 @@ views.topups = async function () {
     <tbody>${histRows||'<tr><td colspan="7" class="muted" style="text-align:center;padding:1rem">No history</td></tr>'}</tbody>
   </table></div>
 </div>`);
+
+    window.verifyTopup = async (id) => {
+      if (!confirm('Manually verify payment #'+id+'?\n\nOnly do this if you have CONFIRMED the money was received — it creates the order and delivers it to the customer immediately.')) return;
+      try {
+        const r = await api('/topups/'+id+'/verify', { method:'POST' });
+        showToast('Verified — order #'+r.order_id+' created & delivering');
+        views.topups();
+      } catch(e){ showToast(e.message, 'error'); }
+    };
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };
 

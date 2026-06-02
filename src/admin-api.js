@@ -307,8 +307,16 @@ router.get('/topups', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Manual topup approval + manual wallet credit removed in the direct-checkout refactor.
-// Payments are auto-verified by imap-verify; there is no wallet to credit.
+// Manually verify a pending payment when the IMAP auto-match didn't fire. Creates
+// the order + notifies + delivers (same path as auto-verification).
+router.post('/topups/:id/verify', requireAdmin, async (req, res) => {
+  try {
+    const { manualVerifyTopup } = require('./imap-verify');
+    const result = await manualVerifyTopup(parseInt(req.params.id, 10));
+    if (!result.ok) return res.status(400).json({ error: result.error });
+    res.json({ ok: true, order_id: result.orderId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 // ─── Customers ────────────────────────────────────────────────────────────────
 router.get('/customers', requireAdmin, async (req, res) => {
