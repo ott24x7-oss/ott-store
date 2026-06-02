@@ -123,9 +123,7 @@ async function parseAndMatch(rawMessages) {
     // we never guess between two orders. Ambiguous → alert the admin to verify.
     for (const amt of inrUnmatched) {
       const cands = pendingInr.filter(t => t.status === 'pending'
-        && Math.round(t.amount_inr) === Math.round(amt)   // same whole-rupee base price
-        && amt <= t.unique_amount + 0.005                 // paid ≤ the expected unique amount …
-        && amt >= t.unique_amount - 1.0);                 // … and within the ≤₹1 delta window
+        && Math.round(t.amount_inr) === Math.round(amt)); // customer paid the BASE price, not the unique amount
       if (cands.length === 1) {
         const topup = cands[0];
         topup.status = 'approved';
@@ -372,9 +370,29 @@ function startImapWorker() {
 function getImapStatus() { return _status; }
 
 // Generate a unique paise suffix for a UPI payment amount
-function generateUniqueAmount(baseAmount) {
-  const paise = Math.floor(Math.random() * 98) + 1; // 1–98
-  return Math.round((parseFloat(baseAmount) * 100 + paise)) / 100;
+// Unique payment amount = base price ± a small WHOLE-RUPEE delta (default ±1..±6).
+// A clean round number (₹203) is far less likely to be "rounded off" than the old
+// +paise figure (₹200.50 → people paid ₹200). Collision-aware: never returns an
+// amount already used by another pending order (which would make matching
+// ambiguous); if every whole-rupee slot in the range is taken, falls back to a
+// free paise amount so two orders never share an amount.
+function generateUniqueAmount(baseAmount, usedUniques = [], maxDelta = 6) {
+  const base = Math.round(parseFloat(baseAmount) || 0);
+  const used = new Set((usedUniques || []).map(u => Math.round(parseFloat(u) * 100) / 100));
+  const max  = Math.max(1, Math.min(50, parseInt(maxDelta, 10) || 6));
+  const deltas = [];
+  for (let d = 1; d <= max; d++) { deltas.push(d, -d); } // ±1, ±2, … ±max
+  for (let i = deltas.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [deltas[i], deltas[j]] = [deltas[j], deltas[i]]; }
+  for (const d of deltas) {
+    const cand = base + d;
+    if (cand >= 1 && !used.has(cand)) return cand; // clean whole rupee, not in use
+  }
+  // Whole-rupee slots exhausted (many concurrent same-price orders) — use paise.
+  for (let p = 1; p <= 98; p++) {
+    const cand = Math.round(base * 100 + p) / 100;
+    if (!used.has(cand)) return cand;
+  }
+  return base + (Math.floor(Math.random() * max) + 1); // last resort
 }
 
 // Generate a unique milli-USDT suffix for a USDT payment amount (3 decimal places).

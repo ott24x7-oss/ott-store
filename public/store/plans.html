@@ -676,6 +676,28 @@ function openGuestForm(plan){
   };
 }
 
+// ── Unique-amount alert: popup + chime so the customer can't miss the exact ₹ ──
+function _cwPlayChime(){ try{ const C=window.AudioContext||window.webkitAudioContext; if(!C)return; const ctx=window._cwCtx||(window._cwCtx=new C()); if(ctx.state==='suspended')ctx.resume(); const t=ctx.currentTime; [880,1175,1568].forEach((f,i)=>{ const o=ctx.createOscillator(),g=ctx.createGain(); o.type='sine'; o.frequency.value=f; const s=t+i*0.16; g.gain.setValueAtTime(0,s); g.gain.linearRampToValueAtTime(.35,s+.02); g.gain.exponentialRampToValueAtTime(.001,s+.4); o.connect(g); g.connect(ctx.destination); o.start(s); o.stop(s+.42); }); }catch(e){} }
+if(!window._cwAudioUnlock){ window._cwAudioUnlock=1; ['pointerdown','touchstart','keydown'].forEach(ev=>document.addEventListener(ev,function(){ try{ const C=window.AudioContext||window.webkitAudioContext; if(!C)return; const c=window._cwCtx||(window._cwCtx=new C()); if(c.state==='suspended')c.resume(); }catch(e){} },{passive:true})); }
+function showAmountAlert(amount){
+  try{ _cwPlayChime(); }catch(e){}
+  if(navigator.vibrate)try{ navigator.vibrate([120,60,120]); }catch(e){}
+  if(!document.getElementById('cwPopStyle')){ const st=document.createElement('style'); st.id='cwPopStyle'; st.textContent='@keyframes cwPop{0%{transform:scale(.82);opacity:0}100%{transform:scale(1);opacity:1}}'; document.head.appendChild(st); }
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:1rem';
+  ov.innerHTML='<div style="background:#fff;color:#0f172a;border-radius:20px;max-width:340px;width:100%;padding:1.5rem 1.4rem;text-align:center;box-shadow:0 24px 70px rgba(0,0,0,.5);animation:cwPop .35s cubic-bezier(.34,1.56,.64,1)">'
+    +'<div style="font-size:2.4rem;line-height:1">🔔</div>'
+    +'<div style="font-weight:800;font-size:1.02rem;margin:.35rem 0 .1rem">Pay this EXACT amount</div>'
+    +'<div style="font-size:2.7rem;font-weight:900;color:#16a34a;margin:.1rem 0;letter-spacing:-1px">₹'+amount+'</div>'
+    +'<div style="font-size:.84rem;color:#b45309;background:#fef3c7;border-radius:12px;padding:.55rem .7rem;margin:.6rem 0 .9rem">⚠️ Pay <b>₹'+amount+'</b> exactly — any other amount will delay your order.</div>'
+    +'<button id="cwAmtOk" style="background:#16a34a;color:#fff;border:none;border-radius:12px;padding:.8rem 1.2rem;font-weight:800;font-size:1rem;cursor:pointer;width:100%">OK — Pay ₹'+amount+'</button>'
+    +'</div>';
+  document.body.appendChild(ov);
+  const close=()=>{ try{ _cwPlayChime(); }catch(e){} ov.remove(); };
+  ov.querySelector('#cwAmtOk').onclick=close;
+  ov.addEventListener('click',e=>{ if(e.target===ov) ov.remove(); });
+}
+
 function showGuestUpiPayment(plan,r){
   const upiLink=r.upi_link||`upi://pay?pa=${encodeURIComponent(r.upi_id)}&pn=${encodeURIComponent(r.upi_name||'Store')}&am=${r.unique_amount}&cu=INR`;
   const dynamicQr=!!r.upi_qr;
@@ -698,6 +720,8 @@ function showGuestUpiPayment(plan,r){
   </div>
   <p style="font-size:.72rem;color:var(--st-muted);margin-top:.3rem">Credentials will be emailed to you after payment is confirmed</p>
 </div>`);
+
+  showAmountAlert(r.unique_amount);
 
   let polls=0, errors=0;
   const maxPolls=72;
