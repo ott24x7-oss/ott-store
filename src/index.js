@@ -5,7 +5,7 @@ const compression = require('compression');
 const path = require('path');
 const fs = require('fs');
 const cfg = require('./config');
-const { getDb, getSetting, all, get } = require('./db');
+const { getDb, getSetting, getSettingSync, all, get } = require('./db');
 const { apiLimiter } = require('./security');
 
 // ── Crash guards ─────────────────────────────────────────────────────────────
@@ -55,6 +55,25 @@ app.use((req, res, next) => {
   next();
 });
 app.use(compression());
+// GA4: inject the gtag snippet into every server-rendered store page when a
+// Measurement ID is configured (Admin -> SEO -> Google Analytics). Read live via
+// getSettingSync, so saving the ID takes effect on the next request (no redeploy).
+app.use((req, res, next) => {
+  if (req.path.startsWith('/admin') || req.path.startsWith('/user/api')) return next();
+  const _send = res.send.bind(res);
+  res.send = (body) => {
+    try {
+      if (typeof body === 'string' && /text\/html/i.test(res.get('Content-Type') || '') && body.includes('</head>') && !body.includes('googletagmanager.com/gtag')) {
+        const gaId = (getSettingSync('seo_ga_measurement_id') || '').trim();
+        if (/^G-[A-Z0-9]{6,}$/i.test(gaId)) {
+          body = body.replace('</head>', `<script async src="https://www.googletagmanager.com/gtag/js?id=${gaId}"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${gaId}');</script></head>`);
+        }
+      }
+    } catch {}
+    return _send(body);
+  };
+  next();
+});
 
 // Baseline security headers on every response. CSP is intentionally omitted —
 // the storefront depends on inline scripts/handlers a strict policy would break;

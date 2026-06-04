@@ -2219,6 +2219,16 @@ views.seo = async function () {
   </div>
 </div>
 <div class="card" style="padding:1.1rem">
+  <div style="font-weight:700;margin-bottom:.4rem">Google Analytics (GA4)</div>
+  <p class="muted" style="font-size:.8rem;margin-bottom:.75rem">Paste your Measurement ID (looks like <code>G-XXXXXXXXXX</code>) from Google Analytics → Admin → Data Streams. Save, then Test.</p>
+  <div class="form-group"><label class="form-label">GA4 Measurement ID</label><input class="form-input" name="seo_ga_measurement_id" id="ga-id" value="${esc(s.seo_ga_measurement_id||'')}" placeholder="G-XXXXXXXXXX"></div>
+  <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+    <button type="button" class="btn btn-sm btn-secondary" id="ga-test">🔌 Test Connection</button>
+    <a class="btn btn-sm btn-secondary" href="https://analytics.google.com/" target="_blank" rel="noopener">📊 Open Google Analytics ↗</a>
+    <span id="ga-test-res" style="font-size:.83rem"></span>
+  </div>
+</div>
+<div class="card" style="padding:1.1rem">
   <div style="font-weight:700;margin-bottom:.75rem">robots.txt</div>
   <div class="form-group"><textarea class="form-input" name="robots_txt" rows="5" style="font-family:monospace">${esc(s.robots_txt||'User-agent: *\nAllow: /')}</textarea></div>
 </div>
@@ -2244,6 +2254,20 @@ views.seo = async function () {
         document.getElementById('seo-msg').innerHTML = '<div class="alert alert-success">Saved!</div>';
         setTimeout(() => document.getElementById('seo-msg').innerHTML = '', 2500);
       } catch (ex) { document.getElementById('seo-msg').innerHTML = `<div class="alert alert-error">${esc(ex.message)}</div>`; }
+    };
+
+    const gaTestBtn = document.getElementById('ga-test');
+    if (gaTestBtn) gaTestBtn.onclick = async () => {
+      const id = (document.getElementById('ga-id').value || '').trim();
+      const out = document.getElementById('ga-test-res');
+      if (!/^G-[A-Z0-9]{6,}$/i.test(id)) { out.innerHTML = '<span style="color:#ef4444">✗ Invalid ID — must look like G-XXXXXXXXXX</span>'; return; }
+      out.textContent = 'Checking…';
+      try {
+        const html = await fetch('/?_ga_test=' + Date.now(), { cache: 'no-store' }).then(r => r.text());
+        out.innerHTML = html.includes('gtag/js?id=' + id)
+          ? '<span style="color:#22c55e">✓ Live — GA tag ' + esc(id) + ' is firing on your homepage</span>'
+          : '<span style="color:#f59e0b">⚠ Not detected — click "Save SEO Settings" first, then Test again</span>';
+      } catch (e) { out.innerHTML = '<span style="color:#ef4444">✗ ' + esc(e.message) + '</span>'; }
     };
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };
