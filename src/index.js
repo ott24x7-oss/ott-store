@@ -46,6 +46,14 @@ const app = express();
 // and crash-looping the container). A fixed hop count resolves the real client
 // IP for the per-IP limiters without tripping that validation.
 app.set('trust proxy', 2);
+// SEO: consolidate on the apex host — 301 redirect www.* -> non-www so indexing
+// and link equity don't split across two hostnames (only touches www.* hosts;
+// the apex and *.railway.app pass straight through).
+app.use((req, res, next) => {
+  const host = (req.headers.host || '').toLowerCase();
+  if (host.startsWith('www.')) return res.redirect(301, `${req.protocol}://${host.slice(4)}${req.originalUrl}`);
+  next();
+});
 app.use(compression());
 
 // Baseline security headers on every response. CSP is intentionally omitted —
@@ -415,9 +423,15 @@ app.get('/', async (req, res) => {
     if (homeFile === 'index.html') {
       html = html.replace(/data-store-theme="[^"]*"/, `data-store-theme="${storeTheme}"`);
     }
+    // SEO guardrail: keep the title <=60 and meta description <=155 chars, trimmed
+    // on a word boundary (trailing separators stripped) so neither is truncated in
+    // search results, whatever the admin SEO settings hold.
+    const clampLen = (s, n) => { s = String(s || '').trim(); if (s.length <= n) return s; const c = s.slice(0, n), i = c.lastIndexOf(' '); return (i > n * 0.6 ? c.slice(0, i) : c).replace(/[\s|&,–—.\-]+$/, '').trim(); };
+    const seoTitleFinal = clampLen(seoTitle || name + ' — Buy Premium Subscriptions Online', 60);
+    const seoDescFinal  = clampLen(seoDesc || 'Get Netflix, Amazon Prime, Disney+ and more at the lowest prices. Instant delivery via WhatsApp & email.', 155);
     html = html
-      .replace(/<title id="page-title">[^<]*<\/title>/, `<title id="page-title">${esc(seoTitle || name + ' — Buy Premium Subscriptions Online')}</title>`)
-      .replace(/(<meta name="description" id="meta-desc" content=")[^"]*"/, `$1${esc(seoDesc || 'Get Netflix, Amazon Prime, Disney+ and more at lowest prices. Instant delivery.')}"`)
+      .replace(/<title id="page-title">[^<]*<\/title>/, `<title id="page-title">${esc(seoTitleFinal)}</title>`)
+      .replace(/(<meta name="description" id="meta-desc" content=")[^"]*"/, `$1${esc(seoDescFinal)}"`)
       .replace(/(<meta id="meta-kw" name="keywords" content=")[^"]*"/, `$1${esc(seoKw || 'ott subscription, netflix, amazon prime, disney plus')}"`)
       .replace(/(<meta id="og-title" property="og:title" content=")[^"]*"/, `$1${esc(name)}"`)
       .replace(/(<meta id="og-img" property="og:image" content=")[^"]*"/, `$1${esc(ogImg || '')}"`)
