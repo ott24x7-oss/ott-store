@@ -2254,6 +2254,19 @@ router.post('/plans/bulk-action', requireAdmin, async (req, res) => {
         db.run('UPDATE plans SET price_inr=? WHERE id=?', [inr, p.id]);
         affected++;
       }
+    } else if (action === 'adjust-price') {
+      // Bump the INR selling price (price_inr) up or down by a percentage.
+      const pct = parseFloat(req.body.pct);
+      const dir = req.body.direction === 'decrease' ? -1 : 1;
+      if (!isFinite(pct) || pct <= 0) return res.status(400).json({ error: 'Enter a percentage greater than 0' });
+      const factor = 1 + dir * (pct / 100);
+      if (factor <= 0) return res.status(400).json({ error: 'That decrease would drop prices to zero or below' });
+      const adj = all(db, `SELECT id, price_inr FROM plans WHERE id IN (${ph})`, ids);
+      for (const p of adj) {
+        const next = Math.max(1, Math.round((p.price_inr || 0) * factor));
+        db.run('UPDATE plans SET price_inr=? WHERE id=?', [next, p.id]);
+        affected++;
+      }
     } else if (action === 'set-image-url') {
       const { image_url } = req.body;
       if (!image_url) return res.status(400).json({ error: 'image_url required' });

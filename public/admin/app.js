@@ -336,6 +336,7 @@ function renderPlansTable(plans, catFilter) {
   <button class="btn btn-sm btn-secondary" onclick="bulkAction('deactivate')">✕ Deactivate</button>
   <button class="btn btn-sm btn-secondary" onclick="bulkSetCategory()">📁 Set Category</button>
   <button class="btn btn-sm btn-secondary" onclick="bulkApplyMarkup()">💹 Apply Markup</button>
+  <button class="btn btn-sm btn-secondary" onclick="bulkAdjustPrice()">📊 Adjust Price %</button>
   <button class="btn btn-sm btn-secondary" onclick="bulkSetImage()">🖼 Set Image</button>
   <button class="btn btn-sm btn-secondary" onclick="bulkUploadImages()">📤 Bulk Upload</button>
   <button class="btn btn-sm btn-secondary" onclick="bulkAction('auto-logo')">🤖 Auto Logo</button>
@@ -437,6 +438,47 @@ function renderPlansTable(plans, catFilter) {
         const r = await api('/plans/bulk-action', { method:'POST', body: JSON.stringify({ action:'apply-markup', ids, profit_pct, usd_to_inr_rate }) });
         ov.remove(); showToast(`Markup applied to ${r.affected} product(s)`); views.plans(catFilter);
       } catch(e) { document.getElementById('markup-msg').innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`; }
+    };
+  };
+
+  // Increase/decrease the ₹ selling price of the selected products by a percentage.
+  window.bulkAdjustPrice = async () => {
+    const ids = getSelectedIds();
+    if (!ids.length) return showToast('Select at least one product', 'error');
+    let dir = 'increase';
+    const ov = openModal(`
+<div class="modal-header"><h3>📊 Adjust Price by %</h3><button class="btn-icon" data-close>✕</button></div>
+<div class="modal-body">
+  <p style="font-size:.85rem;color:var(--muted);margin-bottom:.75rem">Increase or decrease the ₹ selling price of <strong>${ids.length} selected product(s)</strong> by a percentage.</p>
+  <div style="display:flex;gap:.5rem;margin-bottom:.75rem">
+    <button type="button" class="btn btn-sm" id="adj-inc" style="flex:1">▲ Increase</button>
+    <button type="button" class="btn btn-sm btn-secondary" id="adj-dec" style="flex:1">▼ Decrease</button>
+  </div>
+  <div class="form-group"><label class="form-label">Percentage (%)</label>
+    <input class="form-input" id="adj-pct" type="number" min="0" step="0.5" placeholder="e.g. 10"></div>
+  <p style="font-size:.8rem;color:var(--muted)">New price = current price × (1 <span id="adj-sign">+</span> %/100), rounded to the nearest ₹.</p>
+  <div id="adj-msg"></div>
+</div>
+<div class="modal-footer">
+  <button class="btn btn-secondary" data-close>Cancel</button>
+  <button class="btn btn-primary" id="adj-save">Apply to Selected</button>
+</div>`);
+    const incBtn = document.getElementById('adj-inc'), decBtn = document.getElementById('adj-dec'), sign = document.getElementById('adj-sign');
+    const setDir = (d) => { dir = d;
+      incBtn.className = 'btn btn-sm' + (d === 'increase' ? '' : ' btn-secondary');
+      decBtn.className = 'btn btn-sm' + (d === 'decrease' ? '' : ' btn-secondary');
+      sign.textContent = d === 'decrease' ? '−' : '+';
+    };
+    incBtn.onclick = () => setDir('increase');
+    decBtn.onclick = () => setDir('decrease');
+    document.getElementById('adj-save').onclick = async () => {
+      const pct = parseFloat(document.getElementById('adj-pct').value);
+      const msg = document.getElementById('adj-msg');
+      if (!isFinite(pct) || pct <= 0) { msg.innerHTML = `<div class="alert alert-error">Enter a percentage greater than 0</div>`; return; }
+      try {
+        const r = await api('/plans/bulk-action', { method:'POST', body: JSON.stringify({ action:'adjust-price', ids, pct, direction: dir }) });
+        ov.remove(); showToast(`Price ${dir === 'decrease' ? 'decreased' : 'increased'} ${pct}% on ${r.affected} product(s)`); views.plans(catFilter);
+      } catch(e) { msg.innerHTML = `<div class="alert alert-error">${esc(e.message)}</div>`; }
     };
   };
 
