@@ -4316,8 +4316,14 @@ views['ai-agent'] = async function () {
       </select>
     </div>
     <div class="form-group">
-      <label class="form-label">Model <span class="muted">(leave blank for default)</span></label>
-      <input class="form-input" id="ai-model" value="${esc(s.ai_model||'')}" placeholder="gpt-4o-mini or leave blank">
+      <label class="form-label">Model</label>
+      <select class="form-input" id="ai-model-preset" style="margin-bottom:.4rem">
+        <option value="gpt-5.4-mini">gpt-5.4-mini — $0.75 / $4.5 per 1M · cheapest ✅</option>
+        <option value="gpt-5.5">gpt-5.5 — $5 / $30 per 1M</option>
+        <option value="gpt-5.5-openai-compact">gpt-5.5-openai-compact — $5 / $30 per 1M</option>
+        <option value="__custom">Custom / other…</option>
+      </select>
+      <input class="form-input" id="ai-model" value="${esc(s.ai_model||'')}" placeholder="gpt-5.4-mini">
     </div>
     <div class="form-group">
       <label class="form-label">API Key</label>
@@ -4359,6 +4365,17 @@ views['ai-agent'] = async function () {
   </div>
 </div>`);
 
+    (function wireModelPreset(){
+      const sel = document.getElementById('ai-model-preset'), inp = document.getElementById('ai-model');
+      if (!sel || !inp) return;
+      const PRESETS = ['gpt-5.4-mini','gpt-5.5','gpt-5.5-openai-compact'];
+      sel.value = PRESETS.includes(inp.value.trim()) ? inp.value.trim() : '__custom';
+      inp.style.display = sel.value === '__custom' ? '' : 'none';
+      sel.onchange = () => {
+        if (sel.value === '__custom') { inp.style.display = ''; inp.value = ''; inp.focus(); }
+        else { inp.value = sel.value; inp.style.display = 'none'; }
+      };
+    })();
     window.saveAiSettings = async () => {
       const msg = document.getElementById('ai-msg');
       try {

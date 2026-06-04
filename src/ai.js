@@ -69,7 +69,7 @@ async function chat(messages, opts = {}) {
     : messages;
 
   const payload = {
-    model: opts.model || ch.model || 'gpt-4o-mini',
+    model: opts.model || ch.model || 'gpt-5.4-mini',
     messages: finalMessages,
     max_tokens: opts.max_tokens || 1024,
     temperature: opts.temperature ?? 0.7,
@@ -112,7 +112,7 @@ async function testChannel(channelId) {
       'Authorization': `Bearer ${ch.api_key}`,
     },
   }, {
-    model: ch.model || 'gpt-4o-mini',
+    model: ch.model || 'gpt-5.4-mini',
     messages: [{ role: 'user', content: 'Say "OK" in one word.' }],
     max_tokens: 10,
     stream: false,
