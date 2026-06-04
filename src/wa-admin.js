@@ -16,22 +16,40 @@
 const { getDb, getSettingSync, all, get, run } = require('./db');
 
 // ─── Owner identification ─────────────────────────────────────────────────────
-function last10(s) { return String(s || '').replace(/\D/g, '').slice(-10); }
+// Recognises the store owner across BOTH WhatsApp address forms:
+//   - phone JID (919876543210@s.whatsapp.net) -> last-10 vs wa_owner_number / support_whatsapp
+//   - LID  JID  (199558879933521@lid)          -> full id  vs wa_owner_lid
+// Modern WhatsApp routes many users via @lid, whose digits are NOT their phone
+// number, so the LID must be matched separately or the owner is never recognised.
+function digits(s) { return String(s || '').replace(/\D/g, ''); }
+function last10(s) { return digits(s).slice(-10); }
 
 function ownerNumbers() {
   const out = new Set();
   for (const key of ['wa_owner_number', 'support_whatsapp']) {
-    const v = getSettingSync(key);
-    const d = last10(v);
+    const d = last10(getSettingSync(key));
     if (d.length === 10) out.add(d);
   }
   return [...out];
 }
 
-function isOwnerJid(jid) {
-  const p = last10(String(jid || '').split('@')[0]);
-  if (!p) return false;
-  return ownerNumbers().includes(p);
+function ownerLids() {
+  const d = digits(getSettingSync('wa_owner_lid'));
+  return d ? [d] : [];
+}
+
+// `altJid` is an optional second address for the same sender (e.g. the phone
+// number Baileys exposes behind a @lid via senderPn) — checked the same way.
+function isOwnerJid(jid, altJid) {
+  for (const j of [jid, altJid]) {
+    const raw = String(j || '');
+    if (!raw) continue;
+    const u = digits(raw.split('@')[0]);
+    if (!u) continue;
+    if (raw.includes('@lid')) { if (ownerLids().includes(u)) return true; }
+    else if (ownerNumbers().includes(u.slice(-10))) return true;
+  }
+  return false;
 }
 
 // ─── Reply helper ─────────────────────────────────────────────────────────────

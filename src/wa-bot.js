@@ -135,18 +135,31 @@ async function processIncomingWA(msg) {
   if (!jid) return;
   if (jid.endsWith('@g.us') || jid === 'status@broadcast') return; // skip groups & status
   if (msg.key.fromMe) return;
+  // Phone number behind a @lid address, when Baileys exposes it — lets owner
+  // recognition work even when WhatsApp routes the sender via a LID.
+  const senderPn = msg.key.senderPn || msg.key.participantPn || null;
 
   const text = extractWAText(msg);
   if (!text || text.trim().length < 1) return;
 
+  // `.id` / `.whoami` — anyone may ask what address the bot sees them as, so the
+  // owner can copy their LID into Settings → Owner WhatsApp LID.
+  if (text.trim().toLowerCase() === '.id' || text.trim().toLowerCase() === '.whoami') {
+    const s = getActiveSock();
+    if (s) await s.sendMessage(jid, { text: `🆔 The bot sees you as:\n\nJID: ${jid}${senderPn ? `\nPhone: ${senderPn}` : ''}\n\nIf the JID ends in *@lid*, paste the number part into Admin → WhatsApp → *Owner WhatsApp LID* to enable admin commands.` });
+    return;
+  }
+
   // ── Owner admin commands (.deliver / .orders / .verify …) ──────────────────
-  // Highest priority: handled even when the AI bot is disabled, and only for
-  // the store owner (wa_owner_number / support_whatsapp). A non-owner who types
-  // a "." message just falls through to the normal AI flow.
+  // Highest priority: handled even when the AI bot is disabled, and only for the
+  // store owner (wa_owner_number / support_whatsapp / wa_owner_lid). A non-owner
+  // who types a "." message just falls through to the normal AI flow.
   if (text.trim().startsWith('.')) {
     try {
       const waAdmin = require('./wa-admin');
-      if (waAdmin.isOwnerJid(jid)) {
+      const owner = waAdmin.isOwnerJid(jid, senderPn);
+      console.log(`[wa-bot] dot-command from jid=${jid}${senderPn ? ` pn=${senderPn}` : ''} owner=${owner}`);
+      if (owner) {
         await waAdmin.handleAdminCommand(jid, text);
         return;
       }
@@ -162,7 +175,7 @@ async function processIncomingWA(msg) {
   // ── AI: order concierge (customer) + order-ops (owner) ─────────────────────
   const db = await getDb();
   let isOwner = false;
-  try { isOwner = require('./wa-admin').isOwnerJid(jid); } catch {}
+  try { isOwner = require('./wa-admin').isOwnerJid(jid, senderPn); } catch {}
 
   // The customer concierge is gated by the AI toggles; the owner's order-ops AI
   // always runs (when an AI channel is set) so the seller can manage via chat.
