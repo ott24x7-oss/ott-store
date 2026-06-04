@@ -614,8 +614,9 @@ function openGuestForm(plan){
       <input id="gf-email" class="plans-search-box" type="email" placeholder="you@example.com" style="width:100%;background:var(--st-card);border:1.5px solid var(--st-border);border-radius:10px;padding:.6rem .85rem;color:var(--st-text);font-size:.9rem;outline:none;box-sizing:border-box">
     </div>
     <div>
-      <label style="font-size:.78rem;font-weight:600;display:block;margin-bottom:.2rem">Phone / WhatsApp (optional)</label>
+      <label style="font-size:.78rem;font-weight:600;display:block;margin-bottom:.2rem">WhatsApp Number * <span style="color:#22c55e;font-weight:700">— for faster delivery</span></label>
       <input id="gf-phone" class="plans-search-box" type="tel" placeholder="+91 98765 43210" style="width:100%;background:var(--st-card);border:1.5px solid var(--st-border);border-radius:10px;padding:.6rem .85rem;color:var(--st-text);font-size:.9rem;outline:none;box-sizing:border-box">
+      <div style="font-size:.7rem;color:var(--st-muted);margin-top:.25rem">📲 We send your order and updates on WhatsApp — required for delivery.</div>
     </div>
   </div>
   <div style="margin-top:1rem">
@@ -655,13 +656,17 @@ function openGuestForm(plan){
       msg.innerHTML='<div style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);color:#fca5a5;border-radius:8px;padding:.6rem .8rem;font-size:.83rem;margin-bottom:.5rem">⚠️ Please enter a valid email address</div>';
       return;
     }
+    if(phone.replace(/\D/g,'').length<10){
+      msg.innerHTML='<div style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);color:#fca5a5;border-radius:8px;padding:.6rem .8rem;font-size:.83rem;margin-bottom:.5rem">⚠️ Please enter a valid WhatsApp number — needed for faster delivery</div>';
+      return;
+    }
     const btn=document.getElementById('gf-proceed');
     btn.disabled=true; btn.textContent='Creating order…';
     msg.innerHTML='';
     try{
       const isUsdt=selectedMethod!=='upi';
       const endpoint=isUsdt?'/user/api/guest-checkout/usdt':'/user/api/guest-checkout/upi';
-      const body={plan_id:plan.id,email,name:name||'Guest',phone:phone||undefined};
+      const body={plan_id:plan.id,email,name:name||'Guest',phone};
       if(isUsdt)body.network=selectedMethod;
       const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       const data=await r.json();

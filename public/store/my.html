@@ -1248,6 +1248,32 @@ function confirmBuy(planId,planName,price){
     return;
   }
   const cost=Number(price);
+  // Force a WhatsApp number before any purchase — we deliver + send updates there.
+  if(!CUSTOMER||!CUSTOMER.phone){
+    const ovw=openModal(`
+<div class="modal-header"><h3>📲 Add WhatsApp for delivery</h3><button class="btn-icon" data-close>✕</button></div>
+<div class="modal-body">
+  <p style="font-size:.88rem;color:var(--muted);margin:0 0 .75rem">We deliver your order and send updates on WhatsApp. Add your number for <strong>faster delivery</strong>.</p>
+  <input class="form-input" id="buy-wa" type="tel" placeholder="+91 98765 43210" autocomplete="tel">
+  <div id="buy-wa-err" class="my-err" style="display:none;margin-top:.5rem"></div>
+</div>
+<div class="modal-footer">
+  <button class="btn btn-secondary" data-close>Cancel</button>
+  <button class="btn btn-primary" id="buy-wa-save">Save & Continue →</button>
+</div>`);
+    document.getElementById('buy-wa-save').onclick=async()=>{
+      const ph=(document.getElementById('buy-wa').value||'').trim();
+      const e=document.getElementById('buy-wa-err');
+      if(ph.replace(/\D/g,'').length<10){e.textContent='Please enter a valid WhatsApp number.';e.style.display='';return;}
+      try{
+        await api('/complete-profile',{method:'PUT',body:JSON.stringify({phone:ph})});
+        CUSTOMER=await api('/me');
+        ovw.remove();
+        confirmBuy(planId,planName,price);
+      }catch(ex){e.textContent=(ex&&ex.message)||'Could not save number.';e.style.display='';}
+    };
+    return;
+  }
   const imapOn=STORE.imap_enabled==='1';
   const upiOn=imapOn&&!!STORE.upi_id;
   const binanceOn=imapOn&&STORE.usdt_binance_enabled==='1'&&!!STORE.usdt_binance_uid;

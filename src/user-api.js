@@ -658,6 +658,9 @@ router.post('/checkout/upi-direct', requireCustomer, async (req, res) => {
 
     const c = get(db, 'SELECT * FROM customers WHERE jid=?', [req.customer.jid]);
     if (!c) return res.status(404).json({ error: 'Customer not found' });
+    const waPhone = normalizeWaPhone(req.body.phone) || normalizeWaPhone(c.phone);
+    if (!waPhone) return res.status(400).json({ error: 'Please add your WhatsApp number for delivery.', need_phone: true });
+    if (waPhone !== c.phone) run(db, `UPDATE customers SET phone=?, needs_phone=0 WHERE jid=?`, [waPhone, c.jid]);
 
     const price = computePlanPrice(db, plan, c, plan_id);
 
@@ -728,6 +731,9 @@ router.post('/checkout/wallet', requireCustomer, async (req, res) => {
     if (plan.stock === 0) return res.status(400).json({ error: 'Out of stock' });
     const c = get(db, 'SELECT * FROM customers WHERE jid=?', [req.customer.jid]);
     if (!c) return res.status(404).json({ error: 'Customer not found' });
+    const waPhone = normalizeWaPhone(req.body.phone) || normalizeWaPhone(c.phone);
+    if (!waPhone) return res.status(400).json({ error: 'Please add your WhatsApp number for delivery.', need_phone: true });
+    if (waPhone !== c.phone) run(db, `UPDATE customers SET phone=?, needs_phone=0 WHERE jid=?`, [waPhone, c.jid]);
     const price = computePlanPrice(db, plan, c, plan_id);
 
     const { getBalance, debitWallet, creditWallet } = require('./wallet');
@@ -786,6 +792,9 @@ router.post('/checkout/usdt-direct', requireCustomer, async (req, res) => {
 
     const c = get(db, 'SELECT * FROM customers WHERE jid=?', [req.customer.jid]);
     if (!c) return res.status(404).json({ error: 'Customer not found' });
+    const waPhone = normalizeWaPhone(req.body.phone) || normalizeWaPhone(c.phone);
+    if (!waPhone) return res.status(400).json({ error: 'Please add your WhatsApp number for delivery.', need_phone: true });
+    if (waPhone !== c.phone) run(db, `UPDATE customers SET phone=?, needs_phone=0 WHERE jid=?`, [waPhone, c.jid]);
 
     const priceInr = computePlanPrice(db, plan, c, plan_id);
 
@@ -864,7 +873,17 @@ function guestJid(email) {
   return 'guest_' + crypto.createHash('sha1').update(email.toLowerCase().trim()).digest('hex').slice(0, 16) + '@guest.local';
 }
 
+// Normalize + validate a WhatsApp number for delivery. Returns CC-prefixed
+// digits (e.g. "919876543210") or null. Lenient: 10-15 digits; a bare 10-digit
+// number defaults to +91 (India). Gates every checkout path below.
+function normalizeWaPhone(phone) {
+  const d = String(phone || '').replace(/\D/g, '');
+  if (d.length < 10 || d.length > 15) return null;
+  return d.length === 10 ? '91' + d : d;
+}
+
 async function ensureGuestCustomer(db, email, name, phone) {
+  phone = normalizeWaPhone(phone) || null;
   const jid = guestJid(email);
   let cust = get(db, 'SELECT * FROM customers WHERE jid=?', [jid]);
   if (!cust) {
@@ -891,6 +910,7 @@ router.post('/guest-checkout/upi', guestLimiter, async (req, res) => {
     if (!plan_id) return res.status(400).json({ error: 'plan_id required' });
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
       return res.status(400).json({ error: 'Valid email required for guest checkout' });
+    if (!normalizeWaPhone(phone)) return res.status(400).json({ error: 'A valid WhatsApp number is required for delivery.' });
 
     const db = await getDb();
     const imapEnabled = await getSetting('imap_enabled');
@@ -947,6 +967,7 @@ router.post('/guest-checkout/usdt', guestLimiter, async (req, res) => {
     if (!plan_id) return res.status(400).json({ error: 'plan_id required' });
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
       return res.status(400).json({ error: 'Valid email required for guest checkout' });
+    if (!normalizeWaPhone(phone)) return res.status(400).json({ error: 'A valid WhatsApp number is required for delivery.' });
     const net = String(network || '').toLowerCase();
     if (!['binance','bep20','trc20'].includes(net))
       return res.status(400).json({ error: 'Invalid network' });
