@@ -437,7 +437,14 @@ app.get('/', async (req, res) => {
       .replace(/(<meta id="og-img" property="og:image" content=")[^"]*"/, `$1${esc(ogImg || '')}"`)
       .replace(/(<meta name="twitter:card" content=")[^"]*"/, `$1${esc(twitterCard || 'summary_large_image')}"`)
       .replace(/<script id="ld-org"[^>]*>[^<]*<\/script>/,
-        `<script id="ld-org" type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', '@type': 'Store', name, url: base })}</script>`);
+        `<script id="ld-org" type="application/ld+json">${JSON.stringify({
+          '@context': 'https://schema.org',
+          '@graph': [
+            { '@type': 'Organization', '@id': base + '/#org', name, url: base, ...(ogImg ? { logo: ogImg } : {}) },
+            { '@type': 'WebSite', '@id': base + '/#website', url: base, name, inLanguage: 'en', publisher: { '@id': base + '/#org' } },
+            { '@type': 'OnlineStore', '@id': base + '/#store', name, url: base, parentOrganization: { '@id': base + '/#org' }, currenciesAccepted: 'INR', paymentAccepted: 'UPI, USDT' },
+          ],
+        })}</script>`);
     const inject = [
       `<link rel="canonical" href="${esc(base)}/">`,
       gscCode ? `<meta name="google-site-verification" content="${esc(metaToken(gscCode))}">` : '',
