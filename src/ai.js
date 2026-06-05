@@ -129,7 +129,7 @@ async function testChannel(channelId) {
 // ─── Shared store system prompt ───────────────────────────────────────────────
 // Used by: website chat widget, WA bot AI replies, admin test panel
 async function buildStoreSystemPrompt(db) {
-  const siteRows = all(db, `SELECT key,value FROM settings WHERE key IN ('site_name','site_tagline','support_whatsapp','support_email','bot_system_prompt','base_url')`, []);
+  const siteRows = all(db, `SELECT key,value FROM settings WHERE key IN ('site_name','site_tagline','support_whatsapp','support_email','bot_system_prompt','base_url','wa_owner_number','wa_bot_number')`, []);
   const s = {};
   siteRows.forEach(r => s[r.key] = r.value);
 
@@ -156,19 +156,28 @@ async function buildStoreSystemPrompt(db) {
     return `• [ID:${p.id}] ${p.platform} — ${p.name} | ${dur} | ₹${p.price_inr}${orig}${del}${p.description ? ` | ${p.description}` : ''}${urlPart}`;
   }).join('\n');
 
-  // Support team contacts
+  // Support team contacts. NEVER hand out the bot's OWN number — that just loops
+  // the customer back into this AI. Drop it everywhere and prefer the admin
+  // (wa_owner_number) so a customer asking for help always reaches a human.
+  const botNum = String(s.wa_bot_number || '').replace(/\D/g, '').slice(-10);
+  const isBotNum = (p) => !!botNum && String(p || '').replace(/\D/g, '').slice(-10) === botNum;
   let teamRow;
   try { teamRow = all(db, `SELECT value FROM settings WHERE key='contact_team'`, [])[0]; } catch {}
   let contactTeam = [];
   try { contactTeam = JSON.parse(teamRow?.value || '[]'); } catch {}
   if (!Array.isArray(contactTeam)) contactTeam = [];
+  contactTeam = contactTeam.filter(c => c && c.phone && !isBotNum(c.phone));
+  // Admin number first, then the support line — skipping the bot's own number.
+  const supportNum = [s.wa_owner_number, s.support_whatsapp]
+    .map(v => String(v || '').replace(/\D/g, ''))
+    .find(v => v && !isBotNum(v)) || '';
   const teamText = contactTeam.length
-    ? contactTeam.map(c => `• ${c.role}${c.name ? ` (${c.name})` : ''} — https://wa.me/${c.phone}`).join('\n')
-    : (s.support_whatsapp ? `• Support — https://wa.me/${String(s.support_whatsapp).replace(/\D/g,'')}` : '');
+    ? contactTeam.map(c => `• ${c.role}${c.name ? ` (${c.name})` : ''} — https://wa.me/${String(c.phone).replace(/\D/g, '')}`).join('\n')
+    : (supportNum ? `• Support — https://wa.me/${supportNum}` : '');
 
   const humanSupportLine = contactTeam.length
     ? `send their wa.me link (see HUMAN SUPPORT TEAM below)`
-    : (s.support_whatsapp ? `WhatsApp ${s.support_whatsapp}` : 'contact support');
+    : (supportNum ? `WhatsApp ${supportNum}` : 'contact support');
 
   return `You are ${siteName}'s friendly AI sales assistant — available on the website and WhatsApp.
 
