@@ -6,6 +6,12 @@
 <title id="my-title">My Account — OTT Store</title>
 <link rel="stylesheet" href="/store/store-theme.css">
 <link rel="stylesheet" href="/store/themes.css">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#05050b">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <style>
 /* ── Layout ── */
 .my-wrap{display:flex;flex-direction:column;min-height:100vh}
@@ -2060,5 +2066,46 @@ fetch('/user/api/store').then(r=>r.json()).then(s=>{
 }).catch(()=>{});
 </script>
 <script src="/store/chat-widget.js"></script>
+<!-- PWA: "Install App" popup on the login screen -->
+<script>
+(function(){
+  if ('serviceWorker' in navigator) { try { navigator.serviceWorker.register('/sw.js').catch(function(){}); } catch(e){} }
+  var deferred = null;
+  var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+  var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  function dismissed(){ try { return localStorage.getItem('pwaInstallDismissed') === '1'; } catch(e){ return false; } }
+  function onLoginScreen(){ return !!document.querySelector('.my-auth-box') || (typeof CUSTOMER !== 'undefined' && !CUSTOMER); }
+  function hide(){ var el = document.getElementById('pwa-install-pop'); if (el) el.remove(); }
+  window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); deferred = e; maybeShow(); });
+  window.addEventListener('appinstalled', function(){ hide(); try{ localStorage.setItem('pwaInstallDismissed','1'); }catch(e){} });
+  function maybeShow(){
+    if (standalone || dismissed()) return;
+    if (!onLoginScreen()) return;
+    if (!deferred && !isIOS) return;
+    if (document.getElementById('pwa-install-pop')) return;
+    var name = (window.STORE && STORE.site_name) || 'OTT24x7';
+    if (!document.getElementById('pwaUpStyle')) { var st=document.createElement('style'); st.id='pwaUpStyle'; st.textContent='@keyframes pwaUp{from{opacity:0;transform:translate(-50%,16px)}to{opacity:1;transform:translate(-50%,0)}}'; document.head.appendChild(st); }
+    var pop = document.createElement('div');
+    pop.id = 'pwa-install-pop';
+    pop.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:99999;width:calc(100% - 28px);max-width:430px;background:#12121b;border:1px solid rgba(255,255,255,.14);border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.55);padding:14px 16px;display:flex;align-items:center;gap:12px;animation:pwaUp .35s ease';
+    pop.innerHTML =
+      '<img src="/icon-192.png" alt="" style="width:46px;height:46px;border-radius:12px;flex:0 0 auto" onerror="this.style.display=\'none\'">' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-weight:800;color:#fff;font-size:.95rem">Install ' + name + ' App</div>' +
+        '<div style="font-size:.78rem;color:#a7abc7;line-height:1.35">' + (isIOS ? 'Tap Share, then "Add to Home Screen".' : 'Faster access, works offline, no app store.') + '</div>' +
+      '</div>' +
+      '<button id="pwa-install-go" type="button" style="flex:0 0 auto;background:linear-gradient(135deg,#9b5cff,#42e8ff);color:#fff;border:none;border-radius:10px;padding:.55rem .9rem;font-weight:800;font-size:.85rem;cursor:pointer">Install</button>' +
+      '<button id="pwa-install-x" type="button" aria-label="Dismiss" style="flex:0 0 auto;background:transparent;color:#a7abc7;border:none;font-size:1.2rem;cursor:pointer;line-height:1">✕</button>';
+    document.body.appendChild(pop);
+    document.getElementById('pwa-install-x').onclick = function(){ hide(); try{ localStorage.setItem('pwaInstallDismissed','1'); }catch(e){} };
+    document.getElementById('pwa-install-go').onclick = function(){
+      if (deferred) { hide(); deferred.prompt(); if (deferred.userChoice) deferred.userChoice.catch(function(){}); deferred = null; }
+      else if (isIOS) { alert('To install: tap the Share button, then "Add to Home Screen".'); }
+    };
+  }
+  if (document.readyState !== 'loading') setTimeout(maybeShow, 1200); else document.addEventListener('DOMContentLoaded', function(){ setTimeout(maybeShow, 1200); });
+  setTimeout(maybeShow, 3000);
+})();
+</script>
 </body>
 </html>
