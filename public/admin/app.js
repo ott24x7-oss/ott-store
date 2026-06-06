@@ -332,6 +332,7 @@ function renderPlansTable(plans, catFilter) {
 <div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:.75rem">${catBar}</div>
 <div id="bulk-bar" style="display:none;align-items:center;gap:.5rem;padding:.5rem .75rem;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;margin-bottom:.5rem;flex-wrap:wrap">
   <span id="bulk-count" style="font-size:.85rem;font-weight:600;color:var(--primary)">0 selected</span>
+  <button class="btn btn-sm btn-primary" onclick="bulkEditDetails()">Edit Details</button>
   <button class="btn btn-sm btn-secondary" onclick="bulkAction('activate')">✓ Activate</button>
   <button class="btn btn-sm btn-secondary" onclick="bulkAction('deactivate')">✕ Deactivate</button>
   <button class="btn btn-sm btn-secondary" onclick="bulkSetCategory()">📁 Set Category</button>
@@ -524,6 +525,78 @@ function renderPlansTable(plans, catFilter) {
   // ── Bulk sort-order editor ────────────────────────────────────────────────
   // Drag-to-reorder the selected products; save writes sort_order back via
   // the 'set-sort-order' bulk-action (ids in display order → order * 10).
+  window.bulkEditDetails = () => {
+    const ids = getSelectedIds();
+    if (!ids.length) return showToast('Select at least one product', 'error');
+    const selected = ids
+      .map(id => plans.find(p => Number(p.id) === Number(id)))
+      .filter(Boolean);
+    if (!selected.length) return showToast('Selected products were not found', 'error');
+
+    const rows = selected.map((p, i) => {
+      const features = Array.isArray(p.features) ? p.features.join('\n') : '';
+      return `<div class="bulk-detail-row" data-id="${p.id}" style="display:grid;grid-template-columns:44px minmax(180px,1fr) minmax(220px,1.25fr) minmax(220px,1fr);gap:.65rem;align-items:start;padding:.7rem;border:1px solid var(--border);border-radius:8px;background:var(--input-bg)">
+        <div style="font-size:.78rem;color:var(--muted);font-weight:700;padding-top:.65rem">#${i + 1}</div>
+        <div class="form-group">
+          <label class="form-label">Title</label>
+          <input class="form-input bulk-detail-name" value="${esc(p.name || '')}" placeholder="Product title">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea class="form-input bulk-detail-description" rows="3" placeholder="Short product description">${esc(p.description || '')}</textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Features</label>
+          <textarea class="form-input bulk-detail-features" rows="3" placeholder="One feature per line">${esc(features)}</textarea>
+        </div>
+      </div>`;
+    }).join('');
+
+    const ov = openModal(`
+<div class="modal-header"><h3>Bulk Edit Product Details</h3><button class="btn-icon" data-close>x</button></div>
+<div class="modal-body" style="max-height:75vh;overflow-y:auto">
+  <p style="font-size:.85rem;color:var(--muted);margin-bottom:.75rem">Edit title, description, and features for <strong>${selected.length} selected product(s)</strong>. Put each feature on a new line.</p>
+  <div style="display:grid;gap:.55rem;min-width:860px">${rows}</div>
+  <div id="bulk-details-msg" style="margin-top:.75rem"></div>
+</div>
+<div class="modal-footer">
+  <button class="btn btn-secondary" data-close>Cancel</button>
+  <button class="btn btn-primary" id="bulk-details-save">Save Details</button>
+</div>`);
+    const modal = ov.querySelector('.modal');
+    if (modal) modal.style.maxWidth = '1100px';
+
+    document.getElementById('bulk-details-save').onclick = async () => {
+      const msg = document.getElementById('bulk-details-msg');
+      const updates = [...ov.querySelectorAll('.bulk-detail-row')].map(row => ({
+        id: Number(row.dataset.id),
+        name: row.querySelector('.bulk-detail-name').value.trim(),
+        description: row.querySelector('.bulk-detail-description').value.trim(),
+        features: row.querySelector('.bulk-detail-features').value
+          .split(/\r?\n/)
+          .map(s => s.trim())
+          .filter(Boolean),
+      }));
+      if (updates.some(u => !u.name)) {
+        msg.innerHTML = `<div class="alert alert-error">Every product needs a title before saving.</div>`;
+        return;
+      }
+      const btn = document.getElementById('bulk-details-save');
+      btn.disabled = true;
+      btn.textContent = 'Saving...';
+      try {
+        const r = await api('/plans/bulk-action', { method:'POST', body: JSON.stringify({ action:'bulk-update-details', ids, updates }) });
+        ov.remove();
+        showToast(`Details updated for ${r.affected} product(s)`);
+        views.plans(catFilter);
+      } catch(e) {
+        msg.innerHTML = `<div class="alert alert-error">${esc(e.message)}</div>`;
+        btn.disabled = false;
+        btn.textContent = 'Save Details';
+      }
+    };
+  };
+
   window.bulkSortOrder = () => {
     const ids = getSelectedIds();
     if (!ids.length) return showToast('Select at least one product', 'error');

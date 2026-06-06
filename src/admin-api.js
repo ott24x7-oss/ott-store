@@ -2227,7 +2227,7 @@ router.post('/fulfillment-settings', requireAdmin, async (req, res) => {
 // ─── Bulk plan actions ────────────────────────────────────────────────────────
 router.post('/plans/bulk-action', requireAdmin, async (req, res) => {
   try {
-    const { action, ids, category, profit_pct, usd_to_inr_rate } = req.body;
+    const { action, ids, category, profit_pct, usd_to_inr_rate, updates } = req.body;
     if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'ids required' });
     const db = await getDb();
     const ph = ids.map(() => '?').join(',');
@@ -2272,6 +2272,22 @@ router.post('/plans/bulk-action', requireAdmin, async (req, res) => {
       if (!image_url) return res.status(400).json({ error: 'image_url required' });
       db.run(`UPDATE plans SET image_url=? WHERE id IN (${ph})`, [image_url, ...ids]);
       affected = ids.length;
+    } else if (action === 'bulk-update-details') {
+      if (!Array.isArray(updates) || !updates.length) return res.status(400).json({ error: 'updates required' });
+      const allowed = new Set(ids.map(id => Number(id)));
+      for (const item of updates) {
+        const id = Number(item?.id);
+        if (!allowed.has(id)) continue;
+        const name = String(item.name || '').trim();
+        if (!name) return res.status(400).json({ error: `Product #${id} needs a title` });
+        const description = String(item.description || '').trim();
+        const features = Array.isArray(item.features)
+          ? item.features.map(f => String(f || '').trim()).filter(Boolean)
+          : [];
+        db.run('UPDATE plans SET name=?, description=?, features=? WHERE id=?',
+          [name, description || null, JSON.stringify(features), id]);
+        affected++;
+      }
     } else if (action === 'auto-logo') {
       const plans = all(db, `SELECT id, platform, name FROM plans WHERE id IN (${ph})`, ids);
       for (const p of plans) {
