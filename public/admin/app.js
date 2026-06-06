@@ -76,15 +76,26 @@ async function api(path, opts = {}) {
     const tok = getCsrfToken();
     if (tok) headers['X-CSRF-Token'] = tok;
   }
-  const res = await fetch('/admin/api' + path, {
-    credentials: 'include',
-    headers,
-    ...opts,
-  });
-  if (res.status === 401) { renderLogin(); throw new Error('Unauthorized'); }
-  const j = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
-  return j;
+  const { timeoutMs = 20000, headers: _customHeaders, ...fetchOpts } = opts;
+  const controller = new AbortController();
+  const timer = fetchOpts.signal || !timeoutMs ? null : setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch('/admin/api' + path, {
+      credentials: 'include',
+      ...fetchOpts,
+      headers,
+      signal: fetchOpts.signal || controller.signal,
+    });
+    if (res.status === 401) { renderLogin(); throw new Error('Unauthorized'); }
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
+    return j;
+  } catch (ex) {
+    if (ex.name === 'AbortError') throw new Error('Request timed out. Please refresh or try again.');
+    throw ex;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 function showToast(msg, type = 'success') {
@@ -108,6 +119,17 @@ function openModal(html) {
 }
 
 function setMain(html) { document.getElementById('admin-main').innerHTML = html; }
+
+function renderAdminLoadError(ex) {
+  document.getElementById('admin-wrap').style.display = '';
+  setMain(`
+    <div class="card" style="max-width:520px;margin:4rem auto;text-align:center">
+      <h2 style="font-size:1.2rem;font-weight:800;margin-bottom:.5rem">Admin could not load</h2>
+      <p class="muted" style="margin-bottom:1rem">${esc(ex?.message || 'Please refresh or try again.')}</p>
+      <button class="btn btn-primary" onclick="location.reload()">Refresh</button>
+    </div>
+  `);
+}
 
 // ── Theme ──────────────────────────────────────────────────────────────────────
 function applyTheme(t) {
@@ -221,19 +243,20 @@ function renderLogin() {
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function initAdmin() {
   try {
-    await api('/me');
-    // Load pending counts
-    try {
-      const dash = await api('/dashboard');
-      PENDING_TOPUPS = dash.pending_topups || 0;
-      PENDING_ORDERS = dash.pending_orders || 0;
-    } catch {}
+    await api('/me', { timeoutMs: 12000 });
     buildSidebar();
     // Restore view from URL hash, fallback to dashboard
     const hashView = location.hash.replace('#', '').trim();
     const validViews = MENU.filter(m => m.id).map(m => m.id);
     goView(validViews.includes(hashView) ? hashView : 'dashboard');
-  } catch { renderLogin(); }
+    api('/dashboard', { timeoutMs: 10000 }).then(d => {
+      PENDING_TOPUPS = d.pending_topups || 0;
+      PENDING_ORDERS = d.pending_orders || 0;
+      buildSidebar();
+    }).catch(() => {});
+  } catch (ex) {
+    if (ex.message !== 'Unauthorized') renderAdminLoadError(ex);
+  }
 }
 
 // ─── Views ────────────────────────────────────────────────────────────────────

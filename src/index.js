@@ -323,7 +323,10 @@ async function serveMyHtml(req, res, tab) {
 app.get('/my', (req, res) => serveMyHtml(req, res, 'dashboard'));
 for (const t of MY_TABS) app.get(`/my/${t}`, (req, res) => serveMyHtml(req, res, t));
 
-app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'admin', 'index.html')));
+app.get('/admin', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+  res.sendFile(path.join(__dirname, '..', 'public', 'admin', 'index.html'));
+});
 
 // Public static pages — served from DB legal_pages table
 const staticRoutes = { '/about': 'about', '/contact': 'contact', '/privacy': 'privacy', '/terms': 'terms', '/refund': 'refund' };
