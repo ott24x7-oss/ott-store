@@ -94,7 +94,6 @@ app.use(express.urlencoded({ extended: true, limit: '8mb' }));
 app.use(cookieParser(cfg.sessionSecret));
 const { ensureCsrfToken } = require('./security');
 app.use(ensureCsrfToken);
-app.use(apiLimiter);
 
 // Static files. Admin + store HTML/JS/CSS must always reflect the latest deploy,
 // so we send no-cache for them — otherwise admins see a stale UI for up to 4h
@@ -108,7 +107,19 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
     }
   },
 }));
-app.use('/data/uploads', express.static(path.join(__dirname, '..', 'data', 'uploads')));
+const uploadStaticOptions = {
+  maxAge: '7d',
+  immutable: true,
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+  },
+};
+app.use('/data/uploads', express.static(path.join(__dirname, '..', 'data', 'uploads'), uploadStaticOptions));
+// Backward-compatible public route for older plan image URLs. New uploads use
+// /data/uploads directly, but existing plan image_url values may still point at
+// /admin/api/plan-image/*. Serve them before the API limiter so product images
+// never consume API quota or get throttled during catalog page loads.
+app.use('/admin/api/plan-image', express.static(path.join(__dirname, '..', 'data', 'uploads'), uploadStaticOptions));
 
 // ─── CORS preflight for cross-origin import endpoint ─────────────────────────
 app.options('/admin/api/wa-offers-batch-import', (req, res) => {
@@ -119,8 +130,8 @@ app.options('/admin/api/wa-offers-batch-import', (req, res) => {
 });
 
 // ─── API routes ───────────────────────────────────────────────────────────────
-app.use('/user/api', require('./user-api'));
-app.use('/admin/api', require('./admin-api'));
+app.use('/user/api', apiLimiter, require('./user-api'));
+app.use('/admin/api', apiLimiter, require('./admin-api'));
 
 // ─── PWA: dynamic manifest ────────────────────────────────────────────────────
 app.get('/manifest.json', async (req, res) => {
