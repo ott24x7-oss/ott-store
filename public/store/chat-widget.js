@@ -60,10 +60,6 @@ const STYLE=`
 .cw-back{background:none;border:none;color:#fff;font-size:1.55rem;line-height:1;cursor:pointer;
   padding:0 .15rem 0 0;flex-shrink:0;opacity:.75;transition:opacity .15s}
 .cw-back:hover{opacity:1}
-.cw-shop{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#fff;
-  border-radius:999px;padding:.34rem .7rem;font-size:.74rem;font-weight:800;text-decoration:none;
-  flex-shrink:0;line-height:1;transition:background .15s,border-color .15s}
-.cw-shop:hover{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.28);text-decoration:none}
 .cw-av{width:40px;height:40px;border-radius:50%;
   background:linear-gradient(135deg,#ff2a4d,#ff8b22);
   display:flex;align-items:center;justify-content:center;font-size:1.15rem;flex-shrink:0;overflow:hidden}
@@ -87,6 +83,10 @@ const STYLE=`
 .cw-m.bot .cw-mb strong{color:#fff}
 .cw-mb em{font-style:italic}
 .cw-mt{font-size:.64rem;color:rgba(255,255,255,.3);padding:.1rem .3rem}
+.cw-btns{display:flex;flex-wrap:wrap;gap:.42rem;padding:.1rem .95rem .65rem;flex-shrink:0}
+.cw-btn{background:rgba(255,42,77,.1);border:1px solid rgba(255,42,77,.32);color:#ff9aaa;
+  padding:.4rem .8rem;border-radius:18px;font-size:.81rem;cursor:pointer;transition:all .15s;white-space:nowrap}
+.cw-btn:hover{background:rgba(255,42,77,.26);border-color:#ff2a4d;color:#fff}
 .cw-typing-wrap{display:flex;gap:.35rem;align-items:center;padding:.5rem .8rem;background:rgba(255,42,77,.14);
   border-radius:13px;border-bottom-left-radius:4px;width:fit-content}
 .cw-typing-wrap span{width:7px;height:7px;background:#ff2a4d;border-radius:50%;animation:cwDot .9s infinite}
@@ -128,7 +128,7 @@ fab.innerHTML='<svg class="cw-ic-chat" viewBox="0 0 24 24" style="width:23px;hei
 // ── AI chat panel ────────────────────────────────────────────────────────────
 const panel=document.createElement('div');
 panel.id='chat-panel';panel.setAttribute('role','dialog');panel.setAttribute('aria-label','AI chat');
-panel.innerHTML='<div class="cw-head"><button class="cw-back" id="cw-back" aria-label="Back">‹</button><a class="cw-shop" href="/plans">Open Shop</a><div class="cw-av" id="cw-avatar">🤖</div><div class="cw-info"><div class="cw-name" id="cw-name">AI Assistant</div><div class="cw-status" id="cw-status">Online · Replies instantly</div></div></div><div class="cw-msgs" id="cw-msgs"></div><div class="cw-input-row"><input id="cw-input" class="cw-input" type="text" placeholder="Type a message…" autocomplete="off"><button id="cw-send" class="cw-send" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg></button></div>';
+panel.innerHTML='<div class="cw-head"><button class="cw-back" id="cw-back" aria-label="Back">‹</button><div class="cw-av" id="cw-avatar">🤖</div><div class="cw-info"><div class="cw-name" id="cw-name">AI Assistant</div><div class="cw-status" id="cw-status">Online · Replies instantly</div></div></div><div class="cw-msgs" id="cw-msgs"></div><div class="cw-btns" id="cw-btns"></div><div class="cw-input-row"><input id="cw-input" class="cw-input" type="text" placeholder="Type a message…" autocomplete="off"><button id="cw-send" class="cw-send" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg></button></div>';
 
 document.body.appendChild(menu);
 document.body.appendChild(fab);
@@ -136,11 +136,19 @@ document.body.appendChild(panel);
 
 // ── AI chat logic ────────────────────────────────────────────────────────────
 const msgList=document.getElementById('cw-msgs');
+const btnsWrap=document.getElementById('cw-btns');
 const input=document.getElementById('cw-input');
 const sendBtn=document.getElementById('cw-send');
 const optsWrap=document.getElementById('cw-opts');
 let history=[],isThinking=false,aiInit=false,aiGreeting='';
 let state='closed';   // 'closed' | 'menu' | 'chat'
+
+const QUICK=[
+  {label:'🛒 Buy a Plan',msg:'I want to buy a subscription'},
+  {label:'💰 See Plans & Prices',msg:'Show me all available plans with prices'},
+  {label:'📦 Track My Order',msg:'I want to track my order'},
+  {label:'🎧 Get Support',msg:'I need customer support'},
+];
 
 function now(){return new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -166,10 +174,19 @@ function showTyping(){
   msgList.appendChild(d);msgList.scrollTop=msgList.scrollHeight;
 }
 function removeTyping(){const e=document.getElementById('cw-typing');if(e)e.remove();}
+function setButtons(btns){
+  btnsWrap.innerHTML='';
+  if(!btns||!btns.length)return;
+  const l2m={};QUICK.forEach(q=>l2m[q.label]=q.msg);
+  btns.forEach(label=>{
+    const b=document.createElement('button');b.className='cw-btn';b.textContent=label;
+    b.onclick=()=>send(l2m[label]||label);btnsWrap.appendChild(b);
+  });
+}
 async function send(text){
   text=text||input.value.trim();
   if(!text||isThinking)return;
-  input.value='';addMsg('user',text);
+  input.value='';setButtons([]);addMsg('user',text);
   history.push({role:'user',content:text});
   isThinking=true;showTyping();
   try{
@@ -178,12 +195,14 @@ async function send(text){
     if(!res.ok)throw new Error(data.error||'Failed');
     const reply=data.text||'Sorry, I could not understand that.';
     addMsg('bot',reply);history.push({role:'assistant',content:reply});
+    if(data.buttons&&data.buttons.length)setButtons(data.buttons);
   }catch(e){removeTyping();addMsg('bot','⚠️ '+(e.message||'Something went wrong.'));}
   isThinking=false;
 }
 function initAi(){
   if(aiInit)return;aiInit=true;
   addMsg('bot',aiGreeting);history.push({role:'assistant',content:aiGreeting});
+  setButtons(QUICK.map(q=>q.label));
 }
 
 // ── state machine ────────────────────────────────────────────────────────────
