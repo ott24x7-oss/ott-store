@@ -99,6 +99,17 @@ router.post('/plans/platforms', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+
+function cleanupUploadedFile(url, keepFilename = '') {
+  try {
+    if (!url || !String(url).startsWith('/data/uploads/')) return;
+    const filename = path.basename(url);
+    if (!filename || filename === keepFilename) return;
+    const filepath = path.join(UPLOADS_DIR, filename);
+    if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
+  } catch {}
+}
+
 // ─── Plan image upload ────────────────────────────────────────────────────────
 router.post('/plans/:id/upload-image', requireAdmin, upload.single('image'), async (req, res) => {
   try {
@@ -106,9 +117,11 @@ router.post('/plans/:id/upload-image', requireAdmin, upload.single('image'), asy
     const ext = (req.file.originalname.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
     const filename = `plan_${req.params.id}_${Date.now()}.${ext}`;
     fs.writeFileSync(path.join(UPLOADS_DIR, filename), req.file.buffer);
-    const url = `/admin/api/plan-image/${filename}`;
+    const url = `/data/uploads/${filename}`;
     const db = await getDb();
+    const old = get(db, `SELECT image_url FROM plans WHERE id=?`, [req.params.id]);
     run(db, `UPDATE plans SET image_url=? WHERE id=?`, [url, req.params.id]);
+    cleanupUploadedFile(old?.image_url, filename);
     res.json({ ok: true, url });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -137,11 +150,13 @@ router.post('/upload-logo/:type', requireAdmin, logoUpload.single('logo'), async
     const type = req.params.type === 'dark' ? 'dark' : 'light';
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const ext = (req.file.originalname.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '');
-    const filename = `logo_${type}.${ext}`;
+    const filename = `logo_${type}_${Date.now()}.${ext}`;
     fs.writeFileSync(path.join(UPLOADS_DIR, filename), req.file.buffer);
     const url = `/data/uploads/${filename}`;
     const db = await getDb();
+    const old = get(db, `SELECT value FROM settings WHERE key=?`, [`logo_${type}_url`]);
     run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, [`logo_${type}_url`, url]);
+    cleanupUploadedFile(old?.value, filename);
     res.json({ ok: true, url });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
