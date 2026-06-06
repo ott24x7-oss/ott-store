@@ -945,6 +945,87 @@ window.saveProfilePhone=async function(){
 };
 
 // ── Init ──────────────────────────────────────────────────────────────────────
+function showProfileBanner(){
+  const main=document.getElementById('portal-main');
+  if(!CUSTOMER)return;
+  const needsEmail=CUSTOMER.needs_email||(!CUSTOMER.email);
+  const needsPhone=!CUSTOMER.phone;
+  if(!needsEmail&&!needsPhone)return;
+  const existing=document.getElementById('profile-banner');
+  if(existing)existing.remove();
+  const banner=document.createElement('div');
+  banner.id='profile-banner';
+  banner.className='my-profile-banner';
+  if(needsEmail){
+    banner.innerHTML=`<span>!</span><div style="flex:1"><strong>Add your email</strong> to receive order updates and login via email.<br><input class="form-input" id="pb-email" type="email" placeholder="your@email.com" style="margin-top:.5rem;margin-bottom:.25rem"><div id="pb-err" class="my-err" style="display:none"></div></div><button class="btn btn-primary btn-sm" onclick="saveProfileEmail()">Save Email</button>`;
+  } else if(needsPhone){
+    banner.innerHTML=`<span>WA</span><div style="flex:1"><strong>Add your WhatsApp number</strong> to continue using your account and receive delivery updates.<br><input class="form-input" id="pb-phone" type="tel" placeholder="+91 98765 43210" style="margin-top:.5rem"><div id="pb-phone-err" class="my-err" style="display:none;margin-top:.4rem"></div></div><div style="display:flex;gap:.5rem"><button class="btn btn-primary btn-sm" onclick="saveProfilePhone()">Save</button></div>`;
+  }
+  main.insertBefore(banner,main.firstChild);
+}
+
+window.saveProfilePhone=async function(){
+  const phone=document.getElementById('pb-phone')?.value.trim();
+  const err=document.getElementById('pb-phone-err');
+  if(!phone){ if(err){err.textContent='WhatsApp number is required.';err.style.display='';} return; }
+  try{
+    await api('/complete-profile',{method:'PUT',body:JSON.stringify({phone})});
+    CUSTOMER=await api('/me');
+    document.getElementById('profile-banner')?.remove();
+    document.getElementById('required-wa-modal')?.remove();
+    document.body.classList.remove('modal-open');
+    showToast('WhatsApp number saved!','success');
+  }catch(ex){
+    if(err){err.textContent=ex.message;err.style.display='';}
+    else showToast(ex.message,'error');
+  }
+};
+
+function showRequiredWhatsappModal(){
+  if(!CUSTOMER||CUSTOMER.phone||document.getElementById('required-wa-modal'))return;
+  const ov=document.createElement('div');
+  ov.id='required-wa-modal';
+  ov.className='modal-overlay';
+  ov.innerHTML=`
+<div class="modal" style="max-width:440px">
+  <div class="modal-header"><h3>WhatsApp number required</h3></div>
+  <div class="modal-body">
+    <p style="font-size:.9rem;color:var(--muted);margin:0 0 .85rem">Please add your WhatsApp number before continuing. We use it for order delivery updates and support.</p>
+    <input class="form-input" id="required-wa-phone" type="tel" placeholder="+91 98765 43210" autocomplete="tel">
+    <div id="required-wa-err" class="my-err" style="display:none;margin-top:.5rem"></div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-primary btn-block" id="required-wa-save">Save WhatsApp Number</button>
+  </div>
+</div>`;
+  ov.querySelector('.modal').addEventListener('click',e=>e.stopPropagation());
+  document.body.appendChild(ov);
+  document.body.classList.add('modal-open');
+  const input=document.getElementById('required-wa-phone');
+  const err=document.getElementById('required-wa-err');
+  const save=async()=>{
+    const phone=(input.value||'').trim();
+    if(phone.replace(/\D/g,'').length<10){err.textContent='Please enter a valid WhatsApp number.';err.style.display='';return;}
+    const btn=document.getElementById('required-wa-save');
+    btn.disabled=true;btn.textContent='Saving...';
+    try{
+      await api('/complete-profile',{method:'PUT',body:JSON.stringify({phone})});
+      CUSTOMER=await api('/me');
+      ov.remove();
+      document.body.classList.remove('modal-open');
+      document.getElementById('profile-banner')?.remove();
+      updateHeaderUI();
+      showToast('WhatsApp number saved!','success');
+    }catch(ex){
+      err.textContent=ex.message||'Could not save WhatsApp number.';err.style.display='';
+      btn.disabled=false;btn.textContent='Save WhatsApp Number';
+    }
+  };
+  document.getElementById('required-wa-save').onclick=save;
+  input.addEventListener('keydown',e=>{if(e.key==='Enter')save();});
+  setTimeout(()=>input.focus(),50);
+}
+
 async function initPortal(loginResult){
   try{
     [STORE,CUSTOMER]=await Promise.all([api('/store'),api('/me')]);
@@ -983,6 +1064,7 @@ async function initPortal(loginResult){
     // orders), not always the dashboard. skipPush so we don't pushState
     // over our own initial URL.
     goTab(ACTIVE_TAB,{skipPush:true});
+    setTimeout(showRequiredWhatsappModal,150);
   }catch(e){
     // Not logged in or API error
     try{STORE=await api('/store');}catch{}

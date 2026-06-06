@@ -162,6 +162,8 @@ router.post('/register', registerLimiter, async (req, res) => {
     const { name, email, password, phone, referral_code } = req.body;
     if (!name || !email || !password) return res.status(400).json({ error: 'Name, email and password required' });
     if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    const waPhone = phone ? normalizeWaPhone(phone) : null;
+    if (phone && !waPhone) return res.status(400).json({ error: 'Enter a valid WhatsApp number.' });
     const jid = toJid(email);
     const db = await getDb();
     const existing = get(db, 'SELECT jid FROM customers WHERE jid=?', [jid]);
@@ -174,7 +176,7 @@ router.post('/register', registerLimiter, async (req, res) => {
       if (ref) referredBy = ref.jid;
     }
     run(db, `INSERT INTO customers (jid,name,email,phone,password_hash,referral_code,referred_by) VALUES (?,?,?,?,?,?,?)`,
-      [jid, name.trim(), email.toLowerCase().trim(), phone || null, hash, refCode, referredBy]);
+      [jid, name.trim(), email.toLowerCase().trim(), waPhone, hash, refCode, referredBy]);
     setCustomerCookie(res, { jid, email: email.toLowerCase().trim(), name: name.trim() });
     await audit({ actorKind: 'customer', actorLabel: email, action: 'register', targetKind: 'customer', targetId: jid, ip: req.ip });
     res.json({ ok: true, name: name.trim(), email: email.toLowerCase().trim() });
@@ -296,8 +298,12 @@ router.put('/me', requireCustomer, async (req, res) => {
       if (password.length < 6) return res.status(400).json({ error: 'New password too short' });
       newHash = await bcrypt.hash(password, cfg.bcryptRounds);
     }
+    const phoneProvided = Object.prototype.hasOwnProperty.call(req.body, 'phone');
+    const nextPhone = phoneProvided ? normalizeWaPhone(phone) : normalizeWaPhone(c.phone);
+    if (phoneProvided && phone && !nextPhone) return res.status(400).json({ error: 'Enter a valid WhatsApp number.' });
+    if (!nextPhone) return res.status(400).json({ error: 'WhatsApp number is required.' });
     run(db, `UPDATE customers SET name=?,email=?,phone=?,password_hash=? WHERE jid=?`,
-      [name || c.name, email || c.email, phone || c.phone, newHash, c.jid]);
+      [name || c.name, email || c.email, nextPhone, newHash, c.jid]);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -583,7 +589,11 @@ router.put('/complete-profile', requireCustomer, async (req, res) => {
       if (dup) return res.status(409).json({ error: 'Email already registered' });
       sets.push('email=?', 'needs_email=0'); vals.push(en);
     }
-    if (phone) { sets.push('phone=?', 'needs_phone=0'); vals.push(phone.replace(/\D/g, '')); }
+    if (phone) {
+      const waPhone = normalizeWaPhone(phone);
+      if (!waPhone) return res.status(400).json({ error: 'Enter a valid WhatsApp number.' });
+      sets.push('phone=?', 'needs_phone=0'); vals.push(waPhone);
+    }
     if (name?.trim()) { sets.push('name=?'); vals.push(name.trim()); }
     if (sets.length) {
       run(db, `UPDATE customers SET ${sets.join(',')} WHERE jid=?`, [...vals, c.jid]);
@@ -1160,12 +1170,10 @@ router.post('/ai-chat', async (req, res) => {
     const fullMessages = [{ role: 'system', content: systemPrompt }, ...messages.slice(-10)];
     const rawReply = await chat(fullMessages.slice(1), { model: undefined, max_tokens: 400, _systemOverride: systemPrompt });
 
-    // parse [BUTTONS: ...] from reply
-    const btnMatch = rawReply.match(/\[BUTTONS:\s*([^\]]+)\]/i);
-    const buttons = btnMatch ? btnMatch[1].split('|').map(b => b.trim()).filter(Boolean).slice(0, 4) : [];
+    // Strip legacy quick-reply metadata; the chat widget now stays text-only.
     const text = rawReply.replace(/\[BUTTONS:[^\]]*\]/i, '').trim();
 
-    res.json({ text, buttons });
+    res.json({ text });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
