@@ -349,6 +349,8 @@ function renderPlansTable(plans, catFilter) {
     <button class="btn btn-sm btn-secondary" onclick="managePlatforms()">🏷 Platforms</button>
     <button class="btn btn-sm btn-secondary" onclick="openResellKeysPanel()">⚙ ResellKeys</button>
     <button class="btn btn-sm btn-secondary" onclick="scrapeResellKeys()">🔍 Scrape</button>
+    <button class="btn btn-sm btn-secondary" onclick="exportPlansExcel()">📥 Export Excel</button>
+    <button class="btn btn-sm btn-secondary" onclick="importPlansExcel()">📤 Import Excel</button>
     <button class="btn btn-sm btn-primary" onclick="openPlanModal()">+ Add Product</button>
   </div>
 </div>
@@ -969,6 +971,54 @@ function renderPlansTable(plans, catFilter) {
       showToast(`AI filled ${done} product images`);
       views.plans(catFilter);
     };
+  };
+
+  // Download the whole product catalog as a real .xlsx workbook. This is a
+  // same-origin GET, so the browser sends the adminToken cookie automatically —
+  // no auth header needed — and the server's Content-Disposition makes it save
+  // instead of navigating. Exports ALL products, regardless of the active
+  // category tab or row selection.
+  window.exportPlansExcel = () => {
+    const a = document.createElement('a');
+    a.href = '/admin/api/plans/export.xlsx';
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    if (typeof showToast === 'function') showToast('Preparing Excel export…');
+  };
+
+  // Import products from an .xlsx (same format as Export). A row whose Name
+  // exactly matches an existing product replaces it; new names are added. Sends
+  // the CSRF token like the other admin uploads; refreshes the table afterwards.
+  window.importPlansExcel = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    input.onchange = async () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      if (!confirm(`Import "${file.name}"?\n\nProducts whose Name exactly matches an existing one will be REPLACED. New names are added. (The ID and Created At columns are ignored.)`)) return;
+      const fd = new FormData();
+      fd.append('file', file);
+      try {
+        showToast('Importing…');
+        const res = await fetch('/admin/api/plans/import', {
+          method: 'POST', credentials: 'include',
+          headers: { 'X-CSRF-Token': getCsrfToken() }, body: fd,
+        });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
+        let msg = `Imported: ${j.updated} replaced, ${j.inserted} added`;
+        if (j.skipped) msg += `, ${j.skipped} skipped`;
+        showToast(msg);
+        if (j.errors && j.errors.length) console.warn('Import row errors:', j.errors);
+        views.plans();
+      } catch (ex) {
+        showToast('Import failed: ' + (ex.message || ex), 'error');
+      }
+    };
+    input.click();
   };
 
   // ── ResellKeys panel ──────────────────────────────────────────────────────

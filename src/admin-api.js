@@ -11,6 +11,7 @@ const { loginLimiter, requireCsrf, checkCredentialThrottle, recordFailedLogin, c
 const { audit } = require('./audit');
 const { submitUrls, pingSitemap } = require('./google-index');
 const { sendOrderDelivery, sendMail } = require('./mailer');
+const { buildXlsx, parseXlsx } = require('./xlsx');
 
 const router = express.Router();
 
@@ -183,6 +184,163 @@ router.get('/plans', requireAdmin, async (req, res) => {
     const plans = all(db, `SELECT * FROM plans ORDER BY sort_order ASC, id ASC`);
     plans.forEach(p => { try { p.features = JSON.parse(p.features || '[]'); } catch { p.features = []; } });
     res.json(plans);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Export the entire product catalog to a real .xlsx workbook. GET is exempt from
+// the CSRF guard; the adminToken cookie authenticates the download. The whole
+// file is built in memory and streamed — it is never written to disk.
+router.get('/plans/export.xlsx', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const plans = all(db, `SELECT * FROM plans ORDER BY sort_order ASC, id ASC`);
+
+    const num = v => (v === null || v === undefined || v === '' || Number.isNaN(Number(v))) ? '' : Number(v);
+    const featuresText = v => {
+      try { const f = JSON.parse(v || '[]'); return Array.isArray(f) ? f.join(' | ') : String(v || ''); }
+      catch { return String(v || ''); }
+    };
+
+    // [Header label, value extractor]. Numbers stay numeric in the sheet; the
+    // rest become text. Keeps the export self-describing and re-importable.
+    const columns = [
+      ['ID',                  p => num(p.id)],
+      ['Platform',            p => p.platform || ''],
+      ['Name',                p => p.name || ''],
+      ['Category',            p => p.category || ''],
+      ['Price (INR)',         p => num(p.price_inr)],
+      ['Price (USD)',         p => num(p.price_usd)],
+      ['Original Price (INR)',p => num(p.original_price_inr)],
+      ['Duration (days)',     p => num(p.duration_days)],
+      ['Stock',               p => (p.stock === -1 || p.stock === null || p.stock === undefined) ? 'Unlimited' : num(p.stock)],
+      ['Active',              p => (p.active ? 'Yes' : 'No')],
+      ['Delivery Type',       p => p.delivery_type || ''],
+      ['Delivery Est',        p => p.delivery_time_est || ''],
+      ['Badge',               p => p.badge || ''],
+      ['Sort Order',          p => num(p.sort_order)],
+      ['Features',            p => featuresText(p.features)],
+      ['Description',         p => p.description || ''],
+      ['Image URL',           p => p.image_url || ''],
+      ['Provider API',        p => p.provider_api || ''],
+      ['Provider Product ID', p => p.provider_product_id || ''],
+      ['Slug',                p => p.slug || ''],
+      ['Created At',          p => p.created_at || ''],
+    ];
+
+    const header = columns.map(c => c[0]);
+    const rows = plans.map(p => columns.map(c => c[1](p)));
+    const buf = buildXlsx('Products', header, rows);
+
+    const stamp = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="products-${stamp}.xlsx"`);
+    res.send(buf);
+    audit({ actorKind: 'admin', actorLabel: 'admin', action: 'export_plans_xlsx', after: { count: plans.length }, ip: req.ip }).catch(() => {});
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Import products from an .xlsx in the export format. A row whose Name exactly
+// matches an existing product REPLACES it (only the columns present in the file
+// are written, so partial sheets don't wipe other fields); a new Name is added.
+// The ID and Created At columns are informational and ignored on import.
+router.post('/plans/import', requireAdmin, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer) return res.status(400).json({ error: 'No file uploaded' });
+    let rows;
+    try { rows = parseXlsx(req.file.buffer); }
+    catch (e) { return res.status(400).json({ error: 'Could not read spreadsheet — make sure it is a .xlsx file. (' + e.message + ')' }); }
+    if (!rows.length) return res.status(400).json({ error: 'The spreadsheet has no rows.' });
+
+    // Resolve columns from the header row (case-insensitive, trimmed).
+    const header = rows[0].map(h => String(h || '').trim().toLowerCase());
+    const idx = label => header.indexOf(label.toLowerCase());
+    const col = {
+      platform: idx('Platform'), name: idx('Name'), category: idx('Category'),
+      price_inr: idx('Price (INR)'), price_usd: idx('Price (USD)'), original_price_inr: idx('Original Price (INR)'),
+      duration_days: idx('Duration (days)'), stock: idx('Stock'), active: idx('Active'),
+      delivery_type: idx('Delivery Type'), delivery_time_est: idx('Delivery Est'),
+      badge: idx('Badge'), sort_order: idx('Sort Order'), features: idx('Features'),
+      description: idx('Description'), image_url: idx('Image URL'),
+      provider_api: idx('Provider API'), provider_product_id: idx('Provider Product ID'), slug: idx('Slug'),
+    };
+    if (col.name < 0) return res.status(400).json({ error: 'Missing required "Name" column.' });
+
+    const db = await getDb();
+    const cell = (row, f) => col[f] >= 0 ? String(row[col[f]] ?? '').trim() : '';
+    const numOr = (s, dflt) => { const n = parseFloat(String(s).replace(/[^0-9.\-]/g, '')); return Number.isFinite(n) ? n : dflt; };
+    const parsers = {
+      platform: s => s || 'Other',
+      category: s => s,
+      price_inr: s => numOr(s, 0),
+      price_usd: s => numOr(s, 0),
+      original_price_inr: s => s === '' ? null : numOr(s, null),
+      duration_days: s => s === '' ? null : Math.round(numOr(s, 0)),
+      stock: s => (/^unlimited$/i.test(s) || s === '') ? -1 : Math.round(numOr(s, -1)),
+      active: s => ['no', '0', 'false', 'inactive', 'n', ''].includes(s.toLowerCase()) ? (s === '' ? 1 : 0) : 1,
+      delivery_type: s => s || 'manual',
+      delivery_time_est: s => s,
+      badge: s => s || null,
+      sort_order: s => Math.round(numOr(s, 0)),
+      features: s => JSON.stringify(s ? s.split('|').map(x => x.trim()).filter(Boolean) : []),
+      description: s => s || null,
+      image_url: s => s,
+      provider_api: s => s,
+      provider_product_id: s => s,
+    };
+    const FIELDS = Object.keys(parsers);
+    const INSERT_DEFAULTS = {
+      platform: 'Other', category: '', price_inr: 0, price_usd: 0, original_price_inr: null,
+      duration_days: null, stock: -1, active: 1, delivery_type: 'manual', delivery_time_est: '',
+      badge: null, sort_order: 0, features: '[]', description: null, image_url: '',
+      provider_api: '', provider_product_id: '',
+    };
+
+    // Load slugs once; keep it current as we insert so generated slugs stay unique.
+    const slugSet = new Set(all(db, 'SELECT slug FROM plans WHERE slug IS NOT NULL').map(p => p.slug));
+
+    let inserted = 0, updated = 0, skipped = 0;
+    const errors = [];
+
+    for (let i = 1; i < rows.length; i++) {
+      try {
+        const row = rows[i];
+        const name = cell(row, 'name');
+        if (!name) { skipped++; continue; }
+
+        // Only the fields whose column exists in the file get written.
+        const fields = {};
+        for (const f of FIELDS) if (col[f] >= 0) fields[f] = parsers[f](cell(row, f));
+
+        const existing = get(db, 'SELECT id FROM plans WHERE name=? ORDER BY id ASC LIMIT 1', [name]);
+        if (existing) {
+          const keys = Object.keys(fields);
+          if (keys.length) {
+            run(db, `UPDATE plans SET ${keys.map(k => `${k}=?`).join(',')} WHERE id=?`,
+              [...keys.map(k => fields[k]), existing.id]);
+          }
+          updated++;
+        } else {
+          const v = { ...INSERT_DEFAULTS, ...fields };
+          const slug = makePlanSlug((col.slug >= 0 ? cell(row, 'slug') : '') || `${v.platform} ${name}`, slugSet);
+          slugSet.add(slug);
+          run(db,
+            `INSERT INTO plans (platform,name,duration_days,price_inr,original_price_inr,price_usd,
+              description,features,badge,stock,active,sort_order,
+              category,image_url,provider_api,provider_product_id,delivery_type,delivery_time_est,slug)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            [v.platform, name, v.duration_days, v.price_inr, v.original_price_inr, v.price_usd,
+             v.description, v.features, v.badge, v.stock, v.active, v.sort_order,
+             v.category, v.image_url, v.provider_api, v.provider_product_id, v.delivery_type, v.delivery_time_est, slug]);
+          inserted++;
+        }
+      } catch (rowErr) {
+        skipped++;
+        if (errors.length < 20) errors.push(`Row ${i + 1}: ${rowErr.message}`);
+      }
+    }
+
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'import_plans_xlsx', after: { inserted, updated, skipped }, ip: req.ip });
+    res.json({ ok: true, inserted, updated, skipped, total: rows.length - 1, errors });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
