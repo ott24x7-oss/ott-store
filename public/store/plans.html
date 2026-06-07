@@ -92,6 +92,7 @@ html[data-theme="dark"] .snav-logo .logo-dark{display:block}
 .splan-price-row{display:flex;align-items:baseline;gap:.5rem;margin-top:.1rem}
 .splan-price{font-size:1.5rem;font-weight:900;background:var(--st-btn);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .splan-orig{font-size:.8rem;color:var(--st-muted);text-decoration:line-through}
+.splan-usdt{font-size:.72rem;color:var(--st-muted);font-weight:600;margin-top:.15rem;letter-spacing:.01em}
 .splan-delivery{font-size:.72rem;font-weight:700;color:#10b981;background:rgba(16,185,129,.1);border-radius:4px;padding:.2rem .4rem;display:inline-block}
 .splan-feats{list-style:none;margin-top:.25rem;display:flex;flex-direction:column;gap:.2rem}
 .splan-feats li{font-size:.75rem;color:var(--st-muted);padding-left:1em;position:relative}
@@ -293,6 +294,14 @@ const COLORS={'Netflix':['#e50914','#8b0000'],'Amazon Prime':['#00a8e0','#005c8a
 
 let ALL_PLANS=[], ACTIVE_PLATFORM='', SEARCH='', DURATION='', SORT='', isLoggedIn=false;
 let STORE={};
+// Indicative USDT price = INR ÷ live rate (usdt_inr_rate setting from /user/api/store,
+// default 99). Returns a formatted string, or '' when the price isn't a positive number.
+function usdtFromInr(inr){
+  const rate=Number(STORE&&STORE.usdt_inr_rate)||99;
+  const v=Number(inr)/rate;
+  if(!isFinite(v)||v<=0)return '';
+  return v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
 const PAGE_SIZE=24;
 let _visible=PAGE_SIZE;
 
@@ -542,6 +551,7 @@ function buildDetailHtml(p){
   <div style="display:flex;align-items:baseline;margin-bottom:.8rem">
     <span style="font-size:1.75rem;font-weight:900;color:var(--st-accent)">₹${price}</span>${orig}${offBadge}
   </div>
+  ${(u=>u?`<div style="font-size:.85rem;color:var(--st-muted);font-weight:600;margin:-.45rem 0 .85rem">≈ ${u} USDT</div>`:'')(usdtFromInr(p.price_inr))}
   ${features.length?`<ul style="list-style:none;margin:0 0 .8rem;padding:0;display:flex;flex-direction:column;gap:.32rem">${features.map(f=>`<li style="font-size:.82rem;color:var(--st-text);padding-left:1.35em;position:relative"><span style="position:absolute;left:0;color:var(--st-accent)">✓</span>${esc(f)}</li>`).join('')}</ul>`:''}
   ${p.description?`<p style="font-size:.82rem;color:var(--st-muted);line-height:1.55;margin:0 0 .9rem">${esc(p.description)}</p>`:''}
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:.25rem">
@@ -859,6 +869,7 @@ function planCard(p){
   <a class="splan-name splan-link" href="${href}" data-id="${p.id}">${esc(p.name)}</a>
   <div class="splan-dur">⏱ ${dur} validity</div>
   <div class="splan-price-row"><span class="splan-price">₹${Number(p.price_inr).toLocaleString('en-IN')}</span>${origPrice}</div>
+  ${(u=>u?`<div class="splan-usdt">≈ ${u} USDT</div>`:'')(usdtFromInr(p.price_inr))}
   ${p.delivery_type==='instant'?'<div class="splan-delivery">⚡ Instant Delivery</div>':''}
   ${features.length?`<ul class="splan-feats">${features.slice(0,3).map(f=>`<li>${esc(f)}</li>`).join('')}</ul>`:''}
   <button class="splan-btn" ${outOfStock?'disabled':''} data-id="${p.id}">${outOfStock?'🔴 Out of Stock':isLoggedIn?'🛒 Buy Now':'🔐 Login to Buy'}</button>
