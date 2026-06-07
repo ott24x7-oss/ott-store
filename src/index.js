@@ -206,13 +206,21 @@ self.addEventListener('notificationclick',e=>{
 });
 
 // ─── SEO: robots.txt ─────────────────────────────────────────────────────────
+// Hardened default — keeps crawl budget on real pages by blocking admin, the
+// APIs, cart/checkout/account and raw JSON. Used when no custom robots_txt is
+// set, and it also auto-upgrades the legacy wide-open value so existing installs
+// benefit without an admin edit. A genuinely custom robots_txt is left untouched.
+const DEFAULT_ROBOTS = 'User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /admin/api\nDisallow: /user/api\nDisallow: /api\nDisallow: /checkout\nDisallow: /cart\nDisallow: /account\nDisallow: /my\nDisallow: /*.json$';
 app.get('/robots.txt', async (req, res) => {
   try {
     const base = ((await getSetting('base_url')) || cfg.baseUrl).replace(/\/$/, '');
-    let txt = await getSetting('robots_txt') || 'User-agent: *\nAllow: /';
+    let txt = ((await getSetting('robots_txt')) || '').trim();
+    if (!txt || /^user-agent:\s*\*\s+allow:\s*\/$/i.test(txt.replace(/\s+/g, ' ').trim())) {
+      txt = DEFAULT_ROBOTS; // empty or the legacy fully-open value
+    }
     if (!/^\s*sitemap:/im.test(txt)) txt += `\nSitemap: ${base}/sitemap.xml`;
     res.type('text/plain').send(txt);
-  } catch { res.type('text/plain').send('User-agent: *\nAllow: /'); }
+  } catch { res.type('text/plain').send(DEFAULT_ROBOTS); }
 });
 
 // ─── GEO: llms.txt — a Markdown map of the store for AI crawlers ──────────────
@@ -245,7 +253,9 @@ app.get('/sitemap.xml', async (req, res) => {
     const db = await getDb();
     const baseUrl = (await getSetting('base_url') || cfg.baseUrl).replace(/\/$/, '');
     const posts = all(db, `SELECT slug, created_at FROM blog_posts WHERE published=1`);
-    const products = all(db, `SELECT slug, created_at FROM plans WHERE active=1 AND slug IS NOT NULL AND slug != ''`);
+    // Only "strong" pages go in the sitemap: skip products flagged noindex and
+    // those with no unique description (thin content driving index bloat).
+    const products = all(db, `SELECT slug, created_at FROM plans WHERE active=1 AND slug IS NOT NULL AND slug != '' AND COALESCE(noindex,0)=0 AND description IS NOT NULL AND TRIM(description) != ''`);
     const staticPages = ['/', '/plans', '/blog', '/about', '/contact', '/privacy', '/terms', '/refund'];
     let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`;
@@ -403,6 +413,9 @@ app.get('/plans/:slug', async (req, res) => {
     const titleText = `${platPrefix}${plan.name} | ${siteName}`;
     const descText = `Buy ${platPrefix}${plan.name} at ${siteName} — ₹${Number(plan.price_inr).toLocaleString('en-IN')}. ${plan.delivery_type === 'instant' ? 'Instant digital delivery.' : 'Fast digital delivery.'}`;
     const ogImg = plan.image_url || (await getSetting('seo_og_image')) || '';
+    // Thin / flagged variant pages get noindex,follow so clusters of near-duplicate
+    // keys don't dilute the domain. They're also excluded from the sitemap.
+    const noindex = Number(plan.noindex) === 1 || !plan.description || plan.description.trim() === '';
 
     // Per-product <title> + <meta description> (C1/H3)
     html = html
@@ -410,6 +423,7 @@ app.get('/plans/:slug', async (req, res) => {
       .replace(/<meta name="description"[^>]*>/, `<meta name="description" content="${esc(descText)}">`);
     // Canonical + Open Graph + Product/Breadcrumb JSON-LD + deep-link globals (C2/C4/H1)
     const headInject = [
+      noindex ? `<meta name="robots" content="noindex,follow">` : '',
       `<link rel="canonical" href="${esc(url)}">`,
       `<meta property="og:title" content="${esc(plan.name)}">`,
       `<meta property="og:type" content="product">`,
@@ -460,8 +474,15 @@ app.get('/', async (req, res) => {
     // on a word boundary (trailing separators stripped) so neither is truncated in
     // search results, whatever the admin SEO settings hold.
     const clampLen = (s, n) => { s = String(s || '').trim(); if (s.length <= n) return s; const c = s.slice(0, n), i = c.lastIndexOf(' '); return (i > n * 0.6 ? c.slice(0, i) : c).replace(/[\s|&,–—.\-]+$/, '').trim(); };
-    const seoTitleFinal = clampLen(seoTitle || name + ' — Buy Premium Subscriptions Online', 60);
-    const seoDescFinal  = clampLen(seoDesc || 'Get Netflix, Amazon Prime, Disney+ and more at the lowest prices. Instant delivery via WhatsApp & email.', 155);
+    // Guarantee the brand is in the title (recognition + CTR) even when the
+    // admin's seo_home_title omits it — append " | <brand>" and keep it <=60.
+    const titleBase = (seoTitle || 'OTT Subscriptions Online – Netflix, Prime, Disney+').trim();
+    const brandSuffix = ` | ${name}`;
+    const seoTitleFinal = (name && brandSuffix.length < 30 && !titleBase.toLowerCase().includes(name.toLowerCase()))
+      ? clampLen(titleBase, 60 - brandSuffix.length) + brandSuffix
+      : clampLen(titleBase, 60);
+    // Lead with legitimate USPs; avoid grey "unlimited access / lowest price" claims.
+    const seoDescFinal = clampLen(seoDesc || 'Genuine OTT, AI & software subscriptions in India. Instant activation, full-validity replacement warranty, UPI & crypto checkout, 24×7 support.', 155);
     html = html
       .replace(/<title id="page-title">[^<]*<\/title>/, `<title id="page-title">${esc(seoTitleFinal)}</title>`)
       .replace(/(<meta name="description" id="meta-desc" content=")[^"]*"/, `$1${esc(seoDescFinal)}"`)

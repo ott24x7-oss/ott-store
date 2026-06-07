@@ -392,6 +392,9 @@ function migrate(db) {
   try { db.run(`ALTER TABLE plans ADD COLUMN delivery_type TEXT DEFAULT 'manual'`); } catch {}
   try { db.run(`ALTER TABLE plans ADD COLUMN delivery_time_est TEXT DEFAULT ''`); } catch {}
   try { db.run(`ALTER TABLE plans ADD COLUMN price_usd REAL DEFAULT 0`); } catch {}
+  // SEO: mark thin / near-duplicate variant pages so they are excluded from the
+  // sitemap and get <meta robots noindex> — the lever for pruning index bloat.
+  try { db.run(`ALTER TABLE plans ADD COLUMN noindex INTEGER DEFAULT 0`); } catch {}
   // SEO-friendly slugs for product pages (/plans/:slug)
   try { db.run(`ALTER TABLE plans ADD COLUMN slug TEXT`); } catch {}
   try { db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_plans_slug ON plans(slug) WHERE slug IS NOT NULL`); } catch {}
@@ -751,7 +754,7 @@ function seedDefaults(db) {
     timezone: 'Asia/Kolkata',
     logo_url: '',
     favicon_url: '',
-    robots_txt: 'User-agent: *\nAllow: /',
+    robots_txt: 'User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /admin/api\nDisallow: /user/api\nDisallow: /api\nDisallow: /checkout\nDisallow: /cart\nDisallow: /account\nDisallow: /my\nDisallow: /*.json$',
     upi_id: '',
     upi_name: '',
     upi_unique_max_delta: '6', // unique payment amount = price ± 1..N whole rupees (collision-aware)
@@ -769,8 +772,8 @@ function seedDefaults(db) {
     usdt_trc20_enabled: '0',
     usdt_trc20_address: '',
     usdt_trc20_qr_url: '',
-    'seo_home_title': 'Buy OTT Subscriptions Online',
-    'seo_home_desc': 'Get Netflix, Amazon Prime, Disney+ and more at lowest prices.',
+    'seo_home_title': 'OTT Subscriptions Online – Netflix, Prime, Disney+',
+    'seo_home_desc': 'Genuine OTT, AI & software subscriptions in India. Instant activation, full-validity replacement warranty, UPI & crypto checkout, 24×7 support.',
     'seo_home_keywords': 'ott subscription, netflix, amazon prime, disney plus',
     'seo_og_image': '',
     'seo_twitter_card': 'summary_large_image',

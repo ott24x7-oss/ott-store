@@ -224,6 +224,7 @@ router.get('/plans/export.xlsx', requireAdmin, async (req, res) => {
       ['Provider API',        p => p.provider_api || ''],
       ['Provider Product ID', p => p.provider_product_id || ''],
       ['Slug',                p => p.slug || ''],
+      ['No Index',            p => (Number(p.noindex) === 1 ? 'Yes' : 'No')],
       ['Created At',          p => p.created_at || ''],
     ];
 
@@ -262,6 +263,7 @@ router.post('/plans/import', requireAdmin, upload.single('file'), async (req, re
       badge: idx('Badge'), sort_order: idx('Sort Order'), features: idx('Features'),
       description: idx('Description'), image_url: idx('Image URL'),
       provider_api: idx('Provider API'), provider_product_id: idx('Provider Product ID'), slug: idx('Slug'),
+      noindex: idx('No Index'),
     };
     if (col.name < 0) return res.status(400).json({ error: 'Missing required "Name" column.' });
 
@@ -286,13 +288,14 @@ router.post('/plans/import', requireAdmin, upload.single('file'), async (req, re
       image_url: s => s,
       provider_api: s => s,
       provider_product_id: s => s,
+      noindex: s => /^(yes|1|true|y)$/i.test(s) ? 1 : 0,
     };
     const FIELDS = Object.keys(parsers);
     const INSERT_DEFAULTS = {
       platform: 'Other', category: '', price_inr: 0, price_usd: 0, original_price_inr: null,
       duration_days: null, stock: -1, active: 1, delivery_type: 'manual', delivery_time_est: '',
       badge: null, sort_order: 0, features: '[]', description: null, image_url: '',
-      provider_api: '', provider_product_id: '',
+      provider_api: '', provider_product_id: '', noindex: 0,
     };
 
     // Load slugs once; keep it current as we insert so generated slugs stay unique.
@@ -326,11 +329,11 @@ router.post('/plans/import', requireAdmin, upload.single('file'), async (req, re
           run(db,
             `INSERT INTO plans (platform,name,duration_days,price_inr,original_price_inr,price_usd,
               description,features,badge,stock,active,sort_order,
-              category,image_url,provider_api,provider_product_id,delivery_type,delivery_time_est,slug)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+              category,image_url,provider_api,provider_product_id,delivery_type,delivery_time_est,slug,noindex)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
             [v.platform, name, v.duration_days, v.price_inr, v.original_price_inr, v.price_usd,
              v.description, v.features, v.badge, v.stock, v.active, v.sort_order,
-             v.category, v.image_url, v.provider_api, v.provider_product_id, v.delivery_type, v.delivery_time_est, slug]);
+             v.category, v.image_url, v.provider_api, v.provider_product_id, v.delivery_type, v.delivery_time_est, slug, v.noindex]);
           inserted++;
         }
       } catch (rowErr) {
