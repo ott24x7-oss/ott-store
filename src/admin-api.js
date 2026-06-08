@@ -54,7 +54,9 @@ router.post('/login', loginLimiter, async (req, res) => {
     if (storedHash) {
       ok = await bcrypt.compare(password, storedHash);
     } else {
-      ok = (password === cfg.adminPassword);
+      // No hash configured: only accept a non-empty ADMIN_PASSWORD env value.
+      // (Empty passwords are already rejected above, so an unset password = login disabled.)
+      ok = (cfg.adminPassword !== '' && password === cfg.adminPassword);
     }
     if (!ok) {
       recordFailedLogin('admin');
@@ -2629,8 +2631,10 @@ router.post('/contact-team', requireAdmin, async (req, res) => {
 // ─── Check auth status ────────────────────────────────────────────────────────
 router.get('/me', requireAdmin, (req, res) => res.json({ ok: true, role: 'admin' }));
 
-// ─── Cross-origin WA offer batch import (one-time use, token auth) ───────────
-const WA_IMPORT_TOKEN = 'ott24x7-wa-import-2025';
+// ─── Cross-origin WA offer batch import (token auth) ────────────────────────
+// Token comes from the WA_IMPORT_TOKEN env var only — no hardcoded fallback.
+// When unset, the endpoint is disabled (rejects all requests).
+const WA_IMPORT_TOKEN = cfg.waImportToken;
 
 router.options('/wa-offers-batch-import', (req, res) => {
   res.set('Access-Control-Allow-Origin', 'https://store.watshop.in');
@@ -2641,7 +2645,7 @@ router.options('/wa-offers-batch-import', (req, res) => {
 
 router.post('/wa-offers-batch-import', async (req, res) => {
   res.set('Access-Control-Allow-Origin', 'https://store.watshop.in');
-  if (req.headers['x-import-token'] !== WA_IMPORT_TOKEN) {
+  if (!WA_IMPORT_TOKEN || req.headers['x-import-token'] !== WA_IMPORT_TOKEN) {
     return res.status(401).json({ error: 'Invalid import token' });
   }
   const { offers } = req.body;

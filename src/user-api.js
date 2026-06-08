@@ -320,7 +320,7 @@ router.post('/forgot-password', async (req, res) => {
     const token = crypto.randomBytes(32).toString('hex');
     const expires = new Date(Date.now() + 30 * 60 * 1000).toISOString();
     run(db, `INSERT OR REPLACE INTO pw_resets (token,customer_jid,expires_at,used) VALUES (?,?,?,0)`, [token, jid, expires]);
-    const baseUrl = stripSlash(await getSetting('base_url')) || `${req.protocol}://${req.get('host')}`;
+    const baseUrl = stripSlash(await getSetting('base_url')) || stripSlash(cfg.baseUrl);
     const resetUrl = `${baseUrl}/my#reset-password?token=${token}`;
     await sendPasswordReset(c.email, c.name, resetUrl).catch(() => {});
     res.json({ ok: true });
@@ -417,7 +417,7 @@ router.post('/send-magic-link', sendLimiter, async (req, res) => {
     const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
     run(db, `INSERT INTO auth_tokens (token,purpose,email,expires_at) VALUES (?,?,?,?)`,
       [token, 'magic_link', emailNorm, expires]);
-    const baseUrl = stripSlash(await getSetting('base_url')) || `${req.protocol}://${req.get('host')}`;
+    const baseUrl = stripSlash(await getSetting('base_url')) || stripSlash(cfg.baseUrl);
     const siteName = await getSetting('site_name') || 'OTT Store';
     const magicUrl = `${baseUrl}/user/api/auth/magic?token=${token}`;
     try {
@@ -531,7 +531,7 @@ router.post('/send-wa-magic', sendLimiter, async (req, res) => {
     const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
     run(db, `INSERT INTO auth_tokens (token,purpose,phone,expires_at) VALUES (?,?,?,?)`,
       [token, 'wa_magic', phoneCC, expires]);
-    const baseUrl = stripSlash(await getSetting('base_url')) || `${req.protocol}://${req.get('host')}`;
+    const baseUrl = stripSlash(await getSetting('base_url')) || stripSlash(cfg.baseUrl);
     const siteName = await getSetting('site_name') || 'OTT Store';
     const magicUrl = `${baseUrl}/user/api/auth/wa-magic?token=${token}`;
     let sent = false;

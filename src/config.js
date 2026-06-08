@@ -1,11 +1,26 @@
 'use strict';
 require('dotenv').config();
+const crypto = require('crypto');
+
+// SESSION_SECRET signs every admin + customer JWT, so it MUST be a unique,
+// persistent, 32+ char value set in the environment. If it is missing/weak we
+// generate a RANDOM per-boot secret instead of falling back to a public hardcoded
+// string — this prevents anyone from forging admin/customer sessions. Trade-off:
+// a random per-boot secret invalidates existing logins on every restart, so set a
+// stable SESSION_SECRET env var in production.
+let sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret || sessionSecret.length < 32 || sessionSecret === 'change-me-32-char-hex-secret-key') {
+  sessionSecret = crypto.randomBytes(48).toString('hex');
+  console.warn('[security] SESSION_SECRET is not set or too weak — using a random per-boot secret. Set a persistent SESSION_SECRET (>=32 chars) so sessions survive restarts.');
+}
 
 module.exports = {
   port: parseInt(process.env.PORT) || 3000,
   baseUrl: process.env.BASE_URL || 'http://localhost:3000',
-  sessionSecret: process.env.SESSION_SECRET || 'change-me-32-char-hex-secret-key',
-  adminPassword: process.env.ADMIN_PASSWORD || 'admin123!',
+  sessionSecret,
+  // No insecure default. Admin login refuses unless ADMIN_PASSWORD is set or an
+  // admin password hash has been configured in Settings.
+  adminPassword: process.env.ADMIN_PASSWORD || '',
   jwtExpiry: '7d',
   adminJwtExpiry: '12h',
   bcryptRounds: 12,
@@ -23,7 +38,8 @@ module.exports = {
   cookieOptions: {
     httpOnly: true,
     sameSite: 'strict',
-    secure: process.env.NODE_ENV === 'production',
+    // Secure cookies by default; only disabled for explicit local dev over http.
+    secure: process.env.NODE_ENV !== 'development',
     path: '/',
   },
   uploadDir: require('path').join(__dirname, '..', 'data', 'uploads'),
@@ -33,4 +49,7 @@ module.exports = {
     email: process.env.RESELLKEYS_EMAIL || '',
     password: process.env.RESELLKEYS_PASSWORD || '',
   },
+  // Cross-origin WA-offer import token. No hardcoded fallback: the import endpoint
+  // is disabled unless this env var is set to a secret value.
+  waImportToken: process.env.WA_IMPORT_TOKEN || '',
 };
