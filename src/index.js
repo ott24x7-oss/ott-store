@@ -372,16 +372,39 @@ for (const [route, slug] of Object.entries(staticRoutes)) {
 }
 
 // ─── /plans — product listing page (server-rendered so theme is correct on first paint) ──
+// Trim to <=n chars on a word boundary, stripping trailing separators — keeps
+// titles/descriptions from being cut mid-word in search results.
+function clampLen(s, n) { s = String(s || '').trim(); if (s.length <= n) return s; const c = s.slice(0, n), i = c.lastIndexOf(' '); return (i > n * 0.6 ? c.slice(0, i) : c).replace(/[\s|&,–—.\-]+$/, '').trim(); }
+
 app.get('/plans', async (req, res) => {
   try {
     const storeTheme = await getActiveTheme();
     const base = ((await getSetting('base_url')) || cfg.baseUrl).replace(/\/$/, '');
     const db = await getDb();
     const siteName = (await getSetting('site_name')) || 'OTT Store';
+    const ogImg = (await getSetting('seo_og_image')) || `${base}/og-default.jpg`;
     const products = all(db, `SELECT slug, platform, name FROM plans WHERE active=1 AND slug IS NOT NULL AND slug != '' ORDER BY sort_order ASC, id ASC`);
     let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'store', 'plans.html'), 'utf8');
     html = html.replace(/data-store-theme="[^"]*"/, `data-store-theme="${storeTheme}"`);
-    const headInject = `<link rel="canonical" href="${esc(base)}/plans">\n${buildPlansListJsonLd(products, base, siteName)}`;
+    const plansTitle = clampLen(`All Plans — ${siteName}`, 60);
+    const plansDesc = clampLen(`Browse all ${siteName} subscription plans — OTT, AI tools, cloud & software. Instant digital delivery, UPI & crypto checkout, 24×7 support.`, 155);
+    html = html
+      .replace(/<title>[^<]*<\/title>/, `<title>${esc(plansTitle)}</title>`)
+      .replace(/<meta name="description"[^>]*>/, `<meta name="description" content="${esc(plansDesc)}">`);
+    const headInject = [
+      `<link rel="canonical" href="${esc(base)}/plans">`,
+      `<meta property="og:title" content="${esc(plansTitle)}">`,
+      `<meta property="og:description" content="${esc(plansDesc)}">`,
+      `<meta property="og:type" content="website">`,
+      `<meta property="og:url" content="${esc(base)}/plans">`,
+      `<meta property="og:site_name" content="${esc(siteName)}">`,
+      `<meta property="og:image" content="${esc(ogImg)}">`,
+      `<meta name="twitter:card" content="summary_large_image">`,
+      `<meta name="twitter:title" content="${esc(plansTitle)}">`,
+      `<meta name="twitter:description" content="${esc(plansDesc)}">`,
+      `<meta name="twitter:image" content="${esc(ogImg)}">`,
+      buildPlansListJsonLd(products, base, siteName),
+    ].join('\n');
     html = html.replace('</head>', headInject + '\n</head>');
     res.type('text/html').send(html);
   } catch {
@@ -413,9 +436,9 @@ app.get('/plans/:slug', async (req, res) => {
     const siteName = (await getSetting('site_name')) || 'OTT Store';
     const url = `${base}/plans/${plan.slug}`;
     const platPrefix = (plan.platform && plan.platform.toLowerCase() !== 'other') ? `${plan.platform} — ` : '';
-    const titleText = `${platPrefix}${plan.name} | ${siteName}`;
-    const descText = `Buy ${platPrefix}${plan.name} at ${siteName} — ₹${Number(plan.price_inr).toLocaleString('en-IN')}. ${plan.delivery_type === 'instant' ? 'Instant digital delivery.' : 'Fast digital delivery.'}`;
-    const ogImg = plan.image_url || (await getSetting('seo_og_image')) || '';
+    const titleText = clampLen(`${platPrefix}${plan.name} | ${siteName}`, 60);
+    const descText = clampLen(`Buy ${platPrefix}${plan.name} at ${siteName} — ₹${Number(plan.price_inr).toLocaleString('en-IN')}. ${plan.delivery_type === 'instant' ? 'Instant digital delivery.' : 'Fast digital delivery.'}`, 155);
+    const ogImg = plan.image_url || (await getSetting('seo_og_image')) || `${base}/og-default.jpg`;
     const tgUrl = (await getSetting('telegram_bot_url')) || '';
     // Thin / flagged variant pages get noindex,follow so clusters of near-duplicate
     // keys don't dilute the domain. They're also excluded from the sitemap.
@@ -464,6 +487,7 @@ app.get('/', async (req, res) => {
     ]);
     const name = siteName || 'OTT Store';
     const base = baseUrl || cfg.baseUrl;
+    const ogImgFinal = ogImg || `${base}/og-default.jpg`;
     // MovieVerse gets its own bespoke home file (heavy cinema markup).
     // All other themes share index.html with a data-store-theme attr swap so
     // the same CSS palette cascade we use on /plans + /my applies to /, too.
@@ -492,19 +516,26 @@ app.get('/', async (req, res) => {
       .replace(/(<meta name="description" id="meta-desc" content=")[^"]*"/, `$1${esc(seoDescFinal)}"`)
       .replace(/(<meta id="meta-kw" name="keywords" content=")[^"]*"/, `$1${esc(seoKw || 'ott subscription, netflix, amazon prime, disney plus')}"`)
       .replace(/(<meta id="og-title" property="og:title" content=")[^"]*"/, `$1${esc(name)}"`)
-      .replace(/(<meta id="og-img" property="og:image" content=")[^"]*"/, `$1${esc(ogImg || '')}"`)
+      .replace(/(<meta id="og-img" property="og:image" content=")[^"]*"/, `$1${esc(ogImgFinal)}"`)
+      .replace(/(<meta id="og-desc" property="og:description" content=")[^"]*"/, `$1${esc(seoDescFinal)}"`)
       .replace(/(<meta name="twitter:card" content=")[^"]*"/, `$1${esc(twitterCard || 'summary_large_image')}"`)
       .replace(/<script id="ld-org"[^>]*>[^<]*<\/script>/,
         `<script id="ld-org" type="application/ld+json">${JSON.stringify({
           '@context': 'https://schema.org',
           '@graph': [
-            { '@type': 'Organization', '@id': base + '/#org', name, url: base, ...(ogImg ? { logo: ogImg } : {}) },
+            { '@type': 'Organization', '@id': base + '/#org', name, url: base, logo: ogImgFinal },
             { '@type': 'WebSite', '@id': base + '/#website', url: base, name, inLanguage: 'en', publisher: { '@id': base + '/#org' } },
             { '@type': 'OnlineStore', '@id': base + '/#store', name, url: base, parentOrganization: { '@id': base + '/#org' }, currenciesAccepted: 'INR', paymentAccepted: 'UPI, USDT' },
           ],
         })}</script>`);
     const inject = [
       `<link rel="canonical" href="${esc(base)}/">`,
+      `<meta property="og:type" content="website">`,
+      `<meta property="og:url" content="${esc(base)}/">`,
+      `<meta property="og:site_name" content="${esc(name)}">`,
+      `<meta name="twitter:title" content="${esc(seoTitleFinal)}">`,
+      `<meta name="twitter:description" content="${esc(seoDescFinal)}">`,
+      `<meta name="twitter:image" content="${esc(ogImgFinal)}">`,
       gscCode ? `<meta name="google-site-verification" content="${esc(metaToken(gscCode))}">` : '',
       bingCode ? `<meta name="msvalidate.01" content="${esc(metaToken(bingCode))}">` : '',
     ].filter(Boolean).join('\n');
