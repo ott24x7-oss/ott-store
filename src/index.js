@@ -210,7 +210,10 @@ self.addEventListener('notificationclick',e=>{
 // APIs, cart/checkout/account and raw JSON. Used when no custom robots_txt is
 // set, and it also auto-upgrades the legacy wide-open value so existing installs
 // benefit without an admin edit. A genuinely custom robots_txt is left untouched.
-const DEFAULT_ROBOTS = 'User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /admin/api\nDisallow: /user/api\nDisallow: /api\nDisallow: /checkout\nDisallow: /cart\nDisallow: /account\nDisallow: /my\nDisallow: /*.json$';
+// Note: /my is NOT disallowed — it carries a noindex meta, and Google must be
+// allowed to crawl it to see that tag and drop it from the index. Admin + APIs
+// stay blocked (they have no crawl value).
+const DEFAULT_ROBOTS = 'User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /admin/api\nDisallow: /user/api\nDisallow: /api\nDisallow: /checkout\nDisallow: /cart\nDisallow: /account\nDisallow: /*.json$';
 app.get('/robots.txt', async (req, res) => {
   try {
     const base = ((await getSetting('base_url')) || cfg.baseUrl).replace(/\/$/, '');
