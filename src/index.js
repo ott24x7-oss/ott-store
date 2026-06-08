@@ -476,7 +476,7 @@ app.get('/', async (req, res) => {
     const clampLen = (s, n) => { s = String(s || '').trim(); if (s.length <= n) return s; const c = s.slice(0, n), i = c.lastIndexOf(' '); return (i > n * 0.6 ? c.slice(0, i) : c).replace(/[\s|&,–—.\-]+$/, '').trim(); };
     // Guarantee the brand is in the title (recognition + CTR) even when the
     // admin's seo_home_title omits it — append " | <brand>" and keep it <=60.
-    const titleBase = (seoTitle || 'OTT Subscriptions Online – Netflix, Prime, Disney+').trim();
+    const titleBase = (seoTitle || 'Digital Products & Software — OTT, AI & Keys').trim();
     const brandSuffix = ` | ${name}`;
     const seoTitleFinal = (name && brandSuffix.length < 30 && !titleBase.toLowerCase().includes(name.toLowerCase()))
       ? clampLen(titleBase, 60 - brandSuffix.length) + brandSuffix

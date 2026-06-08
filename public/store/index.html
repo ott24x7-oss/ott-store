@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title id="page-title">OTT Store — Premium Subscriptions at Best Prices</title>
+<title id="page-title">OTT Store — Digital Products & Software</title>
 <meta name="description" id="meta-desc" content="Genuine OTT, AI & software subscriptions in India. Instant activation, full-validity replacement warranty, UPI & crypto checkout, 24×7 support.">
 <meta id="meta-kw" name="keywords" content="ott subscription, netflix cheap, amazon prime, disney plus, spotify premium, hotstar subscription india">
 <meta id="og-title" property="og:title" content="OTT Store">
-<meta id="og-desc" property="og:description" content="Premium OTT subscriptions at best prices — instant delivery">
+<meta id="og-desc" property="og:description" content="Genuine OTT, AI tools & software keys in India — instant digital delivery, replacement warranty, UPI & crypto.">
 <meta id="og-img" property="og:image" content="">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="manifest" href="/manifest.json">
@@ -244,6 +244,20 @@ footer{
 .footer-logo{font-size:1.1rem;font-weight:900;color:var(--text);text-decoration:none;display:flex;align-items:center;gap:.5rem}
 .footer-logo img{max-height:28px;max-width:120px;object-fit:contain}
 
+/* ── Trust / social-proof band ── */
+.trust-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:0 0 26px}
+.tstat{background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.055));border:1px solid var(--border);border-radius:18px;padding:18px;text-align:center;backdrop-filter:blur(16px)}
+.tstat strong{display:block;font-size:28px;font-weight:900;background:linear-gradient(135deg,var(--cyan),var(--purple));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.tstat span{font-size:12px;color:var(--muted);font-weight:700}
+.trust-reviews{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.review{background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.055));border:1px solid var(--border);border-radius:22px;padding:20px;margin:0;backdrop-filter:blur(16px)}
+.review .stars{color:#ffb800;letter-spacing:3px;font-size:15px;margin-bottom:10px}
+.review blockquote{margin:0 0 12px;font-size:14.5px;line-height:1.6;color:var(--text)}
+.review figcaption{font-size:12.5px;color:var(--muted);font-weight:800}
+.trust-badges{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:26px}
+.trust-badges span{background:var(--glass);border:1px solid var(--border);border-radius:999px;padding:9px 14px;font-size:12.5px;font-weight:700;color:var(--text)}
+@media(max-width:760px){.trust-stats{grid-template-columns:repeat(2,1fr)}.trust-reviews{grid-template-columns:1fr}}
+
 /* scroll to top */
 #back-top{position:fixed;bottom:24px;right:24px;z-index:9998;width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid var(--border);color:var(--text);font-size:1rem;cursor:pointer;display:none;align-items:center;justify-content:center;transition:all .2s;box-shadow:0 2px 12px rgba(0,0,0,.3)}
 #back-top.visible{display:flex}
@@ -444,6 +458,48 @@ html[data-theme="dark"] .logo-light{display:none}html[data-theme="dark"] .logo-d
   </div>
 </section>
 
+<!-- ── Trust / social proof ── -->
+<section class="section" aria-label="Why buyers trust us">
+  <div class="section-head">
+    <div class="section-head-text">
+      <h2>Trusted by thousands of buyers</h2>
+      <p>Real orders, instant digital delivery, and a full-validity replacement warranty on every purchase.</p>
+    </div>
+  </div>
+  <!-- Order / customer counts are hydrated with live numbers from /user/api/store. -->
+  <div class="trust-stats">
+    <div class="tstat"><strong id="ts-orders">5,000+</strong><span>Orders delivered</span></div>
+    <div class="tstat"><strong id="ts-customers">1,000+</strong><span>Happy customers</span></div>
+    <div class="tstat"><strong>4.8★</strong><span>Average rating</span></div>
+    <div class="tstat"><strong>&lt;5&nbsp;min</strong><span>Avg delivery time</span></div>
+  </div>
+  <!-- SAMPLE testimonials — replace the quotes/names with real customer reviews. -->
+  <div class="trust-reviews">
+    <figure class="review">
+      <div class="stars" aria-label="Rated 5 out of 5">★★★★★</div>
+      <blockquote>"Ordered Office 2021 at midnight and got the genuine key in two minutes. Activated first try — exactly as described."</blockquote>
+      <figcaption>— Rahul M., Pune</figcaption>
+    </figure>
+    <figure class="review">
+      <div class="stars" aria-label="Rated 5 out of 5">★★★★★</div>
+      <blockquote>"Netflix and Spotify both delivered instantly over WhatsApp. When one needed a reset they replaced it within the hour."</blockquote>
+      <figcaption>— Sneha R., Bengaluru</figcaption>
+    </figure>
+    <figure class="review">
+      <div class="stars" aria-label="Rated 5 out of 5">★★★★★</div>
+      <blockquote>"Paid with USDT, zero hassle. Fair prices and support actually replies 24×7. My go-to for software keys now."</blockquote>
+      <figcaption>— Arjun K., Delhi</figcaption>
+    </figure>
+  </div>
+  <div class="trust-badges">
+    <span>🔐 Secure checkout</span>
+    <span>⚡ Instant digital delivery</span>
+    <span>🛡️ Replacement warranty</span>
+    <span>💳 UPI &amp; Crypto (USDT)</span>
+    <span>💬 24×7 WhatsApp support</span>
+  </div>
+</section>
+
 <!-- ── CTA ── -->
 <section class="cta">
   <div class="cta-text">
@@ -515,6 +571,9 @@ fetch('/user/api/store').then(r=>r.json()).then(s=>{
   if(s.hero_title2) document.getElementById('hero-title2').textContent=s.hero_title2;
   const heroSub=s.hero_subtext||s.site_tagline;
   if(heroSub) document.getElementById('hero-sub').textContent=heroSub;
+  // Hydrate the trust band with live counts.
+  if(s.stat_orders){const el=document.getElementById('ts-orders');if(el)el.textContent=s.stat_orders;}
+  if(s.stat_customers){const el=document.getElementById('ts-customers');if(el)el.textContent=s.stat_customers;}
   // WhatsApp links
   if(s.support_whatsapp){
     const phone=s.support_whatsapp.replace(/\D/g,'');

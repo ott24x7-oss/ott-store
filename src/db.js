@@ -743,7 +743,7 @@ function seedLegalPages(db) {
 function seedDefaults(db) {
   const defaults = {
     site_name: 'OTT Store',
-    site_tagline: 'Premium OTT Subscriptions at Best Prices',
+    site_tagline: 'Premium digital products & software',
     hero_title: 'Premium digital products.',
     hero_title2: 'Delivered cinematic fast.',
     hero_subtext: 'Buy OTT, AI tools, cloud storage, software keys and productivity products with fast WhatsApp support, secure payments and clean account delivery.',
@@ -772,7 +772,7 @@ function seedDefaults(db) {
     usdt_trc20_enabled: '0',
     usdt_trc20_address: '',
     usdt_trc20_qr_url: '',
-    'seo_home_title': 'OTT Subscriptions Online – Netflix, Prime, Disney+',
+    'seo_home_title': 'Digital Products & Software — OTT, AI & Keys',
     'seo_home_desc': 'Genuine OTT, AI & software subscriptions in India. Instant activation, full-validity replacement warranty, UPI & crypto checkout, 24×7 support.',
     'seo_home_keywords': 'ott subscription, netflix, amazon prime, disney plus',
     'seo_og_image': '',
