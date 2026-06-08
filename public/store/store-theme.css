@@ -34,7 +34,7 @@
   --grad-3: #9b5cff;
 
   /* Semantic helpers */
-  --red-bg: rgba(255,43,79,.1);
+  --red-bg: rgba(43,111,255,.1);
   --green-bg: rgba(55,255,155,.1);
   --blue: #42e8ff;
   --blue-bg: rgba(66,232,255,.1);
@@ -79,7 +79,7 @@ a:hover { text-decoration: none; }
 body {
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background:
-    radial-gradient(circle at top left, rgba(255,43,79,.22), transparent 28%),
+    radial-gradient(circle at top left, rgba(43,111,255,.22), transparent 28%),
     radial-gradient(circle at 70% 20%, rgba(66,232,255,.16), transparent 30%),
     radial-gradient(circle at bottom right, rgba(155,92,255,.24), transparent 32%),
     var(--bg);
@@ -128,7 +128,7 @@ body::before { display: none !important; }
 }
 .btn-primary {
   background: linear-gradient(135deg, var(--red), var(--orange));
-  color: #fff; box-shadow: 0 8px 24px rgba(255,43,79,.3);
+  color: #fff; box-shadow: 0 8px 24px rgba(43,111,255,.3);
 }
 .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
 .btn-secondary {
@@ -164,7 +164,7 @@ body::before { display: none !important; }
 .badge-active   { color: #10b981; background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.25); }
 .badge-pending  { color: var(--yellow); background: var(--yellow-bg); border-color: rgba(245,158,11,.25); }
 .badge-expired,
-.badge-failed   { color: var(--red); background: var(--red-bg); border-color: rgba(255,43,79,.25); }
+.badge-failed   { color: var(--red); background: var(--red-bg); border-color: rgba(43,111,255,.25); }
 .badge-completed{ color: var(--green); background: var(--green-bg); border-color: rgba(55,255,155,.25); }
 
 /* ── Utilities ── */
@@ -355,7 +355,7 @@ header .brand-badge {
   border-radius: 10px !important;
   font-size: 1rem !important;
   transform: none !important;
-  box-shadow: 0 6px 18px rgba(255,43,79,.35), inset 0 1px 4px rgba(255,255,255,.3) !important;
+  box-shadow: 0 6px 18px rgba(43,111,255,.35), inset 0 1px 4px rgba(255,255,255,.3) !important;
 }
 header .brand-name { font-size: 1.15rem !important; }
 
@@ -386,13 +386,13 @@ header > nav > a:hover,
 nav.snav .snav-links > a:hover,
 header.my-nav .my-nav-links > a:hover {
   color: var(--text) !important;
-  background: rgba(255,43,79,.08) !important;
+  background: rgba(43,111,255,.08) !important;
   border-color: transparent !important;
   transform: none !important;
 }
 nav.snav .snav-links > a.active {
   color: var(--text) !important;
-  background: rgba(255,43,79,.12) !important;
+  background: rgba(43,111,255,.12) !important;
 }
 
 /* Right-side actions cluster (account / login / wallet / avatar) */
@@ -414,7 +414,7 @@ nav.snav .snav-login {
   padding: .45rem .9rem !important;
   border-radius: 999px !important;
   border: 0 !important;
-  box-shadow: 0 6px 18px rgba(255,43,79,.28) !important;
+  box-shadow: 0 6px 18px rgba(43,111,255,.28) !important;
   white-space: nowrap !important;
 }
 header > nav > a.nav-account:hover,
