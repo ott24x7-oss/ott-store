@@ -596,27 +596,27 @@
 /* Colors lifted from the MovieVerse preview file:                              */
 /*   gold #ffd36a · red #ff2a4d · purple #8d5cff · orange #ff8b22                */
 [data-store-theme="movieverse"] {
-  --th-bg: #04030a;
+  --th-bg: #050814;
   --th-hero-bg:
-    radial-gradient(circle at 15% 6%, rgba(255,42,77,.32), transparent 30%),
+    radial-gradient(circle at 15% 6%, rgba(43,111,255,.32), transparent 30%),
     radial-gradient(circle at 86% 14%, rgba(141,92,255,.26), transparent 30%),
     radial-gradient(circle at 50% 92%, rgba(255,211,106,.18), transparent 32%),
-    linear-gradient(180deg, #04030a 0%, #090716 55%, #03030a 100%);
+    linear-gradient(180deg, #050814 0%, #0b0f22 55%, #04060f 100%);
   --th-card: rgba(255,255,255,.08);
-  --th-card-solid: #0a0816;
+  --th-card-solid: #0a0c1a;
   --th-border: rgba(255,255,255,.16);
-  --th-accent: #ff2a4d;
-  --th-accent-end: #ff8b22;
+  --th-accent: #2b6fff;
+  --th-accent-end: #8d5cff;
   --th-accent-pop: #ffd36a;
-  --th-text: #fff8f2;
-  --th-muted: #bdb5c9;
+  --th-text: #f4f7ff;
+  --th-muted: #aab4cf;
   --th-glow: rgba(255,211,106,.35);
-  --th-btn: linear-gradient(135deg,#ff2a4d 0%,#ff8b22 100%);
-  --th-blob1: rgba(255,42,77,.20);
+  --th-btn: linear-gradient(135deg,#2b6fff 0%,#8d5cff 100%);
+  --th-blob1: rgba(43,111,255,.20);
   --th-blob2: rgba(141,92,255,.16);
   --th-blob3: rgba(255,211,106,.14);
-  --th-nav-bg: rgba(4,3,10,.66);
-  --th-badge-bg: linear-gradient(135deg,#ffd36a,#ff8b22);
+  --th-nav-bg: rgba(6,10,24,.66);
+  --th-badge-bg: linear-gradient(135deg,#ffd36a,#f0a51e);
   --th-stat-bg: rgba(255,255,255,.075);
   --th-step-bg: rgba(255,255,255,.065);
   --th-faq-bg: rgba(255,255,255,.05);
@@ -636,7 +636,7 @@
 [data-store-theme="movieverse"] .nav-account,
 [data-store-theme="movieverse"] .snav-login {
   color: #1b0d02 !important;
-  background: linear-gradient(135deg, #ffd36a, #ff8b22) !important;
+  background: linear-gradient(135deg, #ffd36a, #f0a51e) !important;
   box-shadow: 0 22px 60px rgba(255,211,106,.25) !important;
 }
 
@@ -644,26 +644,26 @@
 /* plans.html uses --st-* tokens (declared in store-theme.css). Remap them to
    the MovieVerse palette so the existing markup gets cinematic colors. */
 [data-store-theme="movieverse"] {
-  --st-bg:           #04030a;
+  --st-bg:           #050814;
   --st-card:         rgba(255,255,255,.08);
-  --st-card-solid:   #0a0816;
+  --st-card-solid:   #0a0c1a;
   --st-border:       rgba(255,255,255,.16);
-  --st-accent:       #ff2a4d;
-  --st-accent-end:   #ff8b22;
-  --st-text:         #fff8f2;
-  --st-muted:        #bdb5c9;
-  --st-btn:          linear-gradient(135deg,#ff2a4d 0%,#ff8b22 100%);
-  --st-nav:          rgba(4,3,10,.66);
+  --st-accent:       #2b6fff;
+  --st-accent-end:   #8d5cff;
+  --st-text:         #f4f7ff;
+  --st-muted:        #aab4cf;
+  --st-btn:          linear-gradient(135deg,#2b6fff 0%,#8d5cff 100%);
+  --st-nav:          rgba(6,10,24,.66);
   /* re-tint store-theme.css base tokens too */
-  --bg:              #04030a;
-  --text:            #fff8f2;
-  --muted:           #bdb5c9;
-  --red:             #ff2a4d;
-  --orange:          #ff8b22;
+  --bg:              #050814;
+  --text:            #f4f7ff;
+  --muted:           #aab4cf;
+  --red:             #2b6fff;
+  --orange:          #8d5cff;
   --purple:          #8d5cff;
-  --header-bg:       rgba(4,3,10,.72);
+  --header-bg:       rgba(6,10,24,.72);
   --card:            rgba(255,255,255,.08);
-  --card-solid:      #0a0816;
+  --card-solid:      #0a0c1a;
   --border:          rgba(255,255,255,.16);
   --glass:           rgba(255,255,255,.075);
   --glass2:          rgba(255,255,255,.12);
@@ -673,10 +673,10 @@
    with a gold/red/purple cinema gradient. */
 [data-store-theme="movieverse"] body {
   background:
-    radial-gradient(circle at 15% 6%,  rgba(255,42,77,.32),  transparent 30%),
+    radial-gradient(circle at 15% 6%,  rgba(43,111,255,.32),  transparent 30%),
     radial-gradient(circle at 86% 14%, rgba(141,92,255,.26), transparent 30%),
     radial-gradient(circle at 50% 92%, rgba(255,211,106,.18), transparent 32%),
-    linear-gradient(180deg,#04030a 0%, #090716 55%, #03030a 100%) !important;
+    linear-gradient(180deg,#050814 0%, #0b0f22 55%, #04060f 100%) !important;
 }
 
 /* Plans grid: poster-style cards on plans.html.
@@ -699,7 +699,7 @@
 [data-store-theme="movieverse"] .plan-price,
 [data-store-theme="movieverse"] .price,
 [data-store-theme="movieverse"] .grad-text {
-  background: linear-gradient(135deg,#ffd36a,#ff8b22) !important;
+  background: linear-gradient(135deg,#ffd36a,#f0a51e) !important;
   -webkit-background-clip: text !important;
           background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
@@ -707,8 +707,8 @@
 /* Buy / primary buttons stay red→orange (already correct via --th-btn) but force the gradient on .btn.primary too */
 [data-store-theme="movieverse"] .btn.primary,
 [data-store-theme="movieverse"] .btn-primary {
-  background: linear-gradient(135deg,#ff2a4d,#ff8b22) !important;
-  box-shadow: 0 22px 60px rgba(255,42,77,.35) !important;
+  background: linear-gradient(135deg,#2b6fff,#8d5cff) !important;
+  box-shadow: 0 22px 60px rgba(43,111,255,.35) !important;
   color: #fff !important;
 }
 
@@ -716,12 +716,12 @@
 /* my.html uses --header-bg / --card / --grad-1 / --grad-2 / --grad-3 tokens.
    The token remaps above cover most; the gradients need explicit re-aliasing. */
 [data-store-theme="movieverse"] {
-  --grad-1: #ff2a4d;
-  --grad-2: #ff8b22;
+  --grad-1: #2b6fff;
+  --grad-2: #8d5cff;
   --grad-3: #8d5cff;
 }
 [data-store-theme="movieverse"] .dash-hero {
-  background: radial-gradient(circle at 14% 20%, rgba(255,42,77,.30), transparent 40%),
+  background: radial-gradient(circle at 14% 20%, rgba(43,111,255,.30), transparent 40%),
               radial-gradient(circle at 86% 16%, rgba(255,211,106,.20), transparent 40%),
               rgba(255,255,255,.06) !important;
   border: 1px solid rgba(255,255,255,.16) !important;
@@ -740,24 +740,24 @@
 /* ── MovieVerse overrides for server-rendered legal / blog / about /
    contact / privacy / terms / refund pages (uses --sp-* tokens) ───────────── */
 [data-store-theme="movieverse"] {
-  --sp-bg:       #04030a;
+  --sp-bg:       #050814;
   --sp-card:     rgba(255,255,255,.08);
   --sp-card2:    rgba(255,255,255,.12);
   --sp-border:   rgba(255,255,255,.16);
-  --sp-text:     #fff8f2;
-  --sp-muted:    #bdb5c9;
-  --sp-nav:      rgba(4,3,10,.78);
-  --sp-accent:   #ff2a4d;
-  --sp-accent2:  #ff8b22;
-  --sp-btn:      linear-gradient(135deg,#ff2a4d,#ff8b22);
+  --sp-text:     #f4f7ff;
+  --sp-muted:    #aab4cf;
+  --sp-nav:      rgba(6,10,24,.78);
+  --sp-accent:   #2b6fff;
+  --sp-accent2:  #8d5cff;
+  --sp-btn:      linear-gradient(135deg,#2b6fff,#8d5cff);
 }
 /* Cinematic background gradient for those server-rendered pages too */
 [data-store-theme="movieverse"] body {
   background:
-    radial-gradient(circle at 15% 6%,  rgba(255,42,77,.32),  transparent 30%),
+    radial-gradient(circle at 15% 6%,  rgba(43,111,255,.32),  transparent 30%),
     radial-gradient(circle at 86% 14%, rgba(141,92,255,.26), transparent 30%),
     radial-gradient(circle at 50% 92%, rgba(255,211,106,.18), transparent 32%),
-    linear-gradient(180deg,#04030a 0%, #090716 55%, #03030a 100%) !important;
+    linear-gradient(180deg,#050814 0%, #0b0f22 55%, #04060f 100%) !important;
 }
 /* Legal / About / Contact / Privacy / Terms / Refund — glass document card */
 [data-store-theme="movieverse"] .legal-page,
@@ -772,7 +772,7 @@
 }
 [data-store-theme="movieverse"] .legal-page h1,
 [data-store-theme="movieverse"] .blog-post-page h1 {
-  background: linear-gradient(135deg,#ffd36a,#ff8b22) !important;
+  background: linear-gradient(135deg,#ffd36a,#f0a51e) !important;
   -webkit-background-clip: text !important;
           background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
@@ -780,7 +780,7 @@
 }
 [data-store-theme="movieverse"] .legal-body,
 [data-store-theme="movieverse"] .blog-body { color: #ddd2e5; }
-[data-store-theme="movieverse"] .legal-updated { color: #bdb5c9; font-size: .8rem; opacity: .7; margin-bottom: 1.25rem; }
+[data-store-theme="movieverse"] .legal-updated { color: #aab4cf; font-size: .8rem; opacity: .7; margin-bottom: 1.25rem; }
 /* Blog grid → poster-style cards */
 [data-store-theme="movieverse"] .blog-card {
   background: linear-gradient(180deg, rgba(255,255,255,.085), rgba(255,255,255,.04)) !important;
@@ -789,9 +789,9 @@
 }
 [data-store-theme="movieverse"] .blog-card:hover {
   border-color: rgba(255,211,106,.4) !important;
-  box-shadow: 0 18px 50px rgba(255,42,77,.22) !important;
+  box-shadow: 0 18px 50px rgba(43,111,255,.22) !important;
 }
-[data-store-theme="movieverse"] .blog-card h2 a { color: #fff8f2 !important; }
+[data-store-theme="movieverse"] .blog-card h2 a { color: #f4f7ff !important; }
 [data-store-theme="movieverse"] .blog-page-header h1 {
   background: linear-gradient(90deg,#fff,#ffd36a 50%,#fff) !important;
   -webkit-background-clip: text !important;
@@ -800,19 +800,19 @@
 }
 /* sp-nav (the shared header on legal/blog/about/contact pages) */
 [data-store-theme="movieverse"] .sp-nav {
-  background: rgba(4,3,10,.78) !important;
+  background: rgba(6,10,24,.78) !important;
   border-bottom: 1px solid rgba(255,255,255,.12) !important;
 }
 [data-store-theme="movieverse"] .sp-logo,
 [data-store-theme="movieverse"] .sp-footer-brand {
-  background: linear-gradient(135deg,#ffd36a,#ff8b22) !important;
+  background: linear-gradient(135deg,#ffd36a,#f0a51e) !important;
   -webkit-background-clip: text !important;
           background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
 }
 [data-store-theme="movieverse"] .sp-links .sp-cta {
-  background: linear-gradient(135deg,#ff2a4d,#ff8b22) !important;
-  box-shadow: 0 8px 24px rgba(255,42,77,.32) !important;
+  background: linear-gradient(135deg,#2b6fff,#8d5cff) !important;
+  box-shadow: 0 8px 24px rgba(43,111,255,.32) !important;
 }
 
 /* ── MovieVerse overrides for /my SPA — auth, dashboard, orders, checkout ── */
@@ -824,8 +824,8 @@
   backdrop-filter: blur(22px);
 }
 [data-store-theme="movieverse"] .my-auth-logo .al-icon {
-  background: linear-gradient(135deg,#ff2a4d,#ffd36a) !important;
-  box-shadow: 0 18px 50px rgba(255,42,77,.35), inset 0 2px 14px rgba(255,255,255,.3) !important;
+  background: linear-gradient(135deg,#2b6fff,#ffd36a) !important;
+  box-shadow: 0 18px 50px rgba(43,111,255,.35), inset 0 2px 14px rgba(255,255,255,.3) !important;
 }
 [data-store-theme="movieverse"] .mam-btn.active,
 [data-store-theme="movieverse"] .my-tab-btn.active {
@@ -846,7 +846,7 @@
   transform: translateY(-3px);
 }
 [data-store-theme="movieverse"] .my-qa-icon-wrap {
-  background: linear-gradient(135deg,#ff2a4d,#ff8b22) !important;
+  background: linear-gradient(135deg,#2b6fff,#8d5cff) !important;
 }
 /* Order rows + plan tiles inside /my */
 [data-store-theme="movieverse"] .my-order,
@@ -865,7 +865,7 @@
 [data-store-theme="movieverse"] textarea.form-input {
   background: rgba(255,255,255,.06) !important;
   border: 1.5px solid rgba(255,255,255,.18) !important;
-  color: #fff8f2 !important;
+  color: #f4f7ff !important;
 }
 [data-store-theme="movieverse"] .form-input:focus {
   border-color: #ffd36a !important;
@@ -880,18 +880,18 @@
 /* Modal needs a solid, opaque base so page content can't bleed through and
    kill text contrast. The cinema gradient sits ON TOP of the solid base. */
 [data-store-theme="movieverse"] .modal {
-  background: #0a0816 linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02)) !important;
+  background: #0a0c1a linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02)) !important;
   border: 1px solid rgba(255,211,106,.22) !important;
   border-radius: 28px !important;
   box-shadow: 0 34px 100px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.04) inset !important;
-  color: #fff8f2 !important;
+  color: #f4f7ff !important;
 }
 [data-store-theme="movieverse"] .modal-header h3,
 [data-store-theme="movieverse"] .modal-body,
 [data-store-theme="movieverse"] .modal-body div,
 [data-store-theme="movieverse"] .modal-body span,
 [data-store-theme="movieverse"] .modal-body strong,
-[data-store-theme="movieverse"] .modal-body p { color: #fff8f2 !important; }
+[data-store-theme="movieverse"] .modal-body p { color: #f4f7ff !important; }
 [data-store-theme="movieverse"] .modal-body div[style*="color:var(--muted)"],
 [data-store-theme="movieverse"] .modal-body span[style*="color:var(--muted)"] {
   color: #c9c2d9 !important;
@@ -900,7 +900,7 @@
 [data-store-theme="movieverse"] .modal-footer .btn-secondary {
   background: rgba(255,255,255,.10) !important;
   border: 1px solid rgba(255,255,255,.18) !important;
-  color: #fff8f2 !important;
+  color: #f4f7ff !important;
 }
 [data-store-theme="movieverse"] .modal-footer .btn-secondary:hover {
   background: rgba(255,211,106,.18) !important;
@@ -923,8 +923,8 @@
   color: #ffe9b3 !important;
 }
 [data-store-theme="movieverse"] .alert-error {
-  background: rgba(255,42,77,.14) !important;
-  border: 1px solid rgba(255,42,77,.4) !important;
+  background: rgba(43,111,255,.14) !important;
+  border: 1px solid rgba(43,111,255,.4) !important;
   color: #ffd0d5 !important;
 }
 /* Badges */
@@ -941,9 +941,9 @@
 }
 [data-store-theme="movieverse"] .badge-expired,
 [data-store-theme="movieverse"] .badge-failed {
-  background: rgba(255,42,77,.14) !important;
+  background: rgba(43,111,255,.14) !important;
   color: #ff7b92 !important;
-  border-color: rgba(255,42,77,.32) !important;
+  border-color: rgba(43,111,255,.32) !important;
 }
 /* Toasts */
 [data-store-theme="movieverse"] .toast {
