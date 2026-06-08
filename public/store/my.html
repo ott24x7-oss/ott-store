@@ -94,6 +94,8 @@ html[data-theme="dark"] .my-logo .logo-dark{display:block}
 /* WA 1-tap button */
 .my-wa-btn{display:flex;align-items:center;justify-content:center;gap:.6rem;width:100%;background:linear-gradient(135deg,#25D366,#128C7E);color:#fff;border:none;border-radius:12px;padding:.85rem 1rem;font-size:.95rem;font-weight:700;cursor:pointer;transition:all .2s;box-shadow:0 4px 14px rgba(37,211,102,.35);margin-bottom:1rem}
 .my-wa-btn:hover{opacity:.9;transform:translateY(-1px)}
+.my-tg-btn{display:flex;align-items:center;justify-content:center;gap:.6rem;width:100%;background:linear-gradient(135deg,#2aabee,#229ed9);color:#fff;border:none;border-radius:12px;padding:.85rem 1rem;font-size:.95rem;font-weight:700;cursor:pointer;transition:all .2s;box-shadow:0 4px 14px rgba(34,158,217,.38);margin-bottom:1rem}
+.my-tg-btn:hover{opacity:.92;transform:translateY(-1px)}
 
 /* Or divider */
 .my-or{display:flex;align-items:center;gap:.75rem;color:var(--muted);font-size:.8rem;font-weight:600;margin:.9rem 0}
@@ -563,14 +565,14 @@ function renderAuth(initMethod, msgHtml){
       <h1>Welcome to <span id="al-name">${esc(STORE.site_name||'OTT Store')}</span></h1>
       <p>Sign in to access your subscriptions</p>
     </div>
-    ${waEnabled?`<a class="my-wa-btn" id="wa-1tap-btn" href="#" rel="noopener" style="text-decoration:none">
-      <span style="font-size:1.3rem">💬</span>
-      <span>1-Tap WhatsApp Login</span>
+    ${STORE.telegram_bot_url?`<a class="my-tg-btn" href="${esc(STORE.telegram_bot_url)}" target="_blank" rel="noopener" style="text-decoration:none">
+      <span style="font-size:1.3rem">✈️</span>
+      <span>Buy on Telegram Bot</span>
     </a>
     <p style="font-size:.72rem;color:var(--muted);text-align:center;margin:.35rem 0 .25rem;line-height:1.4">
-      Opens WhatsApp · Send the pre-filled message · We reply with your login link
+      ⚡ Instant auto-delivery · Pay with UPI or USDT · No sign-up needed
     </p>
-    <div class="my-or">— OR CHOOSE METHOD —</div>`:''}
+    <div class="my-or">— OR SIGN IN BELOW —</div>`:''}
     <div class="my-auth-methods" id="auth-methods">
       <button class="mam-btn${method==='otp'?' active':''}" onclick="setMethod('otp')">📱 OTP</button>
       <button class="mam-btn${method==='password'?' active':''}" onclick="setMethod('password')">🔑 Password</button>
@@ -583,25 +585,6 @@ function renderAuth(initMethod, msgHtml){
     By signing in you agree to our <a href="/terms">Terms</a> &amp; <a href="/privacy">Privacy Policy</a>
   </p>
 </div>`);
-  // Wire the 1-Tap WhatsApp Login button: opens wa.me to the brand's bot
-  // number with a pre-filled "Help me login to <Brand>" message. The bot's
-  // processIncomingWA hook in src/wa-bot.js detects that phrase and replies
-  // with a 10-minute magic-link.
-  const wa1tap=document.getElementById('wa-1tap-btn');
-  if(wa1tap){
-    // Prefer the bot's own number (it auto-replies the magic link); only fall
-    // back to the human support line if no bot number is known.
-    const botPhone=String(STORE.wa_bot_number||STORE.support_whatsapp||'').replace(/\D/g,'');
-    const brand=STORE.site_name||'OTT Store';
-    if(botPhone){
-      const text=`Help me login to ${brand}`;
-      wa1tap.href=`https://wa.me/${botPhone}?text=${encodeURIComponent(text)}`;
-      wa1tap.target='_blank';
-    }else{
-      // No bot number configured — fall back to the manual phone-input form
-      wa1tap.addEventListener('click',e=>{e.preventDefault();setMethod('whatsapp');});
-    }
-  }
   setMethod(method);
 }
 
