@@ -325,6 +325,10 @@ let _visible=PAGE_SIZE;
 // Store config
 fetch('/user/api/store').then(r=>r.json()).then(s=>{
   STORE=s;
+  // The plans grid may have rendered before this (slower) fetch resolved; re-render
+  // so STORE-dependent bits — the USDT estimate and the Telegram CTA — appear
+  // regardless of which fetch finishes first.
+  if(ALL_PLANS.length) renderPlans();
   if(s.logo_light_url||s.logo_dark_url){
     const light=s.logo_light_url||s.logo_dark_url, dark=s.logo_dark_url||s.logo_light_url;
     document.getElementById('nav-logo').innerHTML=`<img src="${light}" class="logo-light" alt="${s.site_name||'Logo'}"><img src="${dark}" class="logo-dark" alt="${s.site_name||'Logo'}">`;
@@ -597,6 +601,10 @@ function renderPlans(){
       const plan=ALL_PLANS.find(p=>p.id===Number(btn.dataset.id));
       if(plan)openProductDetail(plan);
     });
+  });
+  // The Telegram CTA is a real link — let it open the bot without also opening the detail modal.
+  grid.querySelectorAll('.splan-tg').forEach(a=>{
+    a.addEventListener('click',e=>e.stopPropagation());
   });
   grid.querySelectorAll('.splan-link').forEach(a=>{
     a.addEventListener('click',e=>{
