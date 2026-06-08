@@ -12,6 +12,8 @@ const { audit } = require('./audit');
 const { submitUrls, pingSitemap } = require('./google-index');
 const { sendOrderDelivery, sendMail } = require('./mailer');
 const { buildXlsx, parseXlsx } = require('./xlsx');
+const totp = require('./totp');
+const crypto = require('crypto');
 
 const router = express.Router();
 
@@ -62,9 +64,83 @@ router.post('/login', loginLimiter, async (req, res) => {
       recordFailedLogin('admin');
       return res.status(401).json({ error: 'Invalid password' });
     }
+    // Second factor (TOTP). Off by default; once enabled, a valid 6-digit code or a
+    // one-time backup code is required. DISABLE_2FA=1 env is an emergency escape.
+    if ((await getSetting('admin_2fa_enabled')) === '1' && process.env.DISABLE_2FA !== '1') {
+      const otp = req.body.token;
+      if (!otp) return res.status(401).json({ error: '2FA code required', twofa: true });
+      const secret = await getSetting('admin_2fa_secret');
+      const okOtp = totp.verify(otp, secret, 1) || await consumeBackupCode(otp);
+      if (!okOtp) { recordFailedLogin('admin'); return res.status(401).json({ error: 'Invalid 2FA code', twofa: true }); }
+    }
     clearFailedLogin('admin');
     setAdminCookie(res);
     await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'login', ip: req.ip });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Admin two-factor auth (TOTP — Google Authenticator / Authy) ──────────────
+function hashBackupCode(code) { return crypto.createHash('sha256').update(String(code)).digest('hex'); }
+async function consumeBackupCode(code) {
+  const raw = await getSetting('admin_2fa_backup');
+  if (!raw) return false;
+  let arr; try { arr = JSON.parse(raw); } catch { return false; }
+  const h = hashBackupCode(String(code || '').replace(/\s/g, '').toLowerCase());
+  const idx = arr.indexOf(h);
+  if (idx === -1) return false;
+  arr.splice(idx, 1);                                  // one-time use
+  await setSetting('admin_2fa_backup', JSON.stringify(arr));
+  return true;
+}
+
+router.get('/2fa/status', requireAdmin, async (req, res) => {
+  try {
+    const enabled = (await getSetting('admin_2fa_enabled')) === '1';
+    let backupLeft = 0;
+    if (enabled) { try { backupLeft = JSON.parse((await getSetting('admin_2fa_backup')) || '[]').length; } catch {} }
+    res.json({ enabled, backupLeft });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Begin enrollment: mint a fresh (pending) secret and return a QR to scan.
+router.post('/2fa/setup', requireAdmin, async (req, res) => {
+  try {
+    if ((await getSetting('admin_2fa_enabled')) === '1') return res.status(400).json({ error: '2FA is already on. Turn it off first to re-enroll.' });
+    const secret = totp.generateSecret();
+    const siteName = (await getSetting('site_name')) || 'OTT24x7';
+    const uri = totp.keyuri(secret, 'admin', `${siteName} Admin`);
+    const qr = await require('qrcode').toDataURL(uri, { width: 240, margin: 1 });
+    await setSetting('admin_2fa_secret', secret);      // pending until /2fa/enable confirms a code
+    res.json({ secret, otpauth: uri, qr });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Confirm a code → activate 2FA, return one-time backup codes (shown once).
+router.post('/2fa/enable', requireAdmin, async (req, res) => {
+  try {
+    const secret = await getSetting('admin_2fa_secret');
+    if (!secret) return res.status(400).json({ error: 'Start setup first.' });
+    if (!totp.verify(req.body.token, secret, 1)) return res.status(400).json({ error: 'Invalid code — check your phone clock and enter the current 6-digit code.' });
+    const codes = Array.from({ length: 8 }, () => crypto.randomBytes(5).toString('hex'));
+    await setSetting('admin_2fa_backup', JSON.stringify(codes.map(c => hashBackupCode(c))));
+    await setSetting('admin_2fa_enabled', '1');
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: '2fa_enabled', ip: req.ip });
+    res.json({ ok: true, backupCodes: codes });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Turn off 2FA — requires a current code or a backup code.
+router.post('/2fa/disable', requireAdmin, async (req, res) => {
+  try {
+    if ((await getSetting('admin_2fa_enabled')) !== '1') { await setSetting('admin_2fa_secret', ''); return res.json({ ok: true }); }
+    const secret = await getSetting('admin_2fa_secret');
+    const ok = totp.verify(req.body.token, secret, 1) || await consumeBackupCode(req.body.token);
+    if (!ok) return res.status(400).json({ error: 'Enter a current 6-digit code (or a backup code) to turn off 2FA.' });
+    await setSetting('admin_2fa_enabled', '0');
+    await setSetting('admin_2fa_secret', '');
+    await setSetting('admin_2fa_backup', '');
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: '2fa_disabled', ip: req.ip });
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

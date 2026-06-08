@@ -226,18 +226,40 @@ function renderLogin() {
     <div class="form-group"><label class="form-label">Password</label>
       <input class="form-input" id="admin-pass" type="password" placeholder="Admin password" autofocus required>
     </div>
+    <div class="form-group" id="admin-2fa-row" style="display:none"><label class="form-label">2FA Code</label>
+      <input class="form-input" id="admin-2fa" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code (or backup code)">
+    </div>
     <button type="submit" class="btn btn-primary btn-block">Login</button>
   </form>
 </div>`;
+  // Uses fetch directly (not api()) because api() force-renders the login screen on
+  // any 401 — which would wipe the 2FA field mid-flow.
   document.getElementById('admin-login-form').onsubmit = async e => {
     e.preventDefault();
     const err = document.getElementById('login-err');
+    const body = { password: document.getElementById('admin-pass').value };
+    const otpEl = document.getElementById('admin-2fa');
+    if (otpEl && otpEl.value.trim()) body.token = otpEl.value.trim();
     try {
-      await api('/login', { method: 'POST', body: JSON.stringify({ password: document.getElementById('admin-pass').value }) });
-      loginEl.style.display = 'none';
-      document.getElementById('admin-wrap').style.display = '';
-      initAdmin();
-    } catch (ex) { err.innerHTML = `<div class="alert alert-error">${esc(ex.message)}</div>`; }
+      const headers = { 'Content-Type': 'application/json' };
+      const ctok = getCsrfToken();
+      if (ctok) headers['X-CSRF-Token'] = ctok;
+      const res = await fetch('/admin/api/login', { method: 'POST', credentials: 'include', headers, body: JSON.stringify(body) });
+      const j = await res.json().catch(() => ({}));
+      if (res.ok) {
+        loginEl.style.display = 'none';
+        document.getElementById('admin-wrap').style.display = '';
+        initAdmin();
+        return;
+      }
+      if (j.twofa) {
+        document.getElementById('admin-2fa-row').style.display = '';
+        if (otpEl) otpEl.focus();
+        err.innerHTML = `<div class="alert alert-info">${esc(j.error || 'Enter the 6-digit code from your authenticator app.')}</div>`;
+      } else {
+        err.innerHTML = `<div class="alert alert-error">${esc(j.error || 'Login failed')}</div>`;
+      }
+    } catch (ex) { err.innerHTML = `<div class="alert alert-error">${esc(ex.message || 'Network error')}</div>`; }
   };
 }
 
@@ -2604,6 +2626,11 @@ views.settings = async function () {
   </form>
 </div>
 <div class="card">
+  <div style="font-weight:700;margin-bottom:.25rem">Two-Factor Authentication (2FA)</div>
+  <p class="muted" style="font-size:.83rem;margin:0 0 .75rem">Require a 6-digit code from Google Authenticator / Authy at admin login — strongly recommended.</p>
+  <div id="twofa-box"><div class="spinner" style="width:22px;height:22px"></div></div>
+</div>
+<div class="card">
   <div style="font-weight:700;margin-bottom:.75rem">SMTP Email</div>
   <form id="smtp-form" style="display:flex;flex-direction:column;gap:.75rem">
   <div id="smtp-msg"></div>
@@ -2646,6 +2673,61 @@ views.settings = async function () {
         setTimeout(() => msg.innerHTML = '', 2500);
       } catch (ex) { msg.innerHTML = `<div class="alert alert-error">${esc(ex.message)}</div>`; }
     };
+
+    // ── Two-Factor Authentication card ──
+    const GLASS = 'rgba(125,135,170,.14)';
+    async function render2fa() {
+      const box = document.getElementById('twofa-box');
+      if (!box) return;
+      let st; try { st = await api('/2fa/status'); } catch (e) { box.innerHTML = `<div class="alert alert-error">${esc(e.message)}</div>`; return; }
+      if (st.enabled) {
+        box.innerHTML = `
+<div class="alert alert-success" style="margin-bottom:.75rem">✓ 2FA is ON — admin login now requires a code. Backup codes left: <b>${st.backupLeft}</b></div>
+<div class="form-group"><label class="form-label">Turn off (enter a current code or a backup code)</label>
+  <input class="form-input" id="twofa-disable-code" inputmode="numeric" autocomplete="off" placeholder="6-digit or backup code" style="max-width:260px"></div>
+<button class="btn btn-secondary btn-sm" id="twofa-disable-btn">Disable 2FA</button>
+<div id="twofa-msg" style="margin-top:.5rem"></div>`;
+        document.getElementById('twofa-disable-btn').onclick = async () => {
+          const code = document.getElementById('twofa-disable-code').value.trim();
+          const m = document.getElementById('twofa-msg');
+          try { await api('/2fa/disable', { method: 'POST', body: JSON.stringify({ token: code }) }); render2fa(); }
+          catch (e) { m.innerHTML = `<div class="alert alert-error">${esc(e.message)}</div>`; }
+        };
+      } else {
+        box.innerHTML = `<button class="btn btn-primary btn-sm" id="twofa-setup-btn">Enable 2FA</button><div id="twofa-setup-box" style="margin-top:.75rem"></div>`;
+        document.getElementById('twofa-setup-btn').onclick = async () => {
+          const wrap = document.getElementById('twofa-setup-box');
+          wrap.innerHTML = '<div class="spinner" style="width:20px;height:20px"></div>';
+          let r; try { r = await api('/2fa/setup', { method: 'POST' }); } catch (e) { wrap.innerHTML = `<div class="alert alert-error">${esc(e.message)}</div>`; return; }
+          wrap.innerHTML = `
+<div style="display:flex;gap:1.1rem;flex-wrap:wrap;align-items:flex-start">
+  <img src="${r.qr}" alt="2FA QR code" style="width:170px;height:170px;border-radius:10px;background:#fff;padding:6px">
+  <div style="flex:1;min-width:210px">
+    <p style="font-size:.83rem;margin:0 0 .4rem"><b>1.</b> Scan the QR in <b>Google Authenticator</b> / <b>Authy</b>, or type this key:</p>
+    <code style="display:block;word-break:break-all;background:${GLASS};padding:.5rem;border-radius:6px;font-size:.78rem;margin-bottom:.75rem">${esc(r.secret)}</code>
+    <p style="font-size:.83rem;margin:0 0 .4rem"><b>2.</b> Enter the 6-digit code it shows:</p>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+      <input class="form-input" id="twofa-confirm" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" style="max-width:150px">
+      <button class="btn btn-primary btn-sm" id="twofa-confirm-btn">Verify &amp; Enable</button>
+    </div>
+  </div>
+</div>
+<div id="twofa-confirm-msg" style="margin-top:.5rem"></div>`;
+          document.getElementById('twofa-confirm-btn').onclick = async () => {
+            const code = document.getElementById('twofa-confirm').value.trim();
+            const cm = document.getElementById('twofa-confirm-msg');
+            let res; try { res = await api('/2fa/enable', { method: 'POST', body: JSON.stringify({ token: code }) }); }
+            catch (e) { cm.innerHTML = `<div class="alert alert-error">${esc(e.message)}</div>`; return; }
+            wrap.innerHTML = `
+<div class="alert alert-success">✓ 2FA enabled! Save these <b>backup codes</b> — each works once if you lose your phone:</div>
+<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:.4rem;font-family:monospace;font-size:.95rem;background:${GLASS};padding:.75rem;border-radius:8px;margin:.5rem 0">${res.backupCodes.map(c => `<div>${esc(c)}</div>`).join('')}</div>
+<button class="btn btn-secondary btn-sm" id="twofa-done-btn">I've saved them — Done</button>`;
+            document.getElementById('twofa-done-btn').onclick = () => render2fa();
+          };
+        };
+      }
+    }
+    render2fa();
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };
 

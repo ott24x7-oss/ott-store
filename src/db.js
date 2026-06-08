@@ -784,6 +784,7 @@ function seedDefaults(db) {
     'seo_bing_verification': '',
     admin_2fa_enabled: '0',
     admin_2fa_secret: '',
+    admin_2fa_backup: '',
     google_index_credentials: '',
     imap_enabled: '0',
     imap_host: 'imap.gmail.com',
