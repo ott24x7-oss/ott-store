@@ -105,7 +105,7 @@ router.get('/store', noStoreCache, async (req, res) => {
     const db = await getDb();
     const rows = all(db, `SELECT key, value FROM settings WHERE key IN
       ('site_name','site_tagline','hero_title','hero_title2','hero_subtext','logo_url','logo_light_url','logo_dark_url','announcement','upi_id','upi_name',
-       'support_whatsapp','support_email','wa_bot_number',
+       'support_whatsapp','support_email','wa_bot_number','telegram_bot_url',
        'pwa_force_prompt','vapid_public_key','store_theme','wa_enabled','imap_enabled',
        'usdt_inr_rate','usdt_fee_pct','usdt_payment_window_minutes',
        'usdt_binance_enabled','usdt_binance_uid','usdt_binance_qr_url',

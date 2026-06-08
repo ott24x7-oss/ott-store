@@ -413,6 +413,7 @@ app.get('/plans/:slug', async (req, res) => {
     const titleText = `${platPrefix}${plan.name} | ${siteName}`;
     const descText = `Buy ${platPrefix}${plan.name} at ${siteName} — ₹${Number(plan.price_inr).toLocaleString('en-IN')}. ${plan.delivery_type === 'instant' ? 'Instant digital delivery.' : 'Fast digital delivery.'}`;
     const ogImg = plan.image_url || (await getSetting('seo_og_image')) || '';
+    const tgUrl = (await getSetting('telegram_bot_url')) || '';
     // Thin / flagged variant pages get noindex,follow so clusters of near-duplicate
     // keys don't dilute the domain. They're also excluded from the sitemap.
     const noindex = Number(plan.noindex) === 1 || !plan.description || plan.description.trim() === '';
@@ -440,7 +441,7 @@ app.get('/plans/:slug', async (req, res) => {
     // the page's single H1 (C1).
     html = html
       .replace('<h1>Browse All <span>Subscriptions</span></h1>', '<h2>Browse All <span>Subscriptions</span></h2>')
-      .replace('<!-- Page Header -->', `${buildProductHero(plan)}\n<!-- Page Header -->`);
+      .replace('<!-- Page Header -->', `${buildProductHero(plan, tgUrl)}\n<!-- Page Header -->`);
     res.type('text/html').send(html);
   } catch (e) {
     res.sendFile(path.join(__dirname, '..', 'public', 'store', 'plans.html'));
@@ -824,7 +825,7 @@ function productDur(p) {
 // description, features, breadcrumb, and Login/Guest checkout CTAs. This is what
 // makes each /plans/:slug a real, indexable product page instead of a duplicate
 // of the catalog.
-function buildProductHero(p) {
+function buildProductHero(p, tgUrl) {
   let features = [];
   try { features = JSON.parse(p.features || '[]'); } catch {}
   if (!Array.isArray(features)) features = [];
@@ -858,6 +859,7 @@ function buildProductHero(p) {
         <a class="splan-btn" id="ph-login" href="/my?buy=${p.id}" onclick="try{localStorage.setItem('pendingBuyPlanId','${p.id}')}catch(e){}" style="width:auto;padding:.7rem 1.25rem;text-decoration:none;display:inline-block">🔐 Login to Checkout</a>
         <button class="splan-btn" id="ph-guest" ${oos ? 'disabled' : ''} style="width:auto;padding:.7rem 1.25rem;background:linear-gradient(135deg,#7c3aed,#6d28d9)">📧 Guest Checkout</button>
       </div>
+      ${tgUrl ? `<a class="splan-tg" href="${esc(tgUrl)}" target="_blank" rel="noopener" style="display:inline-flex;width:auto;margin-top:.75rem">✈️ Buy on our Telegram bot — instant auto-delivery (UPI &amp; USDT)</a>` : ''}
     </div>
   </div>
   ${p.description ? `<p style="color:var(--st-muted);font-size:.92rem;line-height:1.6;margin:1.1rem 0 0">${esc(p.description)}</p>` : ''}

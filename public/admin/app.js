@@ -2025,6 +2025,7 @@ views.mystore = async function () {
   <div id="store-msg"></div>
   <div class="form-group"><label class="form-label">Store Name</label><input class="form-input" name="site_name" value="${esc(s.site_name||'')}"></div>
   <div class="form-group"><label class="form-label">Tagline</label><input class="form-input" name="site_tagline" value="${esc(s.site_tagline||'')}"></div>
+  <div class="form-group"><label class="form-label">Telegram Bot URL <span class="muted">(shown as a CTA under every product Buy button — leave blank to hide)</span></label><input class="form-input" name="telegram_bot_url" value="${esc(s.telegram_bot_url||'')}" placeholder="https://t.me/your_bot"></div>
   <div class="card" style="padding:1rem;border:1px dashed var(--border);display:flex;flex-direction:column;gap:.8rem">
     <div style="font-weight:700;display:flex;align-items:center;gap:.4rem">🎬 Homepage Hero Text</div>
     <div style="font-size:.72rem;color:var(--muted);margin-top:-.4rem">The big headline shown on your storefront home page.</div>

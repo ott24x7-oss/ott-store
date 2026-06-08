@@ -750,6 +750,7 @@ function seedDefaults(db) {
     support_email: '',
     support_whatsapp: '',
     support_telegram: '',
+    telegram_bot_url: 'https://t.me/ott24x7_bot',
     announcement: '',
     timezone: 'Asia/Kolkata',
     logo_url: '',

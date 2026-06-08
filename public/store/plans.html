@@ -100,6 +100,9 @@ html[data-theme="dark"] .snav-logo .logo-dark{display:block}
 .splan-btn{margin-top:auto;padding:.6rem 1rem;background:var(--st-btn);color:#fff;border:none;border-radius:10px;font-size:.85rem;font-weight:700;cursor:pointer;width:100%;transition:opacity .15s}
 .splan-btn:hover:not(:disabled){opacity:.85}
 .splan-btn:disabled{background:var(--st-card);color:var(--st-muted);cursor:not-allowed}
+/* Telegram auto-delivery CTA shown under the buy button */
+.splan-tg{display:flex;align-items:center;justify-content:center;gap:.4rem;margin-top:.55rem;padding:.58rem .7rem;border-radius:11px;font-size:.8rem;font-weight:700;text-decoration:none;color:#fff;background:linear-gradient(135deg,#2aabee,#229ed9);box-shadow:0 4px 14px rgba(34,158,217,.32);transition:transform .15s,box-shadow .15s}
+.splan-tg:hover{transform:translateY(-1px);box-shadow:0 7px 20px rgba(34,158,217,.55)}
 /* Whole card is clickable → opens the product detail view */
 .splan-card{cursor:pointer}
 /* Clickable product link (card image/header + name) → opens the product URL */
@@ -558,6 +561,7 @@ function buildDetailHtml(p){
     <button id="pd-login" class="splan-btn" ${oos?'disabled':''} style="padding:.78rem .5rem;font-size:.85rem;border-radius:12px;line-height:1.25">${oos?'🔴 Out of Stock':loginLabel}</button>
     <button id="pd-guest" class="splan-btn" ${oos?'disabled':''} style="padding:.78rem .5rem;font-size:.85rem;border-radius:12px;line-height:1.25;background:linear-gradient(135deg,#7c3aed,#6d28d9)">📧 Guest Checkout</button>
   </div>
+  ${STORE.telegram_bot_url?`<a class="splan-tg" href="${esc(STORE.telegram_bot_url)}" target="_blank" rel="noopener" style="margin-top:.7rem">✈️ Buy on our Telegram bot — instant auto-delivery (UPI &amp; USDT)</a>`:''}
   <p style="font-size:.71rem;color:var(--st-muted);text-align:center;margin:.65rem 0 0">🔒 Secure checkout · Credentials delivered to your email${p.delivery_type==='instant'?' instantly':''}</p>
 </div>`;
 }
@@ -873,6 +877,7 @@ function planCard(p){
   ${p.delivery_type==='instant'?'<div class="splan-delivery">⚡ Instant Delivery</div>':''}
   ${features.length?`<ul class="splan-feats">${features.slice(0,3).map(f=>`<li>${esc(f)}</li>`).join('')}</ul>`:''}
   <button class="splan-btn" ${outOfStock?'disabled':''} data-id="${p.id}">${outOfStock?'🔴 Out of Stock':isLoggedIn?'🛒 Buy Now':'🔐 Login to Buy'}</button>
+  ${STORE.telegram_bot_url?`<a class="splan-tg" href="${esc(STORE.telegram_bot_url)}" target="_blank" rel="noopener">✈️ Buy on Telegram</a>`:''}
 </div>
 </div>`;
 }
