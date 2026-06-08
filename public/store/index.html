@@ -26,11 +26,11 @@
   --panel2:rgba(255,255,255,.13);
   --text:#f7f7ff;
   --muted:#a7abc7;
-  --red:#ff2b4f;
-  --orange:#ff8a00;
+  --red:#2563eb;
+  --orange:#38bdf8;
   --cyan:#42e8ff;
   --green:#37ff9b;
-  --purple:#9b5cff;
+  --purple:#3b82f6;
   --glass:rgba(255,255,255,.09);
   --border:rgba(255,255,255,.18);
 }
@@ -39,9 +39,9 @@ html{scroll-behavior:smooth;overflow-x:hidden}
 body{
   margin:0;min-height:100vh;
   font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  background:radial-gradient(circle at top left,rgba(255,43,79,.28),transparent 28%),
+  background:radial-gradient(circle at top left,rgba(37,99,235,.28),transparent 28%),
              radial-gradient(circle at 70% 20%,rgba(66,232,255,.22),transparent 30%),
-             radial-gradient(circle at bottom right,rgba(155,92,255,.24),transparent 32%),
+             radial-gradient(circle at bottom right,rgba(59,130,246,.24),transparent 32%),
              var(--bg);
   color:var(--text);overflow-x:hidden;
 }
@@ -64,7 +64,7 @@ header{
 .brand-badge{
   width:44px;height:44px;border-radius:16px;display:grid;place-items:center;
   background:linear-gradient(135deg,var(--red),var(--orange));
-  box-shadow:0 20px 60px rgba(255,43,79,.45),inset 0 1px 8px rgba(255,255,255,.35);
+  box-shadow:0 20px 60px rgba(37,99,235,.45),inset 0 1px 8px rgba(255,255,255,.35);
   transform:rotate(-6deg);font-size:1.3rem;flex-shrink:0;
 }
 .brand-name{font-size:1.25rem}
@@ -103,7 +103,7 @@ h1{font-size:clamp(46px,7vw,90px);line-height:.92;margin:24px 0 20px;letter-spac
 .gradient{
   background:linear-gradient(90deg,#fff,#ffe0e7 38%,#8eefff 70%,#fff);
   -webkit-background-clip:text;background-clip:text;color:transparent;
-  filter:drop-shadow(0 22px 45px rgba(255,43,79,.18));
+  filter:drop-shadow(0 22px 45px rgba(37,99,235,.18));
 }
 .hero p{color:var(--muted);font-size:clamp(16px,2vw,20px);line-height:1.7;max-width:610px;margin:0 0 28px}
 .actions{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:30px}
@@ -114,7 +114,7 @@ h1{font-size:clamp(46px,7vw,90px);line-height:.92;margin:24px 0 20px;letter-spac
 .btn:hover{transform:translateY(-3px)}
 .btn.primary{
   color:#fff;background:linear-gradient(135deg,var(--red),var(--orange));
-  box-shadow:0 20px 55px rgba(255,43,79,.32);
+  box-shadow:0 20px 55px rgba(37,99,235,.32);
 }
 .btn.secondary{background:rgba(255,255,255,.08);border:1px solid var(--border);backdrop-filter:blur(18px)}
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;max-width:640px}
@@ -141,7 +141,7 @@ h1{font-size:clamp(46px,7vw,90px);line-height:.92;margin:24px 0 20px;letter-spac
 }
 .screen{
   position:absolute;inset:45px 16px 16px;border-radius:28px;
-  background:radial-gradient(circle at 30% 20%,rgba(255,43,79,.28),transparent 35%),
+  background:radial-gradient(circle at 30% 20%,rgba(37,99,235,.28),transparent 35%),
              linear-gradient(180deg,#111326,#06070f);
   overflow:hidden;padding:22px;
 }
@@ -151,7 +151,7 @@ h1{font-size:clamp(46px,7vw,90px);line-height:.92;margin:24px 0 20px;letter-spac
   display:flex;align-items:center;gap:12px;padding:12px;border-radius:18px;margin:12px 0;
   background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.12);
 }
-.mini-icon{width:38px;height:38px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,var(--red),var(--orange));box-shadow:0 14px 30px rgba(255,43,79,.25);font-size:14px;font-weight:900;flex-shrink:0}
+.mini-icon{width:38px;height:38px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,var(--red),var(--orange));box-shadow:0 14px 30px rgba(37,99,235,.25);font-size:14px;font-weight:900;flex-shrink:0}
 .mini-card b{font-size:13px}.mini-card small{display:block;color:#9da4c8}
 
 .logo-cloud{position:absolute;inset:0;transform-style:preserve-3d}
@@ -165,9 +165,9 @@ h1{font-size:clamp(46px,7vw,90px);line-height:.92;margin:24px 0 20px;letter-spac
   content:"";position:absolute;inset:auto 10px -18px;height:18px;border-radius:50%;
   background:rgba(0,0,0,.34);filter:blur(12px);
 }
-.app-icon:nth-child(1){left:20px;top:80px;background:linear-gradient(135deg,#ff2b4f,#ff8a00);animation-delay:.1s}
+.app-icon:nth-child(1){left:20px;top:80px;background:linear-gradient(135deg,#2563eb,#38bdf8);animation-delay:.1s}
 .app-icon:nth-child(2){right:20px;top:20px;background:linear-gradient(135deg,#245bff,#42e8ff);animation-delay:.5s}
-.app-icon:nth-child(3){left:10px;bottom:135px;background:linear-gradient(135deg,#9b5cff,#ff4bd8);animation-delay:.9s}
+.app-icon:nth-child(3){left:10px;bottom:135px;background:linear-gradient(135deg,#3b82f6,#ff4bd8);animation-delay:.9s}
 .app-icon:nth-child(4){right:25px;bottom:120px;background:linear-gradient(135deg,#151515,#555);animation-delay:1.2s}
 .app-icon:nth-child(5){left:155px;top:18px;background:linear-gradient(135deg,#ff004c,#bb00ff);animation-delay:1.5s}
 .app-icon:nth-child(6){right:165px;bottom:20px;background:linear-gradient(135deg,#28d96d,#00d8ff);animation-delay:1.8s}
@@ -178,7 +178,7 @@ h1{font-size:clamp(46px,7vw,90px);line-height:.92;margin:24px 0 20px;letter-spac
 .ring{
   position:absolute;left:50%;top:50%;width:520px;height:520px;border-radius:50%;
   transform:translate(-50%,-50%) rotateX(68deg);border:1px solid rgba(255,255,255,.22);
-  box-shadow:0 0 70px rgba(66,232,255,.18),inset 0 0 70px rgba(255,43,79,.13);
+  box-shadow:0 0 70px rgba(66,232,255,.18),inset 0 0 70px rgba(37,99,235,.13);
   animation:spin 14s linear infinite;
 }
 .ring.two{width:420px;height:420px;animation-duration:10s;animation-direction:reverse}
@@ -208,23 +208,23 @@ h1{font-size:clamp(46px,7vw,90px);line-height:.92;margin:24px 0 20px;letter-spac
   transition:.25s transform,.25s border-color,.25s box-shadow;text-decoration:none;color:var(--text);display:block;
 }
 .product:hover{transform:translateY(-8px);border-color:rgba(255,255,255,.35);box-shadow:0 28px 70px rgba(0,0,0,.34)}
-.product:before{content:"";position:absolute;inset:-70px -70px auto auto;width:150px;height:150px;background:rgba(255,43,79,.25);filter:blur(25px);border-radius:50%}
+.product:before{content:"";position:absolute;inset:-70px -70px auto auto;width:150px;height:150px;background:rgba(37,99,235,.25);filter:blur(25px);border-radius:50%}
 .product .big{font-size:48px;margin-bottom:24px;display:block}
 .product b{display:block;font-size:18px}
 .product small{color:#a9b0d0;line-height:1.5}
 .badge{position:absolute;right:16px;top:16px;font-size:11px;font-weight:900;background:rgba(55,255,155,.13);color:#8cffc5;border:1px solid rgba(55,255,155,.28);padding:7px 9px;border-radius:999px}
 .product.p-ai:before{background:rgba(66,232,255,.2)}
-.product.p-cloud:before{background:rgba(155,92,255,.2)}
-.product.p-soft:before{background:rgba(255,138,0,.2)}
+.product.p-cloud:before{background:rgba(59,130,246,.2)}
+.product.p-soft:before{background:rgba(56,189,248,.2)}
 .product.p-music:before{background:rgba(55,255,155,.2)}
-.product.p-vpn:before{background:rgba(255,43,79,.18)}
-.product.p-learn:before{background:rgba(155,92,255,.18)}
+.product.p-vpn:before{background:rgba(37,99,235,.18)}
+.product.p-learn:before{background:rgba(59,130,246,.18)}
 .product.p-ai .big,.product.p-cloud .big,.product.p-soft .big{filter:none}
 
 .cta{
   width:min(1180px,92vw);margin:70px auto 40px;position:relative;z-index:3;
   padding:34px;border-radius:34px;
-  background:linear-gradient(135deg,rgba(255,43,79,.2),rgba(66,232,255,.12)),rgba(255,255,255,.07);
+  background:linear-gradient(135deg,rgba(37,99,235,.2),rgba(66,232,255,.12)),rgba(255,255,255,.07);
   border:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:20px;
   box-shadow:0 35px 100px rgba(0,0,0,.28);backdrop-filter:blur(18px);
 }
@@ -277,7 +277,7 @@ footer{
      plus body padding-top:58 clearing it, that margin became a visible
      dead-space strip below the header. */
   .hero{grid-template-columns:1fr;gap:0;margin-top:0;padding-top:6px;min-height:auto}
-  .stage{height:480px;order:-1;width:100%;overflow:hidden}
+  .stage{display:none}  /* hide the 3D phone mockup on mobile/tablet — content-first hero */
   .logo-cloud{display:none}
   .phone{inset:40px auto auto 50%;right:auto;width:250px;height:460px;transform:translateX(-50%) rotateY(-8deg) rotateX(4deg)}
   @keyframes phoneFloat{50%{transform:translateX(-50%) rotateY(-5deg) rotateX(2deg) translateY(-16px)}}
@@ -355,18 +355,19 @@ html[data-theme="dark"] .logo-light{display:none}html[data-theme="dark"] .logo-d
 <!-- ── Hero ── -->
 <main class="hero">
   <section>
-    <div class="eyebrow"><span class="pulse"></span> Live store · Instant digital delivery</div>
+    <div class="eyebrow"><span class="pulse"></span> <span data-tk="hero_eyebrow">Live store · Instant digital delivery</span></div>
     <h1><span class="gradient" id="hero-title">Premium digital products.</span><br><span id="hero-title2">Delivered cinematic fast.</span></h1>
     <p id="hero-sub">Buy OTT, AI tools, cloud storage, software keys and productivity products with fast WhatsApp support, secure payments and clean account delivery.</p>
     <div class="actions">
-      <a class="btn primary" href="/plans">🎬 Browse Products →</a>
-      <a class="btn secondary" href="https://wa.me/" id="hero-wa-btn" target="_blank" rel="noopener">💬 Chat on WhatsApp</a>
+      <a class="btn primary" href="/plans" data-tk="btn_browse">🎬 Browse Products →</a>
+      <a class="btn secondary" href="https://wa.me/" id="hero-wa-btn" target="_blank" rel="noopener" data-tk="btn_whatsapp">💬 Chat on WhatsApp</a>
+      <a class="btn secondary" id="hero-cta-btn" href="#" rel="noopener" style="display:none"></a>
     </div>
     <div class="stats">
-      <div class="stat"><strong>120+</strong><span>Products</span></div>
-      <div class="stat"><strong>17</strong><span>Categories</span></div>
-      <div class="stat"><strong>24×7</strong><span>Support</span></div>
-      <div class="stat"><strong>UPI</strong><span>Cards / Crypto</span></div>
+      <div class="stat"><strong data-tk="stat1_num">120+</strong><span data-tk="stat1_label">Products</span></div>
+      <div class="stat"><strong data-tk="stat2_num">17</strong><span data-tk="stat2_label">Categories</span></div>
+      <div class="stat"><strong data-tk="stat3_num">24×7</strong><span data-tk="stat3_label">Support</span></div>
+      <div class="stat"><strong data-tk="stat4_num">UPI</strong><span data-tk="stat4_label">Cards / Crypto</span></div>
     </div>
   </section>
 
@@ -425,35 +426,35 @@ html[data-theme="dark"] .logo-light{display:none}html[data-theme="dark"] .logo-d
 <section class="section">
   <div class="section-head">
     <div class="section-head-text">
-      <h2>Explore premium categories</h2>
-      <p>Cinematic delivery for every digital need — OTT, AI, Cloud, Software &amp; more.</p>
+      <h2 data-tk="cat_heading">Explore premium categories</h2>
+      <p data-tk="cat_sub">Cinematic delivery for every digital need — OTT, AI, Cloud, Software &amp; more.</p>
     </div>
-    <a class="btn secondary" href="/plans">View all →</a>
+    <a class="btn secondary" href="/plans" data-tk="cat_viewall">View all →</a>
   </div>
   <div class="grid">
     <a class="product" href="/plans?cat=streaming">
       <span class="badge">HOT</span>
       <span class="big">🎬</span>
-      <b>Streaming &amp; OTT</b>
-      <small>Netflix, Prime, Hotstar, Zee5, SonyLiv, Apple TV and more.</small>
+      <b data-tk="cat1_title">Streaming &amp; OTT</b>
+      <small data-tk="cat1_desc">Netflix, Prime, Hotstar, Zee5, SonyLiv, Apple TV and more.</small>
     </a>
     <a class="product p-ai" href="/plans?cat=ai">
       <span class="badge">FAST</span>
       <span class="big">🤖</span>
-      <b>AI &amp; Writing Tools</b>
-      <small>ChatGPT Plus, Midjourney, Grammarly, Jasper and more.</small>
+      <b data-tk="cat2_title">AI &amp; Writing Tools</b>
+      <small data-tk="cat2_desc">ChatGPT Plus, Midjourney, Grammarly, Jasper and more.</small>
     </a>
     <a class="product p-cloud" href="/plans?cat=cloud">
       <span class="badge">PRO</span>
       <span class="big">☁️</span>
-      <b>Cloud &amp; Productivity</b>
-      <small>Google Drive, OneDrive, Dropbox, iCloud and pCloud.</small>
+      <b data-tk="cat3_title">Cloud &amp; Productivity</b>
+      <small data-tk="cat3_desc">Google Drive, OneDrive, Dropbox, iCloud and pCloud.</small>
     </a>
     <a class="product p-soft" href="/plans?cat=software">
       <span class="badge">KEYS</span>
       <span class="big">🖥️</span>
-      <b>Software Licenses</b>
-      <small>MS 365, Office 2021, Windows, Teams, Visio, Project keys.</small>
+      <b data-tk="cat4_title">Software Licenses</b>
+      <small data-tk="cat4_desc">MS 365, Office 2021, Windows, Teams, Visio, Project keys.</small>
     </a>
   </div>
 </section>
@@ -462,8 +463,8 @@ html[data-theme="dark"] .logo-light{display:none}html[data-theme="dark"] .logo-d
 <section class="section" aria-label="Why buyers trust us">
   <div class="section-head">
     <div class="section-head-text">
-      <h2>Trusted by thousands of buyers</h2>
-      <p>Real orders, instant digital delivery, and a full-validity replacement warranty on every purchase.</p>
+      <h2 data-tk="trust_heading">Trusted by thousands of buyers</h2>
+      <p data-tk="trust_sub">Real orders, instant digital delivery, and a full-validity replacement warranty on every purchase.</p>
     </div>
   </div>
   <!-- Order / customer counts are hydrated with live numbers from /user/api/store. -->
@@ -503,10 +504,10 @@ html[data-theme="dark"] .logo-light{display:none}html[data-theme="dark"] .logo-d
 <!-- ── CTA ── -->
 <section class="cta">
   <div class="cta-text">
-    <h2 id="cta-title">Ready to upgrade your digital access?</h2>
-    <p id="cta-sub">Join thousands of customers. Register free and get your first product today.</p>
+    <h2 id="cta-title" data-tk="cta_title">Ready to upgrade your digital access?</h2>
+    <p id="cta-sub" data-tk="cta_sub">Join thousands of customers. Register free and get your first product today.</p>
   </div>
-  <a class="btn primary" href="/plans">Start Ordering →</a>
+  <a class="btn primary" href="/plans" data-tk="cta_btn">Start Ordering →</a>
 </section>
 
 <!-- ── Footer ── -->
@@ -564,13 +565,24 @@ fetch('/user/api/store').then(r=>r.json()).then(s=>{
     document.getElementById('page-title').textContent=`${s.site_name} — Premium Digital Products`;
     document.getElementById('og-title').content=s.site_name;
     document.getElementById('ld-org').textContent=JSON.stringify({"@context":"https://schema.org","@type":"Store","name":s.site_name});
-    document.getElementById('cta-title').textContent=`Ready to upgrade your digital access on ${s.site_name}?`;
     document.getElementById('footer-copy').textContent=`© ${new Date().getFullYear()} ${s.site_name}. All rights reserved.`;
   }
   if(s.hero_title) document.getElementById('hero-title').textContent=s.hero_title;
   if(s.hero_title2) document.getElementById('hero-title2').textContent=s.hero_title2;
   const heroSub=s.hero_subtext||s.site_tagline;
   if(heroSub) document.getElementById('hero-sub').textContent=heroSub;
+  // Editable landing-page text: any element with a data-tk key is replaced by its
+  // home_<key> setting when set (blank = keep the built-in default). Managed in
+  // Admin → Homepage Text.
+  document.querySelectorAll('[data-tk]').forEach(el=>{
+    const v=s['home_'+el.getAttribute('data-tk')];
+    if(v!=null && String(v).trim()!=='') el.textContent=v;
+  });
+  // Optional custom hero button (admin-set label + link). Shown only when both are set.
+  if(s.hero_cta_label && s.hero_cta_url){
+    const cta=document.getElementById('hero-cta-btn');
+    if(cta){ cta.textContent=s.hero_cta_label; cta.href=s.hero_cta_url; cta.target=/^https?:\/\//i.test(s.hero_cta_url)?'_blank':''; cta.style.display=''; }
+  }
   // Hydrate the trust band with live counts.
   if(s.stat_orders){const el=document.getElementById('ts-orders');if(el)el.textContent=s.stat_orders;}
   if(s.stat_customers){const el=document.getElementById('ts-customers');if(el)el.textContent=s.stat_customers;}

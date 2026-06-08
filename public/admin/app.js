@@ -37,6 +37,7 @@ const MENU = [
   { id: 'pwa-manager',   label: 'App Manager',   icon: '📱' },
   { group: 'STOREFRONT' },
   { id: 'mystore',        label: 'My Store',      icon: '🏪' },
+  { id: 'hometext',       label: 'Homepage Text', icon: '📝' },
   { id: 'store-theme',    label: 'Store Themes',  icon: '🎨' },
   { id: 'payments',       label: 'Payments',      icon: '💰' },
   { id: 'legal',          label: 'Legal Pages',   icon: '📄' },
@@ -2032,6 +2033,10 @@ views.mystore = async function () {
     <div class="form-group"><label class="form-label">Heading — Line 1 <span class="muted">(highlighted / gradient)</span></label><input class="form-input" name="hero_title" value="${esc(s.hero_title||'')}" placeholder="Premium digital products."></div>
     <div class="form-group"><label class="form-label">Heading — Line 2</label><input class="form-input" name="hero_title2" value="${esc(s.hero_title2||'')}" placeholder="Delivered cinematic fast."></div>
     <div class="form-group"><label class="form-label">Subtext</label><textarea class="form-input" name="hero_subtext" rows="2" placeholder="Leave blank to use the Tagline above">${esc(s.hero_subtext||'')}</textarea></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Custom Button — Label <span class="muted">(extra hero button; leave blank to hide)</span></label><input class="form-input" name="hero_cta_label" value="${esc(s.hero_cta_label||'')}" placeholder="e.g. Join Telegram"></div>
+      <div class="form-group"><label class="form-label">Custom Button — Link</label><input class="form-input" name="hero_cta_url" value="${esc(s.hero_cta_url||'')}" placeholder="https://t.me/your_channel"></div>
+    </div>
   </div>
   <div class="form-group">
     <label class="form-label" style="margin-bottom:.6rem">Site Logo</label>
@@ -2521,6 +2526,64 @@ window.pingSitemap = async function () {
     const r = await api('/google-index/ping-sitemap', { method: 'POST', body: '{}' });
     msg.innerHTML = `<div class="alert alert-success">Sitemap pinged! Status: ${r.status}</div>`;
   } catch (e) { msg.innerHTML = `<div class="alert alert-error">${esc(e.message)}</div>`; }
+};
+
+// ── views.hometext ────────────────────────────────────────────────────────────
+// Edit every text shown on the landing page. Each row maps to a data-tk key in
+// public/store/index.html; the storefront replaces the element when home_<key>
+// is set, else keeps the default (shown here as the placeholder).
+views.hometext = async function () {
+  setMain('<div class="spinner"></div>');
+  try {
+    const s = await api('/settings');
+    const SECTIONS = [
+      { title: 'Hero', slots: [
+        ['hero_eyebrow', 'Eyebrow badge', 'Live store · Instant digital delivery'],
+        ['btn_browse', 'Primary button', '🎬 Browse Products →'],
+        ['btn_whatsapp', 'WhatsApp button', '💬 Chat on WhatsApp'],
+        ['stat1_num', 'Stat 1 — number', '120+'], ['stat1_label', 'Stat 1 — label', 'Products'],
+        ['stat2_num', 'Stat 2 — number', '17'], ['stat2_label', 'Stat 2 — label', 'Categories'],
+        ['stat3_num', 'Stat 3 — number', '24×7'], ['stat3_label', 'Stat 3 — label', 'Support'],
+        ['stat4_num', 'Stat 4 — number', 'UPI'], ['stat4_label', 'Stat 4 — label', 'Cards / Crypto'],
+      ] },
+      { title: 'Categories section', slots: [
+        ['cat_heading', 'Heading', 'Explore premium categories'],
+        ['cat_sub', 'Subheading', 'Cinematic delivery for every digital need — OTT, AI, Cloud, Software & more.'],
+        ['cat_viewall', '"View all" link', 'View all →'],
+        ['cat1_title', 'Card 1 — title', 'Streaming & OTT'], ['cat1_desc', 'Card 1 — text', 'Netflix, Prime, Hotstar, Zee5, SonyLiv, Apple TV and more.'],
+        ['cat2_title', 'Card 2 — title', 'AI & Writing Tools'], ['cat2_desc', 'Card 2 — text', 'ChatGPT Plus, Midjourney, Grammarly, Jasper and more.'],
+        ['cat3_title', 'Card 3 — title', 'Cloud & Productivity'], ['cat3_desc', 'Card 3 — text', 'Google Drive, OneDrive, Dropbox, iCloud and pCloud.'],
+        ['cat4_title', 'Card 4 — title', 'Software Licenses'], ['cat4_desc', 'Card 4 — text', 'MS 365, Office 2021, Windows, Teams, Visio, Project keys.'],
+      ] },
+      { title: 'Trust band', slots: [
+        ['trust_heading', 'Heading', 'Trusted by thousands of buyers'],
+        ['trust_sub', 'Subheading', 'Real orders, instant digital delivery, and a full-validity replacement warranty on every purchase.'],
+      ] },
+      { title: 'Call-to-action', slots: [
+        ['cta_title', 'Heading', 'Ready to upgrade your digital access?'],
+        ['cta_sub', 'Subheading', 'Join thousands of customers. Register free and get your first product today.'],
+        ['cta_btn', 'Button', 'Start Ordering →'],
+      ] },
+    ];
+    const sectionCard = sec => `<div class="card" style="padding:1.1rem;margin-bottom:1rem"><div style="font-weight:700;margin-bottom:.75rem">${esc(sec.title)}</div>${sec.slots.map(([k, label, def]) => `<div class="form-group"><label class="form-label">${esc(label)}</label><input class="form-input" name="home_${k}" value="${esc(s['home_' + k] || '')}" placeholder="${esc(def)}"></div>`).join('')}</div>`;
+    setMain(`
+<h2 style="font-weight:800;margin-bottom:.4rem">Homepage Text</h2>
+<p class="muted" style="font-size:.85rem;margin-bottom:1.25rem;max-width:720px">Edit any text shown on the landing page. Leave a field blank to keep the default (the grey placeholder). Changes apply on the storefront's next load.</p>
+<form id="hometext-form" style="max-width:720px">
+  <div id="hometext-msg"></div>
+  ${SECTIONS.map(sectionCard).join('')}
+  <button type="submit" class="btn btn-primary" style="width:220px">Save Homepage Text</button>
+</form>`);
+    document.getElementById('hometext-form').onsubmit = async e => {
+      e.preventDefault();
+      const fd = new FormData(e.target); const body = {}; fd.forEach((v, k) => body[k] = v);
+      try {
+        await api('/settings', { method: 'POST', body: JSON.stringify(body) });
+        document.getElementById('hometext-msg').innerHTML = '<div class="alert alert-success">Saved! Reload the storefront to see the changes.</div>';
+        setTimeout(() => { const m = document.getElementById('hometext-msg'); if (m) m.innerHTML = ''; }, 3500);
+      } catch (ex) { document.getElementById('hometext-msg').innerHTML = `<div class="alert alert-error">${esc(ex.message)}</div>`; }
+    };
+  } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };
 
 // ── views.settings ────────────────────────────────────────────────────────────

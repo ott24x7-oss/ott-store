@@ -434,6 +434,17 @@ header.my-nav #hamburger-btn {
   cursor: pointer !important;
 }
 
+/* index.html's <header> has no inner wrapper (unlike plans.html/.snav and
+   my.html/.my-nav), so the full-width bar had no max-width on its content and the
+   nav's margin-right:auto bunched everything to the left. Keep the full-width bar
+   but constrain its CONTENT to the same centered 1200px column as the page body,
+   then reset the nav margin so space-between puts the brand left / nav right. */
+body > header {
+  padding-left: max(1rem, calc((100% - 1200px) / 2)) !important;
+  padding-right: max(1rem, calc((100% - 1200px) / 2)) !important;
+}
+body > header > nav { margin: 0 !important; }
+
 /* /my tab-nav: visually attach to the brand header so it reads as ONE bar,
    not "two stacked headers". Subtle, lower-contrast sub-row. */
 header.my-nav + nav.my-tab-nav,

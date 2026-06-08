@@ -746,6 +746,8 @@ function seedDefaults(db) {
     site_tagline: 'Premium digital products & software',
     hero_title: 'Premium digital products.',
     hero_title2: 'Delivered cinematic fast.',
+    hero_cta_label: '',
+    hero_cta_url: '',
     hero_subtext: 'Buy OTT, AI tools, cloud storage, software keys and productivity products with fast WhatsApp support, secure payments and clean account delivery.',
     support_email: '',
     support_whatsapp: '',
