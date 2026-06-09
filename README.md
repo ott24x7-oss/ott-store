@@ -32,6 +32,8 @@ Open:
 | `SMTP_USER` | — | SMTP username |
 | `SMTP_PASS` | — | SMTP password |
 | `SMTP_FROM` | — | From address |
+| `BOT_API_URL` | — | OTT24x7 bot public URL — enables selling the bot's catalog with auto-delivery (optional) |
+| `BOT_API_TOKEN` | — | Reseller API token from the bot's reseller panel (optional) |
 | `NODE_ENV` | — | Set to `production` to enable secure cookies |
 
 ## First-Time Setup
@@ -43,6 +45,28 @@ Open:
 5. **Setup Payments:** Admin → Payments → configure UPI ID or Razorpay
 6. **Customers register** at `/my`, top up wallet, and purchase plans
 7. **Deliver credentials:** Admin → Orders → click Manage → enter credentials → set status to Delivered
+
+## Sell your OTT24x7 bot's catalog (auto-delivery)
+
+The store can resell the products from your OTT24x7 Telegram bot and deliver them
+automatically — when a customer pays here, the store buys the key live from the bot
+and emails/WhatsApps it instantly.
+
+1. **In the bot:** open the reseller panel, generate an API token (`rs_live_…`), and
+   make sure your store's reseller account is *unlimited* (the bot owner's own account,
+   or an ID listed in the bot's `UNLIMITED_RESELLER_IDS`) so it isn't balance-gated.
+2. **In the store `.env`:** set `BOT_API_URL` (the bot's public domain, e.g.
+   `https://ottbot.example.com`) and `BOT_API_TOKEN` (the token), then restart.
+3. **Import the catalog:** it auto-syncs every 10 min, or `POST /admin/api/bot/sync`
+   to import now. Imported products appear in **Admin → Plans** with provider `bot`.
+4. **Set your prices:** the first import seeds each product's price from the bot's
+   retail price — edit each one in Admin → Plans. Re-syncs refresh stock/name only and
+   **never overwrite your price**.
+
+How it works: bot-backed plans deliver via the bot's `/reseller/purchase` API. If the
+bot is out of stock, the customer is auto-refunded to their store wallet and you're
+alerted. Manual-delivery bot products fall through to normal manual fulfillment.
+Connection status: `GET /admin/api/bot/status`.
 
 ## Deployment
 

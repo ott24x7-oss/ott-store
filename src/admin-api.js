@@ -498,6 +498,44 @@ router.put('/plans/:id/toggle', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── Bot supplier (OTT24x7 reseller API) ───────────────────────────────────────
+// Connection + import status for the admin UI.
+router.get('/bot/status', requireAdmin, async (req, res) => {
+  try {
+    const botSupplier = require('./bot-supplier');
+    const db = await getDb();
+    const c = botSupplier.botConfig(db);
+    const imported = get(db, `SELECT COUNT(*) AS n FROM plans WHERE provider_api='bot'`)?.n || 0;
+    if (!botSupplier.isConfigured(c)) return res.json({ ok: true, configured: false, imported });
+    const bal = await botSupplier.fetchBalance(db);
+    const prods = await botSupplier.fetchProducts(db);
+    res.json({
+      ok: true, configured: true, url: c.url,
+      connected: !!(bal.ok || prods.ok),
+      balance: bal.ok ? bal.balance : null,
+      provider_products: prods.ok ? prods.products.length : null,
+      imported,
+      error: (bal.ok || prods.ok) ? null : (bal.error || prods.error),
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Pull the bot catalog into Plans now (provider_api='bot'). Price is set once on
+// import; re-syncs refresh name/stock/active only and never overwrite your price.
+router.post('/bot/sync', requireAdmin, async (req, res) => {
+  try {
+    const botSupplier = require('./bot-supplier');
+    const db = await getDb();
+    const r = await botSupplier.syncCatalog(db);
+    if (!r.ok) {
+      return res.status(400).json({ error: r.error === 'not_configured'
+        ? 'Bot API not configured — set BOT_API_URL and BOT_API_TOKEN.' : r.error });
+    }
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'bot_sync', after: r, ip: req.ip });
+    res.json({ ok: true, ...r });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── Orders ───────────────────────────────────────────────────────────────────
 router.get('/orders', requireAdmin, async (req, res) => {
   try {
