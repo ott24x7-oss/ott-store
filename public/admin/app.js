@@ -2031,7 +2031,8 @@ views.customers = async function (q = '') {
     setMain(`
 <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:1rem">
   <h2 style="font-weight:800">Customers</h2>
-  <div style="display:flex;gap:.6rem">
+  <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+    <button class="btn btn-secondary btn-sm" onclick="findDuplicates()" title="Find &amp; merge accounts that share an email or WhatsApp number">🔀 Merge duplicates</button>
     <input class="form-input" id="cust-search" style="width:220px" placeholder="Search name/email/phone..." value="${esc(q)}" oninput="searchCustomers(this.value)">
   </div>
 </div>
@@ -2046,6 +2047,49 @@ let _custSearchTimer;
 window.searchCustomers = function (q) {
   clearTimeout(_custSearchTimer);
   _custSearchTimer = setTimeout(() => views.customers(q), 350);
+};
+
+// Find accounts that share an email or WhatsApp number, and merge them into one.
+window.findDuplicates = async function () {
+  try {
+    const d = await api('/customers/duplicates');
+    const groups = d.groups || [];
+    if (!groups.length) { showToast('No duplicate accounts found 🎉'); return; }
+    window._DUP_GROUPS = groups;
+    const groupHtml = groups.map((g, gi) => {
+      const rows = g.members.map(m => `
+        <label style="display:flex;align-items:center;gap:.55rem;padding:.5rem .6rem;border:1px solid var(--border,rgba(255,255,255,.12));border-radius:8px;margin-bottom:.35rem;cursor:pointer">
+          <input type="radio" name="primary-${gi}" value="${esc(m.jid)}" ${m.jid === g.primary_jid ? 'checked' : ''}>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600">${esc(m.name || '—')} ${m.order_count ? `<span class="badge badge-green" style="font-size:.66rem">${m.order_count} orders</span>` : ''} ${Number(m.wallet_inr) ? `<span class="badge badge-blue" style="font-size:.66rem">${fmt(m.wallet_inr)} wallet</span>` : ''}</div>
+            <div class="muted" style="font-size:.77rem">${esc(m.email || 'no email')} · ${esc(m.phone || 'no phone')}</div>
+          </div>
+        </label>`).join('');
+      return `<div class="card" style="margin-bottom:.75rem;padding:.7rem">
+        <div style="font-size:.78rem;color:var(--muted);margin-bottom:.4rem">${g.members.length} accounts share an email/number — pick the one to <b>keep</b>:</div>
+        ${rows}
+        <button class="btn btn-primary btn-sm" style="margin-top:.35rem" onclick="mergeGroup(${gi})">🔀 Merge into selected</button>
+      </div>`;
+    }).join('');
+    openModal(`<div class="modal-header"><h3 style="font-weight:800">🔀 Merge duplicate accounts</h3></div>
+<div class="modal-body"><p class="muted" style="margin:0 0 .75rem">These accounts share an email or WhatsApp number. Merging keeps the selected account and moves all its orders, payments, wallet balance and referrals onto it — the duplicates are deleted.</p>${groupHtml}</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-close>Done</button></div>`);
+  } catch (e) { showToast(e.message, 'error'); }
+};
+
+window.mergeGroup = async function (gi) {
+  const g = (window._DUP_GROUPS || [])[gi]; if (!g) return;
+  const sel = document.querySelector(`input[name="primary-${gi}"]:checked`);
+  const primary = sel ? sel.value : g.primary_jid;
+  const duplicates = g.members.map(m => m.jid).filter(j => j !== primary);
+  if (!duplicates.length) return;
+  if (!confirm(`Merge ${duplicates.length} duplicate account(s) into the selected one?\n\nAll their orders, payments, wallet balance and referrals move onto the kept account, and the duplicates are deleted. This can't be undone.`)) return;
+  try {
+    const r = await api('/customers/merge', { method: 'POST', body: JSON.stringify({ primary, duplicates }) });
+    showToast(`Merged ${r.merged} account(s) ✅`);
+    document.querySelector('.modal-overlay')?.remove();
+    views.customers(document.getElementById('cust-search')?.value || '');
+  } catch (e) { showToast(e.message, 'error'); }
 };
 
 window.openCustomerModal = async function (jid) {

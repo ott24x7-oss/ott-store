@@ -664,6 +664,83 @@ router.get('/customers/:jid/wallet-txns', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── Duplicate-account merge ────────────────────────────────────────────────────
+// Merge `fromJid` INTO `intoJid`: re-point every customer reference (orders, topups,
+// wallet txns, referrals, tickets, …) to the survivor, add the wallets together, fill
+// any missing email/phone/name onto the survivor, then delete the duplicate. Reads
+// the live schema so it covers EVERY table with a customer_jid / referrer_jid /
+// referred_jid column — current and future — and can't orphan data.
+function mergeCustomers(db, fromJid, intoJid) {
+  if (!fromJid || !intoJid || fromJid === intoJid) return;
+  const tables = all(db, `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`).map(r => r.name);
+  for (const tbl of tables) {
+    if (tbl === 'customers') continue;
+    let cols; try { cols = all(db, `PRAGMA table_info("${tbl}")`).map(c => c.name); } catch { continue; }
+    for (const col of ['customer_jid', 'referrer_jid', 'referred_jid']) {
+      if (cols.includes(col)) { try { run(db, `UPDATE "${tbl}" SET "${col}"=? WHERE "${col}"=?`, [intoJid, fromJid]); } catch {} }
+    }
+  }
+  // Drop anything that couldn't move (e.g. a UNIQUE referred_jid collision) so the
+  // deleted account leaves nothing dangling.
+  try { run(db, `DELETE FROM referral_rewards WHERE referrer_jid=? OR referred_jid=?`, [fromJid, fromJid]); } catch {}
+  const from = get(db, `SELECT email, phone, name, wallet_inr FROM customers WHERE jid=?`, [fromJid]) || {};
+  run(db, `UPDATE customers SET wallet_inr = COALESCE(wallet_inr,0) + ? WHERE jid=?`, [from.wallet_inr || 0, intoJid]);
+  run(db, `UPDATE customers SET email=COALESCE(NULLIF(email,''),?), phone=COALESCE(NULLIF(phone,''),?), name=COALESCE(NULLIF(name,''),?) WHERE jid=?`,
+    [from.email || '', from.phone || '', from.name || '', intoJid]);
+  try { run(db, `UPDATE customers SET referred_by=? WHERE referred_by=?`, [intoJid, fromJid]); } catch {}
+  run(db, `DELETE FROM customers WHERE jid=?`, [fromJid]);
+}
+
+// Find groups of duplicate accounts that share an email OR a WhatsApp number
+// (transitively — A↔B by email, B↔C by phone groups all three).
+router.get('/customers/duplicates', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const custs = all(db, `SELECT c.jid, c.name, c.email, c.phone, COALESCE(c.wallet_inr,0) AS wallet_inr, c.created_at,
+        (SELECT COUNT(*) FROM orders WHERE customer_jid=c.jid) AS order_count
+      FROM customers c`);
+    const parent = {};
+    const find = x => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
+    const union = (a, b) => { parent[find(a)] = find(b); };
+    custs.forEach(c => { parent[c.jid] = c.jid; });
+    const eMap = {}, pMap = {};
+    const normE = s => String(s || '').trim().toLowerCase();
+    const normP = s => String(s || '').replace(/\D/g, '');
+    custs.forEach(c => {
+      const e = normE(c.email), p = normP(c.phone);
+      if (e) { if (eMap[e]) union(c.jid, eMap[e]); else eMap[e] = c.jid; }
+      if (p && p.length >= 8) { if (pMap[p]) union(c.jid, pMap[p]); else pMap[p] = c.jid; }
+    });
+    const comps = {};
+    custs.forEach(c => { const r = find(c.jid); (comps[r] = comps[r] || []).push(c); });
+    const groups = Object.values(comps).filter(g => g.length > 1).map(g => {
+      // Suggested survivor: most orders, then oldest.
+      const primary = g.slice().sort((a, b) => (b.order_count - a.order_count) || (String(a.created_at) < String(b.created_at) ? -1 : 1))[0];
+      return { primary_jid: primary.jid, members: g };
+    });
+    res.json({ groups });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Merge one or more duplicate accounts into a chosen primary.
+router.post('/customers/merge', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const primary = String(req.body.primary || '');
+    const dupes = (Array.isArray(req.body.duplicates) ? req.body.duplicates : []).map(String).filter(j => j && j !== primary);
+    if (!primary || !dupes.length) return res.status(400).json({ error: 'Pick a primary account and at least one duplicate to merge.' });
+    if (!get(db, `SELECT jid FROM customers WHERE jid=?`, [primary])) return res.status(404).json({ error: 'Primary account not found' });
+    let merged = 0;
+    for (const from of dupes) {
+      if (!get(db, `SELECT jid FROM customers WHERE jid=?`, [from])) continue;
+      mergeCustomers(db, from, primary);
+      merged++;
+    }
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'customers_merge', targetKind: 'customer', targetId: primary, ip: req.ip });
+    res.json({ ok: true, merged });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── Topups ───────────────────────────────────────────────────────────────────
 router.get('/topups', requireAdmin, async (req, res) => {
   try {
