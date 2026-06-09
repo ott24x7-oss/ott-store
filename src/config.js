@@ -49,6 +49,13 @@ module.exports = {
     email: process.env.RESELLKEYS_EMAIL || '',
     password: process.env.RESELLKEYS_PASSWORD || '',
   },
+  // OTT24x7 Telegram-bot reseller API. When apiUrl + apiToken are set, the store
+  // imports the bot's catalog (provider_api='bot') and auto-delivers those plans by
+  // buying live from the bot at checkout. No hardcoded fallback — disabled if unset.
+  bot: {
+    apiUrl: (process.env.BOT_API_URL || '').replace(/\/+$/, ''),
+    apiToken: process.env.BOT_API_TOKEN || '',
+  },
   // Cross-origin WA-offer import token. No hardcoded fallback: the import endpoint
   // is disabled unless this env var is set to a secret value.
   waImportToken: process.env.WA_IMPORT_TOKEN || '',
