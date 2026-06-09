@@ -259,6 +259,23 @@ router.get('/me/payments', requireCustomer, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Recoverable pending payments (abandoned UPI checkouts < 24h old) — drives the
+// "Finish your payment" recovery card on the dashboard. Returns the same unique
+// amount + UPI details so the customer resumes paying the exact figure.
+router.get('/me/pending-payments', requireCustomer, async (req, res) => {
+  try {
+    const db = await getDb();
+    const rows = all(db, `SELECT t.id, t.unique_amount, t.amount_inr, t.currency, t.method,
+        t.created_at, t.expires_at, t.plan_id, p.name AS plan_name, p.platform
+      FROM topups t LEFT JOIN plans p ON p.id=t.plan_id
+      WHERE t.customer_jid=? AND t.purpose='order' AND t.status='pending'
+        AND t.method='upi_imap' AND t.created_at > datetime('now','-24 hours')
+      ORDER BY t.created_at DESC`, [req.customer.jid]);
+    const eupi = await getEffectiveUpi(db);
+    res.json({ pending: rows.map(r => ({ ...r, upi_id: eupi.upi_id, upi_name: eupi.upi_name, qr_url: eupi.qr_url })) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Aggregate stats for the Profile dashboard card.
 router.get('/me/stats', requireCustomer, async (req, res) => {
   try {
@@ -686,7 +703,7 @@ router.post('/checkout/upi-direct', requireCustomer, async (req, res) => {
     const eupi = await getEffectiveUpi(db);
     const upiId = eupi.upi_id;
     const upiName = (eupi.upi_name || '').replace(/[^a-zA-Z0-9 ]/g, '');
-    const windowMin = parseInt(await getSetting('upi_payment_window_minutes') || '30', 10);
+    const windowMin = parseInt(await getSetting('upi_payment_window_minutes') || '1440', 10); // 24h: customer can finish (or be reminded to finish) the payment within a day
     const expiresAt = new Date(Date.now() + windowMin * 60 * 1000).toISOString();
 
     const r = run(db, `INSERT INTO topups (customer_jid,amount_inr,unique_amount,method,status,purpose,plan_id,currency,expires_at) VALUES (?,?,?,?,?,?,?,?,?)`,
@@ -961,7 +978,7 @@ router.post('/guest-checkout/upi', guestLimiter, async (req, res) => {
     const uniqueDir = await getSetting('upi_unique_direction') || 'both';
     const uniqueAmount = generateUniqueAmount(price, usedUniques, uniqueMaxDelta, uniqueDir);
     const eupi = await getEffectiveUpi(db);
-    const windowMin = parseInt(await getSetting('upi_payment_window_minutes') || '30', 10);
+    const windowMin = parseInt(await getSetting('upi_payment_window_minutes') || '1440', 10); // 24h: customer can finish (or be reminded to finish) the payment within a day
     const expiresAt = new Date(Date.now() + windowMin * 60 * 1000).toISOString();
     const guestToken = crypto.randomBytes(20).toString('hex');
 

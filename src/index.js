@@ -132,6 +132,48 @@ app.options('/admin/api/wa-offers-batch-import', (req, res) => {
   res.status(204).end();
 });
 
+// ─── Guest payment recovery page (from the "complete your payment" email) ─────
+// A guest opens /pay/<guest_token> to resume an abandoned UPI checkout: same
+// unique amount, same static QR. The page polls the guest-poll endpoint so it
+// auto-confirms the moment the IMAP worker matches the bank email.
+app.get('/pay/:token', async (req, res) => {
+  try {
+    const db = await getDb();
+    const token = String(req.params.token || '');
+    const t = token ? get(db, `SELECT t.*, p.name AS plan_name, p.platform FROM topups t
+      LEFT JOIN plans p ON p.id = t.plan_id
+      WHERE t.guest_token=? AND t.purpose='order' AND t.method='upi_imap' LIMIT 1`, [token]) : null;
+    const siteName = (await getSetting('site_name')) || 'OTT24x7';
+    const page = (inner) => `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Complete your payment — ${esc(siteName)}</title><style>body{margin:0;background:#04060f;color:#f4f7ff;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:1rem}.card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:20px;max-width:380px;width:100%;padding:1.6rem;text-align:center}.amt{font-size:2.6rem;font-weight:900;color:#2b6fff;margin:.15rem 0;letter-spacing:-1px}.btn{display:block;background:linear-gradient(135deg,#2b6fff,#8d5cff);color:#fff;text-decoration:none;border-radius:12px;padding:.85rem;font-weight:800;margin:.7rem 0}.muted{color:#aab4cf;font-size:.83rem}code{background:rgba(255,255,255,.08);padding:.5rem;border-radius:8px;display:block;word-break:break-all;margin:.35rem 0;font-size:.82rem}</style></head><body><div class="card">${inner}</div></body></html>`;
+    if (!t) return res.status(404).type('html').send(page(`<div style="font-size:2.2rem">🔗</div><h2 style="margin:.3rem 0">Link not found</h2><p class="muted">This payment link is invalid.</p><a class="btn" href="/plans">Browse plans</a>`));
+    if (t.status !== 'pending') {
+      const done = t.status === 'approved' || t.order_id;
+      return res.type('html').send(page(`<div style="font-size:2.6rem">${done ? '✅' : '⌛'}</div><h2 style="margin:.3rem 0">${done ? 'Payment already received' : 'This link has expired'}</h2><p class="muted">${done ? 'Your order is on its way to your email.' : 'Please place a new order.'}</p><a class="btn" href="/plans">${done ? 'Order again' : 'Browse plans'}</a>`));
+    }
+    const upiId = ((await getSetting('upi_id')) || '').trim();
+    const upiName = ((await getSetting('upi_name')) || siteName).replace(/[^a-zA-Z0-9 ]/g, '');
+    const qrUrl = ((await getSetting('upi_qr_url')) || '').trim();
+    const amt = t.unique_amount;
+    const link = qrUrl
+      ? `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(upiName || 'Store')}&cu=INR`
+      : `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(upiName || 'Store')}&am=${Number(amt).toFixed(2)}&cu=INR`;
+    res.type('html').send(page(`
+<div style="font-weight:800;font-size:1.05rem">💳 Complete your payment</div>
+<div class="muted" style="margin:.2rem 0 .7rem">${esc(t.platform || '')} ${esc(t.plan_name || '')}</div>
+<div class="muted">Pay exactly</div>
+<div class="amt">₹${amt}</div>
+<div class="muted" style="margin-bottom:.6rem">(unique amount — do not round off)</div>
+${qrUrl ? `<img src="${esc(qrUrl)}" alt="UPI QR" style="width:180px;height:180px;border-radius:12px;background:#fff;padding:6px;object-fit:contain" onerror="this.style.display='none'">` : ''}
+<div class="muted" style="margin:.55rem 0 .1rem">UPI ID</div>
+<code>${esc(upiId)}</code>
+<a class="btn" href="${esc(link)}">📱 Open UPI App</a>
+<div id="st" class="muted">⌛ Waiting for payment confirmation…</div>
+<script>
+(function(){var done=false;function poll(){if(done)return;fetch('/user/api/guest-checkout/poll/${t.id}?token=${encodeURIComponent(token)}').then(function(r){return r.json()}).then(function(j){if(!j)return;if(j.status==='paid'){done=true;document.getElementById('st').innerHTML='✅ Payment confirmed! Your credentials are being emailed to you.';}else if(j.status==='expired'||j.status==='rejected'){done=true;document.getElementById('st').innerHTML='⌛ This payment expired — please place a new order.';}}).catch(function(){})}setInterval(poll,5000);poll();})();
+</script>`));
+  } catch (e) { res.status(500).type('text/plain').send('error'); }
+});
+
 // ─── API routes ───────────────────────────────────────────────────────────────
 app.use('/user/api', apiLimiter, require('./user-api'));
 app.use('/admin/api', apiLimiter, require('./admin-api'));
@@ -1116,6 +1158,7 @@ async function start() {
   try { require('./delivery-worker').startDeliveryWorker(); } catch (e) { console.error('delivery-worker error:', e.message); }
   try { require('./bot-supplier').startBotSync(); } catch (e) { console.error('bot-supplier error:', e.message); }
   try { require('./renewal-worker').startRenewalWorker(); } catch (e) { console.error('renewal-worker error:', e.message); }
+  try { require('./recovery-worker').startRecoveryWorker(); } catch (e) { console.error('recovery-worker error:', e.message); }
   try { require('./autopost-worker').startAutopostWorker(); } catch (e) { console.error('autopost-worker error:', e.message); }
   // ResellKeys auto-fulfillment worker removed — scrape-only integration now.
   try { require('./imap-verify').startImapWorker(); } catch (e) { console.error('imap-verify error:', e.message); }

@@ -1088,6 +1088,7 @@ async function renderDashboard(){
   try{
     ORDERS=await api('/orders');
     const wallet=await api('/wallet').catch(()=>({balance:0,txns:[]})); window.WALLET=wallet;
+    try{ const pp=await api('/me/pending-payments'); window.PENDING_PAYMENTS=(pp&&pp.pending)||[]; }catch(e){ window.PENDING_PAYMENTS=[]; }
     const now=new Date();
     const activeSubs=ORDERS.filter(o=>o.status==='delivered'&&o.expires_at&&new Date(o.expires_at)>now);
     const totalSpent=ORDERS.filter(o=>o.status!=='cancelled').reduce((s,o)=>s+Number(o.amount_inr||0),0);
@@ -1109,8 +1110,9 @@ async function renderDashboard(){
   </div>
 </div>`;
 
-    // Alerts
-    const alertsHtml=`
+    // Alerts — recovery banner first (unpaid orders the customer can still finish)
+    const recoveryBanner=(window.PENDING_PAYMENTS||[]).map((t,i)=>`<div class="alert" style="margin-bottom:1rem;background:linear-gradient(135deg,rgba(43,111,255,.14),rgba(141,92,255,.12));border:1px solid rgba(43,111,255,.35);display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap"><span>⏳ <b>Finish your payment</b> — ${esc(t.platform||'')} ${esc(t.plan_name||'')} · <b>₹${t.unique_amount}</b></span><button class="btn btn-primary btn-sm" style="white-space:nowrap" onclick="showRecoveryPay(${i})">Pay Now →</button></div>`).join('');
+    const alertsHtml=recoveryBanner+`
 ${STORE.announcement?`<div class="alert alert-info" style="margin-bottom:1rem">📢 ${esc(STORE.announcement)}</div>`:''}
 ${expiring.length?`<div class="alert alert-warn" style="margin-bottom:1rem">⚠️ ${expiring.length} subscription${expiring.length>1?'s':''} expiring soon! <span style="cursor:pointer;color:var(--blue);font-weight:600" onclick="goTab('orders')">Renew →</span></div>`:''}`;
 
@@ -1488,6 +1490,43 @@ function showAmountAlert(amount){
   ov.querySelector('#cwAmtOk').onclick=close;
   ov.addEventListener('click',e=>{ if(e.target===ov) ov.remove(); });
 }
+
+// Resume an abandoned UPI payment from the dashboard recovery banner — same unique
+// amount, same static QR, auto-confirmed by the IMAP worker (we poll the top-up).
+window.showRecoveryPay=function(i){
+  const t=(window.PENDING_PAYMENTS||[])[i]; if(!t)return;
+  const amt=t.unique_amount;
+  const qr=(t.qr_url||'').trim();
+  const pa=encodeURIComponent(t.upi_id||''), pn=encodeURIComponent(t.upi_name||'Store');
+  const link=qr?`upi://pay?pa=${pa}&pn=${pn}&cu=INR`:`upi://pay?pa=${pa}&pn=${pn}&am=${amt}&cu=INR`;
+  const ov=document.createElement('div'); ov.setAttribute('data-rovl','1');
+  ov.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:1rem';
+  ov.innerHTML='<div style="background:var(--card-solid,#0a0c1a);color:var(--text,#f4f7ff);border:1px solid var(--border,rgba(255,255,255,.14));border-radius:18px;max-width:360px;width:100%;padding:1.4rem;text-align:center;position:relative">'
+    +'<button style="position:absolute;top:.5rem;right:.7rem;background:none;border:none;color:var(--muted,#aab4cf);font-size:1.3rem;cursor:pointer" onclick="this.closest(\'[data-rovl]\').remove()">✕</button>'
+    +'<div style="font-weight:800">💳 Complete your payment</div>'
+    +'<div style="color:var(--muted,#aab4cf);font-size:.82rem;margin:.15rem 0 .5rem">'+esc(((t.platform||'')+' '+(t.plan_name||'')).trim())+'</div>'
+    +'<div style="color:var(--muted,#aab4cf);font-size:.8rem">Pay exactly</div>'
+    +'<div style="font-size:2.3rem;font-weight:900;color:var(--blue,#2b6fff)">₹'+amt+'</div>'
+    +'<div style="color:var(--muted,#aab4cf);font-size:.78rem;margin-bottom:.5rem">(unique amount — do not round off)</div>'
+    +(qr?'<img src="'+esc(qr)+'" alt="UPI QR" style="width:170px;height:170px;border-radius:12px;background:#fff;padding:6px;object-fit:contain" onerror="this.style.display=\'none\'">':'')
+    +'<div style="color:var(--muted,#aab4cf);font-size:.78rem;margin:.45rem 0 .1rem">UPI ID</div>'
+    +'<code style="display:block;background:var(--glass,rgba(255,255,255,.08));padding:.45rem;border-radius:8px;word-break:break-all;font-size:.8rem">'+esc(t.upi_id||'')+'</code>'
+    +'<a href="'+esc(link)+'" style="display:block;background:linear-gradient(135deg,#2b6fff,#8d5cff);color:#fff;text-decoration:none;border-radius:10px;padding:.75rem;font-weight:800;margin:.6rem 0">📱 Open UPI App</a>'
+    +'<div id="rpst" style="color:var(--muted,#aab4cf);font-size:.82rem">⌛ Waiting for payment confirmation…</div>'
+    +'</div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click',e=>{ if(e.target===ov) ov.remove(); });
+  let done=false;
+  const iv=setInterval(()=>{
+    if(done||!document.body.contains(ov)){ clearInterval(iv); return; }
+    api('/checkout/poll/'+t.id).then(j=>{
+      if(!j) return;
+      if(j.status==='paid'||j.status==='approved'||j.order){ done=true; const s=document.getElementById('rpst'); if(s)s.innerHTML='✅ Payment confirmed! Your order is being delivered to your email.'; setTimeout(()=>{ if(document.body.contains(ov))ov.remove(); renderDashboard(); },2500); }
+      else if(j.status==='expired'||j.status==='rejected'){ done=true; const s=document.getElementById('rpst'); if(s)s.innerHTML='⌛ This payment expired — please place a new order.'; }
+    }).catch(()=>{});
+  },5000);
+  try{ showAmountAlert(amt); }catch(e){}
+};
 
 function showUpiPaymentStep(modalEl,area,r,planName){
   const upiLink=r.upi_link||`upi://pay?pa=${encodeURIComponent(r.upi_id)}&pn=${encodeURIComponent(r.upi_name||'Store')}&am=${r.unique_amount}&cu=INR`;
