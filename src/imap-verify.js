@@ -186,7 +186,14 @@ async function handleDirectCheckout(db, topup, cust) {
 
   const plan = get(db, 'SELECT * FROM plans WHERE id=? AND active=1', [topup.plan_id]);
   if (!plan) return;
-  if (plan.stock === 0) return;
+  // Bot-supplied auto plans (provider_api='bot') are fulfilled on demand by the
+  // OTT24x7 bot, NOT from local stock — so they must not be gated or decremented on
+  // plan.stock here. Otherwise a deliverable bot order whose (stale/finite) local
+  // count reached 0 gets flagged refund_needed BEFORE the order is created, so
+  // deliverFromBot never runs. The delivery worker already auto-refunds to the
+  // customer's wallet if the bot is genuinely out of stock.
+  const botSupplied = plan.provider_api === 'bot' && plan.delivery_type === 'auto';
+  if (!botSupplied && plan.stock === 0) return;
 
   const existing = get(db, `SELECT id FROM orders o WHERE EXISTS (SELECT 1 FROM topups WHERE order_id=o.id AND id=?)`, [topup.id]);
   if (existing) return;
@@ -194,7 +201,8 @@ async function handleDirectCheckout(db, topup, cust) {
   // Atomic stock decrement for finite-stock plans. We deduct first; if the
   // affected-rows count is zero the plan is sold out under us — abort BEFORE
   // creating the order. This prevents the "two customers, last unit" race.
-  if (plan.stock > 0) {
+  // (Bot-supplied plans skip this — see above.)
+  if (!botSupplied && plan.stock > 0) {
     const dec = run(db, `UPDATE plans SET stock=stock-1 WHERE id=? AND stock > 0`, [topup.plan_id]);
     if (!dec.changes) {
       run(db, `UPDATE topups SET status='refund_needed' WHERE id=?`, [topup.id]);
@@ -422,9 +430,13 @@ async function manualVerifyTopup(topupId) {
   if (!topup) return { ok: false, error: 'Payment not found' };
   if (topup.order_id) return { ok: false, error: `Already verified — order #${topup.order_id} exists` };
   if (topup.purpose && topup.purpose !== 'order') return { ok: false, error: 'Not an order payment' };
-  const plan = get(db, `SELECT id, platform, name, stock FROM plans WHERE id=? AND active=1`, [topup.plan_id]);
+  const plan = get(db, `SELECT id, platform, name, stock, provider_api, delivery_type FROM plans WHERE id=? AND active=1`, [topup.plan_id]);
   if (!plan) return { ok: false, error: 'Plan not found or inactive' };
-  if (plan.stock === 0) return { ok: false, error: 'Plan is sold out (stock 0) — cannot create order; refund the customer.' };
+  // Bot-supplied auto plans aren't gated on local stock — the OTT24x7 bot fulfils
+  // them on demand (handleDirectCheckout + the delivery worker handle availability
+  // and auto-refund to wallet). Only block manual verify for finite-stock plans.
+  const botSupplied = plan.provider_api === 'bot' && plan.delivery_type === 'auto';
+  if (!botSupplied && plan.stock === 0) return { ok: false, error: 'Plan is sold out (stock 0) — cannot create order; refund the customer.' };
 
   const cust = get(db, `SELECT * FROM customers WHERE jid=?`, [topup.customer_jid]);
   try { await handleDirectCheckout(db, topup, cust); }
