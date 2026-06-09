@@ -206,14 +206,27 @@ async function maybeAlertOutOfStock(db, order) {
   const dup = get(db, `SELECT id FROM audit_log WHERE action='oos_alert' AND target_kind='order' AND target_id=? LIMIT 1`, [String(order.id)]);
   if (dup) return;
   run(db, `INSERT INTO audit_log (actor_kind,actor_label,action,target_kind,target_id) VALUES ('system','delivery-worker','oos_alert','order',?)`, [String(order.id)]);
-  const plan = get(db, 'SELECT name, platform FROM plans WHERE id=?', [order.plan_id]);
+  const plan = get(db, 'SELECT name, platform, delivery_type, provider_api FROM plans WHERE id=?', [order.plan_id]);
   const cust = get(db, 'SELECT name, email FROM customers WHERE jid=?', [order.customer_jid]);
   const { notifyAdmin } = require('./notify');
+  const who = `👤 ${cust?.name || order.customer_jid}${cust?.email ? ` · ${cust.email}` : ''}`;
+  // Manual-delivery products aren't "out of stock" — they're fulfilled by you. Send a
+  // clearer "needs manual delivery" alert so it isn't mistaken for a stock problem.
+  if (plan?.delivery_type === 'manual') {
+    await notifyAdmin(
+      `📋 *PAID — NEEDS MANUAL DELIVERY*\n\n` +
+      `📦 ${plan?.platform || ''} ${plan?.name || ''}\n💵 ₹${order.amount_inr}\n${who}\n🆔 Order: #${order.id}\n\n` +
+      `This is a manual product${plan?.provider_api === 'bot' ? ' — buy it from your bot, then deliver the key' : ''}:\n` +
+      `• Admin → Orders → open #${order.id} → paste the key → Deliver\n` +
+      `• or \`.deliver ${order.id} <credentials>\``,
+      { db, subject: `📋 Order #${order.id} PAID — needs manual delivery` }
+    );
+    return;
+  }
   await notifyAdmin(
     `⚠️ *PAID — OUT OF STOCK*\n\n` +
     `📦 ${plan?.platform || ''} ${plan?.name || ''}\n` +
-    `💵 ₹${order.amount_inr}\n` +
-    `👤 ${cust?.name || order.customer_jid}${cust?.email ? ` · ${cust.email}` : ''}\n` +
+    `💵 ₹${order.amount_inr}\n${who}\n` +
     `🆔 Order: #${order.id}\n\n` +
     `No stock to auto-deliver. Deliver manually:\n` +
     `\`.deliver ${order.id} <credentials>\`\n` +
