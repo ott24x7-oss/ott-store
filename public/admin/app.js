@@ -1837,7 +1837,12 @@ views.topups = async function () {
     const amtCell = t => (t.currency === 'USDT')
       ? `${Number(t.unique_amount_usdt || t.amount_usdt || 0).toFixed(3)} USDT`
       : `${fmt(t.unique_amount || t.amount_inr)}`;
-    const rowOf = (t, action) => `
+    const actionsOf = t => {
+      if (t.status === 'pending') return `<button class="btn btn-green btn-sm" onclick="verifyTopup(${t.id})">✓ Verify</button> <button class="btn btn-secondary btn-sm" onclick="cancelTopup(${t.id})">✕ Cancel</button>`;
+      if (t.status === 'refund_needed') return `<button class="btn btn-green btn-sm" onclick="verifyTopup(${t.id})" title="Create &amp; deliver the order">✓ Deliver</button> <button class="btn btn-sm" style="background:#dc2626;border-color:#dc2626;color:#fff" onclick="refundTopup(${t.id})">↩ Refund</button>`;
+      return '—';
+    };
+    const rowOf = t => `
 <tr>
   <td>#${t.id}</td>
   <td>${esc(t.email||'—')}</td>
@@ -1846,17 +1851,18 @@ views.topups = async function () {
   <td>${statusBadge(t.status)}</td>
   <td>${t.order_id?`<a href="#orders" onclick="views.orders()">#${t.order_id}</a>`:'—'}</td>
   <td style="font-size:.8rem">${fmtDateShort(t.created_at)}</td>
-  ${action ? `<td style="text-align:right"><button class="btn btn-green btn-sm" onclick="verifyTopup(${t.id})">✓ Verify</button></td>` : ''}
+  <td style="text-align:right;white-space:nowrap">${actionsOf(t)}</td>
 </tr>`;
-    const pendingRows = pending.map(t => rowOf(t, true)).join('');
-    const histRows = all.filter(t => t.status !== 'pending').slice(0, 50).map(t => rowOf(t, false)).join('');
+    window.TOPUPS = all; // lets the refund modal read amount/customer without re-fetching
+    const pendingRows = pending.map(t => rowOf(t)).join('');
+    const histRows = all.filter(t => t.status !== 'pending').slice(0, 50).map(t => rowOf(t)).join('');
 
     setMain(`
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
   <h2 style="font-weight:800">Payment Log</h2>
   <button class="btn btn-secondary btn-sm" onclick="views.topups()">↻ Refresh</button>
 </div>
-<p class="muted" style="margin-bottom:1rem">Direct-checkout payments are auto-verified by the IMAP worker. If one is stuck <b>In-flight</b> (bank email didn't arrive or the amount mismatched), you can <b>✓ Verify</b> it manually — but only after confirming the money actually arrived, since that creates and delivers the order. Pending entries past their window are auto-expired.</p>
+<p class="muted" style="margin-bottom:1rem">Every direct-checkout UPI/USDT payment lands here and is auto-verified by the IMAP worker. <b>In-flight</b> = waiting for the bank email: <b>✓ Verify</b> (only after confirming the money arrived) creates &amp; delivers the order, or <b>✕ Cancel</b> if the customer never paid. <b>History</b> shows the outcome — <b>Approved</b> (delivered), <b>Expired</b> (window passed unpaid), <b>Refund needed</b> (paid but couldn't deliver). On a <b>Refund needed</b> row you can <b>✓ Deliver</b> it now, or <b>↩ Refund</b> the customer (to their store wallet, or mark as paid-back).</p>
 <div class="card" style="margin-bottom:1.5rem">
   <div style="font-weight:700;margin-bottom:.75rem">In-flight ${pending.length?`<span class="pending-dot">${pending.length}</span>`:''}</div>
   <div class="table-wrap"><table>
@@ -1867,8 +1873,8 @@ views.topups = async function () {
 <div class="card">
   <div style="font-weight:700;margin-bottom:.75rem">History (last 50)</div>
   <div class="table-wrap"><table>
-    <thead><tr><th>ID</th><th>Customer</th><th>Amount</th><th>Method</th><th>Status</th><th>Order</th><th>Created</th></tr></thead>
-    <tbody>${histRows||'<tr><td colspan="7" class="muted" style="text-align:center;padding:1rem">No history</td></tr>'}</tbody>
+    <thead><tr><th>ID</th><th>Customer</th><th>Amount</th><th>Method</th><th>Status</th><th>Order</th><th>Created</th><th style="text-align:right">Actions</th></tr></thead>
+    <tbody>${histRows||'<tr><td colspan="8" class="muted" style="text-align:center;padding:1rem">No history</td></tr>'}</tbody>
   </table></div>
 </div>`);
 
@@ -1879,6 +1885,35 @@ views.topups = async function () {
         showToast('Verified — order #'+r.order_id+' created & delivering');
         views.topups();
       } catch(e){ showToast(e.message, 'error'); }
+    };
+    window.cancelTopup = async (id) => {
+      if (!confirm('Cancel payment #'+id+'?\n\nUse this for an in-flight payment the customer never actually paid. It just clears the entry — no money is moved.')) return;
+      try { await api('/topups/'+id+'/cancel', { method:'POST' }); showToast('Payment cancelled'); views.topups(); }
+      catch(e){ showToast(e.message, 'error'); }
+    };
+    window.refundTopup = (id) => {
+      const t = (window.TOPUPS||[]).find(x => x.id === id) || {};
+      const amt = Number(t.amount_inr || t.unique_amount || 0);
+      const who = t.email || 'the customer';
+      openModal(`<div class="modal-header"><h3 style="font-weight:800">↩ Refund payment #${id}</h3></div>
+<div class="modal-body">
+  <p style="margin:0 0 .8rem">Refund <strong>${fmt(amt)}</strong> for <strong>${esc(who)}</strong>. Choose how:</p>
+  <div style="display:flex;flex-direction:column;gap:.6rem">
+    <button class="btn btn-primary" id="rf-wallet" style="text-align:left">↩ Refund ${fmt(amt)} to store wallet<br><span style="font-weight:400;opacity:.85;font-size:.82rem">Instant credit — they reuse it at checkout. Emails + WhatsApps them.</span></button>
+    <button class="btn btn-secondary" id="rf-ext" style="text-align:left">✓ Just mark as refunded<br><span style="font-weight:400;opacity:.8;font-size:.82rem">Use if you already paid them back outside the app (UPI/bank).</span></button>
+  </div>
+</div>
+<div class="modal-footer"><button class="btn btn-secondary" data-close>Cancel</button></div>`);
+      const doRefund = async (toWallet) => {
+        try {
+          const r = await api('/topups/'+id+'/refund', { method:'POST', body: JSON.stringify({ to_wallet: toWallet }) });
+          document.querySelector('.modal-overlay')?.remove();
+          showToast(toWallet ? `Refunded ${fmt(r.refunded)} → wallet` : 'Marked as refunded');
+          views.topups();
+        } catch(e){ showToast(e.message, 'error'); }
+      };
+      document.getElementById('rf-wallet').onclick = () => doRefund(true);
+      document.getElementById('rf-ext').onclick = () => doRefund(false);
     };
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };

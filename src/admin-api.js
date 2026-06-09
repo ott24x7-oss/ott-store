@@ -688,6 +688,56 @@ router.post('/topups/:id/verify', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Cancel an unpaid in-flight payment (customer abandoned / never paid). No money moves.
+router.post('/topups/:id/cancel', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const t = get(db, `SELECT * FROM topups WHERE id=?`, [req.params.id]);
+    if (!t) return res.status(404).json({ error: 'Payment not found' });
+    if (t.order_id) return res.status(400).json({ error: 'This payment already created an order — cancel it from the Orders page.' });
+    if (t.status !== 'pending') return res.status(400).json({ error: `Can't cancel a "${t.status}" payment` });
+    run(db, `UPDATE topups SET status='cancelled' WHERE id=?`, [t.id]);
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'topup_cancel', targetKind: 'topup', targetId: String(t.id), ip: req.ip });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Refund a paid-but-undelivered payment. to_wallet=true (default) credits the
+// customer's store wallet + notifies them; to_wallet=false just records it as
+// refunded (admin already paid back outside the app). Either way → status 'refunded'.
+router.post('/topups/:id/refund', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const t = get(db, `SELECT t.*, c.name AS cname, c.email, c.phone FROM topups t LEFT JOIN customers c ON c.jid=t.customer_jid WHERE t.id=?`, [req.params.id]);
+    if (!t) return res.status(404).json({ error: 'Payment not found' });
+    if (['refunded', 'cancelled'].includes(t.status)) return res.status(400).json({ error: `Payment is already ${t.status}` });
+    if (t.order_id) return res.status(400).json({ error: 'This payment has an order — cancel & refund it from the Orders page instead.' });
+    if (t.status === 'pending') return res.status(400).json({ error: 'Still in-flight — use Cancel (if unpaid) or Verify (if the money arrived) instead.' });
+    const toWallet = req.body.to_wallet !== false;
+    const amount = Math.round((parseFloat(t.amount_inr) || 0) * 100) / 100;
+    let newBal = null;
+    if (toWallet) {
+      if (amount <= 0) return res.status(400).json({ error: 'Nothing to refund (₹0)' });
+      if (!t.customer_jid) return res.status(400).json({ error: 'No customer to refund' });
+      const ref = 'topup:' + t.id;
+      const { creditWallet, getBalance } = require('./wallet');
+      const dup = get(db, `SELECT id FROM wallet_txns WHERE type='refund' AND ref_id=? LIMIT 1`, [ref]);
+      newBal = dup ? getBalance(db, t.customer_jid) : creditWallet(db, t.customer_jid, amount, { type: 'refund', label: `Refund — payment #${t.id}`, ref_id: ref });
+    }
+    run(db, `UPDATE topups SET status='refunded' WHERE id=?`, [t.id]);
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: toWallet ? 'topup_refund_wallet' : 'topup_refund_external', targetKind: 'topup', targetId: String(t.id), ip: req.ip });
+    if (toWallet) {
+      try {
+        if (t.email) sendMail({ to: t.email, subject: `Refund — payment #${t.id}`,
+          html: `<p>Hi ${t.cname || ''},</p><p>We've refunded <b>₹${amount.toFixed(2)}</b> to your store wallet.</p><p>Wallet balance: <b>₹${newBal.toFixed(2)}</b> — use it on your next purchase at checkout.</p>` }).catch(() => {});
+        const phone = String(t.phone || '').replace(/\D/g, '');
+        if (phone.length >= 10) { const { sendToPhone } = require('./wa-bot'); sendToPhone(phone, `💰 *Refund processed*\n*₹${amount.toFixed(2)}* added to your wallet.\nBalance: *₹${newBal.toFixed(2)}*. Use it at checkout.`).catch(() => {}); }
+      } catch {}
+    }
+    res.json({ ok: true, refunded: toWallet ? amount : 0, new_balance: newBal });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── Customers ────────────────────────────────────────────────────────────────
 router.get('/customers', requireAdmin, async (req, res) => {
   try {
