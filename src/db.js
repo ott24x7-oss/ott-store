@@ -1145,8 +1145,12 @@ function get(db, sql, params = []) {
 
 function run(db, sql, params = []) {
   db.run(sql, params);
+  // Capture affected-row count IMMEDIATELY (before the SELECT below) — several
+  // money-critical guards rely on `.changes` (e.g. atomic stock decrement, the
+  // "already delivered, don't re-notify" check). Without this they silently break.
+  const changes = db.getRowsModified();
   const r = db.exec('SELECT last_insert_rowid() as id');
-  return { lastInsertRowid: r[0]?.values[0][0] ?? null };
+  return { lastInsertRowid: r[0]?.values[0][0] ?? null, changes };
 }
 
 async function getSetting(key) {
