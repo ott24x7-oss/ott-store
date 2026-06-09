@@ -81,7 +81,13 @@ async function parseAndMatch(rawMessages) {
   // exchange notification email arrives a few minutes after the strict window
   // (e.g. delayed Gmail delivery, IMAP poll interval): a real payment whose
   // email lands within 5 min of expiry still gets matched.
-  try { run(db, `UPDATE topups SET status='expired' WHERE status='pending' AND expires_at IS NOT NULL AND datetime(expires_at) < datetime('now', '-5 minutes')`); } catch {}
+  // Keep matching well past the on-screen countdown: a real payment whose bank / UPI
+  // confirmation email is delayed (slow push, Gmail delivery lag) must still
+  // auto-credit. The customer sees a short window, but the topup stays matchable for
+  // `payment_match_grace_minutes` (default 3h) before we give up on it.
+  let graceMin = 180;
+  try { graceMin = Math.max(15, parseInt(await getSetting('payment_match_grace_minutes') || '180', 10) || 180); } catch {}
+  try { run(db, `UPDATE topups SET status='expired' WHERE status='pending' AND expires_at IS NOT NULL AND datetime(expires_at) < datetime('now', ?)`, [`-${graceMin} minutes`]); } catch {}
   const pending = all(db, `SELECT * FROM topups
     WHERE status='pending' AND purpose='order'
       AND (

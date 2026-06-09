@@ -686,7 +686,7 @@ router.post('/checkout/upi-direct', requireCustomer, async (req, res) => {
     const eupi = await getEffectiveUpi(db);
     const upiId = eupi.upi_id;
     const upiName = (eupi.upi_name || '').replace(/[^a-zA-Z0-9 ]/g, '');
-    const windowMin = parseInt(await getSetting('usdt_payment_window_minutes') || '20', 10);
+    const windowMin = parseInt(await getSetting('upi_payment_window_minutes') || '30', 10);
     const expiresAt = new Date(Date.now() + windowMin * 60 * 1000).toISOString();
 
     const r = run(db, `INSERT INTO topups (customer_jid,amount_inr,unique_amount,method,status,purpose,plan_id,currency,expires_at) VALUES (?,?,?,?,?,?,?,?,?)`,
@@ -943,7 +943,7 @@ router.post('/guest-checkout/upi', guestLimiter, async (req, res) => {
     const uniqueDir = await getSetting('upi_unique_direction') || 'both';
     const uniqueAmount = generateUniqueAmount(price, usedUniques, uniqueMaxDelta, uniqueDir);
     const eupi = await getEffectiveUpi(db);
-    const windowMin = parseInt(await getSetting('usdt_payment_window_minutes') || '20', 10);
+    const windowMin = parseInt(await getSetting('upi_payment_window_minutes') || '30', 10);
     const expiresAt = new Date(Date.now() + windowMin * 60 * 1000).toISOString();
     const guestToken = crypto.randomBytes(20).toString('hex');
 
