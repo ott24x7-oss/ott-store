@@ -699,8 +699,16 @@ router.post('/checkout/upi-direct', requireCustomer, async (req, res) => {
     let upiLink = '', upiQr = '';
     if (upiId) {
       const tn = String(plan.name || 'Order').replace(/[^a-zA-Z0-9 ]/g, '').slice(0, 30) || 'Order';
-      upiLink = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(upiName || 'Store')}&am=${uniqueAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(tn)}`;
-      try { upiQr = await require('qrcode').toDataURL(upiLink, { width: 240, margin: 1 }); } catch {}
+      if (eupi.qr_url) {
+        // Static-QR mode: the admin uploaded their own UPI QR, so show that and DON'T
+        // bake the amount into the deep link or generate a dynamic QR — amount-embedded
+        // UPI requests get flagged by some banks. The customer pays the exact unique
+        // amount shown; IMAP matches it. (upiQr stays empty → frontend renders qr_url.)
+        upiLink = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(upiName || 'Store')}&cu=INR&tn=${encodeURIComponent(tn)}`;
+      } else {
+        upiLink = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(upiName || 'Store')}&am=${uniqueAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(tn)}`;
+        try { upiQr = await require('qrcode').toDataURL(upiLink, { width: 240, margin: 1 }); } catch {}
+      }
     }
 
     res.json({
@@ -954,8 +962,14 @@ router.post('/guest-checkout/upi', guestLimiter, async (req, res) => {
     let gUpiLink = '', gUpiQr = '';
     if (eupi.upi_id) {
       const tn = String(plan.name || 'Order').replace(/[^a-zA-Z0-9 ]/g, '').slice(0, 30) || 'Order';
-      gUpiLink = `upi://pay?pa=${encodeURIComponent(eupi.upi_id)}&pn=${encodeURIComponent(gUpiName || 'Store')}&am=${uniqueAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(tn)}`;
-      try { gUpiQr = await require('qrcode').toDataURL(gUpiLink, { width: 240, margin: 1 }); } catch {}
+      if (eupi.qr_url) {
+        // Static-QR mode (see the logged-in checkout above): show the admin's uploaded
+        // QR, no amount in the link, no dynamic QR. Customer pays the exact amount; IMAP matches.
+        gUpiLink = `upi://pay?pa=${encodeURIComponent(eupi.upi_id)}&pn=${encodeURIComponent(gUpiName || 'Store')}&cu=INR&tn=${encodeURIComponent(tn)}`;
+      } else {
+        gUpiLink = `upi://pay?pa=${encodeURIComponent(eupi.upi_id)}&pn=${encodeURIComponent(gUpiName || 'Store')}&am=${uniqueAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(tn)}`;
+        try { gUpiQr = await require('qrcode').toDataURL(gUpiLink, { width: 240, margin: 1 }); } catch {}
+      }
     }
     res.json({
       ok: true, guest: true,
