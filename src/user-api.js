@@ -901,19 +901,29 @@ function normalizeWaPhone(phone) {
 }
 
 async function ensureGuestCustomer(db, email, name, phone) {
+  email = String(email || '').toLowerCase().trim();
   phone = normalizeWaPhone(phone) || null;
-  const jid = guestJid(email);
-  let cust = get(db, 'SELECT * FROM customers WHERE jid=?', [jid]);
-  if (!cust) {
-    run(db, `INSERT INTO customers (jid, email, name, phone, guest) VALUES (?,?,?,?,1)`,
-      [jid, email.toLowerCase().trim(), name || 'Guest', phone || null]);
-    cust = get(db, 'SELECT * FROM customers WHERE jid=?', [jid]);
-  } else {
-    // Update name/email if guest re-orders with different details
-    if (name) run(db, 'UPDATE customers SET name=?, phone=COALESCE(?,phone) WHERE jid=?', [name, phone || null, jid]);
-    cust = get(db, 'SELECT * FROM customers WHERE jid=?', [jid]);
+  // Reuse an existing customer for this person so guest checkout never creates a
+  // duplicate of one who already exists (a prior order, WhatsApp, registration,
+  // OTP login, etc.). Match by email first (across ANY jid / signup path), then by
+  // phone. This is what stops "two rows, same email/phone" duplicates.
+  let cust = email ? get(db, 'SELECT * FROM customers WHERE LOWER(email)=? ORDER BY created_at ASC LIMIT 1', [email]) : null;
+  if (!cust && phone) cust = get(db, 'SELECT * FROM customers WHERE phone=? ORDER BY created_at ASC LIMIT 1', [phone]);
+  if (cust) {
+    // Fill in details that were missing; never overwrite an existing email/phone.
+    run(db, `UPDATE customers SET
+        name  = COALESCE(NULLIF(?, ''), name),
+        email = COALESCE(NULLIF(email, ''), NULLIF(?, '')),
+        phone = COALESCE(phone, ?)
+      WHERE jid=?`,
+      [name || '', email, phone, cust.jid]);
+    return get(db, 'SELECT * FROM customers WHERE jid=?', [cust.jid]);
   }
-  return cust;
+  // New person → create a guest record keyed on the deterministic email jid.
+  const jid = guestJid(email);
+  run(db, `INSERT INTO customers (jid, email, name, phone, guest) VALUES (?,?,?,?,1)`,
+    [jid, email, name || 'Guest', phone || null]);
+  return get(db, 'SELECT * FROM customers WHERE jid=?', [jid]);
 }
 
 const guestLimiter = require('express-rate-limit').rateLimit({

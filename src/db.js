@@ -429,6 +429,30 @@ function migrate(db) {
   // build URLs like https://site.com//user/api/auth/magic (broke magic links).
   try { db.run(`UPDATE settings SET value = rtrim(value, '/') WHERE key='base_url' AND value LIKE '%/'`); } catch {}
 
+  // Idempotent cleanup: remove DUPLICATE customer rows (same email, created by
+  // different signup paths — guest checkout vs WhatsApp vs registration) that carry
+  // NO data: zero orders, zero top-ups, zero wallet, no referral rewards. Keeps the
+  // oldest / any record that has data. It can NEVER delete a customer who has an
+  // order, a payment, or a balance. ensureGuestCustomer now prevents new dupes.
+  try {
+    db.run(`DELETE FROM customers WHERE jid IN (
+      SELECT c.jid FROM customers c
+      WHERE c.email IS NOT NULL AND TRIM(c.email) != ''
+        AND NOT EXISTS (SELECT 1 FROM orders  o WHERE o.customer_jid = c.jid)
+        AND NOT EXISTS (SELECT 1 FROM topups  t WHERE t.customer_jid = c.jid)
+        AND NOT EXISTS (SELECT 1 FROM referral_rewards r WHERE r.referrer_jid = c.jid OR r.referred_jid = c.jid)
+        AND COALESCE(c.wallet_inr, 0) = 0
+        AND EXISTS (
+          SELECT 1 FROM customers c2
+          WHERE LOWER(c2.email) = LOWER(c.email) AND c2.jid != c.jid
+            AND ( c2.created_at < c.created_at
+                  OR EXISTS (SELECT 1 FROM orders o2 WHERE o2.customer_jid = c2.jid)
+                  OR EXISTS (SELECT 1 FROM topups t2 WHERE t2.customer_jid = c2.jid)
+                  OR COALESCE(c2.wallet_inr, 0) > 0 )
+        )
+    )`);
+  } catch {}
+
   // ── 2026-05 refactor: drop Razorpay + manual UPI; USDT direct checkout ──
   // NOTE: the customer wallet was RE-ENABLED 2026-06 (order refunds + pay-with-wallet),
   // so we no longer zero wallet_inr here — that line wiped every balance on each boot.
