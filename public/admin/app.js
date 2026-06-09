@@ -12,6 +12,7 @@ const MENU = [
   { group: 'CATALOG' },
   { id: 'plans',          label: 'Plans',         icon: '🎬' },
   { id: 'stock',          label: 'Stock',         icon: '📦' },
+  { id: 'botcatalog',     label: 'Bot Catalog',   icon: '📡' },
   { group: 'SALES' },
   { id: 'orders',         label: 'Orders',        icon: '🛒' },
   { id: 'fulfillment',   label: 'Fulfillment',   icon: '🤖' },
@@ -284,6 +285,65 @@ async function initAdmin() {
 
 // ─── Views ────────────────────────────────────────────────────────────────────
 const views = {};
+
+// ── views.botcatalog (OTT24x7 bot reseller integration) ─────────────────────────
+views.botcatalog = async function () {
+  setMain('<div class="spinner"></div>');
+  let s;
+  try { s = await api('/bot/status'); }
+  catch (ex) { setMain(`<div class="card"><p class="muted">Could not load bot status: ${esc(ex.message)}</p></div>`); return; }
+
+  if (!s.configured) {
+    setMain(`
+      <div class="card" style="max-width:640px">
+        <h2 style="font-size:1.15rem;font-weight:800;margin-bottom:.5rem">📡 Bot Catalog</h2>
+        <p class="muted" style="margin-bottom:1rem">Not connected yet. Set <code>BOT_API_URL</code> and <code>BOT_API_TOKEN</code>
+        in your server environment, then restart the store. Imported products appear in <b>Plans</b> and auto-deliver on purchase.</p>
+        <p class="muted">Products imported so far: <b>${s.imported ?? 0}</b></p>
+      </div>`);
+    return;
+  }
+
+  setMain(`
+    <div class="stat-row">
+      <div class="card stat-box"><div class="stat-box-label">Connection</div>
+        <div class="stat-box-value">${s.connected ? '🟢 Connected' : '🔴 Error'}</div>
+        <div class="stat-box-sub">${esc(s.url || '')}</div></div>
+      <div class="card stat-box"><div class="stat-box-label">Products on bot</div>
+        <div class="stat-box-value">${s.provider_products ?? '—'}</div></div>
+      <div class="card stat-box"><div class="stat-box-label">Imported here</div>
+        <div class="stat-box-value">${s.imported ?? 0}</div></div>
+    </div>
+    <div class="card" style="max-width:760px">
+      <h2 style="font-size:1.05rem;font-weight:800;margin-bottom:.4rem">📡 Bot Catalog Sync</h2>
+      <p class="muted" style="margin-bottom:1rem">Imports every product from your OTT24x7 bot. Auto-syncs every 10 minutes.
+      Each product's price is set <b>once</b> on first import (from the bot's retail price) and then <b>never overwritten</b> —
+      set your own selling price per product in <b>Plans</b>. Re-syncs only refresh stock, name, and availability.</p>
+      ${s.error ? `<p class="alert alert-error" style="margin-bottom:1rem">⚠️ ${esc(s.error)}</p>` : ''}
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+        <button class="btn btn-primary" id="bot-sync-btn">🔄 Sync now</button>
+        <button class="btn btn-secondary" id="bot-plans-btn">🎬 Set prices in Plans</button>
+      </div>
+      <div id="bot-sync-result" style="margin-top:1rem"></div>
+      <p class="muted" style="margin-top:1rem;font-size:.8rem">Auto products deliver instantly on purchase; if the bot is out of stock the customer is auto-refunded to their wallet. Manual products are delivered by you like any other order.</p>
+    </div>`);
+
+  document.getElementById('bot-plans-btn')?.addEventListener('click', () => goView('plans'));
+  document.getElementById('bot-sync-btn')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true; btn.textContent = '⏳ Syncing…';
+    try {
+      const r = await api('/bot/sync', { method: 'POST' });
+      document.getElementById('bot-sync-result').innerHTML =
+        `<p class="alert alert-success">✅ Synced: <b>${r.inserted}</b> new, <b>${r.updated}</b> updated, <b>${r.delisted}</b> delisted (of ${r.total} on the bot).</p>`;
+      showToast('Catalog synced from bot');
+    } catch (ex) {
+      document.getElementById('bot-sync-result').innerHTML = `<p class="alert alert-error">⚠️ ${esc(ex.message)}</p>`;
+    } finally {
+      btn.disabled = false; btn.textContent = '🔄 Sync now';
+    }
+  });
+};
 
 // ── views.dashboard ───────────────────────────────────────────────────────────
 views.dashboard = async function () {
