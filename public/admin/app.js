@@ -306,45 +306,123 @@ views.botcatalog = async function () {
     return;
   }
 
+  let pd; try { pd = await api('/bot/products'); } catch (ex) { pd = { ok: false, products: [] }; }
+  const products = (pd && pd.products) || [];
+  window._BOT_PRODUCTS = products;
+  const imported = products.filter(p => p.imported);
+  const available = products.filter(p => !p.imported);
+  const autoImport = !!(pd && pd.auto_import);
+  const marginCell = (your, bot) => {
+    const m = (your || 0) - (bot || 0), pct = bot ? Math.round((m / bot) * 100) : 0;
+    return `<span style="color:${m >= 0 ? '#16a34a' : '#dc2626'}">${m >= 0 ? '+' : ''}${fmt(m)}${bot ? ` · ${pct}%` : ''}</span>`;
+  };
+  const availRows = available.map(p => `
+    <tr data-name="${esc((p.name + ' ' + p.category).toLowerCase())}">
+      <td><input type="checkbox" class="bot-cb" value="${esc(p.id)}"></td>
+      <td style="font-weight:600">${esc(p.name)}</td>
+      <td class="muted" style="font-size:.78rem">${esc(p.category || '—')}</td>
+      <td><span class="badge ${p.delivery_type === 'auto' ? 'badge-blue' : 'badge-grey'}" style="font-size:.64rem">${p.delivery_type === 'auto' ? '🤖 Auto' : '✋ Manual'}</span></td>
+      <td>${p.in_stock ? '<span class="badge badge-green" style="font-size:.64rem">In stock</span>' : '<span class="badge badge-red" style="font-size:.64rem">Out</span>'}</td>
+      <td style="text-align:right;font-weight:700">${fmt(p.bot_price)}</td>
+      <td style="text-align:right"><button class="btn btn-primary btn-sm" onclick="botAddOne('${esc(p.id)}')">+ Add</button></td>
+    </tr>`).join('');
+  const impRows = imported.map(p => `
+    <tr data-name="${esc((p.name + ' ' + p.category).toLowerCase())}">
+      <td style="font-weight:600">${esc(p.name)}</td>
+      <td class="muted" style="font-size:.78rem">${esc(p.category || '—')}</td>
+      <td style="text-align:right;font-weight:700">${fmt(p.your_price)}</td>
+      <td style="text-align:right" class="muted">${fmt(p.bot_price)}</td>
+      <td style="text-align:right;font-size:.82rem">${marginCell(p.your_price, p.bot_price)}</td>
+      <td style="text-align:center">${p.active ? '<span class="badge badge-green" style="font-size:.64rem">Active</span>' : '<span class="badge badge-grey" style="font-size:.64rem">Hidden</span>'}</td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="btn btn-secondary btn-sm" onclick="botSetPrice(${p.plan_id},${p.your_price || 0})" title="Set selling price">₹</button>
+        <button class="btn btn-secondary btn-sm" onclick="botToggle(${p.plan_id})">${p.active ? 'Hide' : 'Show'}</button>
+        <button class="btn btn-sm" style="background:#dc2626;border-color:#dc2626;color:#fff" onclick="botRemove(${p.plan_id})">Remove</button>
+      </td>
+    </tr>`).join('');
   setMain(`
     <div class="stat-row">
-      <div class="card stat-box"><div class="stat-box-label">Connection</div>
-        <div class="stat-box-value">${s.connected ? '🟢 Connected' : '🔴 Error'}</div>
-        <div class="stat-box-sub">${esc(s.url || '')}</div></div>
-      <div class="card stat-box"><div class="stat-box-label">Products on bot</div>
-        <div class="stat-box-value">${s.provider_products ?? '—'}</div></div>
-      <div class="card stat-box"><div class="stat-box-label">Imported here</div>
-        <div class="stat-box-value">${s.imported ?? 0}</div></div>
+      <div class="card stat-box"><div class="stat-box-label">Connection</div><div class="stat-box-value">${s.connected ? '🟢 Connected' : '🔴 Error'}</div><div class="stat-box-sub">${esc(s.url || '')}</div></div>
+      <div class="card stat-box"><div class="stat-box-label">Products on bot</div><div class="stat-box-value">${s.provider_products ?? '—'}</div></div>
+      <div class="card stat-box"><div class="stat-box-label">In your store</div><div class="stat-box-value">${imported.length}</div></div>
+      <div class="card stat-box"><div class="stat-box-label">Available to add</div><div class="stat-box-value">${available.length}</div></div>
     </div>
-    <div class="card" style="max-width:760px">
-      <h2 style="font-size:1.05rem;font-weight:800;margin-bottom:.4rem">📡 Bot Catalog Sync</h2>
-      <p class="muted" style="margin-bottom:1rem">Imports every product from your OTT24x7 bot. Auto-syncs every 10 minutes.
-      Each product's price is set <b>once</b> on first import (from the bot's retail price) and then <b>never overwritten</b> —
-      set your own selling price per product in <b>Plans</b>. Re-syncs only refresh stock, name, and availability.</p>
-      ${s.error ? `<p class="alert alert-error" style="margin-bottom:1rem">⚠️ ${esc(s.error)}</p>` : ''}
-      <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+    <div class="card" style="margin-bottom:1.25rem">
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center">
         <button class="btn btn-primary" id="bot-sync-btn">🔄 Sync now</button>
-        <button class="btn btn-secondary" id="bot-plans-btn">🎬 Set prices in Plans</button>
+        <button class="btn btn-secondary" onclick="goView('plans')">🎬 Open in Plans</button>
+        <span style="flex:1"></span>
+        <label class="muted" style="font-size:.82rem;display:flex;align-items:center;gap:.4rem;cursor:pointer"><input type="checkbox" id="bot-auto" ${autoImport ? 'checked' : ''} onchange="botAutoImport(this.checked)"> Auto-import new products on sync</label>
       </div>
-      <div id="bot-sync-result" style="margin-top:1rem"></div>
-      <p class="muted" style="margin-top:1rem;font-size:.8rem">Auto products deliver instantly on purchase; if the bot is out of stock the customer is auto-refunded to their wallet. Manual products are delivered by you like any other order.</p>
+      ${s.error ? `<p class="alert alert-error" style="margin-top:.75rem">⚠️ ${esc(s.error)}</p>` : ''}
+      <div id="bot-sync-result" style="margin-top:.75rem"></div>
+      <p class="muted" style="margin-top:.6rem;font-size:.78rem">Prices are set once on import (bot retail × markup) and never overwritten on re-sync. Auto products deliver instantly; out-of-stock auto-refunds to the customer's wallet.</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem;flex-wrap:wrap">
+      <h3 style="font-weight:800;margin:0">🆕 Available to add (${available.length})</h3>
+      <span style="flex:1"></span>
+      <input class="form-input" id="bot-search" style="width:200px" placeholder="Filter products..." oninput="botFilter(this.value)">
+    </div>
+    <div class="card" style="margin-bottom:1.5rem">
+      <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.6rem;flex-wrap:wrap">
+        <button class="btn btn-secondary btn-sm" onclick="botSelectAll(true)">Select all</button>
+        <button class="btn btn-secondary btn-sm" onclick="botSelectAll(false)">Clear</button>
+        <span style="flex:1"></span>
+        <label class="muted" style="font-size:.8rem;display:flex;align-items:center;gap:.35rem">Markup <input class="form-input" id="bot-markup" type="number" value="0" min="0" style="width:62px;text-align:right">%</label>
+        <button class="btn btn-primary btn-sm" onclick="botAddSelected()">+ Add selected</button>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th style="width:28px"></th><th>Product</th><th>Category</th><th>Type</th><th>Stock</th><th style="text-align:right">Bot price</th><th></th></tr></thead>
+        <tbody id="bot-avail-body">${availRows || '<tr><td colspan="7" class="muted" style="text-align:center;padding:1.5rem">All bot products are already imported 🎉</td></tr>'}</tbody>
+      </table></div>
+    </div>
+    <h3 style="font-weight:800;margin:0 0 .5rem">🏪 In your store (${imported.length})</h3>
+    <div class="card">
+      <div class="table-wrap"><table>
+        <thead><tr><th>Product</th><th>Category</th><th style="text-align:right">Your price</th><th style="text-align:right">Bot cost</th><th style="text-align:right">Margin</th><th style="text-align:center">Status</th><th style="text-align:right">Manage</th></tr></thead>
+        <tbody id="bot-imp-body">${impRows || '<tr><td colspan="7" class="muted" style="text-align:center;padding:1.5rem">No bot products imported yet — add some above ⬆️</td></tr>'}</tbody>
+      </table></div>
     </div>`);
+  document.getElementById('bot-sync-btn')?.addEventListener('click', botSync);
+};
 
-  document.getElementById('bot-plans-btn')?.addEventListener('click', () => goView('plans'));
-  document.getElementById('bot-sync-btn')?.addEventListener('click', async (e) => {
-    const btn = e.currentTarget;
-    btn.disabled = true; btn.textContent = '⏳ Syncing…';
-    try {
-      const r = await api('/bot/sync', { method: 'POST' });
-      document.getElementById('bot-sync-result').innerHTML =
-        `<p class="alert alert-success">✅ Synced: <b>${r.inserted}</b> new, <b>${r.updated}</b> updated, <b>${r.delisted}</b> delisted (of ${r.total} on the bot).</p>`;
-      showToast('Catalog synced from bot');
-    } catch (ex) {
-      document.getElementById('bot-sync-result').innerHTML = `<p class="alert alert-error">⚠️ ${esc(ex.message)}</p>`;
-    } finally {
-      btn.disabled = false; btn.textContent = '🔄 Sync now';
-    }
-  });
+async function botSync() {
+  const btn = document.getElementById('bot-sync-btn'); if (btn) { btn.disabled = true; btn.textContent = '⏳ Syncing…'; }
+  try {
+    const r = await api('/bot/sync', { method: 'POST' });
+    const el = document.getElementById('bot-sync-result');
+    if (el) el.innerHTML = `<p class="alert alert-success">✅ Synced: <b>${r.inserted}</b> new, <b>${r.updated}</b> refreshed, <b>${r.delisted}</b> delisted (of ${r.total}).</p>`;
+    showToast('Synced from bot'); views.botcatalog();
+  } catch (ex) {
+    const el = document.getElementById('bot-sync-result'); if (el) el.innerHTML = `<p class="alert alert-error">⚠️ ${esc(ex.message)}</p>`;
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 Sync now'; }
+  }
+}
+window.botSync = botSync;
+window.botAutoImport = async (enabled) => { try { await api('/bot/auto-import', { method: 'POST', body: JSON.stringify({ enabled }) }); showToast(enabled ? 'New products will auto-import on sync' : 'New products are manual now'); } catch (e) { showToast(e.message, 'error'); } };
+window.botFilter = (q) => { q = (q || '').toLowerCase(); ['bot-avail-body', 'bot-imp-body'].forEach(id => document.querySelectorAll('#' + id + ' tr[data-name]').forEach(tr => { tr.style.display = tr.dataset.name.includes(q) ? '' : 'none'; })); };
+window.botSelectAll = (on) => document.querySelectorAll('.bot-cb').forEach(cb => { if (cb.closest('tr').style.display !== 'none') cb.checked = on; });
+const _botMarkup = () => Math.max(0, Number(document.getElementById('bot-markup')?.value) || 0);
+async function _botImport(ids) {
+  try { const r = await api('/bot/import', { method: 'POST', body: JSON.stringify({ product_ids: ids, markup_percent: _botMarkup() }) }); showToast(`Added ${r.imported} product(s) ✅`); views.botcatalog(); }
+  catch (e) { showToast(e.message, 'error'); }
+}
+window.botAddOne = (id) => _botImport([id]);
+window.botAddSelected = () => {
+  const ids = Array.from(document.querySelectorAll('.bot-cb:checked')).map(cb => cb.value);
+  if (!ids.length) { showToast('Select products first', 'error'); return; }
+  _botImport(ids);
+};
+window.botSetPrice = async (planId, current) => {
+  const v = prompt('Selling price (₹):', current || ''); if (v === null) return;
+  const price = Number(v); if (!price || isNaN(price)) { showToast('Enter a valid price', 'error'); return; }
+  try { await api('/bot/plans/' + planId + '/price', { method: 'POST', body: JSON.stringify({ price_inr: price }) }); showToast('Price updated'); views.botcatalog(); }
+  catch (e) { showToast(e.message, 'error'); }
+};
+window.botToggle = async (planId) => { try { const r = await api('/bot/plans/' + planId + '/toggle', { method: 'POST' }); showToast(r.active ? 'Now visible in store' : 'Hidden from store'); views.botcatalog(); } catch (e) { showToast(e.message, 'error'); } };
+window.botRemove = async (planId) => {
+  if (!confirm('Remove this product from your store?\n\nIf it has past orders it is hidden (kept for history); otherwise it is deleted. You can re-add it from the bot anytime.')) return;
+  try { const r = await api('/bot/plans/' + planId, { method: 'DELETE' }); showToast(r.deleted ? 'Removed' : 'Hidden (has order history)'); views.botcatalog(); } catch (e) { showToast(e.message, 'error'); }
 };
 
 // ── views.dashboard ───────────────────────────────────────────────────────────

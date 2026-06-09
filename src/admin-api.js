@@ -536,6 +536,96 @@ router.post('/bot/sync', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// All bot products, annotated with whether each is imported here + your selling
+// price / active state. Powers the Bot Catalog management page.
+router.get('/bot/products', requireAdmin, async (req, res) => {
+  try {
+    const botSupplier = require('./bot-supplier');
+    const db = await getDb();
+    if (!botSupplier.isConfigured(botSupplier.botConfig(db))) return res.json({ ok: false, configured: false, products: [] });
+    const r = await botSupplier.fetchProducts(db);
+    if (!r.ok) return res.status(400).json({ error: r.error === 'not_configured' ? 'Bot API not configured.' : r.error });
+    const mine = {};
+    all(db, `SELECT id, provider_product_id, price_inr, active, stock FROM plans WHERE provider_api='bot'`)
+      .forEach(p => { mine[String(p.provider_product_id)] = p; });
+    const products = r.products.map(p => {
+      const m = mine[String(p.id)];
+      return {
+        id: String(p.id), name: p.name || 'Plan', category: p.category || '',
+        delivery_type: p.delivery_type === 'auto' ? 'auto' : 'manual',
+        in_stock: p.in_stock !== false, stock: p.stock,
+        bot_price: Math.ceil(Number(p.retail_price) || Number(p.price) || 0),
+        imported: !!m, plan_id: m ? m.id : null,
+        your_price: m ? m.price_inr : null, active: m ? m.active : null,
+      };
+    });
+    res.json({ ok: true, configured: true, auto_import: (await getSetting('bot_auto_import')) === '1', products });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Import selected bot products with an optional markup over the bot's retail price.
+router.post('/bot/import', requireAdmin, async (req, res) => {
+  try {
+    const botSupplier = require('./bot-supplier');
+    const db = await getDb();
+    const ids = Array.isArray(req.body.product_ids) ? req.body.product_ids : [];
+    if (!ids.length) return res.status(400).json({ error: 'Select at least one product to add.' });
+    const markup = Math.max(0, Number(req.body.markup_percent) || 0);
+    const r = await botSupplier.importProducts(db, ids, markup);
+    if (!r.ok) return res.status(400).json({ error: r.error });
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'bot_import', targetKind: 'bot', targetId: String(r.imported), ip: req.ip });
+    res.json({ ok: true, imported: r.imported });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Toggle a bot plan active/inactive.
+router.post('/bot/plans/:id/toggle', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const p = get(db, `SELECT id, active FROM plans WHERE id=? AND provider_api='bot'`, [req.params.id]);
+    if (!p) return res.status(404).json({ error: 'Bot product not found' });
+    const next = p.active ? 0 : 1;
+    run(db, `UPDATE plans SET active=? WHERE id=?`, [next, p.id]);
+    res.json({ ok: true, active: next });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Set a bot plan's selling price.
+router.post('/bot/plans/:id/price', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const price = Math.max(0, Math.round((Number(req.body.price_inr) || 0) * 100) / 100);
+    if (!price) return res.status(400).json({ error: 'Enter a valid price' });
+    const p = get(db, `SELECT id FROM plans WHERE id=? AND provider_api='bot'`, [req.params.id]);
+    if (!p) return res.status(404).json({ error: 'Bot product not found' });
+    run(db, `UPDATE plans SET price_inr=? WHERE id=?`, [price, p.id]);
+    res.json({ ok: true, price_inr: price });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Remove a bot product from the store — hard-delete if it has no orders, else just
+// deactivate it (so order history + slugs stay intact).
+router.delete('/bot/plans/:id', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const p = get(db, `SELECT id FROM plans WHERE id=? AND provider_api='bot'`, [req.params.id]);
+    if (!p) return res.status(404).json({ error: 'Bot product not found' });
+    const hasOrders = get(db, `SELECT 1 FROM orders WHERE plan_id=? LIMIT 1`, [p.id]);
+    if (hasOrders) run(db, `UPDATE plans SET active=0 WHERE id=?`, [p.id]);
+    else run(db, `DELETE FROM plans WHERE id=?`, [p.id]);
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'bot_remove', targetKind: 'plan', targetId: String(p.id), ip: req.ip });
+    res.json({ ok: true, deleted: !hasOrders, deactivated: !!hasOrders });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Toggle whether NEW bot products auto-import on sync (off = manual select-and-add).
+router.post('/bot/auto-import', requireAdmin, async (req, res) => {
+  try {
+    await setSetting('bot_auto_import', req.body.enabled ? '1' : '0');
+    res.json({ ok: true, enabled: !!req.body.enabled });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── Orders ───────────────────────────────────────────────────────────────────
 router.get('/orders', requireAdmin, async (req, res) => {
   try {

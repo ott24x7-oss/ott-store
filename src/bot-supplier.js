@@ -20,7 +20,7 @@
  */
 const https = require('https');
 const http = require('http');
-const { getDb, get, all, run } = require('./db');
+const { getDb, get, all, run, getSetting } = require('./db');
 const cfg = require('./config');
 
 const SYNC_MINUTES = 10;
@@ -148,15 +148,59 @@ function platformFor(p) {
   return 'OTT';
 }
 
-// Import all visible bot products into `plans`. Insert sets a starting price (the
-// bot's retail price) — the admin then sets the real per-product price in Admin →
-// Plans, and that price is preserved on every later sync.
+// Insert ONE bot product into `plans` (shared by sync auto-import + manual import).
+// markupPercent (0 = the bot's retail price) sets the STARTING selling price; after
+// that the admin owns it and re-syncs never overwrite it.
+function importOneBotPlan(db, p, slugSet, markupPercent = 0) {
+  const pid = String(p.id);
+  const name = (p.name || 'Plan').toString().slice(0, 200);
+  const deliveryType = p.delivery_type === 'auto' ? 'auto' : 'manual';
+  const stock = deliveryType === 'auto'
+    ? (Number.isFinite(p.stock) ? p.stock : (p.in_stock === false ? 0 : -1))
+    : -1;
+  const active = p.in_stock === false ? 0 : 1;
+  const platform = platformFor(p);
+  const base = Number(p.retail_price) || Number(p.price) || 0;
+  const priceInr = Math.ceil(base * (1 + Math.max(0, Number(markupPercent) || 0) / 100));
+  const slug = makeSlug(`${platform} ${name}`, slugSet);
+  run(db,
+    `INSERT INTO plans (platform,name,duration_days,price_inr,original_price_inr,price_usd,
+       description,features,badge,stock,active,sort_order,
+       category,image_url,provider_api,provider_product_id,delivery_type,delivery_time_est,slug)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    [platform, name, null, priceInr, null, 0,
+     (p.description || ''), '[]', null, stock, active, 0,
+     (p.category || ''), '', 'bot', pid, deliveryType, '', slug]);
+}
+
+// Manual "Add selected" — import only the chosen bot products (by id), each with the
+// given markup over the bot's retail price. Skips ones already imported.
+async function importProducts(db, ids, markupPercent = 0) {
+  db = db || await getDb();
+  const res = await fetchProducts(db);
+  if (!res.ok) return { ok: false, error: res.error, imported: 0 };
+  const wanted = new Set((ids || []).map(String));
+  const slugSet = new Set(all(db, 'SELECT slug FROM plans WHERE slug IS NOT NULL').map(x => x.slug));
+  let imported = 0;
+  for (const p of res.products) {
+    const pid = String(p.id);
+    if (!wanted.has(pid)) continue;
+    if (get(db, `SELECT id FROM plans WHERE provider_api='bot' AND provider_product_id=?`, [pid])) continue;
+    importOneBotPlan(db, p, slugSet, markupPercent);
+    imported++;
+  }
+  return { ok: true, imported };
+}
+
+// Refresh imported bot plans from the bot. NEW products are auto-imported only when
+// the `bot_auto_import` setting is on; otherwise they wait under "Available to add".
 async function syncCatalog(db) {
   db = db || await getDb();
   const res = await fetchProducts(db);
   if (!res.ok) return { ok: false, error: res.error, inserted: 0, updated: 0, delisted: 0, total: 0 };
 
   let inserted = 0, updated = 0;
+  const autoImport = (await getSetting('bot_auto_import')) === '1';
   const seen = new Set();
   const slugSet = new Set(all(db, 'SELECT slug FROM plans WHERE slug IS NOT NULL').map(x => x.slug));
 
@@ -181,20 +225,12 @@ async function syncCatalog(db) {
          WHERE id=?`,
         [name, stock, active, deliveryType, (p.description || ''), existing.id]);
       updated++;
-    } else {
-      const platform = platformFor(p);
-      const priceInr = Math.ceil(Number(p.retail_price) || Number(p.price) || 0);
-      const slug = makeSlug(`${platform} ${name}`, slugSet);
-      run(db,
-        `INSERT INTO plans (platform,name,duration_days,price_inr,original_price_inr,price_usd,
-           description,features,badge,stock,active,sort_order,
-           category,image_url,provider_api,provider_product_id,delivery_type,delivery_time_est,slug)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-        [platform, name, null, priceInr, null, 0,
-         (p.description || ''), '[]', null, stock, active, 0,
-         (p.category || ''), '', 'bot', pid, deliveryType, '', slug]);
+    } else if (autoImport) {
+      importOneBotPlan(db, p, slugSet);
       inserted++;
     }
+    // else: a NEW bot product the admin hasn't chosen — it appears under
+    // "Available to add" on the Bot Catalog page for manual selection.
   }
 
   // Delist bot plans the provider no longer returns — hide (don't delete, so order
@@ -234,5 +270,5 @@ function startBotSync() {
 }
 
 module.exports = {
-  botConfig, isConfigured, fetchProducts, fetchBalance, purchase, syncCatalog, startBotSync,
+  botConfig, isConfigured, fetchProducts, fetchBalance, purchase, syncCatalog, importProducts, startBotSync,
 };
