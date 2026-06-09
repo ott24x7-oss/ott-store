@@ -292,6 +292,16 @@ async function deliverFromBot(order, plan, db, opts = {}) {
       return delivered;
     }
 
+    // Bot acknowledged (ok) but returned NO keys — it delivered nothing. Don't
+    // re-buy forever (that bleeds the provider balance): mark failed and refund the
+    // customer to their wallet (they paid and got nothing).
+    if (res.ok) {
+      recordBotJob(db, order, plan, 'failed', { error: 'empty_delivery', raw: res.raw });
+      _botAttempts.delete(order.id);
+      await refundBotOrder(db, order, plan).catch(() => {});
+      return false;
+    }
+
     if (res.outOfStock) {
       recordBotJob(db, order, plan, 'failed', { error: res.error, raw: res.raw });
       _botAttempts.delete(order.id);
@@ -300,10 +310,11 @@ async function deliverFromBot(order, plan, db, opts = {}) {
     }
 
     // Transient (network/5xx) → retry next tick. Config/availability (402/403/404) →
-    // leave pending for the admin. Alert once after a few failed attempts either way.
-    recordBotJob(db, order, plan, res.retryable ? 'pending' : 'error', { error: res.error, raw: res.raw });
+    // leave pending for the admin. Alert once after a few attempts; after a HARD CAP
+    // mark it failed (terminal) so a stuck order can't loop the purchase API forever.
     const n = (_botAttempts.get(order.id) || 0) + 1;
     _botAttempts.set(order.id, n);
+    recordBotJob(db, order, plan, (n >= 10 ? 'failed' : (res.retryable ? 'pending' : 'error')), { error: res.error, raw: res.raw });
     if (n === 3 && !opts.silent) {
       const { notifyAdmin } = require('./notify');
       notifyAdmin(

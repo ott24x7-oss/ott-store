@@ -610,11 +610,15 @@ router.delete('/bot/plans/:id', requireAdmin, async (req, res) => {
     const db = await getDb();
     const p = get(db, `SELECT id FROM plans WHERE id=? AND provider_api='bot'`, [req.params.id]);
     if (!p) return res.status(404).json({ error: 'Bot product not found' });
-    const hasOrders = get(db, `SELECT 1 FROM orders WHERE plan_id=? LIMIT 1`, [p.id]);
-    if (hasOrders) run(db, `UPDATE plans SET active=0 WHERE id=?`, [p.id]);
+    // Keep (deactivate) if the plan has ANY order OR a live payment — a customer may
+    // have a paid-but-not-yet-matched checkout for it. Hard-delete only when there's
+    // no activity, so a mid-checkout payment can never be orphaned.
+    const hasActivity = get(db, `SELECT 1 FROM orders WHERE plan_id=?
+      UNION ALL SELECT 1 FROM topups WHERE plan_id=? AND status IN ('pending','approved','refund_needed') LIMIT 1`, [p.id, p.id]);
+    if (hasActivity) run(db, `UPDATE plans SET active=0 WHERE id=?`, [p.id]);
     else run(db, `DELETE FROM plans WHERE id=?`, [p.id]);
     await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'bot_remove', targetKind: 'plan', targetId: String(p.id), ip: req.ip });
-    res.json({ ok: true, deleted: !hasOrders, deactivated: !!hasOrders });
+    res.json({ ok: true, deleted: !hasActivity, deactivated: !!hasActivity });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -773,6 +777,13 @@ function mergeCustomers(db, fromJid, intoJid) {
   // Drop anything that couldn't move (e.g. a UNIQUE referred_jid collision) so the
   // deleted account leaves nothing dangling.
   try { run(db, `DELETE FROM referral_rewards WHERE referrer_jid=? OR referred_jid=?`, [fromJid, fromJid]); } catch {}
+  // resellers.customer_jid is UNIQUE — if BOTH accounts were resellers the reassign
+  // above collided and left the dupe's reseller row pointing at the soon-deleted jid.
+  // Drop the leftover (and its custom prices) so nothing dangles. (No-op if it moved.)
+  try {
+    run(db, `DELETE FROM reseller_prices WHERE reseller_id IN (SELECT id FROM resellers WHERE customer_jid=?)`, [fromJid]);
+    run(db, `DELETE FROM resellers WHERE customer_jid=?`, [fromJid]);
+  } catch {}
   const from = get(db, `SELECT email, phone, name, wallet_inr FROM customers WHERE jid=?`, [fromJid]) || {};
   run(db, `UPDATE customers SET wallet_inr = COALESCE(wallet_inr,0) + ? WHERE jid=?`, [from.wallet_inr || 0, intoJid]);
   run(db, `UPDATE customers SET email=COALESCE(NULLIF(email,''),?), phone=COALESCE(NULLIF(phone,''),?), name=COALESCE(NULLIF(name,''),?) WHERE jid=?`,

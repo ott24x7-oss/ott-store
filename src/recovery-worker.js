@@ -3,7 +3,7 @@
 // customer ONCE with a link to finish paying the SAME unique amount. Works for
 // guests (tokenised /pay/<token> page) and logged-in customers (/my dashboard).
 // The link is valid for 24h (after which the top-up is auto-expired).
-const { getDb, getSetting, all, run } = require('./db');
+const { getDb, getSetting, all, run, get } = require('./db');
 const { sendMail } = require('./mailer');
 
 async function runRecoveryTick() {
@@ -29,6 +29,12 @@ async function runRecoveryTick() {
 
     for (const t of rows) {
       try {
+        // Re-check live status — the IMAP worker may have matched (paid) this since
+        // the SELECT; never dun a customer who already paid. Claim it (stamp) BEFORE
+        // sending so a failing SMTP can't re-email it every tick.
+        const fresh = get(db, `SELECT status, order_id, recovery_reminded_at FROM topups WHERE id=?`, [t.id]);
+        if (!fresh || fresh.status !== 'pending' || fresh.order_id || fresh.recovery_reminded_at) continue;
+        run(db, `UPDATE topups SET recovery_reminded_at = datetime('now') WHERE id=?`, [t.id]);
         const amt = t.unique_amount;
         const link = t.guest_token ? `${base}/pay/${t.guest_token}` : `${base}/my`;
         await sendMail({
@@ -41,7 +47,6 @@ async function runRecoveryTick() {
 <p style="color:#888;font-size:12px">This link is valid for 24 hours. Your subscription is delivered to this email automatically the moment payment is confirmed.</p>
 <p style="color:#888;font-size:12px">${siteName}</p>`,
         });
-        run(db, `UPDATE topups SET recovery_reminded_at = datetime('now') WHERE id=?`, [t.id]);
       } catch {}
     }
   } catch {}

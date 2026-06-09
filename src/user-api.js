@@ -789,9 +789,14 @@ router.post('/checkout/wallet', requireCustomer, async (req, res) => {
 
     const fresh = get(db, `SELECT order_id FROM topups WHERE id=?`, [topup.id]);
     if (!fresh || !fresh.order_id) {
-      // Couldn't create the order (e.g. sold out under us) — refund the wallet.
-      creditWallet(db, c.jid, price, { type: 'refund', label: `Refund — ${plan.name} (could not fulfill)` });
-      return res.status(400).json({ error: 'Could not place the order (out of stock). Your wallet was not charged.' });
+      // Couldn't create the order (e.g. sold out under us). Refund the wallet ONCE
+      // (idempotent via ref_id) and mark the topup refunded so it can't be refunded
+      // a second time from the admin Payment Log.
+      const ref = 'topup:' + topup.id;
+      if (!get(db, `SELECT 1 FROM wallet_txns WHERE type='refund' AND ref_id=? LIMIT 1`, [ref]))
+        creditWallet(db, c.jid, price, { type: 'refund', label: `Refund — ${plan.name} (could not fulfill)`, ref_id: ref });
+      run(db, `UPDATE topups SET status='refunded' WHERE id=?`, [topup.id]);
+      return res.status(400).json({ error: 'Could not place the order (out of stock). Your wallet has been refunded.' });
     }
     res.json({ ok: true, order_id: fresh.order_id, new_balance: getBalance(db, c.jid) });
   } catch (e) {

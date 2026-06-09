@@ -234,12 +234,15 @@ async function syncCatalog(db) {
   }
 
   // Delist bot plans the provider no longer returns — hide (don't delete, so order
-  // history + slugs stay intact).
+  // history + slugs stay intact). ONLY when we actually got a catalog back: a transient
+  // empty-but-ok response must never deactivate every product at once.
   let delisted = 0;
-  for (const row of all(db, `SELECT id, provider_product_id FROM plans WHERE provider_api='bot' AND active=1`)) {
-    if (!seen.has(String(row.provider_product_id))) {
-      run(db, `UPDATE plans SET active=0, stock=0 WHERE id=?`, [row.id]);
-      delisted++;
+  if (res.products.length > 0) {
+    for (const row of all(db, `SELECT id, provider_product_id FROM plans WHERE provider_api='bot' AND active=1`)) {
+      if (!seen.has(String(row.provider_product_id))) {
+        run(db, `UPDATE plans SET active=0, stock=0 WHERE id=?`, [row.id]);
+        delisted++;
+      }
     }
   }
 
