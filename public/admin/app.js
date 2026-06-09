@@ -20,6 +20,7 @@ const MENU = [
   { id: 'customers',      label: 'Customers',     icon: '👥' },
   { id: 'resellers',      label: 'Resellers',     icon: '🤝' },
   { id: 'referrals',      label: 'Referrals',     icon: '🔗' },
+  { id: 'wallet',         label: 'Wallet',        icon: '👛' },
   { group: 'WHATSAPP' },
   { id: 'wa-session',     label: 'WA Session',    icon: '📱' },
   { id: 'secure-session', label: 'Secure Session', icon: '🔒' },
@@ -55,6 +56,7 @@ const MENU = [
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function fmt(n) { return '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+const fmtInr = fmt; // global money formatter alias (used by the Wallet page + others)
 function fmtDate(s) { if (!s) return '—'; try { return new Date(s).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch { return s; } }
 function fmtDateShort(s) { if (!s) return '—'; try { return new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); } catch { return s; } }
 
@@ -1881,6 +1883,94 @@ views.topups = async function () {
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };
 
+// ── views.wallet ──────────────────────────────────────────────────────────────
+views.wallet = async function (q = '') {
+  setMain('<div class="spinner"></div>');
+  try {
+    const d = await api('/wallet/overview' + (q ? `?q=${encodeURIComponent(q)}` : ''));
+    const esc1 = s => esc(String(s || '').replace(/'/g, ''));
+    const rows = (d.customers || []).map(c => `
+<tr>
+  <td style="font-weight:600">${esc(c.name || '—')}</td>
+  <td style="font-size:.8rem">${esc(c.email || '—')}</td>
+  <td>${esc(c.phone || '—')}</td>
+  <td style="font-weight:800;color:${c.wallet_inr >= 0 ? '#16a34a' : '#dc2626'}">${fmtInr(c.wallet_inr)}</td>
+  <td><div style="display:flex;gap:.35rem;justify-content:flex-end;flex-wrap:wrap">
+    <button class="btn btn-green btn-sm" onclick="walletAdjust('${esc1(c.jid)}','${esc1(c.name)}',1)">+ Add</button>
+    <button class="btn btn-secondary btn-sm" onclick="walletAdjust('${esc1(c.jid)}','${esc1(c.name)}',-1)">− Deduct</button>
+    <button class="btn btn-secondary btn-sm" onclick="walletHistory('${esc1(c.jid)}','${esc1(c.name)}')">History</button>
+  </div></td>
+</tr>`).join('');
+    const txns = (d.recent || []).map(t => `
+<tr>
+  <td style="font-size:.78rem">${fmtDateShort(t.created_at)}</td>
+  <td style="font-size:.82rem">${esc(t.name || t.email || '—')}</td>
+  <td><span class="badge ${t.amount_inr >= 0 ? 'badge-green' : 'badge-red'}">${esc(t.type || '')}</span></td>
+  <td style="font-size:.8rem">${esc(t.label || '')}</td>
+  <td style="text-align:right;font-weight:700;color:${t.amount_inr >= 0 ? '#16a34a' : '#dc2626'}">${t.amount_inr >= 0 ? '+' : ''}${fmtInr(t.amount_inr)}</td>
+</tr>`).join('');
+    setMain(`
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:1rem">
+  <h2 style="font-weight:800">👛 Wallet Management</h2>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:1.25rem">
+  <div class="card stat-box"><div class="stat-box-label">Total Wallet Liability</div><div class="stat-box-value">${fmtInr(d.liability)}</div><div class="muted" style="font-size:.72rem">balance owed to customers</div></div>
+  <div class="card stat-box"><div class="stat-box-label">Wallet Holders</div><div class="stat-box-value">${d.holders || 0}</div><div class="muted" style="font-size:.72rem">customers with a balance</div></div>
+</div>
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;margin-bottom:.6rem">
+  <h3 style="font-weight:700;margin:0">Balances</h3>
+  <input class="form-input" id="wallet-search" style="width:220px" placeholder="Search name/email/phone..." value="${esc(q)}" oninput="searchWallet(this.value)">
+</div>
+<div class="table-wrap"><table>
+  <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Balance</th><th style="text-align:right">Actions</th></tr></thead>
+  <tbody>${rows || '<tr><td colspan="5" class="muted" style="text-align:center;padding:2rem">No customers have a wallet balance yet</td></tr>'}</tbody>
+</table></div>
+<h3 style="font-weight:700;margin:1.5rem 0 .6rem">Recent wallet activity</h3>
+<div class="table-wrap"><table>
+  <thead><tr><th>Date</th><th>Customer</th><th>Type</th><th>Note</th><th style="text-align:right">Amount</th></tr></thead>
+  <tbody>${txns || '<tr><td colspan="5" class="muted" style="text-align:center;padding:2rem">No wallet activity yet</td></tr>'}</tbody>
+</table></div>`);
+  } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
+
+let _walletSearchTimer;
+window.searchWallet = function (q) {
+  clearTimeout(_walletSearchTimer);
+  _walletSearchTimer = setTimeout(() => views.wallet(q), 350);
+};
+
+// Credit / debit a customer's wallet from the Wallet page (sign: +1 add, −1 deduct).
+window.walletAdjust = async function (jid, name, sign) {
+  const raw = prompt(`${sign > 0 ? 'Add credit to' : 'Deduct from'} ${name || 'this customer'}'s wallet.\nAmount in ₹:`);
+  if (raw === null) return;
+  const val = Math.abs(parseFloat(raw));
+  if (!val || isNaN(val)) { showToast('Enter a valid amount', 'error'); return; }
+  const note = prompt('Note (optional — shown in the customer\'s wallet history):') || '';
+  try {
+    const r = await api(`/customers/${encodeURIComponent(jid)}/wallet-adjust`, { method: 'POST', body: JSON.stringify({ amount: sign > 0 ? val : -val, note }) });
+    showToast(`Wallet updated → ${fmtInr(r.new_balance)}`);
+    views.wallet(document.getElementById('wallet-search')?.value || '');
+  } catch (e) { showToast(e.message, 'error'); }
+};
+
+// Drill into one customer's wallet transaction history.
+window.walletHistory = async function (jid, name) {
+  try {
+    const d = await api(`/customers/${encodeURIComponent(jid)}/wallet-txns`);
+    const rows = (d.txns || []).map(t => `<tr>
+      <td style="font-size:.78rem">${fmtDateShort(t.created_at)}</td>
+      <td><span class="badge ${t.amount_inr >= 0 ? 'badge-green' : 'badge-red'}">${esc(t.type || '')}</span></td>
+      <td style="font-size:.8rem">${esc(t.label || '')}</td>
+      <td style="text-align:right;font-weight:700;color:${t.amount_inr >= 0 ? '#16a34a' : '#dc2626'}">${t.amount_inr >= 0 ? '+' : ''}${fmtInr(t.amount_inr)}</td>
+    </tr>`).join('');
+    openModal(`<div class="modal-header"><h3 style="font-weight:800">👛 ${esc(name || 'Customer')} — wallet history</h3></div>
+<div class="modal-body"><div style="margin-bottom:.6rem">Current balance: <strong>${fmtInr(d.balance)}</strong></div>
+<div class="table-wrap"><table><thead><tr><th>Date</th><th>Type</th><th>Note</th><th style="text-align:right">Amount</th></tr></thead>
+<tbody>${rows || '<tr><td colspan="4" class="muted" style="text-align:center;padding:1.5rem">No transactions yet</td></tr>'}</tbody></table></div></div>
+<div class="modal-footer"><button class="btn btn-secondary" data-close>Close</button></div>`);
+  } catch (e) { showToast(e.message, 'error'); }
+};
+
 // ── views.customers ───────────────────────────────────────────────────────────
 views.customers = async function (q = '') {
   setMain('<div class="spinner"></div>');
@@ -1931,7 +2021,7 @@ window.openCustomerModal = async function (jid) {
     const phoneClean = String(c.phone || '').replace(/\D/g, '');
     const waUrl = phoneClean ? `https://wa.me/${phoneClean}` : '';
     const mailUrl = c.email ? `mailto:${c.email}` : '';
-    const fmtInr = n => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+    const fmtInr = fmt;
     const fmtDt = s => { if (!s) return '—'; try { return new Date(s).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch { return s; } };
     const statBadge = s => {
       const map = { delivered: 'badge-green', pending: 'badge-yellow', processing: 'badge-blue', cancelled: 'badge-red', failed: 'badge-red', expired: 'badge-grey' };

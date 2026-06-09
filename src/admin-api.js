@@ -634,6 +634,36 @@ router.post('/customers/:jid/wallet-adjust', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── Wallet management (store-wide) ─────────────────────────────────────────────
+// Overview for the admin Wallet page: total liability, holders, balances, activity.
+router.get('/wallet/overview', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const q = String(req.query.q || '').trim().toLowerCase();
+    const totals = get(db, `SELECT COALESCE(SUM(wallet_inr),0) AS liability,
+        SUM(CASE WHEN COALESCE(wallet_inr,0) <> 0 THEN 1 ELSE 0 END) AS holders FROM customers`);
+    let sql = `SELECT jid, name, email, phone, COALESCE(wallet_inr,0) AS wallet_inr
+      FROM customers WHERE COALESCE(wallet_inr,0) <> 0`;
+    const params = [];
+    if (q) { sql += ` AND (LOWER(name) LIKE ? OR LOWER(email) LIKE ? OR phone LIKE ?)`; params.push(`%${q}%`, `%${q}%`, `%${q}%`); }
+    sql += ` ORDER BY wallet_inr DESC LIMIT 300`;
+    const customers = all(db, sql, params);
+    const recent = all(db, `SELECT w.amount_inr, w.type, w.label, w.created_at, c.name, c.email
+      FROM wallet_txns w LEFT JOIN customers c ON c.jid = w.customer_jid
+      ORDER BY w.id DESC LIMIT 60`);
+    res.json({ liability: totals.liability || 0, holders: totals.holders || 0, customers, recent });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// One customer's wallet transaction history (Wallet page drill-down).
+router.get('/customers/:jid/wallet-txns', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const { getTxns, getBalance } = require('./wallet');
+    res.json({ balance: getBalance(db, req.params.jid), txns: getTxns(db, req.params.jid, 100) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── Topups ───────────────────────────────────────────────────────────────────
 router.get('/topups', requireAdmin, async (req, res) => {
   try {
