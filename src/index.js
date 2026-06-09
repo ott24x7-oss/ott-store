@@ -84,7 +84,10 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-  if (process.env.NODE_ENV === 'production') {
+  // HSTS only on HTTPS requests. req.secure is true behind the Cloudflare/Railway
+  // proxy (trust proxy is set), so this is keyed off the real protocol — not
+  // NODE_ENV — and needs no environment variable to work.
+  if (req.secure) {
     res.setHeader('Strict-Transport-Security', 'max-age=31536000');
   }
   next();
