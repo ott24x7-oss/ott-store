@@ -1047,8 +1047,8 @@ router.post('/guest-checkout/usdt', guestLimiter, async (req, res) => {
     const subUsdt = price / rateInr;
     const feeUsdt = subUsdt * feePct / 100;
     const totalUsdt = subUsdt + feeUsdt;
-    const { generateUniqueAmountUsdt } = require('./imap-verify');
-    const uniqueUsdt = generateUniqueAmountUsdt ? generateUniqueAmountUsdt(totalUsdt) : parseFloat((totalUsdt + (Math.random() * 0.001)).toFixed(4));
+    const { generateUniqueUsdtAmount } = require('./imap-verify');
+    const uniqueUsdt = generateUniqueUsdtAmount(totalUsdt);
 
     const addrKey = { binance:'usdt_binance_uid', bep20:'usdt_bep20_address', trc20:'usdt_trc20_address' }[net];
     const qrKey   = { binance:'usdt_binance_qr_url', bep20:'usdt_bep20_qr_url', trc20:'usdt_trc20_qr_url' }[net];
