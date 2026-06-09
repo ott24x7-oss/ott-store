@@ -1514,15 +1514,18 @@ function showUpiPaymentStep(modalEl,area,r,planName){
 
   showAmountAlert(r.unique_amount);
 
-  // Poll every 5 seconds
+  // Poll every 5s for the FULL payment window — a bank/UPI confirmation email can take
+  // several minutes, so the old 6-minute cap made the page look "expired" while the
+  // payment was still about to confirm. Stops early when the modal is closed.
   let pollCount=0, consecutiveErrors=0;
-  const maxPolls=72; // 6 minutes
+  const windowMin=Math.max(10, parseInt(r.window_minutes,10)||30);
+  const maxPolls=Math.min(360, Math.ceil(windowMin*60/5));
   const timer=setInterval(async()=>{
     if(!document.body.contains(modalEl)){clearInterval(timer);return;}
     pollCount++;
     if(pollCount>maxPolls){
       clearInterval(timer);
-      document.getElementById('upi-poll-status').innerHTML='⏱ Timed out. If you paid, check Orders tab in a minute.';
+      document.getElementById('upi-poll-status').innerHTML='⏳ Still watching for your payment. If you\'ve already paid, your order will appear in <b>Orders</b> automatically once it\'s confirmed — you can safely close this window.';
       return;
     }
     try{
