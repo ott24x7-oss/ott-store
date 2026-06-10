@@ -4325,6 +4325,51 @@ views.whatsapp = async function () {
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };
 
+// Build WA offers from selected products — auto-generates a marketing message + Buy link.
+window.fromProducts = async function () {
+  const ov = openModal(`
+<div class="modal-header"><h3>🛍️ Add offers from Products</h3><button class="btn-icon" onclick="this.closest('.modal-overlay').remove()">✕</button></div>
+<div class="modal-body">
+  <p class="muted" style="font-size:.85rem;margin-bottom:.5rem">Pick products — each becomes a ready-to-post WhatsApp offer with a marketing message + your live Buy link, added active to the rotation.</p>
+  <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.6rem;flex-wrap:wrap">
+    <input class="form-input" id="fp-search" style="flex:1;min-width:140px" placeholder="Filter products..." oninput="fpFilter(this.value)">
+    <button class="btn btn-sm btn-secondary" onclick="fpSelectAll(true)">All</button>
+    <button class="btn btn-sm btn-secondary" onclick="fpSelectAll(false)">None</button>
+  </div>
+  <div id="fp-msg"></div>
+  <div id="fp-list"><div class="spinner"></div></div>
+</div>
+<div class="modal-footer">
+  <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+  <button class="btn btn-primary" id="fp-add-btn">+ Add selected</button>
+</div>`);
+  try {
+    const d = await api('/wa-offers/products');
+    const products = (d && d.products) || [];
+    const list = document.getElementById('fp-list');
+    if (!products.length) { list.innerHTML = '<p class="muted">No active products found.</p>'; return; }
+    list.innerHTML = `<div style="display:flex;flex-direction:column;gap:.35rem;max-height:50vh;overflow-y:auto">
+      ${products.map(p => `<label data-name="${esc(((p.platform || '') + ' ' + (p.name || '') + ' ' + (p.category || '')).toLowerCase())}" style="display:flex;align-items:center;gap:.55rem;padding:.45rem .55rem;border:1px solid var(--border,#334155);border-radius:8px;cursor:pointer">
+        <input type="checkbox" class="fp-cb" value="${p.id}">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:.86rem">${esc(p.platform || '')} ${esc(p.name || '')} ${p.provider_api === 'bot' ? '<span class="badge badge-blue" style="font-size:.6rem">🤖 bot</span>' : ''}</div>
+          <div class="muted" style="font-size:.76rem">₹${p.price_inr}${Number(p.original_price_inr) > Number(p.price_inr) ? ` · was ₹${p.original_price_inr}` : ''}${p.category ? ` · ${esc(p.category)}` : ''}</div>
+        </div>
+      </label>`).join('')}
+    </div>`;
+    document.getElementById('fp-add-btn').onclick = async () => {
+      const ids = Array.from(document.querySelectorAll('.fp-cb:checked')).map(cb => Number(cb.value));
+      if (!ids.length) { document.getElementById('fp-msg').innerHTML = '<div class="alert alert-error">Select at least one product.</div>'; return; }
+      try {
+        const r = await api('/wa-offers/from-products', { method: 'POST', body: JSON.stringify({ plan_ids: ids }) });
+        showToast(`Added ${r.added} offer(s) ✅`); ov.remove(); views['wa-offers']();
+      } catch (e) { document.getElementById('fp-msg').innerHTML = `<div class="alert alert-error">${esc(e.message)}</div>`; }
+    };
+  } catch (e) { const l = document.getElementById('fp-list'); if (l) l.innerHTML = `<div class="alert alert-error">${esc(e.message)}</div>`; }
+};
+window.fpFilter = (q) => { q = (q || '').toLowerCase(); document.querySelectorAll('#fp-list label[data-name]').forEach(l => { l.style.display = l.dataset.name.includes(q) ? '' : 'none'; }); };
+window.fpSelectAll = (on) => document.querySelectorAll('.fp-cb').forEach(cb => { if (cb.closest('label').style.display !== 'none') cb.checked = on; });
+
 // ── views['wa-offers'] ────────────────────────────────────────────────────────
 views['wa-offers'] = async function () {
   setMain('<div class="spinner"></div>');
@@ -4390,6 +4435,7 @@ views['wa-offers'] = async function () {
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
     <div style="font-weight:700">Scheduled Offers (${offers.length})</div>
     <div style="display:flex;gap:.5rem">
+      <button class="btn btn-sm btn-secondary" onclick="fromProducts()">🛍️ From Products</button>
       <button class="btn btn-sm btn-secondary" onclick="fromAutopost()">+ From AutoPost</button>
       <button class="btn btn-sm btn-primary" onclick="addWaOffer()">+ New Offer</button>
     </div>

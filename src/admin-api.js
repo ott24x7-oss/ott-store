@@ -2056,6 +2056,68 @@ router.post('/wa-offers/from-autopost/:campaignId', requireAdmin, async (req, re
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Build a marketing-style WhatsApp offer from a product — emoji header, price +
+// discount, validity, and the live Buy link. WhatsApp markup: *bold* _italic_ ~strike~.
+function marketingMessageForPlan(p, siteUrl) {
+  const name = `${p.platform || ''} ${p.name || ''}`.replace(/\s+/g, ' ').trim();
+  const lc = (name + ' ' + (p.category || '')).toLowerCase();
+  const emoji = (() => {
+    const m = [['netflix', '🎬'], ['prime', '📦'], ['hotstar', '📺'], ['disney', '🏰'], ['spotify', '🎵'], ['music', '🎵'], ['youtube', '▶️'], ['canva', '🎨'], ['office', '📄'], ['windows', '🪟'], ['chatgpt', '🤖'], ['gemini', '🤖'], [' ai', '🤖'], ['vpn', '🔐'], ['tv', '📺'], ['game', '🎮'], ['storage', '☁️'], ['educat', '🎓'], ['course', '🎓'], ['crunchyroll', '🍙'], ['telegram', '✈️']];
+    for (const [k, e] of m) if (lc.includes(k)) return e;
+    return '🔥';
+  })();
+  const dur = (p.duration_days == null) ? null
+    : !p.duration_days ? 'Lifetime'
+      : p.duration_days >= 365 ? `${Math.round(p.duration_days / 365)} Year`
+        : p.duration_days >= 30 ? `${Math.round(p.duration_days / 30)} Month`
+          : `${p.duration_days} Days`;
+  const hasDisc = Number(p.original_price_inr) > Number(p.price_inr);
+  const save = hasDisc ? Math.round(p.original_price_inr - p.price_inr) : 0;
+  const url = (p.slug && siteUrl) ? `${siteUrl}/plans/${p.slug}` : (siteUrl ? `${siteUrl}/plans` : '');
+  const L = [`${emoji} *${name}* ${emoji}`, ''];
+  L.push(`💰 *Only ₹${p.price_inr}*${hasDisc ? `   ~₹${p.original_price_inr}~  _(Save ₹${save}!)_` : ''}`);
+  if (dur) L.push(`⏳ Validity: *${dur}*`);
+  if (p.description) L.push(`✨ ${String(p.description).replace(/\s+/g, ' ').slice(0, 130)}`);
+  L.push('⚡ Instant delivery — Email + WhatsApp');
+  L.push('✅ 100% Genuine · Warranty Included');
+  if (url) L.push('', '🛒 *Order Now 👇*', url);
+  L.push('', "💬 _Limited stock — grab yours before it's gone!_");
+  return L.join('\n');
+}
+
+// Active products for the "Add from Products" picker on WA Offers.
+router.get('/wa-offers/products', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const products = all(db, `SELECT id, platform, name, price_inr, original_price_inr, slug, category, provider_api
+      FROM plans WHERE active=1 ORDER BY platform, price_inr ASC`);
+    res.json({ products });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Create WA offers from selected products — auto-generates a marketing message + Buy
+// link for each, attaching the product image if it has one. Added active (in rotation).
+router.post('/wa-offers/from-products', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const ids = (Array.isArray(req.body.plan_ids) ? req.body.plan_ids : []).map(Number).filter(Boolean);
+    if (!ids.length) return res.status(400).json({ error: 'Select at least one product.' });
+    const siteUrl = ((await getSetting('base_url')) || '').replace(/\/$/, '');
+    const active = req.body.active === false ? 0 : 1;
+    let added = 0;
+    for (const id of ids) {
+      const p = get(db, `SELECT * FROM plans WHERE id=?`, [id]);
+      if (!p) continue;
+      let image_b64 = null;
+      if (p.image_url) { try { image_b64 = await fetchImageBase64(p.image_url); } catch {} }
+      run(db, `INSERT INTO wa_offers (text, image_b64, active) VALUES (?,?,?)`, [marketingMessageForPlan(p, siteUrl), image_b64, active]);
+      added++;
+    }
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'wa_offers_from_products', targetKind: 'wa_offers', targetId: String(added), ip: req.ip });
+    res.json({ ok: true, added });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 router.get('/wa-offers/:id', requireAdmin, async (req, res) => {
   try {
     const db = await getDb();
