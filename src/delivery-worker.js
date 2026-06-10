@@ -382,4 +382,4 @@ async function refundBotOrder(db, order, plan) {
   ).catch(() => {});
 }
 
-module.exports = { startDeliveryWorker, autoDeliverForCustomer, autoDeliverOrder, deliverWithCredentials, deliverFromBot };
+module.exports = { startDeliveryWorker, autoDeliverForCustomer, autoDeliverOrder, deliverWithCredentials, deliverFromBot, credentialsFromKeys };

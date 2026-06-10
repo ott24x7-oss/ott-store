@@ -634,7 +634,7 @@ router.post('/bot/auto-import', requireAdmin, async (req, res) => {
 router.get('/orders', requireAdmin, async (req, res) => {
   try {
     const db = await getDb();
-    let sql = `SELECT o.*, p.name as plan_name, p.platform, c.email as customer_email, c.name as customer_name
+    let sql = `SELECT o.*, p.name as plan_name, p.platform, p.provider_api, p.delivery_type, c.email as customer_email, c.name as customer_name
                FROM orders o
                LEFT JOIN plans p ON o.plan_id=p.id
                LEFT JOIN customers c ON o.customer_jid=c.jid
@@ -677,6 +677,40 @@ router.put('/orders/:id', requireAdmin, async (req, res) => {
     }
     await audit({ actorKind: 'admin', actorLabel: 'admin', action: `order_${status}`, targetKind: 'order', targetId: req.params.id, ip: req.ip });
     res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// One-click "Buy from bot & deliver" — for a bot-product order, buy the key live from
+// the bot and deliver it. If the bot returns a key the customer is delivered + emailed
+// immediately; if the bot fulfils it manually (no key yet) or is out of stock, the
+// admin is told what to do (we do NOT auto-refund a manual product the bot will fill).
+router.post('/orders/:id/buy-from-bot', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const order = get(db, `SELECT o.*, c.email, c.name AS cname FROM orders o LEFT JOIN customers c ON c.jid=o.customer_jid WHERE o.id=?`, [req.params.id]);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (order.status === 'delivered') return res.status(400).json({ error: 'Order is already delivered' });
+    if (order.status === 'cancelled') return res.status(400).json({ error: 'Order is cancelled' });
+    const plan = get(db, `SELECT * FROM plans WHERE id=?`, [order.plan_id]);
+    if (!plan || plan.provider_api !== 'bot') return res.status(400).json({ error: 'Not a bot product — deliver from Stock or paste the key manually.' });
+    const botSupplier = require('./bot-supplier');
+    if (!botSupplier.isConfigured(botSupplier.botConfig(db))) return res.status(400).json({ error: 'Bot API not configured.' });
+
+    const r = await botSupplier.purchase(plan.provider_product_id, 1, { order_id: order.id, source: 'ott-store-admin', email: order.email || '' }, db);
+    if (r.ok && r.keys && r.keys.length > 0) {
+      const { deliverWithCredentials, credentialsFromKeys } = require('./delivery-worker');
+      const delivered = await deliverWithCredentials(db, order, credentialsFromKeys(r.keys),
+        { via: 'bot', actorKind: 'admin', actorLabel: 'admin', note: 'Bought from bot by admin' });
+      await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'bot_buy_manual', targetKind: 'order', targetId: String(order.id), ip: req.ip });
+      return res.json({ ok: true, delivered: !!delivered, message: 'Bought from the bot and delivered to the customer. ✅' });
+    }
+    if (r.outOfStock) {
+      return res.json({ ok: true, delivered: false, out_of_stock: true,
+        message: 'The bot is out of stock for this product. Use "Cancel & Refund" to refund the customer.' });
+    }
+    return res.json({ ok: true, delivered: false, message: r.ok
+      ? 'The bot accepted the order but has not returned a key yet — it likely fulfils this product manually. Check your bot, then paste the key here and Deliver.'
+      : `Bot purchase failed: ${r.error || 'unknown'}. Buy it on your bot, then paste the key here and Deliver.` });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

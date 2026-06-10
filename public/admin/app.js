@@ -1803,8 +1803,9 @@ window.openOrderModal = function (id) {
   </div>
 
   ${!delivered ? `<div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.3);border-radius:10px;padding:.75rem;margin-bottom:.75rem">
+    ${o.provider_api === 'bot' ? `<button class="btn btn-sm" id="buy-bot-btn" style="background:linear-gradient(135deg,#2b6fff,#8d5cff);border:none;color:#fff;margin-right:.4rem">🤖 Buy from bot &amp; deliver</button>` : ''}
     <button class="btn btn-sm" id="deliver-stock-btn" style="background:#16a34a;border-color:#16a34a;color:#fff">🚀 Deliver from Stock</button>
-    <div class="muted" style="font-size:.76rem;margin-top:.45rem">Pulls the next available stock credential, decrements stock, and notifies the customer by email + WhatsApp.</div>
+    <div class="muted" style="font-size:.76rem;margin-top:.45rem">${o.provider_api === 'bot' ? 'Buy from bot buys the key live and delivers it — best for ✋ manual bot products. ' : ''}Deliver from Stock pulls the next available credential. Both notify the customer by email + WhatsApp.</div>
   </div>` : ''}
 
   <div style="font-weight:700;margin:.4rem 0 .35rem">Credentials ${delivered ? '<span class="muted" style="font-weight:400;font-size:.78rem">(already delivered)</span>' : '<span class="muted" style="font-weight:400;font-size:.78rem">(enter to deliver manually)</span>'}</div>
@@ -1842,6 +1843,17 @@ window.openOrderModal = function (id) {
     stockBtn.disabled = true;
     try { const r = await api(`/orders/${o.id}/deliver-stock`, { method: 'POST' }); ov.remove(); showToast(r.message || 'Delivered from stock'); views.orders(); }
     catch (ex) { stockBtn.disabled = false; showToast(ex.message, 'error'); }
+  });
+
+  const buyBotBtn = document.getElementById('buy-bot-btn');
+  if (buyBotBtn) buyBotBtn.addEventListener('click', async () => {
+    if (!confirm('Buy this product from your bot and deliver it to the customer?')) return;
+    buyBotBtn.disabled = true; buyBotBtn.textContent = '⏳ Buying…';
+    try {
+      const r = await api(`/orders/${o.id}/buy-from-bot`, { method: 'POST' });
+      if (r.delivered) { ov.remove(); showToast('Bought from bot & delivered ✅'); views.orders(); }
+      else { alert(r.message); buyBotBtn.disabled = false; buyBotBtn.innerHTML = '🤖 Buy from bot &amp; deliver'; }
+    } catch (ex) { alert(ex.message); buyBotBtn.disabled = false; buyBotBtn.innerHTML = '🤖 Buy from bot &amp; deliver'; }
   });
 
   document.getElementById('manual-deliver-btn').addEventListener('click', async () => {
