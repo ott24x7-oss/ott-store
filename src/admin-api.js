@@ -513,6 +513,7 @@ router.get('/bot/status', requireAdmin, async (req, res) => {
       ok: true, configured: true, url: c.url,
       connected: !!(bal.ok || prods.ok),
       balance: bal.ok ? bal.balance : null,
+      balance_formatted: bal.ok ? (bal.formatted || null) : null,
       provider_products: prods.ok ? prods.products.length : null,
       imported,
       error: (bal.ok || prods.ok) ? null : (bal.error || prods.error),

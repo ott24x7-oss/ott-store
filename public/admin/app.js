@@ -343,6 +343,7 @@ views.botcatalog = async function () {
   setMain(`
     <div class="stat-row">
       <div class="card stat-box"><div class="stat-box-label">Connection</div><div class="stat-box-value">${s.connected ? '🟢 Connected' : '🔴 Error'}</div><div class="stat-box-sub">${esc(s.url || '')}</div></div>
+      <div class="card stat-box"><div class="stat-box-label">💰 Bot Balance</div><div class="stat-box-value">${s.balance_formatted || (s.balance != null ? '₹' + s.balance : '—')}</div><div class="stat-box-sub muted" style="font-size:.72rem">reseller funds — top up on the bot panel</div></div>
       <div class="card stat-box"><div class="stat-box-label">Products on bot</div><div class="stat-box-value">${s.provider_products ?? '—'}</div></div>
       <div class="card stat-box"><div class="stat-box-label">In your store</div><div class="stat-box-value">${imported.length}</div></div>
       <div class="card stat-box"><div class="stat-box-label">Available to add</div><div class="stat-box-value">${available.length}</div></div>
