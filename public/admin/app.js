@@ -13,6 +13,7 @@ const MENU = [
   { id: 'plans',          label: 'Plans',         icon: '🎬' },
   { id: 'stock',          label: 'Stock',         icon: '📦' },
   { id: 'botcatalog',     label: 'Bot Catalog',   icon: '📡' },
+  { id: 'bot-panel',      label: 'Bot Panel ↗',   icon: '🤖' },
   { group: 'SALES' },
   { id: 'orders',         label: 'Orders',        icon: '🛒' },
   { id: 'fulfillment',   label: 'Fulfillment',   icon: '🤖' },
@@ -287,6 +288,35 @@ async function initAdmin() {
 
 // ─── Views ────────────────────────────────────────────────────────────────────
 const views = {};
+
+// ── views['bot-panel'] — one-click into the bot's separate admin app ───────────
+views['bot-panel'] = async function () {
+  setMain('<div class="spinner"></div>');
+  let url = '';
+  try { const d = await api('/bot/admin-url'); url = (d && d.url) || ''; } catch {}
+  if (url) { try { window.open(url, '_blank', 'noopener'); } catch {} } // best-effort one-click
+  setMain(`
+    <div class="card" style="max-width:640px">
+      <h2 style="font-size:1.15rem;font-weight:800;margin-bottom:.4rem">🤖 Bot Admin Panel</h2>
+      <p class="muted" style="margin-bottom:1rem">Your bot runs as a separate app. Day-to-day order tasks are already in your store admin — <b>Bot Catalog</b>, <b>Buy from bot</b> on each order, <b>Fulfillment</b>, and the <b>Bot Balance</b>. Open the bot panel mainly to <b>top up your reseller balance</b> or change the bot's own settings.</p>
+      ${url
+        ? `<a class="btn btn-primary" href="${esc(url)}" target="_blank" rel="noopener" style="display:inline-block;font-size:1rem">🤖 Open Bot Panel ↗</a>
+           <p class="muted" style="margin-top:.6rem;font-size:.8rem">Opens <code>${esc(url)}</code> in a new tab (it should have opened automatically).</p>`
+        : `<div class="alert alert-error">No bot URL set yet — add it below.</div>`}
+      <div style="margin-top:1.25rem;border-top:1px solid var(--border,#334155);padding-top:1rem">
+        <label class="form-label" style="font-size:.82rem">Bot admin URL <span class="muted">(change only if your panel is on a sub-path / different domain)</span></label>
+        <div style="display:flex;gap:.5rem;margin-top:.35rem;flex-wrap:wrap">
+          <input class="form-input" id="bp-url" style="flex:1;min-width:220px" value="${esc(url)}" placeholder="https://ottbot.ott24x7.com">
+          <button class="btn btn-secondary" id="bp-save">Save URL</button>
+        </div>
+      </div>
+    </div>`);
+  document.getElementById('bp-save')?.addEventListener('click', async () => {
+    const v = document.getElementById('bp-url').value.trim();
+    try { await api('/bot/admin-url', { method: 'POST', body: JSON.stringify({ url: v }) }); showToast('Saved'); views['bot-panel'](); }
+    catch (e) { showToast(e.message, 'error'); }
+  });
+};
 
 // ── views.botcatalog (OTT24x7 bot reseller integration) ─────────────────────────
 views.botcatalog = async function () {

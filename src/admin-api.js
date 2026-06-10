@@ -631,6 +631,21 @@ router.post('/bot/auto-import', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// The bot's own admin-panel URL for the "Bot Panel ↗" sidebar link. Defaults to
+// BOT_API_URL (the same app serves both the admin UI and the /reseller API).
+router.get('/bot/admin-url', requireAdmin, async (req, res) => {
+  try {
+    const cfg = require('./config');
+    res.json({ url: (await getSetting('bot_admin_url')) || cfg.bot.apiUrl || '' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/bot/admin-url', requireAdmin, async (req, res) => {
+  try {
+    await setSetting('bot_admin_url', String(req.body.url || '').trim());
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── Orders ───────────────────────────────────────────────────────────────────
 router.get('/orders', requireAdmin, async (req, res) => {
   try {
