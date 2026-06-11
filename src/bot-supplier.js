@@ -23,7 +23,7 @@ const http = require('http');
 const { getDb, get, all, run, getSetting } = require('./db');
 const cfg = require('./config');
 
-const SYNC_MINUTES = 10;
+const SYNC_MINUTES = 30; // re-sync stock/name every 30 min (was 10); per-order purchase checks live stock anyway
 
 // ── config (env first, optional settings-table override so it can change without a
 // redeploy). Returns { url, token }. ────────────────────────────────────────────

@@ -315,6 +315,17 @@ async function runImapCheck() {
 
     if (!user || !password) { _running = false; return; }
 
+    // Cost saver: skip connecting to the inbox when there's nothing to match — i.e.
+    // no pending order payment is awaiting a bank email. A payment only arrives AFTER a
+    // checkout has created a pending topup, so a zero count means no email is expected.
+    // This avoids a Gmail TLS round-trip every 30s while the store is idle (most of the
+    // time), which is the single biggest recurring network cost.
+    try {
+      const db = await getDb();
+      const pendingN = get(db, `SELECT COUNT(*) AS n FROM topups WHERE status='pending' AND purpose='order'`)?.n || 0;
+      if (!pendingN) { _running = false; return; }
+    } catch {}
+
     // UID-based polling instead of UNSEEN: any client reading the email won't
     // hide it from us. lastUid is persisted so we resume from where we left
     // off after a restart. On first ever run, lastUid=0 → falls back to SINCE.

@@ -33,6 +33,7 @@ function gracefulShutdown(signal) {
   _shuttingDown = true;
   console.log(`[shutdown] ${signal} — closing WhatsApp socket cleanly (session preserved)`);
   try { const wa = require('./wa-bot'); if (wa.shutdownBot) wa.shutdownBot(); } catch (e) { console.warn('[shutdown] wa-bot:', e.message); }
+  try { const db = require('./db'); if (db.flushDb) db.flushDb(); } catch (e) { console.warn('[shutdown] db flush:', e.message); }
   setTimeout(() => process.exit(0), 1500);
 }
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));

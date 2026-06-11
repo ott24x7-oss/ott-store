@@ -169,7 +169,7 @@ async function deliveryTick() {
 }
 
 function startDeliveryWorker() {
-  setInterval(deliveryTick, 15 * 1000); // every 15s
+  setInterval(deliveryTick, 60 * 1000); // every 60s — backup only; delivery is triggered instantly on payment
   deliveryTick();
 }
 

@@ -11,6 +11,14 @@ const initSqlJs = require('sql.js');
 let _db = null;
 let _dirty = false;
 
+// Persist the in-memory DB to disk only if something changed since the last write.
+// Runs on a timer AND on graceful shutdown, so a deploy/restart never loses recent
+// writes. Slower timer + shutdown-flush = far fewer full-DB serializations.
+function persistIfDirty() {
+  try { if (_dirty && _db) { fs.writeFileSync(DB_PATH, Buffer.from(_db.export())); _dirty = false; } }
+  catch (e) { console.warn('[db] persist failed:', e.message); }
+}
+
 async function getDb() {
   if (_db) return _db;
   const SQL = await initSqlJs();
@@ -21,12 +29,7 @@ async function getDb() {
   }
   const origRun = _db.run.bind(_db);
   _db.run = (sql, params) => { _dirty = true; return origRun(sql, params); };
-  setInterval(() => {
-    if (_dirty && _db) {
-      fs.writeFileSync(DB_PATH, Buffer.from(_db.export()));
-      _dirty = false;
-    }
-  }, 5000);
+  setInterval(persistIfDirty, 15000); // every 15s (was 5s) — fewer full-DB serializations; shutdown flushes too
   migrate(_db);
   return _db;
 }
@@ -2504,4 +2507,4 @@ function makePlanSlug(text, existingSet) {
   return `${base}-${Date.now()}`;
 }
 
-module.exports = { getDb, getSetting, setSetting, getSettingSync, setSettingSync, all, get, run, makePlanSlug };
+module.exports = { getDb, getSetting, setSetting, getSettingSync, setSettingSync, all, get, run, makePlanSlug, flushDb: persistIfDirty };
