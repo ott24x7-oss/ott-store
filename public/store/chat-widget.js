@@ -46,6 +46,10 @@ const STYLE=`
 .cw-opt-wa{background:#25D366}
 .cw-opt-tg{background:#229ED9}
 .cw-opt-ai{background:linear-gradient(135deg,#ff2a4d,#ff8b22)}
+.cw-opt-ig{background:linear-gradient(135deg,#feda75,#d62976 45%,#962fbf)}
+.cw-opt-wac{background:#128C7E}
+.cw-opt-tgc{background:#229ED9}
+.cw-opt-link{background:linear-gradient(135deg,#5b6470,#3a4150)}
 
 /* ── AI chat panel ── */
 #chat-panel{position:fixed;bottom:96px;right:24px;z-index:10000;width:354px;max-width:calc(100vw - 16px);
@@ -114,6 +118,7 @@ st.id='cw-style';st.textContent=STYLE;document.head.appendChild(st);
 // ── icons ────────────────────────────────────────────────────────────────────
 const ICON_WA='<svg viewBox="0 0 32 32" fill="#fff"><path d="M16 .5C7.4.5.5 7.4.5 16c0 2.8.7 5.4 2 7.8L.5 31.5l7.9-2c2.3 1.2 4.9 1.9 7.6 1.9 8.6 0 15.5-6.9 15.5-15.5S24.6.5 16 .5zm0 28.3c-2.4 0-4.7-.6-6.7-1.8l-.5-.3-4.7 1.2 1.2-4.6-.3-.5c-1.3-2.1-2-4.5-2-7C3.3 9 9 3.3 16 3.3 23 3.3 28.7 9 28.7 16S23 28.8 16 28.8zm7.6-9.8c-.4-.2-2.5-1.2-2.9-1.4-.4-.1-.7-.2-.9.2-.3.4-1 1.4-1.3 1.6-.2.3-.5.3-.9.1-.4-.2-1.8-.7-3.4-2.1-1.2-1.1-2.1-2.5-2.3-2.9-.2-.4 0-.6.2-.8.2-.2.4-.5.6-.7.2-.2.3-.4.4-.7.1-.3 0-.5 0-.7-.1-.2-.9-2.2-1.3-3-.3-.7-.7-.6-.9-.6h-.8c-.3 0-.7.1-1.1.5-.4.4-1.4 1.4-1.4 3.4s1.5 4 1.7 4.2c.2.3 2.9 4.5 7.1 6.3 1 .4 1.8.7 2.4.9 1 .3 1.9.3 2.6.2.8-.1 2.5-1 2.8-2 .3-1 .3-1.8.2-2-.1-.2-.4-.3-.8-.5z"/></svg>';
 const ICON_TG='<svg viewBox="0 0 32 32" fill="#fff"><path d="M16 0C7.2 0 0 7.2 0 16s7.2 16 16 16 16-7.2 16-16S24.8 0 16 0zm7.4 11l-2.5 11.7c-.2.8-.7 1-1.4.6l-3.9-2.9-1.9 1.8c-.2.2-.4.4-.8.4l.3-4.1 7.4-6.7c.3-.3-.1-.4-.5-.2l-9.1 5.7-3.9-1.2c-.8-.3-.9-.8.2-1.2l15.2-5.9c.7-.2 1.3.2 1.1 1.1z"/></svg>';
+const ICON_IG='<svg viewBox="0 0 32 32" fill="#fff"><path d="M16 2.9c4.3 0 4.8 0 6.5.1 1.6.1 2.4.3 3 .5.8.3 1.3.6 1.9 1.2.6.6.9 1.1 1.2 1.9.2.6.4 1.4.5 3 .1 1.7.1 2.2.1 6.5s0 4.8-.1 6.5c-.1 1.6-.3 2.4-.5 3-.3.8-.6 1.3-1.2 1.9-.6.6-1.1.9-1.9 1.2-.6.2-1.4.4-3 .5-1.7.1-2.2.1-6.5.1s-4.8 0-6.5-.1c-1.6-.1-2.4-.3-3-.5-.8-.3-1.3-.6-1.9-1.2-.6-.6-.9-1.1-1.2-1.9-.2-.6-.4-1.4-.5-3-.1-1.7-.1-2.2-.1-6.5s0-4.8.1-6.5c.1-1.6.3-2.4.5-3 .3-.8.6-1.3 1.2-1.9.6-.6 1.1-.9 1.9-1.2.6-.2 1.4-.4 3-.5 1.7-.1 2.2-.1 6.5-.1M16 0c-4.4 0-4.9 0-6.6.1-1.7.1-2.9.3-3.9.7-1 .4-1.9.9-2.7 1.8C2 3.4 1.4 4.2 1 5.2.6 6.2.3 7.4.2 9.1.1 10.8 0 11.4 0 16s0 5.2.1 6.9c.1 1.7.3 2.9.7 3.9.4 1 .9 1.9 1.8 2.7.8.8 1.7 1.4 2.7 1.8 1 .4 2.2.6 3.9.7 1.7.1 2.3.1 6.9.1s5.2 0 6.9-.1c1.7-.1 2.9-.3 3.9-.7 1-.4 1.9-.9 2.7-1.8.8-.8 1.4-1.7 1.8-2.7.4-1 .6-2.2.7-3.9.1-1.7.1-2.3.1-6.9s0-5.2-.1-6.9c-.1-1.7-.3-2.9-.7-3.9-.4-1-.9-1.9-1.8-2.7-.8-.8-1.7-1.4-2.7-1.8-1-.4-2.2-.6-3.9-.7C20.9 0 20.4 0 16 0z"/><path d="M16 7.8a8.2 8.2 0 100 16.4 8.2 8.2 0 000-16.4zm0 13.5a5.3 5.3 0 110-10.6 5.3 5.3 0 010 10.6z"/><circle cx="24.7" cy="7.3" r="1.9"/></svg>';
 
 // ── menu element ─────────────────────────────────────────────────────────────
 const menu=document.createElement('div');
@@ -246,6 +251,19 @@ function tgLink(raw){
   v=v.replace(/^@/,'').replace(/^t\.me\//i,'');
   return v?'https://t.me/'+v:'';
 }
+// A plain URL — only accept absolute http(s) links (community invites, custom links).
+function urlLink(raw){
+  const v=String(raw||'').trim();
+  return /^https?:\/\//i.test(v)?v:'';
+}
+// Instagram — accept a full URL or a bare @handle.
+function igLink(raw){
+  let v=String(raw||'').trim();
+  if(!v)return '';
+  if(/^https?:\/\//i.test(v))return v;
+  v=v.replace(/^@/,'').replace(/^instagram\.com\//i,'');
+  return v?'https://instagram.com/'+v:'';
+}
 
 // ── boot ─────────────────────────────────────────────────────────────────────
 fetch('/user/api/bot-config').then(r=>r.json()).then(cfg=>{
@@ -275,21 +293,54 @@ fetch('/user/api/bot-config').then(r=>r.json()).then(cfg=>{
     });
     count++;
   }
-  // Telegram
+  // Telegram (direct message)
   if(tg){
     addOpt('cw-opt-tg',ICON_TG,'Telegram','Message us on Telegram',()=>{
       window.open(tg,'_blank','noopener');setState('closed');
     });
     count++;
   }
-
-  // Nothing configured → no widget at all.
-  if(count===0)return;
-  // Only one option AND it's a contact link → open it directly (skip the menu).
-  if(count===1&&!aiEnabled){
-    const direct=wa?(wa+'?text='+encodeURIComponent(`Hi 👋 I have a question about ${siteName}.`)):tg;
-    fab.addEventListener('click',e=>{e.stopImmediatePropagation();window.open(direct,'_blank','noopener');},true);
+  // Instagram
+  const ig=igLink(cfg.support_instagram);
+  if(ig){
+    addOpt('cw-opt-ig',ICON_IG,'Instagram','Follow us on Instagram',()=>{
+      window.open(ig,'_blank','noopener');setState('closed');
+    });
+    count++;
   }
+  // WhatsApp Community
+  const wac=urlLink(cfg.support_wa_community);
+  if(wac){
+    addOpt('cw-opt-wac','👥','WhatsApp Community','Join our community',()=>{
+      window.open(wac,'_blank','noopener');setState('closed');
+    });
+    count++;
+  }
+  // Telegram Channel
+  const tgc=tgLink(cfg.support_telegram_channel);
+  if(tgc){
+    addOpt('cw-opt-tgc','📣','Telegram Channel','Latest deals &amp; updates',()=>{
+      window.open(tgc,'_blank','noopener');setState('closed');
+    });
+    count++;
+  }
+  // Custom links (admin-defined: [{label,url,sub,icon}])
+  let customs=[];try{customs=JSON.parse(cfg.support_custom_links||'[]');}catch(e){}
+  if(Array.isArray(customs)){
+    customs.forEach(l=>{
+      const u=urlLink(l&&l.url);
+      if(u&&l&&l.label){
+        addOpt('cw-opt-link',(l.icon||'🔗'),l.label,l.sub||'',()=>{
+          window.open(u,'_blank','noopener');setState('closed');
+        });
+        count++;
+      }
+    });
+  }
+
+  // Nothing configured → no widget at all. Otherwise the FAB always opens the
+  // "Chat with us" pop-up listing every configured channel.
+  if(count===0)return;
   fab.style.display='flex';
 }).catch(()=>{});
 })();

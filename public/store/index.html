@@ -384,20 +384,23 @@ html[data-theme="dark"] .logo-light{display:none}html[data-theme="dark"] .logo-d
     </div>
     <div class="phone">
       <div class="screen">
-        <div class="eyebrow" style="font-size:11px;padding:6px 10px">⚡ Hot Picks</div>
+        <div class="eyebrow" style="font-size:11px;padding:6px 10px" data-tk="phone_badge">⚡ Hot Picks</div>
         <h3 id="phone-name">OTT Store</h3>
-        <p>Premium digital access in minutes. Choose product, pay, receive delivery.</p>
-        <div class="mini-card"><div class="mini-icon">▶</div><div><b>Streaming Plans</b><small>OTT subscriptions</small></div></div>
-        <div class="mini-card"><div class="mini-icon">AI</div><div><b>AI &amp; Writing Tools</b><small>Premium accounts</small></div></div>
-        <div class="mini-card"><div class="mini-icon">☁</div><div><b>Cloud &amp; Software</b><small>Productivity suite</small></div></div>
+        <p data-tk="phone_sub">Premium digital access in minutes. Choose product, pay, receive delivery.</p>
+        <div class="mini-card"><div class="mini-icon">▶</div><div><b data-tk="phone_c1_title">Streaming Plans</b><small data-tk="phone_c1_sub">OTT subscriptions</small></div></div>
+        <div class="mini-card"><div class="mini-icon">AI</div><div><b data-tk="phone_c2_title">AI &amp; Writing Tools</b><small data-tk="phone_c2_sub">Premium accounts</small></div></div>
+        <div class="mini-card"><div class="mini-icon">☁</div><div><b data-tk="phone_c3_title">Cloud &amp; Software</b><small data-tk="phone_c3_sub">Productivity suite</small></div></div>
       </div>
     </div>
   </section>
 </main>
 
+<!-- ── Home sections (order & visibility managed in Admin → Homepage Text) ── -->
+<div id="home-sections">
+<!--SEC:ticker-->
 <!-- ── Ticker ── -->
-<div class="ticker">
-  <div class="ticker-track">
+<div class="ticker" data-section="ticker">
+  <div class="ticker-track"><!--ticker-->
     <span>⚡ Instant Delivery</span>
     <span>✅ Verified Products</span>
     <span>💬 WhatsApp Support</span>
@@ -419,11 +422,13 @@ html[data-theme="dark"] .logo-light{display:none}html[data-theme="dark"] .logo-d
     <span>🖥️ Software Keys</span>
     <span>🎵 Music Streaming</span>
     <span>🛡️ VPN &amp; Security</span>
-  </div>
+  <!--/ticker--></div>
 </div>
+<!--/SEC:ticker-->
 
+<!--SEC:categories-->
 <!-- ── Categories ── -->
-<section class="section">
+<section class="section" data-section="categories">
   <div class="section-head">
     <div class="section-head-text">
       <h2 data-tk="cat_heading">Explore premium categories</h2>
@@ -458,9 +463,11 @@ html[data-theme="dark"] .logo-light{display:none}html[data-theme="dark"] .logo-d
     </a>
   </div>
 </section>
+<!--/SEC:categories-->
 
+<!--SEC:trust-->
 <!-- ── Trust / social proof ── -->
-<section class="section" aria-label="Why buyers trust us">
+<section class="section" data-section="trust" aria-label="Why buyers trust us">
   <div class="section-head">
     <div class="section-head-text">
       <h2 data-tk="trust_heading">Trusted by thousands of buyers</h2>
@@ -469,13 +476,13 @@ html[data-theme="dark"] .logo-light{display:none}html[data-theme="dark"] .logo-d
   </div>
   <!-- Order / customer counts are hydrated with live numbers from /user/api/store. -->
   <div class="trust-stats">
-    <div class="tstat"><strong id="ts-orders">5,000+</strong><span>Orders delivered</span></div>
-    <div class="tstat"><strong id="ts-customers">1,000+</strong><span>Happy customers</span></div>
-    <div class="tstat"><strong>4.8★</strong><span>Average rating</span></div>
-    <div class="tstat"><strong>&lt;5&nbsp;min</strong><span>Avg delivery time</span></div>
+    <div class="tstat"><strong id="ts-orders">5,000+</strong><span data-tk="ts_orders_label">Orders delivered</span></div>
+    <div class="tstat"><strong id="ts-customers">1,000+</strong><span data-tk="ts_customers_label">Happy customers</span></div>
+    <div class="tstat"><strong data-tk="ts_rating_num">4.8★</strong><span data-tk="ts_rating_label">Average rating</span></div>
+    <div class="tstat"><strong data-tk="ts_delivery_num">&lt;5&nbsp;min</strong><span data-tk="ts_delivery_label">Avg delivery time</span></div>
   </div>
-  <!-- SAMPLE testimonials — replace the quotes/names with real customer reviews. -->
-  <div class="trust-reviews">
+  <!-- Customer reviews — editable in Admin → Homepage Text (stored in home_reviews). -->
+  <div class="trust-reviews"><!--reviews-->
     <figure class="review">
       <div class="stars" aria-label="Rated 5 out of 5">★★★★★</div>
       <blockquote>"Ordered Office 2021 at midnight and got the genuine key in two minutes. Activated first try — exactly as described."</blockquote>
@@ -491,29 +498,34 @@ html[data-theme="dark"] .logo-light{display:none}html[data-theme="dark"] .logo-d
       <blockquote>"Paid with USDT, zero hassle. Fair prices and support actually replies 24×7. My go-to for software keys now."</blockquote>
       <figcaption>— Arjun K., Delhi</figcaption>
     </figure>
-  </div>
-  <div class="trust-badges">
+  <!--/reviews--></div>
+  <div class="trust-badges"><!--badges-->
     <span>🔐 Secure checkout</span>
     <span>⚡ Instant digital delivery</span>
     <span>🛡️ Replacement warranty</span>
     <span>💳 UPI &amp; Crypto (USDT)</span>
     <span>💬 24×7 WhatsApp support</span>
-  </div>
+  <!--/badges--></div>
 </section>
+<!--/SEC:trust-->
 
+<!--SEC:cta-->
 <!-- ── CTA ── -->
-<section class="cta">
+<section class="cta" data-section="cta">
   <div class="cta-text">
     <h2 id="cta-title" data-tk="cta_title">Ready to upgrade your digital access?</h2>
     <p id="cta-sub" data-tk="cta_sub">Join thousands of customers. Register free and get your first product today.</p>
   </div>
   <a class="btn primary" href="/plans" data-tk="cta_btn">Start Ordering →</a>
 </section>
+<!--/SEC:cta-->
+</div><!--/home-sections-->
 
 <!-- ── Footer ── -->
 <footer>
   <a class="footer-logo" href="/" id="footer-name">OTT Store</a>
   <div class="footer-links">
+    <a href="/reseller">Become a Reseller</a>
     <a href="/privacy">Privacy Policy</a>
     <a href="/terms">Terms of Service</a>
     <a href="/refund">Refund Policy</a>

@@ -417,6 +417,14 @@ for (const [route, slug] of Object.entries(staticRoutes)) {
   });
 }
 
+// ─── /reseller — public "Become a Reseller" apply page ───────────────────────
+app.get('/reseller', async (req, res) => {
+  try {
+    const [siteName, logos, storeTheme] = await Promise.all([getSetting('site_name'), getLogoUrls(), getActiveTheme()]);
+    res.type('text/html').send(buildResellerPage(siteName || 'Virtual Market', logos, storeTheme));
+  } catch { res.status(500).send('Server error'); }
+});
+
 // ─── /plans — product listing page (server-rendered so theme is correct on first paint) ──
 // Trim to <=n chars on a word boundary, stripping trailing separators — keeps
 // titles/descriptions from being cut mid-word in search results.
@@ -748,6 +756,7 @@ function spFooter(siteName) {
 <div class="sp-footer-top">
   <div><div class="sp-footer-brand">${esc(siteName)}</div><div class="sp-footer-tagline">Premium OTT Subscriptions · Instant Delivery</div></div>
   <div class="sp-footer-links">
+    <a href="/reseller">Become a Reseller</a>
     <a href="/privacy">Privacy Policy</a>
     <a href="/terms">Terms of Service</a>
     <a href="/refund">Refund Policy</a>
@@ -846,6 +855,84 @@ async function injectMovieverseDynamic(html, siteName) {
   }
 }
 
+// ─── Editable home sections: reviews / ticker / badges + order & visibility ───
+// All four are managed in Admin → Homepage Text and persisted as JSON strings in
+// settings (home_reviews / home_ticker / home_badges / home_sections). We render
+// them into index.html server-side — via the HTML comment markers added to that
+// file — so the first paint is final and crawlable; the client never re-renders
+// these blocks. Each step is defensive: blank/malformed JSON falls back to the
+// built-in defaults, so a bad setting can never blank out the homepage.
+const HOME_DEFAULT_REVIEWS = [
+  { stars: 5, quote: 'Ordered Office 2021 at midnight and got the genuine key in two minutes. Activated first try — exactly as described.', name: '— Rahul M., Pune' },
+  { stars: 5, quote: 'Netflix and Spotify both delivered instantly over WhatsApp. When one needed a reset they replaced it within the hour.', name: '— Sneha R., Bengaluru' },
+  { stars: 5, quote: 'Paid with USDT, zero hassle. Fair prices and support actually replies 24×7. My go-to for software keys now.', name: '— Arjun K., Delhi' },
+];
+const HOME_DEFAULT_TICKER = ['⚡ Instant Delivery', '✅ Verified Products', '💬 WhatsApp Support', '🔐 Secure Checkout', '🎬 OTT Plans', '🤖 AI Tools', '☁️ Cloud Storage', '🖥️ Software Keys', '🎵 Music Streaming', '🛡️ VPN & Security'];
+const HOME_DEFAULT_BADGES = ['🔐 Secure checkout', '⚡ Instant digital delivery', '🛡️ Replacement warranty', '💳 UPI & Crypto (USDT)', '💬 24×7 WhatsApp support'];
+const HOME_SECTION_IDS = ['ticker', 'categories', 'trust', 'cta'];
+
+// Effective array for an editable list: a blank/unset setting → defaults; a set
+// value (even an empty array) is respected, so deleting every item really empties
+// the block instead of silently restoring the seed content.
+function homeArr(raw, fallback) {
+  if (raw == null || String(raw).trim() === '') return fallback;
+  try { const v = JSON.parse(raw); return Array.isArray(v) ? v : fallback; } catch { return fallback; }
+}
+
+function renderHomeSections(html, raw) {
+  try {
+    // Reviews — replace everything between the <!--reviews--> markers.
+    const reviews = homeArr(raw.reviews, HOME_DEFAULT_REVIEWS).filter(r => r && (r.quote || r.name));
+    const figs = reviews.map(r => {
+      const n = Math.max(0, Math.min(5, parseInt(r.stars, 10) || 0));
+      const stars = '★'.repeat(n) + '☆'.repeat(5 - n);
+      return `<figure class="review">
+      <div class="stars" aria-label="Rated ${n} out of 5">${stars}</div>
+      <blockquote>${esc(r.quote || '')}</blockquote>
+      <figcaption>${esc(r.name || '')}</figcaption>
+    </figure>`;
+    }).join('\n    ');
+    html = html.replace(/<!--reviews-->[\s\S]*?<!--\/reviews-->/, `<!--reviews-->${figs ? `\n    ${figs}\n  ` : ''}<!--/reviews-->`);
+
+    // Ticker — emitted twice for the seamless CSS marquee.
+    const ticker = homeArr(raw.ticker, HOME_DEFAULT_TICKER).map(t => String(t).trim()).filter(Boolean);
+    const tspans = ticker.map(t => `<span>${esc(t)}</span>`).join('\n    ');
+    html = html.replace(/<!--ticker-->[\s\S]*?<!--\/ticker-->/, `<!--ticker-->${tspans ? `\n    ${tspans}\n    ${tspans}\n  ` : ''}<!--/ticker-->`);
+
+    // Badges
+    const badges = homeArr(raw.badges, HOME_DEFAULT_BADGES).map(b => String(b).trim()).filter(Boolean);
+    const bspans = badges.map(b => `<span>${esc(b)}</span>`).join('\n    ');
+    html = html.replace(/<!--badges-->[\s\S]*?<!--\/badges-->/, `<!--badges-->${bspans ? `\n    ${bspans}\n  ` : ''}<!--/badges-->`);
+
+    // Section order + visibility. Only rewrite the container when a config is
+    // actually saved; otherwise the file's natural order/visibility is untouched.
+    const secCfg = homeArr(raw.sections, null);
+    if (Array.isArray(secCfg)) {
+      const order = [];
+      const on = {};
+      for (const item of secCfg) {
+        const id = item && item.id;
+        if (HOME_SECTION_IDS.includes(id) && !order.includes(id)) {
+          order.push(id);
+          on[id] = !(item.on === false || item.on === 0 || item.on === '0');
+        }
+      }
+      // Any known section missing from the saved config keeps showing, so adding
+      // a section in a later release won't make it vanish for older saves.
+      for (const id of HOME_SECTION_IDS) if (!order.includes(id)) { order.push(id); on[id] = true; }
+
+      const inner = {};
+      for (const id of HOME_SECTION_IDS) {
+        const m = html.match(new RegExp(`<!--SEC:${id}-->([\\s\\S]*?)<!--/SEC:${id}-->`));
+        inner[id] = m ? m[1] : '';
+      }
+      const rebuilt = order.filter(id => on[id]).map(id => `<!--SEC:${id}-->${inner[id]}<!--/SEC:${id}-->`).join('\n');
+      html = html.replace(/<div id="home-sections">[\s\S]*?<\/div><!--\/home-sections-->/, `<div id="home-sections">\n${rebuilt}\n</div><!--/home-sections-->`);
+    }
+    return html;
+  } catch { return html; }
+}
+
 // ─── Default home (index.html): server-render the dynamic content ─────────────
 // Same idea as injectMovieverseDynamic, for the non-MovieVerse home. index.html
 // fills the brand, phone mock, CTA title, footer copy and hero copy client-side
@@ -883,6 +970,12 @@ async function injectDefaultHomeDynamic(html, siteName) {
     if (heroTitle2) html = html.replace(/(<span id="hero-title2">)[^<]*(<\/span>)/, `$1${esc(heroTitle2)}$2`);
     const sub = heroSub || tagline;
     if (sub) html = html.replace(/(<p id="hero-sub">)[\s\S]*?(<\/p>)/, `$1${esc(sub)}$2`);
+
+    // Editable reviews / ticker / badges + section order & visibility.
+    const [reviewsRaw, tickerRaw, badgesRaw, sectionsRaw] = await Promise.all([
+      getSetting('home_reviews'), getSetting('home_ticker'), getSetting('home_badges'), getSetting('home_sections'),
+    ]);
+    html = renderHomeSections(html, { reviews: reviewsRaw, ticker: tickerRaw, badges: badgesRaw, sections: sectionsRaw });
 
     return html;
   } catch {
@@ -1152,6 +1245,69 @@ ${spFooter(siteName)}
 </body></html>`;
 }
 
+// ─── Public "Become a Reseller" page ─────────────────────────────────────────
+// Server-rendered apply page linked from the footer. The reseller apply/status
+// endpoints (user-api) require a logged-in customer, so the page branches:
+// signed-out → prompt to sign in; signed-in → Apply button or current status.
+function buildResellerPage(siteName, logos = {}, storeTheme = 'midnight-purple') {
+  const baseUrl = cfg.baseUrl;
+  const btn = 'display:inline-block;background:var(--sp-btn);color:#fff;padding:.7rem 1.35rem;border-radius:50px;font-weight:700;text-decoration:none;border:0;cursor:pointer;font-size:.95rem';
+  return `<!DOCTYPE html><html lang="en" data-theme="dark" data-store-theme="${esc(storeTheme)}"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Become a Reseller — ${esc(siteName)}</title>
+<meta name="description" content="Apply to become a reseller at ${esc(siteName)} — wholesale pricing on digital subscriptions, AI tools and software, with priority support.">
+<link rel="canonical" href="${esc(baseUrl)}/reseller">
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/store/themes.css">
+${SHARED_STYLES}
+</head>
+<body>
+${spNav(siteName, logos.light, logos.dark)}
+<main class="sp-main">
+<div class="legal-page">
+<h1>Become a Reseller</h1>
+<div class="legal-body">
+<p>Run your own business on top of ${esc(siteName)}. Approved resellers get <strong>wholesale pricing</strong>, optional <strong>custom per-product rates</strong>, and priority support — ideal for agencies, shops and bulk buyers.</p>
+<ul>
+  <li>💸 Wholesale / discounted pricing applied automatically at checkout</li>
+  <li>🏷️ Optional custom per-product prices set by our team</li>
+  <li>⚡ Same instant digital delivery &amp; replacement warranty</li>
+  <li>💬 Priority WhatsApp support</li>
+</ul>
+</div>
+<div id="reseller-box" style="margin-top:1.75rem"><p style="color:var(--sp-muted)">Loading…</p></div>
+</div>
+</main>
+${spFooter(siteName)}
+<script>(function(){
+  var box=document.getElementById('reseller-box');
+  var BTN=${JSON.stringify(btn)};
+  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function card(h){box.innerHTML='<div style="background:var(--sp-card);border:1px solid var(--sp-border);border-radius:16px;padding:1.5rem">'+h+'</div>';}
+  fetch('/user/api/me',{credentials:'include'}).then(function(r){
+    if(!r.ok){ card('<h3 style="margin:0 0 .5rem">Sign in to apply</h3><p style="color:var(--sp-muted);margin:0 0 1.1rem">You need a free account to apply as a reseller.</p><a href="/my" style="'+BTN+'">Sign in / Create account →</a>'); return null; }
+    return fetch('/user/api/reseller/status',{credentials:'include'}).then(function(r){return r.json();});
+  }).then(function(s){
+    if(!s) return;
+    if(!s.status){
+      card('<h3 style="margin:0 0 .5rem">Ready to apply?</h3><p style="color:var(--sp-muted);margin:0 0 1.1rem">Submit your application and our team will review it shortly.</p><button id="rs-apply" style="'+BTN+'">Apply as Reseller</button><div id="rs-msg" style="margin-top:.9rem"></div>');
+      document.getElementById('rs-apply').onclick=function(){
+        var b=this; b.disabled=true; b.textContent='Submitting…';
+        fetch('/user/api/reseller/apply',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:'{}'}).then(function(r){return r.json();}).then(function(d){
+          card('<h3 style="margin:0 0 .5rem">✅ Application submitted</h3><p style="color:var(--sp-muted);margin:0">'+esc(d.message||'We will review your application shortly.')+'</p>');
+        }).catch(function(){ var m=document.getElementById('rs-msg'); if(m){m.innerHTML='<span style="color:#ff6b6b">Something went wrong — please try again.</span>';} b.disabled=false; b.textContent='Apply as Reseller'; });
+      };
+    } else if(s.status==='approved'){
+      card('<h3 style="margin:0 0 .5rem">🎉 You are an approved reseller</h3><p style="color:var(--sp-muted);margin:0 0 1.1rem">Reseller discount: <strong>'+(s.discount_percent||0)+'%</strong> — applied automatically at checkout.</p><a href="/plans" style="'+BTN+'">Browse catalog →</a>');
+    } else if(s.status==='pending'){
+      card('<h3 style="margin:0 0 .5rem">⏳ Application under review</h3><p style="color:var(--sp-muted);margin:0">Your reseller application is pending approval. We will be in touch soon.</p>');
+    } else {
+      card('<h3 style="margin:0 0 .5rem">Application '+esc(s.status)+'</h3><p style="color:var(--sp-muted);margin:0">Please contact support if you have any questions.</p>');
+    }
+  }).catch(function(){ card('<p style="color:var(--sp-muted)">Could not load reseller status. Please refresh.</p>'); });
+})();</script>
+</body></html>`;
+}
+
 async function start() {
   await getDb(); // init DB before accepting requests
 
@@ -1163,6 +1319,7 @@ async function start() {
   try { require('./autopost-worker').startAutopostWorker(); } catch (e) { console.error('autopost-worker error:', e.message); }
   // ResellKeys auto-fulfillment worker removed — scrape-only integration now.
   try { require('./imap-verify').startImapWorker(); } catch (e) { console.error('imap-verify error:', e.message); }
+  try { require('./backup-worker').startBackupWorker(); } catch (e) { console.error('backup-worker error:', e.message); }
 
   // WhatsApp Bot + WA worker
   try {

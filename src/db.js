@@ -1179,6 +1179,28 @@ function setSettingSync(key, value) {
   run(_db, 'INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)', [key, String(value ?? '')]);
 }
 
+// Replace the live database with an uploaded backup buffer. Validates that the
+// file is a real SQLite DB carrying our schema BEFORE swapping, so a bad/foreign
+// upload can never brick the running store. The 5s autosave interval reads the
+// module-level _db, so reassigning it here is enough going forward; we also flush
+// to disk immediately. migrate() is idempotent and upgrades an older backup to
+// the current schema.
+async function restoreDb(buffer) {
+  const SQL = await initSqlJs();
+  let next;
+  try { next = new SQL.Database(buffer); } catch { throw new Error('Not a valid SQLite database file.'); }
+  try { next.exec('SELECT 1 FROM settings LIMIT 1'); }
+  catch { try { next.close(); } catch {} throw new Error('This file is not a Virtual Market backup (no settings table).'); }
+  try { if (_db) _db.close(); } catch {}
+  _db = next;
+  const origRun = _db.run.bind(_db);
+  _db.run = (sql, params) => { _dirty = true; return origRun(sql, params); };
+  migrate(_db);
+  fs.writeFileSync(DB_PATH, Buffer.from(_db.export()));
+  _dirty = false;
+  return true;
+}
+
 // ─── Seed autopost campaigns ──────────────────────────────────────────────────
 function seedAutopostCampaigns(db) {
   const existing = db.exec('SELECT COUNT(*) as c FROM autopost_campaigns');
@@ -2507,4 +2529,4 @@ function makePlanSlug(text, existingSet) {
   return `${base}-${Date.now()}`;
 }
 
-module.exports = { getDb, getSetting, setSetting, getSettingSync, setSettingSync, all, get, run, makePlanSlug, flushDb: persistIfDirty };
+module.exports = { getDb, getSetting, setSetting, getSettingSync, setSettingSync, restoreDb, all, get, run, makePlanSlug, flushDb: persistIfDirty };

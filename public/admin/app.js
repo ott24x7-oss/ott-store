@@ -40,7 +40,7 @@ const MENU = [
   { id: 'pwa-manager',   label: 'App Manager',   icon: '📱' },
   { group: 'STOREFRONT' },
   { id: 'mystore',        label: 'My Store',      icon: '🏪' },
-  { id: 'hometext',       label: 'Homepage Text', icon: '📝' },
+  { id: 'hometext',       label: 'Homepage Content', icon: '📝' },
   { id: 'store-theme',    label: 'Store Themes',  icon: '🎨' },
   { id: 'payments',       label: 'Payments',      icon: '💰' },
   { id: 'legal',          label: 'Legal Pages',   icon: '📄' },
@@ -2454,7 +2454,7 @@ views.mystore = async function () {
       ${['Asia/Kolkata','Asia/Dubai','Asia/Singapore','America/New_York','Europe/London'].map(tz=>`<option ${s.timezone===tz?'selected':''}>${tz}</option>`).join('')}
     </select>
   </div>
-  <div class="form-group"><label class="form-label">Base URL</label><input class="form-input" name="base_url" value="${esc(s.base_url||'')}" placeholder="https://store.watshop.in"></div>
+  <div class="form-group"><label class="form-label">Base URL</label><input class="form-input" name="base_url" value="${esc(s.base_url||'')}" placeholder="https://store.watshop.in"><p class="muted" style="font-size:.78rem;margin-top:.3rem">Your live domain, with <code>https://</code> and no trailing slash. Used to build canonical links, the sitemap, email links, share links &amp; SEO tags — set this to your real domain in production.</p></div>
   <button type="submit" class="btn btn-primary">Save Store Settings</button>
 </form></div>`);
     document.getElementById('store-form').onsubmit = async e => {
@@ -2726,6 +2726,30 @@ views.seo = async function () {
 <div style="max-width:720px">
 <form id="seo-form" style="display:flex;flex-direction:column;gap:.9rem">
 <div id="seo-msg"></div>
+<details class="card" style="padding:1rem 1.1rem">
+  <summary style="cursor:pointer;font-weight:700">📖 Setup guide — Google Analytics (GA4), Search Console &amp; Bing</summary>
+  <div style="margin-top:.85rem">
+    <div style="font-weight:700;font-size:.9rem;margin-bottom:.3rem">📊 Google Analytics (GA4) — see your visitors</div>
+    <ol class="muted" style="font-size:.83rem;line-height:1.85;padding-left:1.25rem;margin:0 0 1rem">
+      <li>Open <a href="https://analytics.google.com/" target="_blank" rel="noopener">analytics.google.com</a> → <strong>Admin</strong> (gear, bottom-left) → <strong>Create → Property</strong>. Set name, currency &amp; timezone.</li>
+      <li>In the property → <strong>Data Streams</strong> → <strong>Add stream → Web</strong> → enter your site URL.</li>
+      <li>Copy the <strong>Measurement ID</strong> (<code>G-XXXXXXXXXX</code>) shown at the top of the stream.</li>
+      <li>Paste it into <strong>GA4 Measurement ID</strong> below → <strong>Save</strong> → <strong>Test Connection</strong>. The tag is added to every storefront page automatically (no redeploy needed).</li>
+    </ol>
+    <div style="font-weight:700;font-size:.9rem;margin-bottom:.3rem">🔍 Google Search Console — get found on Google</div>
+    <ol class="muted" style="font-size:.83rem;line-height:1.85;padding-left:1.25rem;margin:0 0 1rem">
+      <li>Open <a href="https://search.google.com/search-console" target="_blank" rel="noopener">Search Console</a> → <strong>Add property</strong> → <strong>URL prefix</strong> → your site URL.</li>
+      <li>Pick the <strong>HTML tag</strong> method and copy the code (or paste the whole <code>&lt;meta&gt;</code> tag — both work).</li>
+      <li>Paste into <strong>GSC Verification Code</strong> below → Save → back in Search Console click <strong>Verify</strong>.</li>
+      <li>Finally, submit your sitemap in Search Console: <code>${esc(location.origin)}/sitemap.xml</code> (generated for you automatically).</li>
+    </ol>
+    <div style="font-weight:700;font-size:.9rem;margin-bottom:.3rem">🅱️ Bing Webmaster Tools</div>
+    <ol class="muted" style="font-size:.83rem;line-height:1.85;padding-left:1.25rem;margin:0">
+      <li>Open <a href="https://www.bing.com/webmasters" target="_blank" rel="noopener">Bing Webmaster Tools</a> → add your site (you can <strong>import from Search Console</strong> in one click).</li>
+      <li>For the meta-tag method, copy the <code>content</code> value into <strong>Bing Verification</strong> below → Save.</li>
+    </ol>
+  </div>
+</details>
 <div class="card" style="padding:1.1rem">
   <div style="font-weight:700;margin-bottom:.75rem">Global</div>
   <div class="form-row">
@@ -2901,14 +2925,44 @@ window.pingSitemap = async function () {
 };
 
 // ── views.hometext ────────────────────────────────────────────────────────────
-// Edit every text shown on the landing page. Each row maps to a data-tk key in
-// public/store/index.html; the storefront replaces the element when home_<key>
-// is set, else keeps the default (shown here as the placeholder).
+// Full content editor for the landing page (public/store/index.html):
+//   • Text fields  → data-tk keys; the storefront swaps the element when the
+//                    matching home_<key> setting is set, else keeps the default.
+//   • Reviews / ticker / badges → JSON lists (home_reviews / home_ticker /
+//                    home_badges) server-rendered into the page.
+//   • Sections     → home_sections JSON drives show/hide + order of the four
+//                    optional sections (ticker, categories, trust, cta).
+// Mirrors the defaults in src/index.js so the editor shows what's actually live.
 views.hometext = async function () {
   setMain('<div class="spinner"></div>');
   try {
     const s = await api('/settings');
-    const SECTIONS = [
+
+    // Defaults — keep in sync with HOME_DEFAULT_* in src/index.js.
+    const DEF_REVIEWS = [
+      { stars: 5, quote: 'Ordered Office 2021 at midnight and got the genuine key in two minutes. Activated first try — exactly as described.', name: '— Rahul M., Pune' },
+      { stars: 5, quote: 'Netflix and Spotify both delivered instantly over WhatsApp. When one needed a reset they replaced it within the hour.', name: '— Sneha R., Bengaluru' },
+      { stars: 5, quote: 'Paid with USDT, zero hassle. Fair prices and support actually replies 24×7. My go-to for software keys now.', name: '— Arjun K., Delhi' },
+    ];
+    const DEF_TICKER = ['⚡ Instant Delivery', '✅ Verified Products', '💬 WhatsApp Support', '🔐 Secure Checkout', '🎬 OTT Plans', '🤖 AI Tools', '☁️ Cloud Storage', '🖥️ Software Keys', '🎵 Music Streaming', '🛡️ VPN & Security'];
+    const DEF_BADGES = ['🔐 Secure checkout', '⚡ Instant digital delivery', '🛡️ Replacement warranty', '💳 UPI & Crypto (USDT)', '💬 24×7 WhatsApp support'];
+    const SECTION_META = [['ticker', 'Ticker (scrolling badges)'], ['categories', 'Categories grid'], ['trust', 'Trust / reviews band'], ['cta', 'Final CTA banner']];
+    const SECTION_IDS = SECTION_META.map(m => m[0]);
+
+    // A set value (even []) is respected; only a truly unset key falls to defaults.
+    const parseArr = (raw, def) => { if (raw == null) return def; try { const v = JSON.parse(raw); return Array.isArray(v) ? v : def; } catch { return def; } };
+    const reviews = parseArr(s.home_reviews, DEF_REVIEWS);
+    const ticker  = parseArr(s.home_ticker, DEF_TICKER);
+    const badges  = parseArr(s.home_badges, DEF_BADGES);
+
+    // Section order + visibility (saved order first, any missing ids appended on).
+    let secCfg = []; try { const v = JSON.parse(s.home_sections); if (Array.isArray(v)) secCfg = v; } catch {}
+    const order = []; const onMap = {};
+    secCfg.forEach(x => { if (x && SECTION_IDS.includes(x.id) && !order.includes(x.id)) { order.push(x.id); onMap[x.id] = !(x.on === false || x.on === 0 || x.on === '0'); } });
+    SECTION_IDS.forEach(id => { if (!order.includes(id)) { order.push(id); onMap[id] = true; } });
+    const labelOf = id => (SECTION_META.find(m => m[0] === id) || [id, id])[1];
+
+    const TEXT_SECTIONS = [
       { title: 'Hero', slots: [
         ['hero_eyebrow', 'Eyebrow badge', 'Live store · Instant digital delivery'],
         ['btn_browse', 'Primary button', '🎬 Browse Products →'],
@@ -2917,6 +2971,13 @@ views.hometext = async function () {
         ['stat2_num', 'Stat 2 — number', '17'], ['stat2_label', 'Stat 2 — label', 'Categories'],
         ['stat3_num', 'Stat 3 — number', '24×7'], ['stat3_label', 'Stat 3 — label', 'Support'],
         ['stat4_num', 'Stat 4 — number', 'UPI'], ['stat4_label', 'Stat 4 — label', 'Cards / Crypto'],
+      ] },
+      { title: 'Hero — phone preview card', slots: [
+        ['phone_badge', 'Card badge', '⚡ Hot Picks'],
+        ['phone_sub', 'Card subtitle', 'Premium digital access in minutes. Choose product, pay, receive delivery.'],
+        ['phone_c1_title', 'Row 1 — title', 'Streaming Plans'], ['phone_c1_sub', 'Row 1 — text', 'OTT subscriptions'],
+        ['phone_c2_title', 'Row 2 — title', 'AI & Writing Tools'], ['phone_c2_sub', 'Row 2 — text', 'Premium accounts'],
+        ['phone_c3_title', 'Row 3 — title', 'Cloud & Software'], ['phone_c3_sub', 'Row 3 — text', 'Productivity suite'],
       ] },
       { title: 'Categories section', slots: [
         ['cat_heading', 'Heading', 'Explore premium categories'],
@@ -2930,6 +2991,10 @@ views.hometext = async function () {
       { title: 'Trust band', slots: [
         ['trust_heading', 'Heading', 'Trusted by thousands of buyers'],
         ['trust_sub', 'Subheading', 'Real orders, instant digital delivery, and a full-validity replacement warranty on every purchase.'],
+        ['ts_orders_label', 'Stat 1 — label (count is live)', 'Orders delivered'],
+        ['ts_customers_label', 'Stat 2 — label (count is live)', 'Happy customers'],
+        ['ts_rating_num', 'Stat 3 — number', '4.8★'], ['ts_rating_label', 'Stat 3 — label', 'Average rating'],
+        ['ts_delivery_num', 'Stat 4 — number', '<5 min'], ['ts_delivery_label', 'Stat 4 — label', 'Avg delivery time'],
       ] },
       { title: 'Call-to-action', slots: [
         ['cta_title', 'Heading', 'Ready to upgrade your digital access?'],
@@ -2937,23 +3002,108 @@ views.hometext = async function () {
         ['cta_btn', 'Button', 'Start Ordering →'],
       ] },
     ];
-    const sectionCard = sec => `<div class="card" style="padding:1.1rem;margin-bottom:1rem"><div style="font-weight:700;margin-bottom:.75rem">${esc(sec.title)}</div>${sec.slots.map(([k, label, def]) => `<div class="form-group"><label class="form-label">${esc(label)}</label><input class="form-input" name="home_${k}" value="${esc(s['home_' + k] || '')}" placeholder="${esc(def)}"></div>`).join('')}</div>`;
+
+    const textCard = sec => `<div class="card" style="padding:1.1rem;margin-bottom:1rem"><div style="font-weight:700;margin-bottom:.75rem">${esc(sec.title)}</div>${sec.slots.map(([k, label, def]) => `<div class="form-group"><label class="form-label">${esc(label)}</label><input class="form-input" name="home_${k}" value="${esc(s['home_' + k] || '')}" placeholder="${esc(def)}"></div>`).join('')}</div>`;
+    const ROW_BORDER = 'border:1px solid rgba(128,128,128,.25);border-radius:10px';
+    const secRow = id => `<div class="ht-secrow" data-id="${id}" style="display:flex;align-items:center;gap:.6rem;${ROW_BORDER};padding:.55rem .75rem;margin-bottom:.5rem;opacity:${onMap[id] ? '1' : '.5'}">
+      <label style="display:flex;align-items:center;gap:.5rem;flex:1;cursor:pointer;margin:0"><input type="checkbox" class="sec-on" ${onMap[id] ? 'checked' : ''}> <strong>${esc(labelOf(id))}</strong></label>
+      <span class="muted ht-sectag" style="font-size:.72rem">${onMap[id] ? '' : 'Hidden'}</span>
+      <button type="button" class="btn btn-sm sec-up" title="Move up">↑</button>
+      <button type="button" class="btn btn-sm sec-down" title="Move down">↓</button>
+    </div>`;
+    const revRow = (r = {}) => `<div class="ht-rev" style="${ROW_BORDER};padding:.7rem;margin-bottom:.6rem">
+      <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem">
+        <select class="form-input rev-stars" style="width:96px;flex:0 0 auto">${[5, 4, 3, 2, 1].map(n => `<option value="${n}" ${(parseInt(r.stars, 10) || 5) === n ? 'selected' : ''}>${'★'.repeat(n)}</option>`).join('')}</select>
+        <input class="form-input rev-name" value="${esc(r.name || '')}" placeholder="— Name, City" style="flex:1">
+        <button type="button" class="btn btn-sm btn-red" data-del title="Remove">✕</button>
+      </div>
+      <textarea class="form-input rev-quote" rows="2" placeholder="What the customer said…">${esc(r.quote || '')}</textarea>
+    </div>`;
+    const lineRow = (cls, val = '') => `<div class="ht-line" style="display:flex;gap:.5rem;align-items:center;margin-bottom:.45rem">
+      <input class="form-input ${cls}" value="${esc(val)}" style="flex:1">
+      <button type="button" class="btn btn-sm btn-red" data-del title="Remove">✕</button>
+    </div>`;
+
     setMain(`
-<h2 style="font-weight:800;margin-bottom:.4rem">Homepage Text</h2>
-<p class="muted" style="font-size:.85rem;margin-bottom:1.25rem;max-width:720px">Edit any text shown on the landing page. Leave a field blank to keep the default (the grey placeholder). Changes apply on the storefront's next load.</p>
-<form id="hometext-form" style="max-width:720px">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:.4rem">
+  <h2 style="font-weight:800;margin:0">Homepage Content</h2>
+  <a class="btn btn-sm" href="/" target="_blank" rel="noopener">Open storefront ↗</a>
+</div>
+<p class="muted" style="font-size:.85rem;margin-bottom:1.25rem;max-width:760px">Edit everything on the landing page — text, reviews, the ticker and trust badges — and show, hide or reorder sections. Blank text fields keep the grey-placeholder default. Changes apply on the storefront's next load.</p>
+<form id="hometext-form" style="max-width:760px">
   <div id="hometext-msg"></div>
-  ${SECTIONS.map(sectionCard).join('')}
-  <button type="submit" class="btn btn-primary" style="width:220px">Save Homepage Text</button>
+
+  <div class="card" style="padding:1.1rem;margin-bottom:1rem">
+    <div style="font-weight:700;margin-bottom:.25rem">🧩 Sections — show / hide / reorder</div>
+    <p class="muted" style="font-size:.78rem;margin:0 0 .75rem">Untick to remove a section from the storefront (reversible — re-tick anytime). Use ↑ ↓ to reorder. The hero and footer are always shown.</p>
+    <div id="sec-list">${order.map(secRow).join('')}</div>
+  </div>
+
+  ${TEXT_SECTIONS.map(textCard).join('')}
+
+  <div class="card" style="padding:1.1rem;margin-bottom:1rem">
+    <div style="font-weight:700;margin-bottom:.25rem">⭐ Customer reviews</div>
+    <p class="muted" style="font-size:.78rem;margin:0 0 .75rem">Shown in the Trust band. Remove all to show no reviews (or hide the whole band above).</p>
+    <div id="rev-list">${reviews.map(revRow).join('')}</div>
+    <button type="button" class="btn btn-sm" id="rev-add">+ Add review</button>
+  </div>
+
+  <div class="card" style="padding:1.1rem;margin-bottom:1rem">
+    <div style="font-weight:700;margin-bottom:.25rem">🏷️ Ticker items</div>
+    <p class="muted" style="font-size:.78rem;margin:0 0 .75rem">The scrolling strip just under the hero.</p>
+    <div id="tick-list">${ticker.map(t => lineRow('tick-val', t)).join('')}</div>
+    <button type="button" class="btn btn-sm" id="tick-add">+ Add item</button>
+  </div>
+
+  <div class="card" style="padding:1.1rem;margin-bottom:1rem">
+    <div style="font-weight:700;margin-bottom:.25rem">🛡️ Trust badges</div>
+    <p class="muted" style="font-size:.78rem;margin:0 0 .75rem">The pill row at the bottom of the Trust band.</p>
+    <div id="badge-list">${badges.map(b => lineRow('badge-val', b)).join('')}</div>
+    <button type="button" class="btn btn-sm" id="badge-add">+ Add badge</button>
+  </div>
+
+  <button type="submit" class="btn btn-primary" style="width:240px">Save Homepage Content</button>
 </form>`);
-    document.getElementById('hometext-form').onsubmit = async e => {
+
+    const $ = id => document.getElementById(id);
+    $('rev-add').onclick = () => $('rev-list').insertAdjacentHTML('beforeend', revRow({ stars: 5 }));
+    $('tick-add').onclick = () => $('tick-list').insertAdjacentHTML('beforeend', lineRow('tick-val', ''));
+    $('badge-add').onclick = () => $('badge-list').insertAdjacentHTML('beforeend', lineRow('badge-val', ''));
+    ['rev-list', 'tick-list', 'badge-list'].forEach(id => $(id).addEventListener('click', e => {
+      const b = e.target.closest('[data-del]'); if (!b) return;
+      const row = b.closest('.ht-rev, .ht-line'); if (row) row.remove();
+    }));
+    const secList = $('sec-list');
+    secList.addEventListener('click', e => {
+      const row = e.target.closest('.ht-secrow'); if (!row) return;
+      if (e.target.classList.contains('sec-up') && row.previousElementSibling) row.parentNode.insertBefore(row, row.previousElementSibling);
+      else if (e.target.classList.contains('sec-down') && row.nextElementSibling) row.parentNode.insertBefore(row.nextElementSibling, row);
+    });
+    secList.addEventListener('change', e => {
+      if (!e.target.classList.contains('sec-on')) return;
+      const row = e.target.closest('.ht-secrow');
+      row.style.opacity = e.target.checked ? '1' : '.5';
+      const tag = row.querySelector('.ht-sectag'); if (tag) tag.textContent = e.target.checked ? '' : 'Hidden';
+    });
+
+    $('hometext-form').onsubmit = async e => {
       e.preventDefault();
-      const fd = new FormData(e.target); const body = {}; fd.forEach((v, k) => body[k] = v);
+      const body = {};
+      document.querySelectorAll('#hometext-form [name^="home_"]').forEach(el => { body[el.name] = el.value; });
+      body.home_reviews = JSON.stringify([...document.querySelectorAll('.ht-rev')].map(r => ({
+        stars: parseInt(r.querySelector('.rev-stars').value, 10) || 5,
+        quote: r.querySelector('.rev-quote').value.trim(),
+        name: r.querySelector('.rev-name').value.trim(),
+      })).filter(r => r.quote || r.name));
+      body.home_ticker = JSON.stringify([...document.querySelectorAll('.tick-val')].map(i => i.value.trim()).filter(Boolean));
+      body.home_badges = JSON.stringify([...document.querySelectorAll('.badge-val')].map(i => i.value.trim()).filter(Boolean));
+      body.home_sections = JSON.stringify([...document.querySelectorAll('.ht-secrow')].map(r => ({ id: r.dataset.id, on: r.querySelector('.sec-on').checked })));
       try {
         await api('/settings', { method: 'POST', body: JSON.stringify(body) });
-        document.getElementById('hometext-msg').innerHTML = '<div class="alert alert-success">Saved! Reload the storefront to see the changes.</div>';
-        setTimeout(() => { const m = document.getElementById('hometext-msg'); if (m) m.innerHTML = ''; }, 3500);
-      } catch (ex) { document.getElementById('hometext-msg').innerHTML = `<div class="alert alert-error">${esc(ex.message)}</div>`; }
+        $('hometext-msg').innerHTML = '<div class="alert alert-success">Saved! Reload the storefront to see the changes.</div>';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setTimeout(() => { const m = $('hometext-msg'); if (m) m.innerHTML = ''; }, 3500);
+      } catch (ex) { $('hometext-msg').innerHTML = `<div class="alert alert-error">${esc(ex.message)}</div>`; }
     };
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };
@@ -2981,7 +3131,17 @@ views.settings = async function () {
   <div id="twofa-box"><div class="spinner" style="width:22px;height:22px"></div></div>
 </div>
 <div class="card">
-  <div style="font-weight:700;margin-bottom:.75rem">SMTP Email</div>
+  <div style="font-weight:700;margin-bottom:.5rem">SMTP Email</div>
+  <p class="muted" style="font-size:.8rem;margin:0 0 .6rem">Sends order delivery emails &amp; password resets. Gmail is easiest — but it needs an <strong>App Password</strong>, not your normal password.</p>
+  <details style="margin-bottom:.85rem">
+    <summary style="cursor:pointer;font-weight:600;font-size:.84rem;color:var(--muted)">📖 How to set up Gmail SMTP (2 min)</summary>
+    <ol class="muted" style="font-size:.82rem;line-height:1.85;padding-left:1.25rem;margin:.5rem 0 0">
+      <li>Enable <strong>2-Step Verification</strong> on your Google account: <a href="https://myaccount.google.com/security" target="_blank" rel="noopener">myaccount.google.com/security</a>.</li>
+      <li>Create an App Password: <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">myaccount.google.com/apppasswords</a> → name it "Store" → copy the <strong>16-character</strong> code.</li>
+      <li>Fill in below — <strong>Host</strong> <code>smtp.gmail.com</code>, <strong>Port</strong> <code>587</code>, <strong>User</strong> your full Gmail address, <strong>Password</strong> the 16-char App Password (no spaces), <strong>From</strong> your Gmail address — then Save.</li>
+      <li>Tip: for bulk marketing emails, use the dedicated <strong>Email Auto-Post</strong> section instead.</li>
+    </ol>
+  </details>
   <form id="smtp-form" style="display:flex;flex-direction:column;gap:.75rem">
   <div id="smtp-msg"></div>
   <div class="form-row">
@@ -3107,14 +3267,80 @@ views.auditlog = async function () {
 
 // ── views.backup ──────────────────────────────────────────────────────────────
 views.backup = async function () {
-  setMain(`
-<h2 style="font-weight:800;margin-bottom:1.5rem">Database Backup</h2>
-<div class="card" style="max-width:480px;text-align:center;padding:2.5rem">
-  <div style="font-size:3rem;margin-bottom:1rem">💾</div>
-  <h3 style="margin-bottom:.5rem">Download SQLite Database</h3>
-  <p class="muted" style="margin-bottom:1.5rem">Download a full backup of the store database. Keep this safe — it contains all customer and order data.</p>
-  <a href="/admin/api/backup/download" class="btn btn-primary" download>⬇️ Download Backup</a>
-</div>`);
+  setMain('<div class="spinner"></div>');
+  try {
+    const s = await api('/settings');
+    const lastAt = s.backup_last_at ? new Date(s.backup_last_at).toLocaleString() : 'never';
+    const lastSize = s.backup_last_size ? (Math.round(Number(s.backup_last_size) / 1024).toLocaleString() + ' KB') : '';
+    const enabled = s.backup_telegram_enabled === '1';
+    setMain(`
+<h2 style="font-weight:800;margin-bottom:.4rem">Database Backup</h2>
+<p class="muted" style="font-size:.85rem;margin-bottom:1.25rem;max-width:760px">Your whole store — customers, orders, settings and catalog — lives in one SQLite file. Download it, restore from a copy, or have it auto-delivered to a private Telegram channel on a schedule.</p>
+<div id="backup-msg"></div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:1rem;max-width:1000px">
+
+  <div class="card" style="padding:1.25rem">
+    <div style="font-weight:700;margin-bottom:.5rem">⬇️ Download &amp; Restore</div>
+    <p class="muted" style="font-size:.8rem;margin:0 0 1rem">Download a full copy now, or restore the store from a previously downloaded <code>.db</code> file.</p>
+    <a href="/admin/api/backup/download" class="btn btn-primary" download>⬇️ Download backup</a>
+    <hr style="border:none;border-top:1px solid rgba(128,128,128,.25);margin:1.1rem 0">
+    <div style="font-weight:700;margin-bottom:.35rem;color:#ef4444">⚠️ Restore — replaces ALL data</div>
+    <input type="file" id="restore-file" accept=".db,.sqlite,application/octet-stream" class="form-input" style="margin-bottom:.6rem">
+    <button class="btn btn-red btn-sm" id="restore-btn">Restore from file</button>
+  </div>
+
+  <div class="card" style="padding:1.25rem">
+    <div style="font-weight:700;margin-bottom:.5rem">📲 Daily Telegram backup</div>
+    <label style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem"><input type="checkbox" id="bk-enabled" ${enabled ? 'checked' : ''}> Send automatic backups on a schedule</label>
+    <div class="form-group"><label class="form-label">Bot token <span class="muted">(from @BotFather)</span></label><input class="form-input" id="bk-token" value="${esc(s.telegram_bot_token || '')}" placeholder="123456:ABC-DEF…"></div>
+    <div class="form-group"><label class="form-label">Chat / Channel ID</label><input class="form-input" id="bk-chat" value="${esc(s.telegram_backup_chat_id || '')}" placeholder="-1001234567890"></div>
+    <div class="form-group"><label class="form-label">Every (hours)</label><input class="form-input" id="bk-interval" type="number" min="1" value="${esc(s.backup_interval_hours || '24')}" style="width:140px"></div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.25rem">
+      <button class="btn btn-primary btn-sm" id="bk-save">Save</button>
+      <button class="btn btn-secondary btn-sm" id="bk-test">Send test message</button>
+      <button class="btn btn-secondary btn-sm" id="bk-now">Backup now</button>
+    </div>
+    <p class="muted" style="font-size:.78rem;margin:.8rem 0 0">Last backup: <strong>${esc(lastAt)}</strong>${lastSize ? ` · ${esc(lastSize)}` : ''}</p>
+  </div>
+</div>
+
+<details class="card" style="max-width:1000px;margin-top:1.25rem;padding:1rem 1.25rem">
+  <summary style="cursor:pointer;font-weight:700">📖 How to set up the Telegram backup (2 min)</summary>
+  <ol class="muted" style="font-size:.84rem;line-height:1.9;margin:.6rem 0 0;padding-left:1.25rem">
+    <li>In Telegram, open <strong>@BotFather</strong> → send <code>/newbot</code> → copy the <strong>bot token</strong>.</li>
+    <li>Create a <strong>private channel</strong> (or group) for backups and add your bot to it as an <strong>admin</strong>.</li>
+    <li>Get the channel ID — forward any channel message to <strong>@userinfobot</strong>, or use <strong>@getidsbot</strong>. Channel IDs look like <code>-100…</code>.</li>
+    <li>Paste the token + channel ID above, click <strong>Save</strong>, then <strong>Send test message</strong> to confirm it arrives.</li>
+    <li>Tick <strong>Send automatic backups</strong>, set the interval, Save. Backups now arrive on their own.</li>
+  </ol>
+</details>`);
+
+    const $ = id => document.getElementById(id);
+    const msg = h => { $('backup-msg').innerHTML = h; window.scrollTo({ top: 0, behavior: 'smooth' }); };
+    const saveCfg = () => api('/settings', { method: 'POST', body: JSON.stringify({
+      backup_telegram_enabled: $('bk-enabled').checked ? '1' : '0',
+      telegram_bot_token: $('bk-token').value.trim(),
+      telegram_backup_chat_id: $('bk-chat').value.trim(),
+      backup_interval_hours: String(parseFloat($('bk-interval').value) || 24),
+    }) });
+    $('bk-save').onclick = async () => { try { await saveCfg(); msg('<div class="alert alert-success">Settings saved.</div>'); } catch (e) { msg(`<div class="alert alert-error">${esc(e.message)}</div>`); } };
+    $('bk-test').onclick = async () => { try { await saveCfg(); await api('/backup/test-telegram', { method: 'POST', body: '{}' }); msg('<div class="alert alert-success">Test message sent — check your Telegram channel.</div>'); } catch (e) { msg(`<div class="alert alert-error">${esc(e.message)}</div>`); } };
+    $('bk-now').onclick = async () => { try { await saveCfg(); const r = await api('/backup/telegram-now', { method: 'POST', body: '{}' }); msg(`<div class="alert alert-success">Backup sent to Telegram (${Math.round((r.size || 0) / 1024)} KB).</div>`); views.backup(); } catch (e) { msg(`<div class="alert alert-error">${esc(e.message)}</div>`); } };
+    $('restore-btn').onclick = async () => {
+      const f = $('restore-file').files[0];
+      if (!f) { msg('<div class="alert alert-error">Choose a .db backup file first.</div>'); return; }
+      if (!confirm('Restore will REPLACE all current data with the uploaded backup. This cannot be undone. Continue?')) return;
+      try {
+        const fd = new FormData(); fd.append('file', f);
+        const res = await fetch('/admin/api/backup/restore', { method: 'POST', credentials: 'include', headers: { 'X-CSRF-Token': getCsrfToken() }, body: fd });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
+        msg('<div class="alert alert-success">✅ Database restored. Reloading…</div>');
+        setTimeout(() => location.reload(), 1500);
+      } catch (e) { msg(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+    };
+  } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };
 
 // ── views.analytics ───────────────────────────────────────────────────────────
@@ -3314,21 +3540,54 @@ views.resellers = async function () {
 views.referrals = async function () {
   setMain('<div class="spinner"></div>');
   try {
-    const refs = await api('/referrals');
+    const [refs, s] = await Promise.all([api('/referrals'), api('/settings')]);
+    const reward = s.referral_reward_inr || '20';
+    const pending = refs.filter(r => r.status === 'pending').length;
+    const credited = refs.filter(r => r.status === 'credited');
+    const creditedTotal = credited.reduce((a, r) => a + (Number(r.reward_inr) || 0), 0);
+    const statCard = (label, val, color) => `<div class="card" style="padding:.85rem 1.1rem"><div class="muted" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.04em">${label}</div><div style="font-size:1.3rem;font-weight:800${color ? `;color:${color}` : ''}">${val}</div></div>`;
     setMain(`
-<h2 style="font-weight:800;margin-bottom:1.5rem">Referrals</h2>
+<h2 style="font-weight:800;margin-bottom:.4rem">Referrals</h2>
+<p class="muted" style="font-size:.85rem;margin-bottom:1.25rem;max-width:760px">Customers earn a reward when someone they referred places their <strong>first order</strong>. The reward is tracked here as <em>pending</em> — mark it <strong>Paid</strong> once you've paid the referrer out (UPI, discount on next order, etc.). Payouts are handled off-platform.</p>
+
+<div class="card" style="padding:1.1rem;margin-bottom:1rem;max-width:760px">
+  <div style="font-weight:700;margin-bottom:.6rem">⚙️ Reward settings</div>
+  <div style="display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap">
+    <div class="form-group" style="margin:0"><label class="form-label">Reward per referral (₹)</label><input class="form-input" id="ref-reward" type="number" min="0" step="1" value="${esc(reward)}" style="width:180px"></div>
+    <button class="btn btn-primary btn-sm" id="ref-reward-save">Save</button>
+    <span id="ref-reward-msg" class="muted" style="font-size:.8rem"></span>
+  </div>
+  <p class="muted" style="font-size:.76rem;margin:.6rem 0 0">Applies to new referral rewards. Customers see this amount on their Referral tab.</p>
+</div>
+
+<div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1.1rem">
+  ${statCard('Total', refs.length)}
+  ${statCard('Pending', pending, '#f59e0b')}
+  ${statCard('Paid', credited.length, '#10b981')}
+  ${statCard('Paid out', '₹' + creditedTotal.toLocaleString('en-IN'))}
+</div>
+
 <div class="table-wrap"><table>
-<thead><tr><th>Referrer</th><th>Referred</th><th>Reward</th><th>Status</th><th>Date</th><th></th></tr></thead>
+<thead><tr><th>Referrer</th><th>Referred</th><th>Reward</th><th>Order</th><th>Status</th><th>Date</th><th></th></tr></thead>
 <tbody>${refs.length ? refs.map(r => `<tr>
   <td>${esc(r.referrer_name||r.referrer_jid||'—')}<br><span class="muted">${esc(r.referrer_email||'')}</span></td>
   <td>${esc(r.referred_name||r.referred_jid||'—')}<br><span class="muted">${esc(r.referred_email||'')}</span></td>
   <td>₹${r.reward_inr}</td>
+  <td>${r.order_id ? ('#' + r.order_id) : '—'}</td>
   <td>${statusBadge(r.status)}</td>
   <td>${fmtDateShort(r.created_at)}</td>
-  <td>${r.status==='pending' ? `<button class="btn btn-sm btn-green" onclick="creditRef(${r.id})">Credit</button>` : ''}</td>
-</tr>`).join('') : '<tr><td colspan=6 class="muted" style="text-align:center;padding:2rem">No referrals yet</td></tr>'}</tbody></table></div>`);
+  <td>${r.status==='pending' ? `<button class="btn btn-sm btn-green" onclick="creditRef(${r.id})">Mark paid</button>` : ''}</td>
+</tr>`).join('') : '<tr><td colspan=7 class="muted" style="text-align:center;padding:2rem">No referrals yet. Rewards appear here once a referred customer places their first order.</td></tr>'}</tbody></table></div>`);
 
+    document.getElementById('ref-reward-save').onclick = async () => {
+      const msg = document.getElementById('ref-reward-msg');
+      try {
+        await api('/settings', { method: 'POST', body: JSON.stringify({ referral_reward_inr: String(parseFloat(document.getElementById('ref-reward').value) || 0) }) });
+        msg.textContent = 'Saved ✓'; setTimeout(() => { if (msg) msg.textContent = ''; }, 2500);
+      } catch (e) { msg.textContent = e.message; }
+    };
     window.creditRef = async function(id) {
+      if (!confirm('Mark this referral reward as paid? Do this only after you have paid the referrer.')) return;
       await api(`/referrals/${id}/credit`, { method:'POST', body:'{}' });
       views.referrals();
     };
@@ -5208,6 +5467,8 @@ views['chat-bot'] = async function () {
   setMain('<div class="spinner"></div>');
   try {
     const s = await api('/bot-settings');
+    let customLinks = []; try { customLinks = JSON.parse(s.support_custom_links || '[]'); if (!Array.isArray(customLinks)) customLinks = []; } catch { customLinks = []; }
+    const customRow = (l = {}) => `<div class="cw-custom-row" style="display:flex;gap:.5rem;margin-bottom:.4rem"><input class="form-input cwc-label" value="${esc(l.label || '')}" placeholder="Label (e.g. Discord)" style="flex:0 0 36%"><input class="form-input cwc-url" value="${esc(l.url || '')}" placeholder="https://…" style="flex:1"><button type="button" class="btn btn-sm btn-red" data-del title="Remove">✕</button></div>`;
 
     setMain(`
 <h2 style="font-weight:800;margin-bottom:1.5rem">Chat Bot Widget</h2>
@@ -5265,9 +5526,20 @@ views['chat-bot'] = async function () {
   <div class="form-group"><label class="form-label">🟢 WhatsApp Number</label>
     <input class="form-input" id="cw-whatsapp" value="${esc(s.support_whatsapp||'')}" placeholder="+91 98765 43210">
     <p class="muted" style="font-size:.78rem;margin-top:.3rem">Opens a <code>wa.me</code> chat with a pre-filled message.</p></div>
-  <div class="form-group"><label class="form-label">🔵 Telegram</label>
+  <div class="form-group"><label class="form-label">🔵 Telegram (direct chat)</label>
     <input class="form-input" id="cw-telegram" value="${esc(s.support_telegram||'')}" placeholder="@yourchannel or https://t.me/yourchannel">
     <p class="muted" style="font-size:.78rem;margin-top:.3rem">A username (<code>@name</code>) or a full <code>t.me/…</code> link.</p></div>
+  <div class="form-group"><label class="form-label">📷 Instagram</label>
+    <input class="form-input" id="cw-instagram" value="${esc(s.support_instagram||'')}" placeholder="@handle or https://instagram.com/handle"></div>
+  <div class="form-group"><label class="form-label">👥 WhatsApp Community</label>
+    <input class="form-input" id="cw-wacommunity" value="${esc(s.support_wa_community||'')}" placeholder="https://chat.whatsapp.com/…">
+    <p class="muted" style="font-size:.78rem;margin-top:.3rem">Paste the community/group <b>invite link</b>.</p></div>
+  <div class="form-group"><label class="form-label">📣 Telegram Channel</label>
+    <input class="form-input" id="cw-tgchannel" value="${esc(s.support_telegram_channel||'')}" placeholder="@channel or https://t.me/channel"></div>
+  <div class="form-group"><label class="form-label">🔗 Custom links</label>
+    <div id="cw-custom-list">${customLinks.map(customRow).join('')}</div>
+    <button type="button" class="btn btn-sm" id="cw-custom-add">+ Add link</button>
+    <p class="muted" style="font-size:.78rem;margin-top:.3rem">Any extra button — Discord, YouTube, a help page, etc.</p></div>
   <button class="btn btn-primary" onclick="saveContactChannels()">Save Contact Buttons</button>
 </div>
 
@@ -5316,15 +5588,23 @@ views['chat-bot'] = async function () {
       } catch(e) { msg.innerHTML = `<div class="alert alert-error">${esc(e.message)}</div>`; }
     };
 
+    document.getElementById('cw-custom-add').onclick = () => document.getElementById('cw-custom-list').insertAdjacentHTML('beforeend', customRow({}));
+    document.getElementById('cw-custom-list').addEventListener('click', e => { const b = e.target.closest('[data-del]'); if (b) { const row = b.closest('.cw-custom-row'); if (row) row.remove(); } });
+
     window.saveContactChannels = async () => {
       const msg = document.getElementById('contact-msg');
+      const customs = [...document.querySelectorAll('.cw-custom-row')].map(r => ({ label: r.querySelector('.cwc-label').value.trim(), url: r.querySelector('.cwc-url').value.trim() })).filter(l => l.label && l.url);
       const body = {
         support_whatsapp: document.getElementById('cw-whatsapp').value.trim(),
         support_telegram: document.getElementById('cw-telegram').value.trim(),
+        support_instagram: document.getElementById('cw-instagram').value.trim(),
+        support_wa_community: document.getElementById('cw-wacommunity').value.trim(),
+        support_telegram_channel: document.getElementById('cw-tgchannel').value.trim(),
+        support_custom_links: JSON.stringify(customs),
       };
       try {
         await api('/bot-settings', { method: 'POST', body: JSON.stringify(body) });
-        msg.innerHTML = '<div class="alert alert-success">Saved! The WhatsApp/Telegram buttons now show on your store widget (hard-refresh the store to see them).</div>';
+        msg.innerHTML = '<div class="alert alert-success">Saved! Hard-refresh your store to see the updated chat widget.</div>';
         setTimeout(() => msg.innerHTML = '', 4000);
       } catch(e) { msg.innerHTML = `<div class="alert alert-error">${esc(e.message)}</div>`; }
     };
