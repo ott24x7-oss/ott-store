@@ -798,6 +798,22 @@ async function getLogoUrls() {
 // correct; the client's later re-render then produces identical DOM (no flash).
 // Mirrors the client formatting in movieverse-home.html exactly. Never throws —
 // any failure just leaves the placeholders for the client to fill as before.
+// Replace the inner text of any element carrying data-tk="<key>" with its token
+// value — used to server-render the MovieVerse home's editable copy so it's
+// correct on first paint (the client re-applies the same values). `tokens` maps
+// data-tk keys (e.g. mv_eyebrow) to values; blank values keep the built-in
+// default. Safe for our text-only data-tk elements (no nested same-tag markup).
+function applyHomeTokens(html, tokens) {
+  for (const [key, val] of Object.entries(tokens)) {
+    if (val == null || String(val).trim() === '') continue;
+    const safeKey = String(key).replace(/[^a-zA-Z0-9_]/g, '');
+    if (!safeKey) continue;
+    const re = new RegExp(`(<([a-zA-Z0-9]+)[^>]*\\bdata-tk="${safeKey}"[^>]*>)[\\s\\S]*?(</\\2>)`);
+    html = html.replace(re, `$1${esc(val)}$3`);
+  }
+  return html;
+}
+
 async function injectMovieverseDynamic(html, siteName) {
   try {
     const db = await getDb();
@@ -848,6 +864,16 @@ async function injectMovieverseDynamic(html, siteName) {
     const productListHtml = top4.map(p =>
       `<a class="product-row" data-buy-id="${p.id}" href="/my?buy=${p.id}">${thumb(p, 'product-thumb')}<div style="flex:1;min-width:0"><strong>${esc(p.platform || '')} ${esc(p.name || '')}</strong><small>${esc(durOf(p))} · Instant delivery</small></div><span class="price-pill">${fmtInr(p.price_inr)}</span></a>`).join('');
     html = html.replace('<div class="product-row"><div><strong>Loading plans…</strong><small>Fetching from catalog</small></div></div>', productListHtml);
+
+    // Editable text tokens (eyebrow, buttons, section headings, CTA, FAQ…) — render
+    // any element carrying data-tk server-side so the cinematic theme shows the
+    // admin's copy on first paint. Managed in Admin → Homepage Content.
+    const tokenRows = all(db, `SELECT key, value FROM settings WHERE key LIKE 'home_mv_%'`);
+    if (tokenRows.length) {
+      const tokens = {};
+      tokenRows.forEach(r => { tokens[r.key.slice(5)] = r.value; });
+      html = applyHomeTokens(html, tokens);
+    }
 
     return html;
   } catch {
