@@ -2103,8 +2103,9 @@ async function renderReferral(){
   try{
     const ref=await api('/referral');
     const rewards=ref.rewards||[];
+    const stChip=(st)=>st==='credited'?'<span style="color:#10b981;font-weight:700;font-size:.72rem">✓ Credited</span>':'<span style="color:#f59e0b;font-weight:700;font-size:.72rem">⏳ Pending</span>';
     const rewardItems=rewards.length
-      ?`<div class="card" style="padding:1rem"><h4 style="font-size:.875rem;font-weight:700;margin-bottom:.75rem">Reward History</h4>${rewards.map(r=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid var(--border)"><div style="font-size:.8rem;color:var(--muted)">${fmtDate(r.created_at)}</div><div style="font-weight:700;color:#10b981">+${fmt(r.amount_inr)}</div></div>`).join('')}</div>`
+      ?`<div class="card" style="padding:1rem"><h4 style="font-size:.875rem;font-weight:700;margin-bottom:.75rem">Reward History</h4>${rewards.map(r=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.5rem 0;border-bottom:1px solid var(--border)"><div style="font-size:.8rem;color:var(--muted)">${r.referred_name?esc(r.referred_name)+' · ':''}${fmtDate(r.created_at)}</div><div style="display:flex;gap:.7rem;align-items:center">${stChip(r.status)}<div style="font-weight:700;color:#10b981">+${fmt(r.reward_inr)}</div></div></div>`).join('')}</div>`
       :`<div class="card" style="padding:1.5rem;text-align:center"><p style="color:var(--muted);font-size:.875rem">No rewards yet. Share your code to start earning!</p></div>`;
     main.innerHTML=`
 <h2 style="font-weight:800;margin-bottom:1rem">🎁 Referral Program</h2>
@@ -2139,7 +2140,7 @@ async function renderReferral(){
   <ol style="color:var(--muted);font-size:.85rem;padding-left:1.25rem;margin:0;line-height:1.8">
     <li>Share your referral code or link with friends</li>
     <li>They sign up &amp; place their first order</li>
-    <li>You earn <strong style="color:var(--text)">${fmt(ref.reward_per_referral||0)}</strong> wallet credit automatically</li>
+    <li>You earn <strong style="color:var(--text)">${fmt(ref.reward_per_referral||0)}</strong> as a reward, paid out by our team</li>
   </ol>
 </div>
 ${rewardItems}

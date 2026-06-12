@@ -1186,7 +1186,7 @@ router.post('/tickets/:id/reply', requireCustomer, async (req, res) => {
 router.get('/bot-config', async (req, res) => {
   try {
     const db = await getDb();
-    const keys = ['bot_enabled','bot_name','bot_tagline','bot_avatar','bot_accent','bot_greeting','site_name','support_whatsapp','support_telegram'];
+    const keys = ['bot_enabled','bot_name','bot_tagline','bot_avatar','bot_accent','bot_greeting','site_name','support_whatsapp','support_telegram','support_instagram','support_wa_community','support_telegram_channel','support_custom_links'];
     const rows = all(db, `SELECT key, value FROM settings WHERE key IN (${keys.map(()=>'?').join(',')})`, keys);
     const s = {};
     rows.forEach(r => s[r.key] = r.value);

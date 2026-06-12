@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const cfg = require('./config');
-const { getDb, getSetting, setSetting, all, get, run, makePlanSlug } = require('./db');
+const { getDb, getSetting, setSetting, restoreDb, all, get, run, makePlanSlug } = require('./db');
 const { loginLimiter, requireCsrf, checkCredentialThrottle, recordFailedLogin, clearFailedLogin } = require('./security');
 const { audit } = require('./audit');
 const { submitUrls, pingSitemap } = require('./google-index');
@@ -27,6 +27,9 @@ router.use(requireCsrf);
 const UPLOADS_DIR = path.join(__dirname, '..', 'data', 'uploads');
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
+// Separate uploader for database restore — the .db can be larger than the 2 MB
+// image cap, so allow up to 100 MB (still well under Telegram's 50 MB send cap).
+const dbUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
 
 // ─── Admin auth middleware ────────────────────────────────────────────────────
 function requireAdmin(req, res, next) {
@@ -1015,6 +1018,29 @@ router.put('/customers/:jid', requireAdmin, async (req, res) => {
        discount_percent ?? c.discount_percent, is_reseller ?? c.is_reseller,
        admin_notes ?? c.admin_notes,
        req.params.jid]);
+    // Keep the `resellers` table — which the Resellers admin page AND reseller
+    // pricing (user-api computePlanPrice) both read — in sync with the customer's
+    // reseller flag. Previously is_reseller was written to `customers` but never
+    // reflected in `resellers`, so toggling "Reseller" did nothing visible.
+    // Checking it now creates/approves a reseller record; unchecking removes it
+    // (and any custom per-plan prices), same as Delete on the Resellers page.
+    const wantReseller = Number(is_reseller ?? c.is_reseller) === 1;
+    const effDiscount = Number(discount_percent ?? c.discount_percent) || 0;
+    const existingReseller = get(db, `SELECT id, status FROM resellers WHERE customer_jid=?`, [req.params.jid]);
+    if (wantReseller) {
+      if (existingReseller) {
+        run(db, `UPDATE resellers SET status='approved', discount_percent=? WHERE customer_jid=?`, [effDiscount, req.params.jid]);
+      } else {
+        run(db, `INSERT INTO resellers (customer_jid, discount_percent, status, notes) VALUES (?,?,?,?)`,
+          [req.params.jid, effDiscount, 'approved', 'Added by admin']);
+      }
+    } else if (existingReseller && existingReseller.status === 'approved') {
+      // Unchecking revokes an APPROVED reseller. A still-pending self-application
+      // is left untouched, so editing an unrelated field never deletes it — reject
+      // those from the Resellers page instead.
+      run(db, `DELETE FROM resellers WHERE customer_jid=?`, [req.params.jid]);
+      run(db, `DELETE FROM reseller_prices WHERE reseller_id=?`, [existingReseller.id]);
+    }
     await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'edit_customer', targetKind: 'customer', targetId: req.params.jid, ip: req.ip });
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -1337,6 +1363,39 @@ router.get('/backup/download', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Send a one-off "Backup now" to the configured Telegram chat/channel.
+router.post('/backup/telegram-now', requireAdmin, async (req, res) => {
+  try {
+    const { backupNow } = require('./backup-worker');
+    const r = await backupNow('Manual backup');
+    res.json({ ok: true, size: r.size });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+// Verify Telegram credentials by sending a test message (no DB attached).
+router.post('/backup/test-telegram', requireAdmin, async (req, res) => {
+  try {
+    const token = (await getSetting('telegram_bot_token') || '').trim();
+    const chatId = (await getSetting('telegram_backup_chat_id') || '').trim();
+    if (!token || !chatId) return res.status(400).json({ error: 'Enter and save the bot token and chat/channel ID first.' });
+    const siteName = (await getSetting('site_name')) || 'Virtual Market';
+    await require('./telegram').sendMessage(token, chatId, `✅ <b>${siteName}</b> — Telegram backup is connected. Daily database backups will be delivered here.`);
+    res.json({ ok: true });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+// Restore the store from an uploaded .db backup. Destructive — replaces ALL
+// current data. db.restoreDb validates the file before swapping, so a bad upload
+// is rejected without touching the live DB.
+router.post('/backup/restore', requireAdmin, dbUpload.single('file'), async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer || !req.file.buffer.length) return res.status(400).json({ error: 'No backup file uploaded.' });
+    await restoreDb(req.file.buffer);
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'restore_db', targetKind: 'database', targetId: 'store.db', ip: req.ip });
+    res.json({ ok: true });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
 // ─── Dashboard stats ──────────────────────────────────────────────────────────
 router.get('/dashboard', requireAdmin, async (req, res) => {
   try {
@@ -1601,12 +1660,15 @@ router.put('/resellers/:id', requireAdmin, async (req, res) => {
     const db = await getDb();
     run(db, `UPDATE resellers SET status=?,discount_percent=?,notes=? WHERE id=?`,
       [status, discount_percent || 0, notes || null, req.params.id]);
-    // Sync discount to customer record
+    // Sync the customer record so the customer-edit "Reseller" checkbox and
+    // reseller pricing stay consistent with the application's status.
     const r = get(db, 'SELECT customer_jid FROM resellers WHERE id=?', [req.params.id]);
     if (r && status === 'approved') {
-      run(db, `UPDATE customers SET discount_percent=? WHERE jid=?`, [discount_percent || 0, r.customer_jid]);
+      run(db, `UPDATE customers SET discount_percent=?, is_reseller=1 WHERE jid=?`, [discount_percent || 0, r.customer_jid]);
     } else if (r && status === 'rejected') {
-      run(db, `UPDATE customers SET discount_percent=0 WHERE jid=?`, [r.customer_jid]);
+      run(db, `UPDATE customers SET discount_percent=0, is_reseller=0 WHERE jid=?`, [r.customer_jid]);
+    } else if (r) {
+      run(db, `UPDATE customers SET is_reseller=0 WHERE jid=?`, [r.customer_jid]); // back to pending
     }
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -1616,7 +1678,7 @@ router.delete('/resellers/:id', requireAdmin, async (req, res) => {
   try {
     const db = await getDb();
     const r = get(db, 'SELECT customer_jid FROM resellers WHERE id=?', [req.params.id]);
-    if (r) run(db, `UPDATE customers SET discount_percent=0 WHERE jid=?`, [r.customer_jid]);
+    if (r) run(db, `UPDATE customers SET discount_percent=0, is_reseller=0 WHERE jid=?`, [r.customer_jid]);
     run(db, `DELETE FROM resellers WHERE id=?`, [req.params.id]);
     run(db, `DELETE FROM reseller_prices WHERE reseller_id=?`, [req.params.id]);
     res.json({ ok: true });
@@ -3065,7 +3127,7 @@ router.post('/autopost-settings', requireAdmin, async (req, res) => {
 router.get('/bot-settings', requireAdmin, async (req, res) => {
   try {
     const db = await getDb();
-    const keys = ['bot_enabled','bot_name','bot_tagline','bot_avatar','bot_accent','bot_greeting','bot_system_prompt','support_whatsapp','support_telegram'];
+    const keys = ['bot_enabled','bot_name','bot_tagline','bot_avatar','bot_accent','bot_greeting','bot_system_prompt','support_whatsapp','support_telegram','support_instagram','support_wa_community','support_telegram_channel','support_custom_links'];
     const rows = all(db, `SELECT key,value FROM settings WHERE key IN (${keys.map(()=>'?').join(',')})`, keys);
     const s = {};
     rows.forEach(r => s[r.key] = r.value);
@@ -3076,7 +3138,7 @@ router.get('/bot-settings', requireAdmin, async (req, res) => {
 router.post('/bot-settings', requireAdmin, async (req, res) => {
   try {
     const db = await getDb();
-    const allowed = ['bot_enabled','bot_name','bot_tagline','bot_avatar','bot_accent','bot_greeting','bot_system_prompt','support_whatsapp','support_telegram'];
+    const allowed = ['bot_enabled','bot_name','bot_tagline','bot_avatar','bot_accent','bot_greeting','bot_system_prompt','support_whatsapp','support_telegram','support_instagram','support_wa_community','support_telegram_channel','support_custom_links'];
     for (const k of allowed) {
       if (k in req.body) run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, [k, String(req.body[k] ?? '')]);
     }
