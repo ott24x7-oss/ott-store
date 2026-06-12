@@ -2938,6 +2938,87 @@ views.hometext = async function () {
   try {
     const s = await api('/settings');
 
+    // ── MovieVerse theme: its own text editor (the cinematic home is a separate
+    // file with a different layout, so it gets a dedicated set of fields). ──
+    if ((s.store_theme || '') === 'movieverse') {
+      const MV_SECTIONS = [
+        { title: 'Hero', slots: [
+          ['mv_eyebrow', 'Eyebrow badge', 'MovieVerse · Premium OTT Store'],
+          ['mv_btn_explore', 'Button 1 — Explore', 'Explore Subscriptions →'],
+          ['mv_btn_account', 'Button 2 — Account', 'My Account'],
+          ['mv_btn_wa', 'Button 3 — WhatsApp', 'WhatsApp Order'],
+          ['mv_nav_shop', 'Header "Shop Now" button', 'Shop Now'],
+          ['mv_stat1_label', 'Stat 1 — label', 'Products'],
+          ['mv_stat2_label', 'Stat 2 — label', 'Categories'],
+          ['mv_stat3_num', 'Stat 3 — number', '1–24 hr'], ['mv_stat3_label', 'Stat 3 — label', 'Activation'],
+          ['mv_stat4_num', 'Stat 4 — number', 'UPI'], ['mv_stat4_label', 'Stat 4 — label', 'Cards / Crypto'],
+        ] },
+        { title: 'Hero — poster card', slots: [
+          ['mv_poster_title', 'Card title', 'Premium Plans Activated On Your Account'],
+          ['mv_poster_sub', 'Card subtitle', 'Instant Delivery · WhatsApp Confirmation'],
+          ['mv_poster_c1', 'Tile 1', 'Movies'], ['mv_poster_c2', 'Tile 2', 'Sports'], ['mv_poster_c3', 'Tile 3', 'Music'],
+        ] },
+        { title: 'Categories section', slots: [
+          ['mv_cat_kicker', 'Kicker', 'Featured Storefront'],
+          ['mv_cat_heading', 'Heading', 'OTT plans displayed like movie posters.'],
+          ['mv_cat_sub', 'Subheading', 'Stream, watch, share — premium subscription tiles with price, validity, activation time and one-tap buying.'],
+          ['mv_cat_viewall', '"View all" button', 'View All Products'],
+          ['mv_cat1_title', 'Card 1 — title', 'Streaming & Entertainment'], ['mv_cat1_desc', 'Card 1 — text', 'Prime Video, Apple TV+, Sony LIV, ZEE5, Hotstar and more subscription products.'],
+          ['mv_cat2_title', 'Card 2 — title', 'Sports & Live Match Plans'], ['mv_cat2_desc', 'Card 2 — text', 'Cricket, football and live sports packs with quick confirmation and support.'],
+          ['mv_cat3_title', 'Card 3 — title', 'Music & Audio'], ['mv_cat3_desc', 'Card 3 — text', 'YouTube Premium, Apple Music and audio entertainment subscriptions.'],
+          ['mv_cat4_title', 'Card 4 — title', 'AI & Premium Tools'], ['mv_cat4_desc', 'Card 4 — text', 'AI writing, design, cloud, productivity and business subscriptions.'],
+        ] },
+        { title: 'Featured plans section', slots: [
+          ['mv_feat_kicker', 'Kicker', 'Dynamic Product Skin'],
+          ['mv_feat_heading', 'Heading', 'Real plans, MovieVerse styling.'],
+          ['mv_feat_sub', 'Subheading', 'These are live products from your catalog — same plans, same prices, same checkout, just dressed for the big screen.'],
+          ['mv_feat_btn', 'Button', 'Open Shop'],
+        ] },
+        { title: 'How it works', slots: [
+          ['mv_how_kicker', 'Kicker', 'How It Works'],
+          ['mv_how_heading', 'Heading', 'Simple checkout for premium subscriptions.'],
+          ['mv_step1_title', 'Step 1 — title', 'Choose Plan'], ['mv_step1_desc', 'Step 1 — text', 'Select OTT, music, AI or premium subscription from the store.'],
+          ['mv_step2_title', 'Step 2 — title', 'Pay Securely'], ['mv_step2_desc', 'Step 2 — text', 'UPI auto-verify or USDT (Binance / BEP20 / TRC20) — auto-confirmed by email.'],
+          ['mv_step3_title', 'Step 3 — title', 'Share Details'], ['mv_step3_desc', 'Step 3 — text', 'Submit mobile number/email if required for activation.'],
+          ['mv_step4_title', 'Step 4 — title', 'Get Delivery'], ['mv_step4_desc', 'Step 4 — text', 'Receive confirmation via WhatsApp/email after activation.'],
+        ] },
+        { title: 'Call-to-action', slots: [
+          ['mv_cta_title', 'Heading', 'Ready to upgrade your digital access?'],
+          ['mv_cta_sub', 'Subheading', 'Join thousands of customers. Register free and get your first product today.'],
+          ['mv_cta_btn', 'Button 1 — Shop', 'Shop Now'],
+          ['mv_cta_wa', 'Button 2 — WhatsApp', 'Order on WhatsApp'],
+        ] },
+        { title: 'FAQ', slots: [
+          ['mv_faq_heading', 'Heading', 'Frequently asked questions'],
+          ['mv_faq_sub', 'Subheading', 'Quick answers about buying OTT subscriptions and software keys at OTT24x7.'],
+        ] },
+      ];
+      const mvCard = sec => `<div class="card" style="padding:1.1rem;margin-bottom:1rem"><div style="font-weight:700;margin-bottom:.75rem">${esc(sec.title)}</div>${sec.slots.map(([k, label, def]) => `<div class="form-group"><label class="form-label">${esc(label)}</label><input class="form-input" name="home_${k}" value="${esc(s['home_' + k] || '')}" placeholder="${esc(def)}"></div>`).join('')}</div>`;
+      setMain(`
+<div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:.4rem">
+  <h2 style="font-weight:800;margin:0">Homepage Content <span class="muted" style="font-size:.8rem;font-weight:600">· 🎬 MovieVerse theme</span></h2>
+  <a class="btn btn-sm" href="/" target="_blank" rel="noopener">Open storefront ↗</a>
+</div>
+<p class="muted" style="font-size:.85rem;margin-bottom:1rem;max-width:760px">Your active theme is <strong>MovieVerse</strong> — edit its text below. Leave a field blank to keep the grey-placeholder default. The big hero <strong>heading &amp; subtext</strong> are under <strong>My Store → Homepage Hero Text</strong>. Changes apply on the storefront's next load.</p>
+<form id="hometext-form" style="max-width:760px">
+  <div id="hometext-msg"></div>
+  ${MV_SECTIONS.map(mvCard).join('')}
+  <button type="submit" class="btn btn-primary" style="width:240px">Save Homepage Content</button>
+</form>`);
+      document.getElementById('hometext-form').onsubmit = async e => {
+        e.preventDefault();
+        const body = {};
+        document.querySelectorAll('#hometext-form [name^="home_"]').forEach(el => { body[el.name] = el.value; });
+        try {
+          await api('/settings', { method: 'POST', body: JSON.stringify(body) });
+          document.getElementById('hometext-msg').innerHTML = '<div class="alert alert-success">Saved! Reload the storefront to see the changes.</div>';
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          setTimeout(() => { const m = document.getElementById('hometext-msg'); if (m) m.innerHTML = ''; }, 3500);
+        } catch (ex) { document.getElementById('hometext-msg').innerHTML = `<div class="alert alert-error">${esc(ex.message)}</div>`; }
+      };
+      return;
+    }
+
     // Defaults — keep in sync with HOME_DEFAULT_* in src/index.js.
     const DEF_REVIEWS = [
       { stars: 5, quote: 'Ordered Office 2021 at midnight and got the genuine key in two minutes. Activated first try — exactly as described.', name: '— Rahul M., Pune' },

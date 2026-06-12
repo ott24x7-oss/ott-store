@@ -328,7 +328,7 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
     <a href="/blog">Blog</a>
     <a href="/contact">Support</a>
     <a class="btn btn-soft" href="/my" id="mv-account-btn">Account</a>
-    <a class="btn btn-gold" href="/plans">Shop Now</a>
+    <a class="btn btn-gold" href="/plans" data-tk="mv_nav_shop">Shop Now</a>
   </nav>
   <button class="mv-burger" id="mv-burger" aria-label="Menu">☰</button>
 </div></header>
@@ -349,19 +349,19 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
 <!-- Hero -->
 <main class="container hero">
   <section>
-    <div class="badge"><span class="live-dot"></span> <span id="mv-eyebrow">MovieVerse · Premium OTT Store</span></div>
+    <div class="badge"><span class="live-dot"></span> <span id="mv-eyebrow" data-tk="mv_eyebrow">MovieVerse · Premium OTT Store</span></div>
     <h1><span class="gradient-text" id="mv-hero-title">Your private cinema</span><br><span id="mv-hero-title2">starts with one tap.</span></h1>
     <p id="mv-hero-sub">Sell OTT plans, sports packs, music, AI tools and premium subscriptions with a movie-style cinematic UI, fast checkout, WhatsApp support and mobile-first product cards.</p>
     <div class="hero-actions">
-      <a class="btn btn-primary" href="/plans">Explore Subscriptions →</a>
-      <a class="btn btn-soft" href="/my">My Account</a>
-      <a class="btn btn-gold" href="https://wa.me/" id="mv-wa-btn" target="_blank" rel="noopener">WhatsApp Order</a>
+      <a class="btn btn-primary" href="/plans" data-tk="mv_btn_explore">Explore Subscriptions →</a>
+      <a class="btn btn-soft" href="/my" data-tk="mv_btn_account">My Account</a>
+      <a class="btn btn-gold" href="https://wa.me/" id="mv-wa-btn" target="_blank" rel="noopener" data-tk="mv_btn_wa">WhatsApp Order</a>
     </div>
     <div class="stats">
-      <div class="stat"><strong id="mv-stat-products">120+</strong><span>Products</span></div>
-      <div class="stat"><strong id="mv-stat-categories">17</strong><span>Categories</span></div>
-      <div class="stat"><strong>1–24 hr</strong><span>Activation</span></div>
-      <div class="stat"><strong>UPI</strong><span>Cards / Crypto</span></div>
+      <div class="stat"><strong id="mv-stat-products">120+</strong><span data-tk="mv_stat1_label">Products</span></div>
+      <div class="stat"><strong id="mv-stat-categories">17</strong><span data-tk="mv_stat2_label">Categories</span></div>
+      <div class="stat"><strong data-tk="mv_stat3_num">1–24 hr</strong><span data-tk="mv_stat3_label">Activation</span></div>
+      <div class="stat"><strong data-tk="mv_stat4_num">UPI</strong><span data-tk="mv_stat4_label">Cards / Crypto</span></div>
     </div>
   </section>
   <section class="cinema-stage" aria-label="Cinematic OTT theme preview">
@@ -376,13 +376,13 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
     <div class="floating-sub ai">AI</div>
     <div class="screen-card">
       <div class="poster">
-        <h3 id="mv-poster-title">Premium Plans Activated On Your Account</h3>
-        <small>Instant Delivery · WhatsApp Confirmation</small>
+        <h3 id="mv-poster-title" data-tk="mv_poster_title">Premium Plans Activated On Your Account</h3>
+        <small data-tk="mv_poster_sub">Instant Delivery · WhatsApp Confirmation</small>
       </div>
       <div class="poster-row">
-        <div class="poster-mini"><span>🎬</span><b>Movies</b></div>
-        <div class="poster-mini"><span>🏏</span><b>Sports</b></div>
-        <div class="poster-mini"><span>🎵</span><b>Music</b></div>
+        <div class="poster-mini"><span>🎬</span><b data-tk="mv_poster_c1">Movies</b></div>
+        <div class="poster-mini"><span>🏏</span><b data-tk="mv_poster_c2">Sports</b></div>
+        <div class="poster-mini"><span>🎵</span><b data-tk="mv_poster_c3">Music</b></div>
       </div>
       <div id="mv-hero-plans"></div>
     </div>
@@ -409,17 +409,17 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
 <section class="container section" id="plans">
   <div class="section-head">
     <div>
-      <div class="kicker">Featured Storefront</div>
-      <h2>OTT plans displayed like movie posters.</h2>
-      <p>Stream, watch, share — premium subscription tiles with price, validity, activation time and one-tap buying.</p>
+      <div class="kicker" data-tk="mv_cat_kicker">Featured Storefront</div>
+      <h2 data-tk="mv_cat_heading">OTT plans displayed like movie posters.</h2>
+      <p data-tk="mv_cat_sub">Stream, watch, share — premium subscription tiles with price, validity, activation time and one-tap buying.</p>
     </div>
-    <a class="btn btn-soft" href="/plans">View All Products</a>
+    <a class="btn btn-soft" href="/plans" data-tk="mv_cat_viewall">View All Products</a>
   </div>
   <div class="grid-4">
-    <a class="category-card" href="/plans?cat=streaming"><span class="tag">HOT</span><div class="category-icon">🎬</div><b>Streaming &amp; Entertainment</b><p>Prime Video, Apple TV+, Sony LIV, ZEE5, Hotstar and more subscription products.</p></a>
-    <a class="category-card" href="/plans?cat=sports"><span class="tag">SPORTS</span><div class="category-icon">🏏</div><b>Sports &amp; Live Match Plans</b><p>Cricket, football and live sports packs with quick confirmation and support.</p></a>
-    <a class="category-card" href="/plans?cat=music"><span class="tag">MUSIC</span><div class="category-icon">🎵</div><b>Music &amp; Audio</b><p>YouTube Premium, Apple Music and audio entertainment subscriptions.</p></a>
-    <a class="category-card" href="/plans?cat=ai"><span class="tag">PRO</span><div class="category-icon">🤖</div><b>AI &amp; Premium Tools</b><p>AI writing, design, cloud, productivity and business subscriptions.</p></a>
+    <a class="category-card" href="/plans?cat=streaming"><span class="tag">HOT</span><div class="category-icon">🎬</div><b data-tk="mv_cat1_title">Streaming &amp; Entertainment</b><p data-tk="mv_cat1_desc">Prime Video, Apple TV+, Sony LIV, ZEE5, Hotstar and more subscription products.</p></a>
+    <a class="category-card" href="/plans?cat=sports"><span class="tag">SPORTS</span><div class="category-icon">🏏</div><b data-tk="mv_cat2_title">Sports &amp; Live Match Plans</b><p data-tk="mv_cat2_desc">Cricket, football and live sports packs with quick confirmation and support.</p></a>
+    <a class="category-card" href="/plans?cat=music"><span class="tag">MUSIC</span><div class="category-icon">🎵</div><b data-tk="mv_cat3_title">Music &amp; Audio</b><p data-tk="mv_cat3_desc">YouTube Premium, Apple Music and audio entertainment subscriptions.</p></a>
+    <a class="category-card" href="/plans?cat=ai"><span class="tag">PRO</span><div class="category-icon">🤖</div><b data-tk="mv_cat4_title">AI &amp; Premium Tools</b><p data-tk="mv_cat4_desc">AI writing, design, cloud, productivity and business subscriptions.</p></a>
   </div>
 </section>
 
@@ -427,11 +427,11 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
 <section class="container section" id="premium">
   <div class="product-showcase">
     <div class="panel">
-      <div class="kicker">Dynamic Product Skin</div>
-      <h2>Real plans, MovieVerse styling.</h2>
-      <p class="muted">These are live products from your catalog — same plans, same prices, same checkout, just dressed for the big screen.</p>
+      <div class="kicker" data-tk="mv_feat_kicker">Dynamic Product Skin</div>
+      <h2 data-tk="mv_feat_heading">Real plans, MovieVerse styling.</h2>
+      <p class="muted" data-tk="mv_feat_sub">These are live products from your catalog — same plans, same prices, same checkout, just dressed for the big screen.</p>
       <br>
-      <a class="btn btn-primary" href="/plans">Open Shop</a>
+      <a class="btn btn-primary" href="/plans" data-tk="mv_feat_btn">Open Shop</a>
     </div>
     <div class="panel">
       <div class="product-list" id="mv-product-list">
@@ -444,14 +444,14 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
 <!-- How it works -->
 <section class="container section">
   <div class="section-head"><div>
-    <div class="kicker">How It Works</div>
-    <h2>Simple checkout for premium subscriptions.</h2>
+    <div class="kicker" data-tk="mv_how_kicker">How It Works</div>
+    <h2 data-tk="mv_how_heading">Simple checkout for premium subscriptions.</h2>
   </div></div>
   <div class="steps">
-    <div class="step"><div class="step-no">1</div><b>Choose Plan</b><p>Select OTT, music, AI or premium subscription from the store.</p></div>
-    <div class="step"><div class="step-no">2</div><b>Pay Securely</b><p>UPI auto-verify or USDT (Binance / BEP20 / TRC20) — auto-confirmed by email.</p></div>
-    <div class="step"><div class="step-no">3</div><b>Share Details</b><p>Submit mobile number/email if required for activation.</p></div>
-    <div class="step"><div class="step-no">4</div><b>Get Delivery</b><p>Receive confirmation via WhatsApp/email after activation.</p></div>
+    <div class="step"><div class="step-no">1</div><b data-tk="mv_step1_title">Choose Plan</b><p data-tk="mv_step1_desc">Select OTT, music, AI or premium subscription from the store.</p></div>
+    <div class="step"><div class="step-no">2</div><b data-tk="mv_step2_title">Pay Securely</b><p data-tk="mv_step2_desc">UPI auto-verify or USDT (Binance / BEP20 / TRC20) — auto-confirmed by email.</p></div>
+    <div class="step"><div class="step-no">3</div><b data-tk="mv_step3_title">Share Details</b><p data-tk="mv_step3_desc">Submit mobile number/email if required for activation.</p></div>
+    <div class="step"><div class="step-no">4</div><b data-tk="mv_step4_title">Get Delivery</b><p data-tk="mv_step4_desc">Receive confirmation via WhatsApp/email after activation.</p></div>
   </div>
 </section>
 
@@ -459,12 +459,12 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
 <section class="container">
   <div class="cta">
     <div>
-      <h2 id="mv-cta-title">Ready to upgrade your digital access?</h2>
-      <p>Join thousands of customers. Register free and get your first product today.</p>
+      <h2 id="mv-cta-title" data-tk="mv_cta_title">Ready to upgrade your digital access?</h2>
+      <p data-tk="mv_cta_sub">Join thousands of customers. Register free and get your first product today.</p>
     </div>
     <div class="hero-actions">
-      <a class="btn btn-primary" href="/plans">Shop Now</a>
-      <a class="btn btn-gold" href="https://wa.me/" id="mv-cta-wa" target="_blank" rel="noopener">Order on WhatsApp</a>
+      <a class="btn btn-primary" href="/plans" data-tk="mv_cta_btn">Shop Now</a>
+      <a class="btn btn-gold" href="https://wa.me/" id="mv-cta-wa" target="_blank" rel="noopener" data-tk="mv_cta_wa">Order on WhatsApp</a>
     </div>
   </div>
 </section>
@@ -478,8 +478,8 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
     .faq-i p{margin:.55rem 0 0;color:var(--th-muted);font-size:14px;line-height:1.65}
     .faq-i a{color:#fff3d4}
   </style>
-  <h2 id="faq-h" style="font-size:clamp(22px,3.2vw,30px);font-weight:900;margin:0 0 6px;color:#fff">Frequently asked questions</h2>
-  <p style="color:var(--th-muted);font-size:14px;margin:0 0 20px">Quick answers about buying OTT subscriptions and software keys at OTT24x7.</p>
+  <h2 id="faq-h" data-tk="mv_faq_heading" style="font-size:clamp(22px,3.2vw,30px);font-weight:900;margin:0 0 6px;color:#fff">Frequently asked questions</h2>
+  <p data-tk="mv_faq_sub" style="color:var(--th-muted);font-size:14px;margin:0 0 20px">Quick answers about buying OTT subscriptions and software keys at OTT24x7.</p>
   <div style="display:flex;flex-direction:column;gap:10px">
     <details class="faq-i"><summary>Are the subscriptions genuine and safe?</summary><p>Yes. Every OTT subscription, software key and AI/cloud plan we sell is a genuine, working account or licence. If a plan stops working during its validity, we replace it free.</p></details>
     <details class="faq-i"><summary>How fast is delivery?</summary><p>In-stock plans are delivered instantly and automatically to your WhatsApp and email right after payment. A few manually-fulfilled items arrive within a short window, and you get a WhatsApp update either way.</p></details>
@@ -541,7 +541,6 @@ fetch('/user/api/store').then(r=>r.json()).then(s=>{
   document.getElementById('og-title').content=name;
   document.getElementById('ld-org').textContent=JSON.stringify({"@context":"https://schema.org","@type":"Store","name":name});
   document.getElementById('mv-footer-name').textContent=name;
-  document.getElementById('mv-cta-title').textContent=`Ready to upgrade your digital access on ${name}?`;
   // Brand
   if(s.logo_light_url||s.logo_dark_url){
     const light=s.logo_light_url||s.logo_dark_url;
@@ -563,8 +562,13 @@ fetch('/user/api/store').then(r=>r.json()).then(s=>{
     document.getElementById('mv-wa-btn').href=url;
     document.getElementById('mv-cta-wa').href=url;
   }
-  // Poster title
-  document.getElementById('mv-poster-title').textContent=`${name} — Premium Plans Activated On Your Account`;
+  // Editable landing-page text: any [data-tk] element is replaced by its
+  // home_<key> setting when set (blank = keep the built-in default).
+  // Managed in Admin → Homepage Content.
+  document.querySelectorAll('[data-tk]').forEach(function(el){
+    var v=s['home_'+el.getAttribute('data-tk')];
+    if(v!=null && String(v).trim()!=='') el.textContent=v;
+  });
 }).catch(()=>{});
 
 // Load plans
