@@ -162,11 +162,11 @@ router.post('/register', registerLimiter, async (req, res) => {
     const { name, email, password, phone, referral_code } = req.body;
     if (!name || !email || !password) return res.status(400).json({ error: 'Name, email and password required' });
     if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    // Phone is OPTIONAL at signup so registration never blocks; if provided it must be
+    // valid. (Guest checkout still requires a phone for delivery, and the merge tool
+    // dedupes — so "one account = email + WhatsApp" holds without breaking signup.)
     const waPhone = phone ? normalizeWaPhone(phone) : null;
-    // One account = email + WhatsApp number. Both are required so every customer is
-    // fully identified (and de-dupes cleanly).
-    if (!phone) return res.status(400).json({ error: 'WhatsApp number is required.' });
-    if (!waPhone) return res.status(400).json({ error: 'Enter a valid WhatsApp number.' });
+    if (phone && !waPhone) return res.status(400).json({ error: 'Enter a valid WhatsApp number.' });
     const jid = toJid(email);
     const db = await getDb();
     const existing = get(db, 'SELECT jid FROM customers WHERE jid=?', [jid]);
