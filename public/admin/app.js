@@ -2994,6 +2994,15 @@ views.hometext = async function () {
         ] },
       ];
       const mvCard = sec => `<div class="card" style="padding:1.1rem;margin-bottom:1rem"><div style="font-weight:700;margin-bottom:.75rem">${esc(sec.title)}</div>${sec.slots.map(([k, label, def]) => `<div class="form-group"><label class="form-label">${esc(label)}</label><input class="form-input" name="home_${k}" value="${esc(s['home_' + k] || '')}" placeholder="${esc(def)}"></div>`).join('')}</div>`;
+      // Section show/hide/reorder for the MovieVerse home (saved as home_mv_sections).
+      const MV_SEC_META = [['ribbon', 'Scrolling ribbon'], ['categories', 'Categories (movie posters)'], ['featured', 'Featured plans'], ['howitworks', 'How it works'], ['cta', 'Call-to-action'], ['faq', 'FAQ']];
+      const MV_SEC_IDS = MV_SEC_META.map(m => m[0]);
+      let mvSecCfg = []; try { const v = JSON.parse(s.home_mv_sections); if (Array.isArray(v)) mvSecCfg = v; } catch {}
+      const mvOrder = []; const mvOn = {};
+      mvSecCfg.forEach(x => { if (x && MV_SEC_IDS.includes(x.id) && !mvOrder.includes(x.id)) { mvOrder.push(x.id); mvOn[x.id] = !(x.on === false || x.on === 0 || x.on === '0'); } });
+      MV_SEC_IDS.forEach(id => { if (!mvOrder.includes(id)) { mvOrder.push(id); mvOn[id] = true; } });
+      const mvLabelOf = id => (MV_SEC_META.find(m => m[0] === id) || [id, id])[1];
+      const mvSecRow = id => `<div class="ht-secrow" data-id="${id}" style="display:flex;align-items:center;gap:.6rem;border:1px solid rgba(128,128,128,.25);border-radius:10px;padding:.55rem .75rem;margin-bottom:.5rem;opacity:${mvOn[id] ? '1' : '.5'}"><label style="display:flex;align-items:center;gap:.5rem;flex:1;cursor:pointer;margin:0"><input type="checkbox" class="sec-on" ${mvOn[id] ? 'checked' : ''}> <strong>${esc(mvLabelOf(id))}</strong></label><span class="muted ht-sectag" style="font-size:.72rem">${mvOn[id] ? '' : 'Hidden'}</span><button type="button" class="btn btn-sm sec-up" title="Move up">↑</button><button type="button" class="btn btn-sm sec-down" title="Move down">↓</button></div>`;
       setMain(`
 <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:.4rem">
   <h2 style="font-weight:800;margin:0">Homepage Content <span class="muted" style="font-size:.8rem;font-weight:600">· 🎬 MovieVerse theme</span></h2>
@@ -3002,13 +3011,33 @@ views.hometext = async function () {
 <p class="muted" style="font-size:.85rem;margin-bottom:1rem;max-width:760px">Your active theme is <strong>MovieVerse</strong> — edit its text below. Leave a field blank to keep the grey-placeholder default. The big hero <strong>heading &amp; subtext</strong> are under <strong>My Store → Homepage Hero Text</strong>. Changes apply on the storefront's next load.</p>
 <form id="hometext-form" style="max-width:760px">
   <div id="hometext-msg"></div>
+  <div class="card" style="padding:1.1rem;margin-bottom:1rem">
+    <div style="font-weight:700;margin-bottom:.25rem">🧩 Sections — show / hide / reorder</div>
+    <p class="muted" style="font-size:.78rem;margin:0 0 .75rem">Untick to remove a section from the storefront (reversible — re-tick anytime). Use ↑ ↓ to reorder. The hero and footer are always shown.</p>
+    <div id="sec-list">${mvOrder.map(mvSecRow).join('')}</div>
+  </div>
   ${MV_SECTIONS.map(mvCard).join('')}
   <button type="submit" class="btn btn-primary" style="width:240px">Save Homepage Content</button>
 </form>`);
+      const mvSecList = document.getElementById('sec-list');
+      if (mvSecList) {
+        mvSecList.addEventListener('click', e => {
+          const row = e.target.closest('.ht-secrow'); if (!row) return;
+          if (e.target.classList.contains('sec-up') && row.previousElementSibling) row.parentNode.insertBefore(row, row.previousElementSibling);
+          else if (e.target.classList.contains('sec-down') && row.nextElementSibling) row.parentNode.insertBefore(row.nextElementSibling, row);
+        });
+        mvSecList.addEventListener('change', e => {
+          if (!e.target.classList.contains('sec-on')) return;
+          const row = e.target.closest('.ht-secrow');
+          row.style.opacity = e.target.checked ? '1' : '.5';
+          const tag = row.querySelector('.ht-sectag'); if (tag) tag.textContent = e.target.checked ? '' : 'Hidden';
+        });
+      }
       document.getElementById('hometext-form').onsubmit = async e => {
         e.preventDefault();
         const body = {};
         document.querySelectorAll('#hometext-form [name^="home_"]').forEach(el => { body[el.name] = el.value; });
+        body.home_mv_sections = JSON.stringify([...document.querySelectorAll('.ht-secrow')].map(r => ({ id: r.dataset.id, on: r.querySelector('.sec-on').checked })));
         try {
           await api('/settings', { method: 'POST', body: JSON.stringify(body) });
           document.getElementById('hometext-msg').innerHTML = '<div class="alert alert-success">Saved! Reload the storefront to see the changes.</div>';
