@@ -783,17 +783,58 @@ a:hover{color:#8af1ff;text-decoration:underline}
 }
 </style>`;
 
-function spNav(siteName, logoLight, logoDark) {
+// Default menu — what every store sees until they customize it in the admin.
+// `cta:true` means the item is rendered as the highlighted pill button.
+const DEFAULT_MENU_ITEMS = [
+  { label: 'Home',       href: '/',         icon: '🏠', desktop: true, mobile: true },
+  { label: 'Plans',      href: '/plans',    icon: '🎬', desktop: true, mobile: true },
+  { label: 'Blog',       href: '/blog',     icon: '✍️', desktop: true, mobile: true },
+  { label: 'Support',    href: '/contact',  icon: '💬', desktop: true, mobile: true },
+  { label: 'My Account', href: '/my',       icon: '👤', desktop: true, mobile: true, cta: true },
+];
+
+// Parse + sanitize the admin-saved menu, falling back to defaults if unset or
+// malformed. Used by both server-side renders (spNav) and the /user/api/store
+// payload (so the client-side hydrator on index.html / movieverse-home.html
+// gets the same list). Throws nothing; bad data just falls back.
+function getMenuItems(raw) {
+  if (raw == null || String(raw).trim() === '') return DEFAULT_MENU_ITEMS;
+  try {
+    const v = JSON.parse(raw);
+    if (!Array.isArray(v)) return DEFAULT_MENU_ITEMS;
+    const items = v
+      .filter(x => x && typeof x.label === 'string' && typeof x.href === 'string' && x.label.trim() && x.href.trim())
+      .map(x => ({
+        label: String(x.label).trim(),
+        href: String(x.href).trim(),
+        icon: typeof x.icon === 'string' ? x.icon.trim() : '',
+        desktop: x.desktop !== false && x.desktop !== 0 && x.desktop !== '0',
+        mobile:  x.mobile  !== false && x.mobile  !== 0 && x.mobile  !== '0',
+        cta: x.cta === true || x.cta === 1 || x.cta === '1',
+      }));
+    return items.length ? items : DEFAULT_MENU_ITEMS;
+  } catch { return DEFAULT_MENU_ITEMS; }
+}
+
+function spNav(siteName, logoLight, logoDark, menuItems) {
   const logoSrc = logoDark || logoLight;
   const logoHtml = logoSrc
     ? `<img src="${esc(logoSrc)}" alt="${esc(siteName)}" style="max-height:40px;max-width:180px;object-fit:contain">`
     : esc(siteName);
+  // Resolve from the admin-saved setting when no list was threaded through.
+  // getSettingSync is free (in-memory cache) so this has no per-request cost.
+  const resolved = Array.isArray(menuItems) && menuItems.length
+    ? menuItems
+    : getMenuItems(getSettingSync('header_menu_items'));
+  const items = resolved.filter(it => it.desktop);
+  const linksHtml = items.map(it =>
+    it.cta
+      ? `<a href="${esc(it.href)}" class="sp-cta">${esc(it.label)}</a>`
+      : `<a href="${esc(it.href)}">${esc(it.label)}</a>`
+  ).join('');
   return `<nav class="sp-nav"><div class="sp-nav-inner">
 <a href="/" class="sp-logo" id="sp-nav-logo">${logoHtml}</a>
-<div class="sp-links">
-  <a href="/">Home</a><a href="/plans">Plans</a><a href="/blog">Blog</a>
-  <a href="/my" class="sp-cta">My Account</a>
-</div>
+<div class="sp-links">${linksHtml}</div>
 </div></nav>`;
 }
 
