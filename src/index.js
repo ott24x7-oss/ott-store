@@ -1003,6 +1003,13 @@ async function injectDefaultHomeDynamic(html, siteName) {
     ]);
     html = renderHomeSections(html, { reviews: reviewsRaw, ticker: tickerRaw, badges: badgesRaw, sections: sectionsRaw });
 
+    // Hero 3D phone preview — remove it (and make the hero single-column) when
+    // the admin turns it off in Homepage Content → Sections.
+    if ((await getSetting('home_show_phone')) === '0') {
+      html = html.replace('<main class="hero">', '<main class="hero" style="grid-template-columns:1fr">')
+                 .replace('<section class="stage"', '<section class="stage" style="display:none"');
+    }
+
     return html;
   } catch {
     return html;

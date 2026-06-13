@@ -590,6 +590,11 @@ fetch('/user/api/store').then(r=>r.json()).then(s=>{
     const v=s['home_'+el.getAttribute('data-tk')];
     if(v!=null && String(v).trim()!=='') el.textContent=v;
   });
+  // Hero 3D phone preview — hide when turned off in Admin → Homepage Content.
+  if(String(s.home_show_phone)==='0'){
+    const st=document.querySelector('.stage'); if(st) st.style.display='none';
+    const hero=document.querySelector('.hero'); if(hero) hero.style.gridTemplateColumns='1fr';
+  }
   // Optional custom hero button (admin-set label + link). Shown only when both are set.
   if(s.hero_cta_label && s.hero_cta_url){
     const cta=document.getElementById('hero-cta-btn');
