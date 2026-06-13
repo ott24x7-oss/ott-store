@@ -10,13 +10,50 @@ const initSqlJs = require('sql.js');
 
 let _db = null;
 let _dirty = false;
+let _persisting = false;
+
+// ── In-memory settings cache ────────────────────────────────────────────────
+// The settings table is read on nearly every request (theme, SEO meta, hero copy,
+// home tokens, and the GA id on every HTML response). Caching the whole table —
+// and busting it whenever any settings row is written (see the _db.run wrapper) —
+// turns ~15-20 tiny per-request queries into one Map lookup and makes the
+// synchronous getSettingSync (GA4 injector, runs on every response) free.
+let _settingsCache = null;
+function _loadSettings() {
+  if (!_db) return null;
+  try {
+    const m = new Map();
+    for (const r of all(_db, 'SELECT key, value FROM settings')) m.set(r.key, r.value);
+    _settingsCache = m;
+    return m;
+  } catch { return null; }
+}
+function _settings() { return _settingsCache || _loadSettings(); }
 
 // Persist the in-memory DB to disk only if something changed since the last write.
-// Runs on a timer AND on graceful shutdown, so a deploy/restart never loses recent
-// writes. Slower timer + shutdown-flush = far fewer full-DB serializations.
-function persistIfDirty() {
-  try { if (_dirty && _db) { fs.writeFileSync(DB_PATH, Buffer.from(_db.export())); _dirty = false; } }
-  catch (e) { console.warn('[db] persist failed:', e.message); }
+// export() is synchronous (sql.js) but the WRITE is async (fs.promises) to a temp
+// file + atomic rename, so the 15s timer never blocks the event loop on disk I/O
+// and a crash mid-write can't corrupt the live DB. A synchronous variant
+// (persistSync) is used on graceful shutdown, where we can't await.
+async function persistIfDirty() {
+  if (_persisting || !_dirty || !_db) return;
+  _persisting = true;
+  _dirty = false; // claim current state; writes during the flush re-set it
+  try {
+    const buf = Buffer.from(_db.export());
+    const tmp = DB_PATH + '.tmp';
+    await fs.promises.writeFile(tmp, buf);
+    await fs.promises.rename(tmp, DB_PATH);
+  } catch (e) {
+    _dirty = true; // failed → retry next tick
+    console.warn('[db] persist failed:', e.message);
+  } finally {
+    _persisting = false;
+  }
+}
+function persistSync() {
+  try { if (_db) { fs.writeFileSync(DB_PATH, Buffer.from(_db.export())); _dirty = false; } }
+  catch (e) { console.warn('[db] persistSync failed:', e.message); }
 }
 
 async function getDb() {
@@ -28,8 +65,12 @@ async function getDb() {
     _db = new SQL.Database();
   }
   const origRun = _db.run.bind(_db);
-  _db.run = (sql, params) => { _dirty = true; return origRun(sql, params); };
-  setInterval(persistIfDirty, 15000); // every 15s (was 5s) — fewer full-DB serializations; shutdown flushes too
+  _db.run = (sql, params) => {
+    _dirty = true;
+    if (/settings/i.test(sql)) _settingsCache = null; // any settings write busts the cache
+    return origRun(sql, params);
+  };
+  setInterval(() => { persistIfDirty(); }, 15000); // async — never blocks the event loop
   migrate(_db);
   return _db;
 }
@@ -1157,9 +1198,9 @@ function run(db, sql, params = []) {
 }
 
 async function getSetting(key) {
-  const db = await getDb();
-  const row = get(db, 'SELECT value FROM settings WHERE key=?', [key]);
-  return row ? row.value : null;
+  await getDb();
+  const m = _settings();
+  return m && m.has(key) ? m.get(key) : null;
 }
 
 async function setSetting(key, value) {
@@ -1170,8 +1211,8 @@ async function setSetting(key, value) {
 // Synchronous variants — safe to use after DB is initialized (after first getDb() call)
 function getSettingSync(key) {
   if (!_db) return null;
-  const row = get(_db, 'SELECT value FROM settings WHERE key=?', [key]);
-  return row ? row.value : null;
+  const m = _settings();
+  return m && m.has(key) ? m.get(key) : null;
 }
 
 function setSettingSync(key, value) {
@@ -2529,4 +2570,4 @@ function makePlanSlug(text, existingSet) {
   return `${base}-${Date.now()}`;
 }
 
-module.exports = { getDb, getSetting, setSetting, getSettingSync, setSettingSync, restoreDb, all, get, run, makePlanSlug, flushDb: persistIfDirty };
+module.exports = { getDb, getSetting, setSetting, getSettingSync, setSettingSync, restoreDb, all, get, run, makePlanSlug, flushDb: persistSync };
