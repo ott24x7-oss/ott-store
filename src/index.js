@@ -219,19 +219,66 @@ app.get('/icon-192.png', serveIcon);
 app.get('/icon-512.png', serveIcon);
 
 // ─── PWA: service worker ──────────────────────────────────────────────────────
+// Cache the raw store HTML templates in memory — they're read on every page load
+// but only change on deploy (a fresh container = fresh cache), so the per-request
+// synchronous disk read is wasted work on the single-vCPU host. The cached string
+// is still run through the per-request dynamic replacements by each route.
+const _htmlCache = new Map();
+function readStoreHtml(file) {
+  let h = _htmlCache.get(file);
+  if (h === undefined) { h = fs.readFileSync(path.join(__dirname, '..', 'public', 'store', file), 'utf8'); _htmlCache.set(file, h); }
+  return h;
+}
+
 app.get('/sw.js', async (req, res) => {
   const vapidKey = await getSetting('vapid_public_key').catch(() => '');
   res.setHeader('Content-Type', 'application/javascript');
   res.setHeader('Service-Worker-Allowed', '/');
   res.setHeader('Cache-Control', 'no-cache');
   res.send(`
-const CACHE='ott-v6';
-const STATIC=['/','index.html'];
+const CACHE='ott-v7';
 self.addEventListener('install',e=>{self.skipWaiting()});
-self.addEventListener('activate',e=>{clients.claim()});
+self.addEventListener('activate',e=>{
+  e.waitUntil((async()=>{
+    const names=await caches.keys();
+    await Promise.all(names.filter(n=>n!==CACHE).map(n=>caches.delete(n)));
+    await self.clients.claim();
+  })());
+});
 self.addEventListener('fetch',e=>{
-  if(e.request.method!=='GET'||e.request.url.includes('/api/'))return;
-  e.respondWith(fetch(e.request).catch(()=>caches.match(e.request)));
+  const req=e.request;
+  if(req.method!=='GET')return;
+  let url; try{url=new URL(req.url)}catch{return}
+  // Same-origin pages/assets only — never intercept APIs, the admin, or the SW itself.
+  if(url.origin!==self.location.origin)return;
+  if(url.pathname.startsWith('/user/api')||url.pathname.startsWith('/admin')||url.pathname.includes('/api/')||url.pathname==='/sw.js')return;
+  if(/\.(?:css|js|png|jpg|jpeg|gif|svg|webp|ico|woff2?)$/i.test(url.pathname)){
+    // Static assets: stale-while-revalidate — serve instantly from cache, refresh in the background.
+    e.respondWith((async()=>{
+      const cache=await caches.open(CACHE);
+      const cached=await cache.match(req);
+      const network=fetch(req).then(res=>{if(res&&res.ok)cache.put(req,res.clone());return res}).catch(()=>null);
+      return cached||(await network)||fetch(req).catch(()=>new Response('',{status:504}));
+    })());
+  }else{
+    // Navigations/HTML: network-first with a 4s timeout, then fall back to the last cached
+    // copy. The old no-timeout version was the "stuck loading until hard refresh" bug — a slow
+    // cold-start would hang the page forever; now it times out and serves cache instead.
+    e.respondWith((async()=>{
+      const cache=await caches.open(CACHE);
+      try{
+        const res=await Promise.race([
+          fetch(req),
+          new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),4000))
+        ]);
+        if(res&&res.ok)cache.put(req,res.clone());
+        return res;
+      }catch(err){
+        const cached=await cache.match(req);
+        return cached||new Response('<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><body style="background:#05050b;color:#fff;font-family:system-ui;display:grid;place-items:center;height:100vh;margin:0"><div style="text-align:center"><p>Taking longer than usual…</p><button onclick="location.reload()" style="padding:.6rem 1.2rem;border-radius:10px;border:0;background:#2563eb;color:#fff;font-weight:700;cursor:pointer">Reload</button></div>',{status:503,headers:{'Content-Type':'text/html'}});
+      }
+    })());
+  }
 });
 self.addEventListener('push',e=>{
   if(!e.data)return;
@@ -380,7 +427,7 @@ const MY_TABS = ['dashboard', 'plans', 'orders', 'referral', 'support', 'profile
 async function serveMyHtml(req, res, tab) {
   try {
     const storeTheme = await getActiveTheme();
-    let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'store', 'my.html'), 'utf8');
+    let html = readStoreHtml('my.html');
     html = html.replace(
       /<html lang="en" data-theme="dark">/,
       `<html lang="en" data-theme="dark" data-store-theme="${storeTheme}" data-initial-tab="${tab}">`,
@@ -438,7 +485,7 @@ app.get('/plans', async (req, res) => {
     const siteName = (await getSetting('site_name')) || 'OTT Store';
     const ogImg = (await getSetting('seo_og_image')) || `${base}/og-default.jpg`;
     const products = all(db, `SELECT slug, platform, name FROM plans WHERE active=1 AND slug IS NOT NULL AND slug != '' ORDER BY sort_order ASC, id ASC`);
-    let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'store', 'plans.html'), 'utf8');
+    let html = readStoreHtml('plans.html');
     html = html.replace(/data-store-theme="[^"]*"/, `data-store-theme="${storeTheme}"`);
     const plansTitle = clampLen(`All Plans — ${siteName}`, 60);
     const plansDesc = clampLen(`Browse all ${siteName} subscription plans — OTT, AI tools, cloud & software. Instant digital delivery, UPI & crypto checkout, 24×7 support.`, 155);
@@ -477,7 +524,7 @@ app.get('/plans/:slug', async (req, res) => {
     const plan = dbGet(db, `SELECT * FROM plans WHERE slug=? AND active=1`, [slug]);
     const base = ((await getSetting('base_url')) || cfg.baseUrl).replace(/\/$/, '');
     const storeTheme = await getActiveTheme();
-    let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'store', 'plans.html'), 'utf8');
+    let html = readStoreHtml('plans.html');
     html = html.replace(/data-store-theme="[^"]*"/, `data-store-theme="${storeTheme}"`);
 
     if (!plan) {
@@ -546,7 +593,7 @@ app.get('/', async (req, res) => {
     // All other themes share index.html with a data-store-theme attr swap so
     // the same CSS palette cascade we use on /plans + /my applies to /, too.
     const homeFile = storeTheme === 'movieverse' ? 'movieverse-home.html' : 'index.html';
-    let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'store', homeFile), 'utf8');
+    let html = readStoreHtml(homeFile);
     // For the default index.html, swap the hardcoded data-store-theme attribute
     // to the current setting so the 22 non-MovieVerse themes also render.
     if (homeFile === 'index.html') {
@@ -1370,7 +1417,7 @@ async function start() {
   app.use(async (req, res) => {
     try {
       const storeTheme = await getActiveTheme();
-      let html = fs.readFileSync(path.join(__dirname, '..', 'public', 'store', '404.html'), 'utf8');
+      let html = readStoreHtml('404.html');
       html = html.replace(/data-store-theme="[^"]*"/, `data-store-theme="${storeTheme}"`);
       res.status(404).type('text/html').send(html);
     } catch {
