@@ -861,6 +861,35 @@ function applyHomeTokens(html, tokens) {
   return html;
 }
 
+// MovieVerse section order + visibility — same marker approach as renderHomeSections,
+// for the cinematic home (movieverse-home.html). Driven by the home_mv_sections JSON
+// setting; only rewrites the container when a config is actually saved.
+const MV_SECTION_IDS = ['ribbon', 'categories', 'featured', 'howitworks', 'cta', 'faq'];
+function renderMvSections(html, raw) {
+  try {
+    if (!raw || !String(raw).trim()) return html;
+    let cfg; try { cfg = JSON.parse(raw); } catch { return html; }
+    if (!Array.isArray(cfg)) return html;
+    const order = [];
+    const on = {};
+    for (const item of cfg) {
+      const id = item && item.id;
+      if (MV_SECTION_IDS.includes(id) && !order.includes(id)) {
+        order.push(id);
+        on[id] = !(item.on === false || item.on === 0 || item.on === '0');
+      }
+    }
+    for (const id of MV_SECTION_IDS) if (!order.includes(id)) { order.push(id); on[id] = true; }
+    const inner = {};
+    for (const id of MV_SECTION_IDS) {
+      const m = html.match(new RegExp(`<!--MVSEC:${id}-->([\\s\\S]*?)<!--/MVSEC:${id}-->`));
+      inner[id] = m ? m[1] : '';
+    }
+    const rebuilt = order.filter(id => on[id]).map(id => `<!--MVSEC:${id}-->${inner[id]}<!--/MVSEC:${id}-->`).join('\n');
+    return html.replace(/<div id="mv-sections">[\s\S]*?<\/div><!--\/mv-sections-->/, `<div id="mv-sections">\n${rebuilt}\n</div><!--/mv-sections-->`);
+  } catch { return html; }
+}
+
 async function injectMovieverseDynamic(html, siteName) {
   try {
     const db = await getDb();
@@ -921,6 +950,8 @@ async function injectMovieverseDynamic(html, siteName) {
       tokenRows.forEach(r => { tokens[r.key.slice(5)] = r.value; });
       html = applyHomeTokens(html, tokens);
     }
+    // Section order & visibility — Admin → Homepage Content → Sections.
+    html = renderMvSections(html, await getSetting('home_mv_sections'));
 
     return html;
   } catch {

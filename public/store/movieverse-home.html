@@ -389,8 +389,11 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
   </section>
 </main>
 
+<!-- Home sections — order & visibility managed in Admin → Homepage Content -->
+<div id="mv-sections">
+<!--MVSEC:ribbon-->
 <!-- Ribbon -->
-<div class="ribbon"><div class="ribbon-track">
+<div class="ribbon" data-section="ribbon"><div class="ribbon-track">
   <span>✅ Activated on your account</span>
   <span>⚡ Instant delivery available</span>
   <span>🎬 OTT subscriptions</span>
@@ -404,9 +407,10 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
   <span>💬 WhatsApp confirmation</span>
   <span>🔐 Secure USDT &amp; UPI checkout</span>
 </div></div>
-
+<!--/MVSEC:ribbon-->
+<!--MVSEC:categories-->
 <!-- Categories -->
-<section class="container section" id="plans">
+<section class="container section" id="plans" data-section="categories">
   <div class="section-head">
     <div>
       <div class="kicker" data-tk="mv_cat_kicker">Featured Storefront</div>
@@ -422,9 +426,10 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
     <a class="category-card" href="/plans?cat=ai"><span class="tag">PRO</span><div class="category-icon">🤖</div><b data-tk="mv_cat4_title">AI &amp; Premium Tools</b><p data-tk="mv_cat4_desc">AI writing, design, cloud, productivity and business subscriptions.</p></a>
   </div>
 </section>
-
+<!--/MVSEC:categories-->
+<!--MVSEC:featured-->
 <!-- Featured plans (dynamic) -->
-<section class="container section" id="premium">
+<section class="container section" id="premium" data-section="featured">
   <div class="product-showcase">
     <div class="panel">
       <div class="kicker" data-tk="mv_feat_kicker">Dynamic Product Skin</div>
@@ -440,9 +445,10 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
     </div>
   </div>
 </section>
-
+<!--/MVSEC:featured-->
+<!--MVSEC:howitworks-->
 <!-- How it works -->
-<section class="container section">
+<section class="container section" data-section="howitworks">
   <div class="section-head"><div>
     <div class="kicker" data-tk="mv_how_kicker">How It Works</div>
     <h2 data-tk="mv_how_heading">Simple checkout for premium subscriptions.</h2>
@@ -454,9 +460,10 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
     <div class="step"><div class="step-no">4</div><b data-tk="mv_step4_title">Get Delivery</b><p data-tk="mv_step4_desc">Receive confirmation via WhatsApp/email after activation.</p></div>
   </div>
 </section>
-
+<!--/MVSEC:howitworks-->
+<!--MVSEC:cta-->
 <!-- CTA -->
-<section class="container">
+<section class="container" data-section="cta">
   <div class="cta">
     <div>
       <h2 id="mv-cta-title" data-tk="mv_cta_title">Ready to upgrade your digital access?</h2>
@@ -468,9 +475,10 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
     </div>
   </div>
 </section>
-
+<!--/MVSEC:cta-->
+<!--MVSEC:faq-->
 <!-- FAQ — on-page content (thin-content fix) + AI/LLM citability -->
-<section class="container" aria-labelledby="faq-h" style="position:relative;z-index:2;padding:46px 0 10px;max-width:880px">
+<section class="container" data-section="faq" aria-labelledby="faq-h" style="position:relative;z-index:2;padding:46px 0 10px;max-width:880px">
   <style>
     .faq-i{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:14px 18px}
     .faq-i summary{cursor:pointer;font-weight:800;color:#fff3d4;list-style:none}
@@ -490,6 +498,8 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
   </div>
 </section>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Are the subscriptions genuine and safe?","acceptedAnswer":{"@type":"Answer","text":"Yes. Every OTT subscription, software key and AI/cloud plan we sell is a genuine, working account or licence. If a plan stops working during its validity, we replace it free."}},{"@type":"Question","name":"How fast is delivery?","acceptedAnswer":{"@type":"Answer","text":"In-stock plans are delivered instantly and automatically to your WhatsApp and email right after payment. Manually-fulfilled items arrive within a short window, with a WhatsApp update either way."}},{"@type":"Question","name":"What payment methods do you accept?","acceptedAnswer":{"@type":"Answer","text":"All Indian UPI apps (Paytm, PhonePe, Google Pay, BHIM) plus USDT crypto (Binance, BEP20, TRC20). Payments are auto-verified for instant delivery."}},{"@type":"Question","name":"Do you provide a warranty or replacement?","acceptedAnswer":{"@type":"Answer","text":"Yes, free replacement for the full validity period of your plan if an account or key stops working."}},{"@type":"Question","name":"Can I get a refund?","acceptedAnswer":{"@type":"Answer","text":"Yes, in line with our refund policy. Message us on WhatsApp for a quick resolution."}},{"@type":"Question","name":"How do I get support?","acceptedAnswer":{"@type":"Answer","text":"24x7 support on WhatsApp plus email; the WhatsApp button is in the header and footer of every page."}}]}</script>
+<!--/MVSEC:faq-->
+</div><!--/mv-sections-->
 
 <!-- Footer -->
 <footer class="mv-footer"><div class="container footer-row">
