@@ -699,6 +699,82 @@ router.put('/orders/:id', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Bulk + single delete ─────────────────────────────────────────────────────
+// Deleting an order has side effects on three other tables: stock_credentials
+// (sold key goes back to available), topups (unlink so payment history isn't
+// orphaned), referral_rewards (cancel any reward earned through this order),
+// fulfillment_jobs (the per-order job is no longer relevant). This helper
+// applies that cleanup, used by both the single + bulk endpoints.
+function deleteOrderInternal(db, orderId) {
+  const o = get(db, 'SELECT id FROM orders WHERE id=?', [orderId]);
+  if (!o) return false;
+  // Release any stock credentials sold for this order back to the pool.
+  run(db, `UPDATE stock_credentials SET status='available', sold_order_id=NULL, sold_at=NULL WHERE sold_order_id=?`, [orderId]);
+  // Keep the topup row (payment history), just unlink it from the gone order.
+  run(db, `UPDATE topups SET order_id=NULL WHERE order_id=?`, [orderId]);
+  // Drop any referral reward tied to this order. Credited rewards stay tied
+  // (the payout already happened); only pending ones are scrubbed.
+  run(db, `DELETE FROM referral_rewards WHERE order_id=? AND status='pending'`, [orderId]);
+  run(db, `UPDATE referral_rewards SET order_id=NULL WHERE order_id=?`, [orderId]);
+  // Per-order fulfillment job (UNIQUE on order_id) — safe to drop.
+  try { run(db, `DELETE FROM fulfillment_jobs WHERE order_id=?`, [orderId]); } catch {}
+  run(db, `DELETE FROM orders WHERE id=?`, [orderId]);
+  return true;
+}
+
+router.delete('/orders/:id', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const ok = deleteOrderInternal(db, req.params.id);
+    if (!ok) return res.status(404).json({ error: 'Order not found' });
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'order_deleted', targetKind: 'order', targetId: req.params.id, ip: req.ip });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+const BULK_ALLOWED_STATUSES = new Set(['pending', 'processing', 'delivered', 'expired', 'cancelled']);
+
+// Bulk delete — POST not DELETE because we need a body, and most HTTP clients
+// won't send one with DELETE. Accepts up to 500 ids in a single request.
+router.post('/orders/bulk-delete', requireAdmin, async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(n => Number.isInteger(n) && n > 0) : [];
+    if (!ids.length) return res.status(400).json({ error: 'No order ids provided' });
+    if (ids.length > 500) return res.status(400).json({ error: 'Too many orders (max 500 per request)' });
+    const db = await getDb();
+    let deleted = 0;
+    for (const id of ids) if (deleteOrderInternal(db, id)) deleted++;
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'orders_bulk_deleted', targetKind: 'order', targetId: ids.join(','), ip: req.ip });
+    res.json({ ok: true, deleted });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Bulk status change — updates many orders at once with the same status.
+// Mirrors the side effect of the single PUT: marking delivered stamps
+// delivered_at. We do NOT send delivery emails here — that's a one-by-one
+// action; bulk is for cleanup/admin work.
+router.post('/orders/bulk-status', requireAdmin, async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(n => Number.isInteger(n) && n > 0) : [];
+    const status = String(req.body?.status || '').trim();
+    if (!ids.length) return res.status(400).json({ error: 'No order ids provided' });
+    if (ids.length > 500) return res.status(400).json({ error: 'Too many orders (max 500 per request)' });
+    if (!BULK_ALLOWED_STATUSES.has(status)) return res.status(400).json({ error: 'Invalid status' });
+    const db = await getDb();
+    let updated = 0;
+    const nowIso = new Date().toISOString();
+    for (const id of ids) {
+      const cur = get(db, 'SELECT status, delivered_at FROM orders WHERE id=?', [id]);
+      if (!cur) continue;
+      const deliveredAt = status === 'delivered' && cur.status !== 'delivered' ? nowIso : (cur.delivered_at || null);
+      run(db, 'UPDATE orders SET status=?, delivered_at=? WHERE id=?', [status, deliveredAt, id]);
+      updated++;
+    }
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: `orders_bulk_${status}`, targetKind: 'order', targetId: ids.join(','), ip: req.ip });
+    res.json({ ok: true, updated });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // One-click "Buy from bot & deliver" — for a bot-product order, buy the key live from
 // the bot and deliver it. If the bot returns a key the customer is delivered + emailed
 // immediately; if the bot fulfils it manually (no key yet) or is out of stock, the

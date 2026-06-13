@@ -1777,7 +1777,8 @@ views.orders = async function (filters = {}) {
     window._ordersCache = {}; orders.forEach(o => { window._ordersCache[o.id] = o; });
     buildSidebar();
     const rows = orders.map(o => `
-<tr>
+<tr data-oid="${o.id}">
+  <td style="width:34px;text-align:center"><input type="checkbox" class="ord-row-cb" data-id="${o.id}" aria-label="Select order #${o.id}"></td>
   <td>#${o.id}</td>
   <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.customer_email || '—')}</td>
   <td>${esc(o.platform || '')} — ${esc(o.plan_name || '')}</td>
@@ -1785,8 +1786,9 @@ views.orders = async function (filters = {}) {
   <td>${statusBadge(o.status)}</td>
   <td>${fmtDateShort(o.expires_at)}</td>
   <td>${fmtDateShort(o.created_at)}</td>
-  <td>
+  <td style="white-space:nowrap">
     <button class="btn btn-secondary btn-sm" onclick="openOrderModal(${o.id})">Manage</button>
+    <button class="btn btn-sm btn-red" onclick="deleteOrderConfirm(${o.id})" title="Delete this order">🗑</button>
   </td>
 </tr>`).join('');
 
@@ -1801,11 +1803,74 @@ views.orders = async function (filters = {}) {
     <input class="form-input" id="f-q" style="width:180px" placeholder="Search customer..." oninput="filterOrders()">
   </div>
 </div>
+<div id="ord-bulkbar" style="display:none;align-items:center;gap:.55rem;flex-wrap:wrap;background:rgba(99,102,241,.10);border:1px solid rgba(99,102,241,.32);border-radius:10px;padding:.55rem .8rem;margin-bottom:.75rem">
+  <strong id="ord-bulkcount" style="font-size:.88rem">0 selected</strong>
+  <select class="form-input" id="ord-bulkstatus" style="width:170px;height:34px">
+    <option value="">Change status to…</option>
+    ${['pending','processing','delivered','expired','cancelled'].map(s=>`<option value="${s}">${s}</option>`).join('')}
+  </select>
+  <button class="btn btn-sm btn-primary" id="ord-bulkapply">Apply</button>
+  <button class="btn btn-sm btn-red" id="ord-bulkdel">🗑 Delete selected</button>
+  <button class="btn btn-sm btn-secondary" id="ord-bulkclear" style="margin-left:auto">Clear</button>
+</div>
 <div class="table-wrap"><table>
-  <thead><tr><th>ID</th><th>Customer</th><th>Plan</th><th>Amount</th><th>Status</th><th>Expires</th><th>Date</th><th>Actions</th></tr></thead>
-  <tbody>${rows || '<tr><td colspan="8" class="muted" style="text-align:center;padding:2rem">No orders found</td></tr>'}</tbody>
+  <thead><tr><th style="width:34px;text-align:center"><input type="checkbox" id="ord-cb-all" aria-label="Select all"></th><th>ID</th><th>Customer</th><th>Plan</th><th>Amount</th><th>Status</th><th>Expires</th><th>Date</th><th>Actions</th></tr></thead>
+  <tbody id="ord-tbody">${rows || '<tr><td colspan="9" class="muted" style="text-align:center;padding:2rem">No orders found</td></tr>'}</tbody>
 </table></div>`);
+
+    // ── Bulk select / actions ──
+    const tbody = document.getElementById('ord-tbody');
+    const bulkbar = document.getElementById('ord-bulkbar');
+    const cbAll = document.getElementById('ord-cb-all');
+    const selectedIds = () => [...tbody.querySelectorAll('.ord-row-cb:checked')].map(cb => Number(cb.dataset.id));
+    const refreshBulkBar = () => {
+      const ids = selectedIds();
+      document.getElementById('ord-bulkcount').textContent = `${ids.length} selected`;
+      bulkbar.style.display = ids.length ? 'flex' : 'none';
+      const all = tbody.querySelectorAll('.ord-row-cb');
+      cbAll.checked = all.length && ids.length === all.length;
+      cbAll.indeterminate = ids.length > 0 && ids.length < all.length;
+    };
+    cbAll.addEventListener('change', () => {
+      tbody.querySelectorAll('.ord-row-cb').forEach(cb => { cb.checked = cbAll.checked; });
+      refreshBulkBar();
+    });
+    tbody.addEventListener('change', e => { if (e.target.classList.contains('ord-row-cb')) refreshBulkBar(); });
+    document.getElementById('ord-bulkclear').addEventListener('click', () => {
+      tbody.querySelectorAll('.ord-row-cb').forEach(cb => { cb.checked = false; });
+      refreshBulkBar();
+    });
+    document.getElementById('ord-bulkapply').addEventListener('click', async () => {
+      const ids = selectedIds();
+      const status = document.getElementById('ord-bulkstatus').value;
+      if (!ids.length || !status) { showToast('Pick a status and at least one order', 'error'); return; }
+      if (!confirm(`Change status of ${ids.length} order${ids.length === 1 ? '' : 's'} to "${status}"?\n\nNo customer email is sent — use the Manage modal for that.`)) return;
+      try {
+        const r = await api('/orders/bulk-status', { method: 'POST', body: JSON.stringify({ ids, status }) });
+        showToast(`Updated ${r.updated} order${r.updated === 1 ? '' : 's'}`);
+        views.orders({ ...(document.getElementById('f-status')?.value && { status: document.getElementById('f-status').value }), ...(document.getElementById('f-q')?.value && { q: document.getElementById('f-q').value }) });
+      } catch (ex) { showToast(ex.message, 'error'); }
+    });
+    document.getElementById('ord-bulkdel').addEventListener('click', async () => {
+      const ids = selectedIds();
+      if (!ids.length) return;
+      if (!confirm(`⚠️ DELETE ${ids.length} order${ids.length === 1 ? '' : 's'}?\n\nThis is permanent. Any stock credentials they used will return to the available pool. Payment history stays. Pending referral rewards are removed.`)) return;
+      try {
+        const r = await api('/orders/bulk-delete', { method: 'POST', body: JSON.stringify({ ids }) });
+        showToast(`Deleted ${r.deleted} order${r.deleted === 1 ? '' : 's'}`);
+        views.orders({ ...(document.getElementById('f-status')?.value && { status: document.getElementById('f-status').value }), ...(document.getElementById('f-q')?.value && { q: document.getElementById('f-q').value }) });
+      } catch (ex) { showToast(ex.message, 'error'); }
+    });
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
+
+window.deleteOrderConfirm = async function (id) {
+  if (!confirm(`Delete order #${id}? This is permanent. Any stock credential it used returns to the available pool.`)) return;
+  try {
+    await api(`/orders/${id}`, { method: 'DELETE' });
+    showToast(`Order #${id} deleted`);
+    views.orders();
+  } catch (ex) { showToast(ex.message, 'error'); }
 };
 
 window.filterOrders = function () {
