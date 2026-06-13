@@ -41,6 +41,7 @@ const MENU = [
   { group: 'STOREFRONT' },
   { id: 'mystore',        label: 'My Store',      icon: '🏪' },
   { id: 'hometext',       label: 'Homepage Content', icon: '📝' },
+  { id: 'header-menu',    label: 'Menu Builder',  icon: '🧭' },
   { id: 'store-theme',    label: 'Store Themes',  icon: '🎨' },
   { id: 'payments',       label: 'Payments',      icon: '💰' },
   { id: 'legal',          label: 'Legal Pages',   icon: '📄' },
@@ -2998,6 +2999,110 @@ window.pingSitemap = async function () {
 //   • Sections     → home_sections JSON drives show/hide + order of the four
 //                    optional sections (ticker, categories, trust, cta).
 // Mirrors the defaults in src/index.js so the editor shows what's actually live.
+// ── views.header-menu ──────────────────────────────────────────────────────────
+// Menu Builder — manage the header/nav menu items (label, URL, icon, per-device
+// visibility, and which one is the highlighted CTA). One config drives every page
+// (home, blog, contact, etc.). Persisted as the JSON setting header_menu_items.
+// An empty config falls back to the hardcoded built-in defaults on the storefront.
+views['header-menu'] = async function () {
+  setMain('<div class="spinner"></div>');
+  try {
+    const s = await api('/settings');
+    const DEFAULT_ITEMS = [
+      { label: 'Home',       href: '/',         icon: '🏠', desktop: true, mobile: true, cta: false },
+      { label: 'Plans',      href: '/plans',    icon: '🎬', desktop: true, mobile: true, cta: false },
+      { label: 'Blog',       href: '/blog',     icon: '✍️', desktop: true, mobile: true, cta: false },
+      { label: 'Support',    href: '/contact',  icon: '💬', desktop: true, mobile: true, cta: false },
+      { label: 'My Account', href: '/my',       icon: '👤', desktop: true, mobile: true, cta: true  },
+    ];
+    let items;
+    try { const v = JSON.parse(s.header_menu_items); items = Array.isArray(v) && v.length ? v : DEFAULT_ITEMS; }
+    catch { items = DEFAULT_ITEMS; }
+    items = items.map(it => ({
+      label: String(it.label || ''),
+      href: String(it.href || ''),
+      icon: String(it.icon || ''),
+      desktop: it.desktop !== false && it.desktop !== 0 && it.desktop !== '0',
+      mobile:  it.mobile  !== false && it.mobile  !== 0 && it.mobile  !== '0',
+      cta:     it.cta === true || it.cta === 1 || it.cta === '1',
+    }));
+
+    const row = (it = {}) => `<div class="hm-row" style="display:grid;grid-template-columns:auto 1.2fr 1.4fr 60px auto auto auto auto;gap:.5rem;align-items:center;border:1px solid rgba(128,128,128,.25);border-radius:10px;padding:.55rem .65rem;margin-bottom:.5rem">
+  <div style="display:flex;gap:.25rem;flex-direction:column">
+    <button type="button" class="btn btn-sm hm-up" title="Move up" style="padding:.1rem .4rem;font-size:.7rem">↑</button>
+    <button type="button" class="btn btn-sm hm-down" title="Move down" style="padding:.1rem .4rem;font-size:.7rem">↓</button>
+  </div>
+  <input class="form-input hm-label" value="${esc(it.label || '')}" placeholder="Label (e.g. Home)" aria-label="Label">
+  <input class="form-input hm-href" value="${esc(it.href || '')}" placeholder="/path or https://…" aria-label="URL">
+  <input class="form-input hm-icon" value="${esc(it.icon || '')}" placeholder="🏠" aria-label="Icon (mobile only)" style="text-align:center">
+  <label style="display:flex;align-items:center;gap:.3rem;font-size:.8rem;white-space:nowrap" title="Show on desktop"><input type="checkbox" class="hm-desktop" ${it.desktop ? 'checked' : ''}> 🖥️</label>
+  <label style="display:flex;align-items:center;gap:.3rem;font-size:.8rem;white-space:nowrap" title="Show on mobile drawer"><input type="checkbox" class="hm-mobile" ${it.mobile ? 'checked' : ''}> 📱</label>
+  <label style="display:flex;align-items:center;gap:.3rem;font-size:.8rem;white-space:nowrap" title="Highlight as CTA button"><input type="radio" name="hm-cta" class="hm-cta" ${it.cta ? 'checked' : ''}> ⭐</label>
+  <button type="button" class="btn btn-sm btn-red hm-del" title="Remove">✕</button>
+</div>`;
+
+    setMain(`
+<div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:.4rem">
+  <h2 style="font-weight:800;margin:0">🧭 Menu Builder</h2>
+  <a class="btn btn-sm" href="/" target="_blank" rel="noopener">Open storefront ↗</a>
+</div>
+<p class="muted" style="font-size:.85rem;margin-bottom:1.25rem;max-width:760px">Manage the header/navigation menu — same list applies to the home page (both themes), blog, support, legal and other shared pages. Toggle each item's visibility per device: 🖥️ desktop nav, 📱 mobile drawer. Pick exactly one ⭐ <strong>CTA</strong> — it's the highlighted button (e.g. "My Account"). Icons show in the mobile drawer only.</p>
+
+<form id="menu-form" style="max-width:900px">
+  <div id="hm-msg"></div>
+  <div class="card" style="padding:1.1rem;margin-bottom:1rem">
+    <div style="display:grid;grid-template-columns:auto 1.2fr 1.4fr 60px auto auto auto auto;gap:.5rem;font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--muted);padding:0 .65rem;margin-bottom:.35rem">
+      <div></div><div>Label</div><div>URL</div><div>Icon</div><div>🖥️</div><div>📱</div><div>⭐ CTA</div><div></div>
+    </div>
+    <div id="hm-list">${items.map(row).join('')}</div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.65rem">
+      <button type="button" class="btn btn-sm" id="hm-add">+ Add menu item</button>
+      <button type="button" class="btn btn-sm btn-secondary" id="hm-reset" title="Reset to the built-in defaults">↺ Reset to defaults</button>
+    </div>
+  </div>
+  <button type="submit" class="btn btn-primary" style="width:220px">Save menu</button>
+</form>`);
+
+    const $ = id => document.getElementById(id);
+    const list = $('hm-list');
+
+    $('hm-add').onclick = () => list.insertAdjacentHTML('beforeend', row({ desktop: true, mobile: true }));
+    $('hm-reset').onclick = () => {
+      if (!confirm('Reset the menu to the built-in defaults? Your custom items will be replaced.')) return;
+      list.innerHTML = DEFAULT_ITEMS.map(row).join('');
+    };
+    list.addEventListener('click', e => {
+      const r = e.target.closest('.hm-row'); if (!r) return;
+      if (e.target.classList.contains('hm-del')) r.remove();
+      else if (e.target.classList.contains('hm-up') && r.previousElementSibling) r.parentNode.insertBefore(r, r.previousElementSibling);
+      else if (e.target.classList.contains('hm-down') && r.nextElementSibling) r.parentNode.insertBefore(r.nextElementSibling, r);
+    });
+
+    $('menu-form').onsubmit = async e => {
+      e.preventDefault();
+      const rows = [...list.querySelectorAll('.hm-row')];
+      const out = rows.map(r => ({
+        label: r.querySelector('.hm-label').value.trim(),
+        href:  r.querySelector('.hm-href').value.trim(),
+        icon:  r.querySelector('.hm-icon').value.trim(),
+        desktop: r.querySelector('.hm-desktop').checked,
+        mobile:  r.querySelector('.hm-mobile').checked,
+        cta:     r.querySelector('.hm-cta').checked,
+      })).filter(it => it.label && it.href);
+      // Enforce at most one CTA (the form already uses radios, but a row with no
+      // CTA-radio selection is allowed; this also guards against bad input)
+      let seenCta = false;
+      out.forEach(it => { if (it.cta) { if (seenCta) it.cta = false; else seenCta = true; } });
+      try {
+        await api('/settings', { method: 'POST', body: JSON.stringify({ header_menu_items: JSON.stringify(out) }) });
+        $('hm-msg').innerHTML = '<div class="alert alert-success">Menu saved! Reload the storefront to see the changes.</div>';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setTimeout(() => { const m = $('hm-msg'); if (m) m.innerHTML = ''; }, 3500);
+      } catch (ex) { $('hm-msg').innerHTML = `<div class="alert alert-error">${esc(ex.message)}</div>`; }
+    };
+  } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
+
 views.hometext = async function () {
   setMain('<div class="spinner"></div>');
   try {

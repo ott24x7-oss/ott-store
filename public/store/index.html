@@ -612,6 +612,44 @@ fetch('/user/api/store').then(r=>r.json()).then(s=>{
       if(el) el.href=waUrl;
     });
   }
+  // Custom menu — replace the hardcoded desktop nav + mobile drawer links with
+  // the admin-saved list. Falls back to the hardcoded defaults if header_menu_items
+  // is unset. Managed in Admin → Menu Builder.
+  if(s.header_menu_items){
+    try{
+      const items=JSON.parse(s.header_menu_items);
+      if(Array.isArray(items)&&items.length){
+        // Desktop nav — keep the burger button at the end
+        const navEl=document.querySelector('header > nav');
+        if(navEl){
+          navEl.innerHTML=items.filter(it=>it.desktop!==false&&it.desktop!==0&&it.desktop!=='0').map(it=>{
+            const cls=it.cta?'nav-account':''; const id=it.cta?'id="header-login-btn"':'';
+            return '<a class="'+cls+'" href="'+esc(it.href)+'" '+id+'>'+esc(it.label)+'</a>';
+          }).join('');
+        }
+        // Mobile drawer — preserve the close button + Legal label section that follows the main links
+        const mobEl=document.getElementById('nav-mob');
+        if(mobEl){
+          const closeBtn=mobEl.querySelector('.nav-mob-close');
+          const legalLabel=mobEl.querySelector('.nav-mob-label');
+          // Remove all anchors that appear BEFORE the Legal label (the customizable section)
+          const toRemove=[]; let n=closeBtn?closeBtn.nextSibling:mobEl.firstChild;
+          while(n&&n!==legalLabel){ const next=n.nextSibling; if(n.nodeType===1&&n.tagName==='A') toRemove.push(n); n=next; }
+          toRemove.forEach(a=>a.remove());
+          // Build the new mobile links and insert before the Legal label (or at end)
+          const mobItems=items.filter(it=>it.mobile!==false&&it.mobile!==0&&it.mobile!=='0');
+          const frag=document.createDocumentFragment();
+          mobItems.forEach(it=>{
+            const a=document.createElement('a');
+            a.href=it.href; a.textContent=(it.icon?it.icon+' ':'')+it.label;
+            if(it.cta) a.id='mob-login-btn';
+            frag.appendChild(a);
+          });
+          if(legalLabel) mobEl.insertBefore(frag,legalLabel); else mobEl.appendChild(frag);
+        }
+      }
+    }catch(e){}
+  }
   // Light/dark logo toggle
   const html=document.documentElement;
   html.style.setProperty('--logo-display-light','block');

@@ -579,6 +579,39 @@ fetch('/user/api/store').then(r=>r.json()).then(s=>{
     var v=s['home_'+el.getAttribute('data-tk')];
     if(v!=null && String(v).trim()!=='') el.textContent=v;
   });
+  // Custom menu — replace the hardcoded desktop nav + mobile drawer links
+  // with the admin-saved list. Falls back to defaults if header_menu_items is
+  // unset. Managed in Admin → Menu Builder.
+  if(s.header_menu_items){
+    try{
+      var items=JSON.parse(s.header_menu_items);
+      if(Array.isArray(items)&&items.length){
+        // Desktop nav.links — preserve the gold "Shop Now" CTA after the items
+        var navEl=document.querySelector('header.mv-header nav.links');
+        if(navEl){
+          var shopBtn=navEl.querySelector('[data-tk="mv_nav_shop"]');
+          var shopHtml=shopBtn?shopBtn.outerHTML:'';
+          navEl.innerHTML=items.filter(function(it){return it.desktop!==false&&it.desktop!==0&&it.desktop!=='0';}).map(function(it){
+            var cls=it.cta?'btn btn-soft':''; var idAttr=it.cta?' id="mv-account-btn"':'';
+            return '<a class="'+cls+'" href="'+esc(it.href)+'"'+idAttr+'>'+esc(it.label)+'</a>';
+          }).join('')+shopHtml;
+        }
+        // Mobile drawer — preserve close button at top
+        var mobEl=document.getElementById('mv-mobnav');
+        if(mobEl){
+          var closeBtn=mobEl.querySelector('.mv-mobnav-close');
+          // Drop all current anchors; build fresh
+          [].slice.call(mobEl.querySelectorAll('a')).forEach(function(a){a.remove();});
+          items.filter(function(it){return it.mobile!==false&&it.mobile!==0&&it.mobile!=='0';}).forEach(function(it){
+            var a=document.createElement('a');
+            a.href=it.href; a.textContent=(it.icon?it.icon+' ':'')+it.label;
+            if(it.cta) a.id='mv-mob-account';
+            mobEl.appendChild(a);
+          });
+        }
+      }
+    }catch(e){}
+  }
 }).catch(()=>{});
 
 // Load plans
