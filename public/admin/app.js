@@ -3118,6 +3118,7 @@ views.hometext = async function () {
     <div style="font-weight:700;margin-bottom:.25rem">🧩 Sections — show / hide / reorder</div>
     <p class="muted" style="font-size:.78rem;margin:0 0 .75rem">Untick to remove a section from the storefront (reversible — re-tick anytime). Use ↑ ↓ to reorder. The hero and footer are always shown.</p>
     <div id="sec-list">${order.map(secRow).join('')}</div>
+    <label style="display:flex;align-items:center;gap:.5rem;margin-top:.7rem;padding-top:.7rem;border-top:1px solid rgba(128,128,128,.2)"><input type="checkbox" id="sec-phone" ${s.home_show_phone === '0' ? '' : 'checked'}> <strong>Hero — 3D phone preview</strong> <span class="muted" style="font-size:.72rem">the floating phone &amp; app icons</span></label>
   </div>
 
   ${TEXT_SECTIONS.map(textCard).join('')}
@@ -3179,6 +3180,7 @@ views.hometext = async function () {
       body.home_ticker = JSON.stringify([...document.querySelectorAll('.tick-val')].map(i => i.value.trim()).filter(Boolean));
       body.home_badges = JSON.stringify([...document.querySelectorAll('.badge-val')].map(i => i.value.trim()).filter(Boolean));
       body.home_sections = JSON.stringify([...document.querySelectorAll('.ht-secrow')].map(r => ({ id: r.dataset.id, on: r.querySelector('.sec-on').checked })));
+      body.home_show_phone = document.getElementById('sec-phone').checked ? '1' : '0';
       try {
         await api('/settings', { method: 'POST', body: JSON.stringify(body) });
         $('hometext-msg').innerHTML = '<div class="alert alert-success">Saved! Reload the storefront to see the changes.</div>';
