@@ -102,8 +102,6 @@ async function runAutoPost() {
 }
 
 // ─── Daily summary ────────────────────────────────────────────────────────────
-let _lastSummaryDate = null;
-
 async function runDailySummary() {
   if (getSettingSync('wa_daily_summary') !== '1') return;
   const ownerNum = getSettingSync('wa_owner_number');
@@ -112,22 +110,27 @@ async function runDailySummary() {
   const h     = istHour();
   const today = new Date().toISOString().split('T')[0];
   if (h !== 21) return; // 9 PM IST only
-  // Dedup ACROSS RESTARTS: persist the last-sent date so a redeploy/restart during the
-  // 9 PM hour can't re-send the summary. (The old in-memory flag reset on every restart,
-  // so each deploy at ~9 PM sent another copy — hence the duplicate messages.)
+  // Dedup ACROSS RESTARTS via a persisted date (not an in-memory flag, which reset on
+  // every restart and sent a duplicate per redeploy). We persist only AFTER a confirmed
+  // send, and bail if the bot is offline, so a disconnected 9 PM (e.g. mid-redeploy)
+  // retries on the next tick instead of silently burning the day with no summary at all.
   if (getSettingSync('wa_last_daily_summary') === today) return;
-  setSettingSync('wa_last_daily_summary', today);
+  if (!getActiveSock()) return;
 
   try {
     const db = await getDb();
+    // Count by IST calendar day (UTC+5:30) to match the 9 PM-IST send window — otherwise
+    // orders placed IST 00:00–05:30 (a prior UTC day) silently drop out of the summary.
     const stats = get(db,
       `SELECT COALESCE(SUM(amount_inr),0) as rev, COUNT(*) as orders,
               COUNT(DISTINCT customer_jid) as customers
-       FROM orders WHERE status NOT IN ('cancelled') AND date(created_at)=date('now')`
+       FROM orders WHERE status NOT IN ('cancelled')
+         AND date(created_at,'+330 minutes')=date('now','+330 minutes')`
     );
     const topPlan = get(db,
       `SELECT p.name, COUNT(*) as c FROM orders o LEFT JOIN plans p ON o.plan_id=p.id
-       WHERE o.status NOT IN ('cancelled') AND date(o.created_at)=date('now')
+       WHERE o.status NOT IN ('cancelled')
+         AND date(o.created_at,'+330 minutes')=date('now','+330 minutes')
        GROUP BY o.plan_id ORDER BY c DESC LIMIT 1`
     );
     const pending = get(db, `SELECT COUNT(*) as c FROM orders WHERE status='pending'`);
@@ -141,8 +144,13 @@ async function runDailySummary() {
       `🏆 Top: ${topPlan ? topPlan.name + ' (' + topPlan.c + ' sales)' : 'N/A'}\n\n` +
       `_OTT Store Admin Panel_`;
 
-    await sendToPhone(ownerNum, msg);
-    console.log('[wa-worker] Daily summary sent to', ownerNum);
+    const ok = await sendToPhone(ownerNum, msg);
+    if (ok) {
+      setSettingSync('wa_last_daily_summary', today); // burn the day only on a real send
+      console.log('[wa-worker] Daily summary sent to', ownerNum);
+    } else {
+      console.warn('[wa-worker] Daily summary not sent (WhatsApp offline) — will retry next tick');
+    }
   } catch (e) {
     console.error('[wa-worker] Daily summary error:', e.message);
   }

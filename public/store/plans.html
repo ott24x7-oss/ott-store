@@ -382,10 +382,14 @@ fetch('/user/api/plans').then(r=>r.json()).then(plans=>{
 // Microsoft / business products are grouped under one "Microsoft" chip and kept OUT
 // of the "All Platforms" view so they don't crowd the consumer (OTT/AI) plans.
 function isMicrosoft(p){
+  if(p._isMs!==undefined)return p._isMs; // memoize: regex runs once per product, not on every render/keystroke
   const plat=String(p.platform||'').toLowerCase().trim();
-  if(['m365','office','windows','visio'].includes(plat))return true;
-  const s=((p.name||'')+' '+(p.category||'')).toLowerCase();
-  return /microsoft|m365|office 365|office 20|office (pro|home|standard|professional)|sql server|power ?bi|visio|sharepoint|exchange server|visual studio|dynamics 365|windows|ms project|project (professional|standard)/.test(s);
+  let r=['m365','office','windows','visio'].includes(plat);
+  if(!r){
+    const s=((p.name||'')+' '+(p.category||'')).toLowerCase();
+    r=/microsoft|m365|office 365|office 20|office (pro|home|standard|professional)|sql server|power ?bi|\bvisio\b|sharepoint|exchange server|visual studio|dynamics 365|windows|ms project|project (professional|standard)/.test(s);
+  }
+  return p._isMs=r;
 }
 
 function buildPlatformChips(plans){
@@ -450,7 +454,7 @@ function getFilteredPlans(){
   let plans=[...ALL_PLANS];
   if(ACTIVE_PLATFORM==='__ms__')plans=plans.filter(isMicrosoft);
   else if(ACTIVE_PLATFORM)plans=plans.filter(p=>p.platform===ACTIVE_PLATFORM);
-  else plans=plans.filter(p=>!isMicrosoft(p)); // "All Platforms" = consumer plans; Microsoft is its own chip
+  else if(!SEARCH)plans=plans.filter(p=>!isMicrosoft(p)); // "All Platforms" = consumer plans; but a search spans everything (incl. Microsoft)
   if(SEARCH)plans=plans.filter(p=>p.name.toLowerCase().includes(SEARCH)||p.platform.toLowerCase().includes(SEARCH));
   if(DURATION){
     const d=parseInt(DURATION);
@@ -490,7 +494,16 @@ function revealProduct(plan,opts){
   if(!el){
     let list=getFilteredPlans();
     let idx=list.findIndex(p=>p.id===plan.id);
-    if(idx===-1&&resetIfHidden){clearFilters();list=getFilteredPlans();idx=list.findIndex(p=>p.id===plan.id);}
+    if(idx===-1){
+      // Card is filtered out. Microsoft products live under the '__ms__' chip (kept out of
+      // "All Platforms"), so route there; any other hidden product just clears the filters.
+      if(isMicrosoft(plan)){
+        ACTIVE_PLATFORM='__ms__';SEARCH='';DURATION='';_visible=PAGE_SIZE;
+        const _si=document.getElementById('search-input');if(_si)_si.value='';
+        document.querySelectorAll('#platform-chips .plat-chip').forEach(c=>c.classList.toggle('active',c.dataset.platform==='__ms__'));
+      }else if(resetIfHidden){clearFilters();}
+      list=getFilteredPlans();idx=list.findIndex(p=>p.id===plan.id);
+    }
     if(idx===-1)return; // plan is inactive / not in the list at all
     if(idx>=_visible)_visible=Math.ceil((idx+1)/PAGE_SIZE)*PAGE_SIZE;
     renderPlans();
