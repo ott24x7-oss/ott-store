@@ -162,6 +162,30 @@ function durationDaysFromName(name) {
   return null;
 }
 
+// Best-effort brand logo for a bot product, detected from its name/platform. Returns a
+// Google-served favicon (reliable, works for both the product image and the social/OG
+// preview) for known services, or '' (the box placeholder) for anything unmatched.
+function logoForName(name, platform) {
+  const s = (String(name || '') + ' ' + String(platform || '')).toLowerCase();
+  const map = [
+    ['youtube', 'youtube.com'], ['netflix', 'netflix.com'], ['spotify', 'spotify.com'],
+    ['prime video', 'primevideo.com'], ['amazon prime', 'primevideo.com'], ['prime', 'primevideo.com'], ['amazon', 'amazon.com'],
+    ['hotstar', 'hotstar.com'], ['disney', 'hotstar.com'], ['hbo', 'max.com'], ['apple tv', 'tv.apple.com'],
+    ['apple music', 'music.apple.com'], ['apple', 'apple.com'], ['crunchyroll', 'crunchyroll.com'],
+    ['canva', 'canva.com'], ['adobe', 'adobe.com'], ['office', 'microsoft.com'], ['microsoft', 'microsoft.com'],
+    ['windows', 'microsoft.com'], ['chatgpt', 'openai.com'], ['openai', 'openai.com'], ['gemini', 'gemini.google.com'],
+    ['perplexity', 'perplexity.ai'], ['grammarly', 'grammarly.com'], ['linkedin', 'linkedin.com'],
+    ['telegram', 'telegram.org'], ['nordvpn', 'nordvpn.com'], ['expressvpn', 'expressvpn.com'], ['vpn', 'nordvpn.com'],
+    ['zee5', 'zee5.com'], ['sonyliv', 'sonyliv.com'], ['sony', 'sonyliv.com'], ['jiocinema', 'jiocinema.com'],
+    ['jiosaavn', 'jiosaavn.com'], ['gaana', 'gaana.com'], ['wynk', 'wynk.in'], ['udemy', 'udemy.com'],
+    ['coursera', 'coursera.org'], ['leetcode', 'leetcode.com'], ['scribd', 'scribd.com'], ['tinder', 'tinder.com'],
+    ['twitch', 'twitch.tv'], ['discord', 'discord.com'], ['steam', 'steampowered.com'], ['notegpt', 'notegpt.io'],
+    ['quillbot', 'quillbot.com'], ['picsart', 'picsart.com'], ['capcut', 'capcut.com'], ['vidiq', 'vidiq.com'],
+  ];
+  for (const [k, d] of map) if (s.includes(k)) return `https://www.google.com/s2/favicons?domain=${d}&sz=128`;
+  return '';
+}
+
 // Insert ONE bot product into `plans` (shared by sync auto-import + manual import).
 // markupPercent (0 = the bot's retail price) sets the STARTING selling price; after
 // that the admin owns it and re-syncs never overwrite it.
@@ -184,7 +208,7 @@ function importOneBotPlan(db, p, slugSet, markupPercent = 0) {
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [platform, name, durationDaysFromName(name), priceInr, null, 0,
      (p.description || ''), '[]', null, stock, active, 0,
-     (p.category || ''), '', 'bot', pid, deliveryType, '', slug]);
+     (p.category || ''), logoForName(name, platform), 'bot', pid, deliveryType, '', slug]);
 }
 
 // Manual "Add selected" — import only the chosen bot products (by id), each with the
@@ -236,9 +260,10 @@ async function syncCatalog(db) {
       run(db,
         `UPDATE plans SET name=?, stock=?, active=?, delivery_type=?,
            description=CASE WHEN description IS NULL OR description='' THEN ? ELSE description END,
-           duration_days=COALESCE(duration_days, ?)
+           duration_days=COALESCE(duration_days, ?),
+           image_url=CASE WHEN image_url IS NULL OR image_url='' THEN ? ELSE image_url END
          WHERE id=?`,
-        [name, stock, active, deliveryType, (p.description || ''), durationDaysFromName(name), existing.id]);
+        [name, stock, active, deliveryType, (p.description || ''), durationDaysFromName(name), logoForName(name, platformFor(p)), existing.id]);
       updated++;
     } else if (autoImport) {
       importOneBotPlan(db, p, slugSet);
