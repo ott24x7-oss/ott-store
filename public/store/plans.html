@@ -379,10 +379,29 @@ fetch('/user/api/plans').then(r=>r.json()).then(plans=>{
   document.getElementById('plans-loading').innerHTML='<p style="color:var(--st-muted)">⚠️ Failed to load plans.</p>';
 });
 
+// Microsoft / business products are grouped under one "Microsoft" chip and kept OUT
+// of the "All Platforms" view so they don't crowd the consumer (OTT/AI) plans.
+function isMicrosoft(p){
+  const plat=String(p.platform||'').toLowerCase().trim();
+  if(['m365','office','windows','visio'].includes(plat))return true;
+  const s=((p.name||'')+' '+(p.category||'')).toLowerCase();
+  return /microsoft|m365|office 365|office 20|office (pro|home|standard|professional)|sql server|power ?bi|visio|sharepoint|exchange server|visual studio|dynamics 365|windows|ms project|project (professional|standard)/.test(s);
+}
+
 function buildPlatformChips(plans){
   const platforms=[...new Set(plans.map(p=>p.platform))].sort();
   const container=document.getElementById('platform-chips');
+  // Pinned "Microsoft" chip right after "All Platforms" — groups every MS product.
+  if(plans.some(isMicrosoft)){
+    const ms=document.createElement('button');
+    ms.className='plat-chip'; ms.dataset.platform='__ms__';
+    ms.innerHTML='<span style="font-size:.9em">🪟</span> Microsoft';
+    container.appendChild(ms);
+  }
   platforms.forEach(pf=>{
+    // Skip platforms whose products are ALL Microsoft — they're covered by the Microsoft chip.
+    const prods=plans.filter(p=>p.platform===pf);
+    if(prods.length && prods.every(isMicrosoft))return;
     const btn=document.createElement('button');
     btn.className='plat-chip';
     btn.dataset.platform=pf;
@@ -429,7 +448,9 @@ function resolveDeepLinkTarget(){
 // renderPlans() and the deep-link logic so both see the same ordered list.
 function getFilteredPlans(){
   let plans=[...ALL_PLANS];
-  if(ACTIVE_PLATFORM)plans=plans.filter(p=>p.platform===ACTIVE_PLATFORM);
+  if(ACTIVE_PLATFORM==='__ms__')plans=plans.filter(isMicrosoft);
+  else if(ACTIVE_PLATFORM)plans=plans.filter(p=>p.platform===ACTIVE_PLATFORM);
+  else plans=plans.filter(p=>!isMicrosoft(p)); // "All Platforms" = consumer plans; Microsoft is its own chip
   if(SEARCH)plans=plans.filter(p=>p.name.toLowerCase().includes(SEARCH)||p.platform.toLowerCase().includes(SEARCH));
   if(DURATION){
     const d=parseInt(DURATION);
