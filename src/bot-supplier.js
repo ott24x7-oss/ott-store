@@ -20,8 +20,9 @@
  */
 const https = require('https');
 const http = require('http');
-const { getDb, get, all, run, getSetting } = require('./db');
+const { getDb, get, all, run, getSetting, setSetting } = require('./db');
 const cfg = require('./config');
+const { durationDaysFromName, logoForName } = require('./plans-util');
 
 const SYNC_MINUTES = 30; // re-sync stock/name every 30 min (was 10); per-order purchase checks live stock anyway
 
@@ -148,47 +149,49 @@ function platformFor(p) {
   return 'OTT';
 }
 
-// Best-effort plan duration (in days) parsed from a product name: "1 Year" → 365,
-// "12 Month" → 360, "6 Months" → 180, "1 Week" → 7, "30 Days" → 30. Genuine
-// lifetime/permanent → null (so it still shows "Lifetime"); anything unrecognised → null.
-function durationDaysFromName(name) {
+// durationDaysFromName + logoForName now live in ./plans-util (shared with the manual /
+// CSV product-entry paths in admin-api.js). The OLD duration parser is kept here, private,
+// only so the one-time re-parse below can tell an auto-assigned duration (still equal to
+// what it produced) from one an admin changed by hand.
+function _oldDurationDaysFromName(name) {
   const s = String(name || '').toLowerCase();
   if (/(life ?time|permanent|forever)/.test(s)) return null;
-  const pos = n => (Number.isFinite(n) && n > 0 ? n : null); // 0/blank → null, never 0 (which renders as "Lifetime")
   let m;
-  if ((m = s.match(/(\d+(?:\.\d+)?)\s*(?:years?|yrs?)\b/)) || (m = s.match(/(\d+(?:\.\d+)?)\s*y\b/)))  return pos(Math.round(parseFloat(m[1]) * 365));
-  // single-letter "m" = months, but reject "10m followers"/"2m subscribers" (m = a million-count)
-  if ((m = s.match(/(\d+(?:\.\d+)?)\s*(?:months?|mons?|mo)\b/)) || (m = s.match(/(\d+(?:\.\d+)?)\s*m\b(?!\s*(?:follow|subscrib|view|like|fan|member|visit|download|install|stream|player|coin|gem|credit|diamond|point))/))) return pos(Math.round(parseFloat(m[1]) * 30));
-  if ((m = s.match(/(\d+(?:\.\d+)?)\s*(?:weeks?|wks?)\b/)) || (m = s.match(/(\d+(?:\.\d+)?)\s*w\b/)))   return pos(Math.round(parseFloat(m[1]) * 7));
-  if ((m = s.match(/(\d+(?:\.\d+)?)\s*(?:days?)\b/)) || (m = s.match(/(\d+(?:\.\d+)?)\s*d\b/)))         return pos(Math.round(parseFloat(m[1])));
+  if ((m = s.match(/(\d+)\s*(?:years?|yrs?)\b/)) || (m = s.match(/(\d+)\s*y\b/))) return Math.round(parseFloat(m[1]) * 365);
+  if ((m = s.match(/(\d+)\s*(?:months?|mons?|mo)\b/)) || (m = s.match(/(\d+)\s*m\b/))) return Math.round(parseFloat(m[1]) * 30);
+  if ((m = s.match(/(\d+)\s*(?:weeks?|wks?)\b/)) || (m = s.match(/(\d+)\s*w\b/))) return Math.round(parseFloat(m[1]) * 7);
+  if ((m = s.match(/(\d+)\s*(?:days?)\b/)) || (m = s.match(/(\d+)\s*d\b/))) return Math.round(parseFloat(m[1]));
   return null;
 }
 
-// Best-effort brand logo for a bot product, detected from its name/platform. Returns a
-// Google-served favicon (reliable, works for both the product image and the social/OG
-// preview) for known services, or '' (the box placeholder) for anything unmatched.
-function logoForName(name, platform) {
-  // Leading space + match ' '+key so a key only hits at a word START: ' office' matches
-  // "Office 365" but NOT "LibreOffice"; still allows glued names like "HBOMax" via ' hbo'.
-  const s = ' ' + (String(name || '') + ' ' + String(platform || '')).toLowerCase();
-  const map = [
-    ['youtube', 'youtube.com'], ['netflix', 'netflix.com'], ['spotify', 'spotify.com'],
-    ['prime video', 'primevideo.com'], ['amazon prime', 'primevideo.com'], ['amazon', 'amazon.com'],
-    ['hotstar', 'hotstar.com'], ['disney', 'hotstar.com'], ['hbo', 'max.com'], ['apple tv', 'tv.apple.com'],
-    ['apple music', 'music.apple.com'], ['apple', 'apple.com'], ['crunchyroll', 'crunchyroll.com'],
-    ['canva', 'canva.com'], ['adobe', 'adobe.com'], ['microsoft', 'microsoft.com'], ['office', 'microsoft.com'],
-    ['windows', 'microsoft.com'], ['chatgpt', 'openai.com'], ['openai', 'openai.com'], ['gemini', 'gemini.google.com'],
-    ['perplexity', 'perplexity.ai'], ['grammarly', 'grammarly.com'], ['linkedin', 'linkedin.com'],
-    ['telegram', 'telegram.org'], ['nordvpn', 'nordvpn.com'], ['expressvpn', 'expressvpn.com'],
-    ['surfshark', 'surfshark.com'], ['proton', 'proton.me'], ['cyberghost', 'cyberghost.com'],
-    ['zee5', 'zee5.com'], ['sonyliv', 'sonyliv.com'], ['jiocinema', 'jiocinema.com'],
-    ['jiosaavn', 'jiosaavn.com'], ['gaana', 'gaana.com'], ['wynk', 'wynk.in'], ['udemy', 'udemy.com'],
-    ['coursera', 'coursera.org'], ['leetcode', 'leetcode.com'], ['scribd', 'scribd.com'], ['tinder', 'tinder.com'],
-    ['twitch', 'twitch.tv'], ['discord', 'discord.com'], ['steam', 'steampowered.com'], ['notegpt', 'notegpt.io'],
-    ['quillbot', 'quillbot.com'], ['picsart', 'picsart.com'], ['capcut', 'capcut.com'], ['vidiq', 'vidiq.com'],
-  ];
-  for (const [k, d] of map) if (s.includes(' ' + k)) return `https://www.google.com/s2/favicons?domain=${d}&sz=128`;
-  return '';
+// One-time sweep (guarded by a setting so it runs once) that re-evaluates duration + logo
+// for existing bot products with the improved parsers, touching ONLY auto-assigned values:
+//   • logo — only if blank or a Google-favicon URL (our auto signature); a hand-set or
+//     uploaded image is never overwritten.
+//   • duration — only if it still equals what the OLD parser produced (nobody changed it)
+//     or is null; a hand-edited duration is left alone.
+// Idempotent: a second run finds nothing to change.
+async function reparseExistingBotMeta(db) {
+  db = db || await getDb();
+  if ((await getSetting('bot_meta_reparsed_v2')) === '1') return { skipped: true };
+  const rows = all(db, `SELECT id, name, platform, duration_days, image_url FROM plans WHERE provider_api='bot'`);
+  let durFixed = 0, logoFixed = 0;
+  for (const r of rows) {
+    const newDur = durationDaysFromName(r.name);
+    if (newDur !== r.duration_days && (r.duration_days == null || r.duration_days === _oldDurationDaysFromName(r.name))) {
+      run(db, `UPDATE plans SET duration_days=? WHERE id=?`, [newDur, r.id]);
+      durFixed++;
+    }
+    const autoLogo = !r.image_url || /\/s2\/favicons\?/.test(r.image_url);
+    const newLogo = logoForName(r.name, r.platform);
+    if (autoLogo && newLogo !== r.image_url) { // re-point or clear a wrong auto logo; never touch a hand-set one
+      run(db, `UPDATE plans SET image_url=? WHERE id=?`, [newLogo, r.id]);
+      logoFixed++;
+    }
+  }
+  await setSetting('bot_meta_reparsed_v2', '1');
+  if (durFixed || logoFixed) console.log(`[bot] re-parsed existing meta: ${durFixed} duration(s) + ${logoFixed} logo(s) corrected of ${rows.length}`);
+  return { durFixed, logoFixed, total: rows.length };
 }
 
 // Insert ONE bot product into `plans` (shared by sync auto-import + manual import).
@@ -239,6 +242,8 @@ async function importProducts(db, ids, markupPercent = 0) {
 // the `bot_auto_import` setting is on; otherwise they wait under "Available to add".
 async function syncCatalog(db) {
   db = db || await getDb();
+  // One-time: correct any existing bot products the old parsers got wrong (auto values only).
+  await reparseExistingBotMeta(db).catch(e => console.error('[bot] reparse error:', e.message));
   const res = await fetchProducts(db);
   if (!res.ok) return { ok: false, error: res.error, inserted: 0, updated: 0, delisted: 0, total: 0 };
 
@@ -319,4 +324,5 @@ function startBotSync() {
 
 module.exports = {
   botConfig, isConfigured, fetchProducts, fetchBalance, purchase, syncCatalog, importProducts, startBotSync,
+  reparseExistingBotMeta,
 };

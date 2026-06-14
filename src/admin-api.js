@@ -7,6 +7,7 @@ const fs = require('fs');
 const multer = require('multer');
 const cfg = require('./config');
 const { getDb, getSetting, setSetting, restoreDb, all, get, run, makePlanSlug } = require('./db');
+const { durationDaysFromName, logoForName } = require('./plans-util');
 const { loginLimiter, requireCsrf, checkCredentialThrottle, recordFailedLogin, clearFailedLogin } = require('./security');
 const { audit } = require('./audit');
 const { submitUrls, pingSitemap } = require('./google-index');
@@ -412,9 +413,9 @@ router.post('/plans/import', requireAdmin, upload.single('file'), async (req, re
               description,features,badge,stock,active,sort_order,
               category,image_url,provider_api,provider_product_id,delivery_type,delivery_time_est,slug,noindex)
              VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-            [v.platform, name, v.duration_days, v.price_inr, v.original_price_inr, v.price_usd,
+            [v.platform, name, (v.duration_days || durationDaysFromName(name)), v.price_inr, v.original_price_inr, v.price_usd,
              v.description, v.features, v.badge, v.stock, v.active, v.sort_order,
-             v.category, v.image_url, v.provider_api, v.provider_product_id, v.delivery_type, v.delivery_time_est, slug, v.noindex]);
+             v.category, (v.image_url || logoForName(name, v.platform)), v.provider_api, v.provider_product_id, v.delivery_type, v.delivery_time_est, slug, v.noindex]);
           inserted++;
         }
       } catch (rowErr) {
@@ -444,10 +445,10 @@ router.post('/plans', requireAdmin, async (req, res) => {
         description,features,badge,stock,active,sort_order,
         category,image_url,provider_api,provider_product_id,delivery_type,delivery_time_est,slug)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [platform, name, duration_days||null, price_inr||0, original_price_inr||null, price_usd||0,
+      [platform, name, (duration_days || durationDaysFromName(name) || null), price_inr||0, original_price_inr||null, price_usd||0,
        description||null, JSON.stringify(features||[]), badge||null,
        stock??-1, active??1, sort_order||0,
-       category||'', image_url||'', provider_api||'', provider_product_id||'',
+       category||'', (image_url || logoForName(name, platform) || ''), provider_api||'', provider_product_id||'',
        delivery_type||'manual', delivery_time_est||'', slug]);
     await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'create_plan', targetKind: 'plan', targetId: r.lastInsertRowid, after: req.body, ip: req.ip });
     res.json({ ok: true, id: r.lastInsertRowid, slug });
