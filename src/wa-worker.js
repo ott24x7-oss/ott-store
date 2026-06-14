@@ -112,8 +112,11 @@ async function runDailySummary() {
   const h     = istHour();
   const today = new Date().toISOString().split('T')[0];
   if (h !== 21) return; // 9 PM IST only
-  if (_lastSummaryDate === today) return;
-  _lastSummaryDate = today;
+  // Dedup ACROSS RESTARTS: persist the last-sent date so a redeploy/restart during the
+  // 9 PM hour can't re-send the summary. (The old in-memory flag reset on every restart,
+  // so each deploy at ~9 PM sent another copy — hence the duplicate messages.)
+  if (getSettingSync('wa_last_daily_summary') === today) return;
+  setSettingSync('wa_last_daily_summary', today);
 
   try {
     const db = await getDb();
