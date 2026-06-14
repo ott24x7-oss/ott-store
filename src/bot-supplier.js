@@ -148,6 +148,20 @@ function platformFor(p) {
   return 'OTT';
 }
 
+// Best-effort plan duration (in days) parsed from a product name: "1 Year" → 365,
+// "12 Month" → 360, "6 Months" → 180, "1 Week" → 7, "30 Days" → 30. Genuine
+// lifetime/permanent → null (so it still shows "Lifetime"); anything unrecognised → null.
+function durationDaysFromName(name) {
+  const s = String(name || '').toLowerCase();
+  if (/(life ?time|permanent|forever)/.test(s)) return null;
+  let m;
+  if ((m = s.match(/(\d+)\s*(?:years?|yrs?)\b/)) || (m = s.match(/(\d+)\s*y\b/))) return Math.round(parseFloat(m[1]) * 365);
+  if ((m = s.match(/(\d+)\s*(?:months?|mons?|mo)\b/)) || (m = s.match(/(\d+)\s*m\b/))) return Math.round(parseFloat(m[1]) * 30);
+  if ((m = s.match(/(\d+)\s*(?:weeks?|wks?)\b/)) || (m = s.match(/(\d+)\s*w\b/))) return Math.round(parseFloat(m[1]) * 7);
+  if ((m = s.match(/(\d+)\s*(?:days?)\b/)) || (m = s.match(/(\d+)\s*d\b/))) return Math.round(parseFloat(m[1]));
+  return null;
+}
+
 // Insert ONE bot product into `plans` (shared by sync auto-import + manual import).
 // markupPercent (0 = the bot's retail price) sets the STARTING selling price; after
 // that the admin owns it and re-syncs never overwrite it.
@@ -168,7 +182,7 @@ function importOneBotPlan(db, p, slugSet, markupPercent = 0) {
        description,features,badge,stock,active,sort_order,
        category,image_url,provider_api,provider_product_id,delivery_type,delivery_time_est,slug)
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-    [platform, name, null, priceInr, null, 0,
+    [platform, name, durationDaysFromName(name), priceInr, null, 0,
      (p.description || ''), '[]', null, stock, active, 0,
      (p.category || ''), '', 'bot', pid, deliveryType, '', slug]);
 }
@@ -221,9 +235,10 @@ async function syncCatalog(db) {
       // Refresh volatile fields only — never touch price_inr (admin owns the price).
       run(db,
         `UPDATE plans SET name=?, stock=?, active=?, delivery_type=?,
-           description=CASE WHEN description IS NULL OR description='' THEN ? ELSE description END
+           description=CASE WHEN description IS NULL OR description='' THEN ? ELSE description END,
+           duration_days=COALESCE(duration_days, ?)
          WHERE id=?`,
-        [name, stock, active, deliveryType, (p.description || ''), existing.id]);
+        [name, stock, active, deliveryType, (p.description || ''), durationDaysFromName(name), existing.id]);
       updated++;
     } else if (autoImport) {
       importOneBotPlan(db, p, slugSet);
