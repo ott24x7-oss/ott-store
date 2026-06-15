@@ -2314,8 +2314,11 @@ router.delete('/wa-offers/:id', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// TEMP HARD KILL (June 2026): hard-disable WA group posting while tracing a blank-message source.
+const WA_GROUP_POSTING_DISABLED = true;
 router.post('/wa-offers/:id/post-now', requireAdmin, async (req, res) => {
   try {
+    if (WA_GROUP_POSTING_DISABLED) return res.status(403).json({ error: 'WhatsApp group posting is temporarily disabled.' });
     const db = await getDb();
     const offer = get(db, `SELECT * FROM wa_offers WHERE id=?`, [req.params.id]);
     if (!offer) return res.status(404).json({ error: 'Offer not found' });

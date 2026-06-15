@@ -33,7 +33,11 @@ const _logCooldown = {};
 function getDiagnostics() { return { ..._lastSkip }; }
 
 // ─── Auto-Post tick ───────────────────────────────────────────────────────────
+// TEMP HARD KILL (June 2026): WA group auto-posting is disabled while tracing a blank-message
+// source that is NOT this store's offers. Set WA_GROUP_POSTING_DISABLED=false to re-enable.
+const WA_GROUP_POSTING_DISABLED = true;
 async function runAutoPost() {
+  if (WA_GROUP_POSTING_DISABLED) return recordSkip('autopost', 'WA group posting hard-disabled (temporary)');
   const enabled = getSettingSync('wa_autopost_enabled');
   if (enabled !== '1') return recordSkip('autopost', 'wa_autopost_enabled is off');
 
