@@ -160,6 +160,14 @@ async function runDailySummary() {
 
 // ─── Ticker ───────────────────────────────────────────────────────────────────
 function startWaWorker() {
+  // Safety net: a blank offer (no text + no image) can only ever produce an empty card,
+  // so deactivate any at boot — neither the worker nor a manual re-enable can spam one.
+  getDb().then(db => {
+    db.run(`UPDATE wa_offers SET active=0 WHERE active=1 AND COALESCE(TRIM(text),'')='' AND (image_b64 IS NULL OR image_b64='')`);
+    const n = db.getRowsModified();
+    if (n) console.log(`[wa-worker] safety: deactivated ${n} blank WA offer(s)`);
+  }).catch(() => {});
+
   // Main tick every 5 minutes
   setInterval(async () => {
     try { await runAutoPost(); } catch (e) { console.error('[wa-worker] autopost tick:', e.message); }
