@@ -2319,10 +2319,11 @@ router.post('/wa-offers/:id/post-now', requireAdmin, async (req, res) => {
     const db = await getDb();
     const offer = get(db, `SELECT * FROM wa_offers WHERE id=?`, [req.params.id]);
     if (!offer) return res.status(404).json({ error: 'Offer not found' });
+    if (!offer.image_b64 && !String(offer.text || '').trim()) return res.status(400).json({ error: 'This offer has no text or image to post.' });
     const waBot = require('./wa-bot');
     const sock = waBot.getActiveSock();
     if (!sock) return res.status(400).json({ error: 'WhatsApp not connected' });
-    const groups = JSON.parse(get(db, `SELECT value FROM settings WHERE key='wa_autopost_groups'`)?.value || '[]');
+    const groups = [...new Set(JSON.parse(get(db, `SELECT value FROM settings WHERE key='wa_autopost_groups'`)?.value || '[]'))]; // dedupe groups
     if (!groups.length) return res.status(400).json({ error: 'No groups selected in WA settings' });
     let sent = 0;
     for (const gid of groups) {

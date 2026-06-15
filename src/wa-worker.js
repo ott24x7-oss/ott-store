@@ -40,7 +40,7 @@ async function runAutoPost() {
   const sock = getActiveSock();
   if (!sock) return recordSkip('autopost', 'WhatsApp not connected');
 
-  const groups = JSON.parse(getSettingSync('wa_autopost_groups') || '[]');
+  const groups = [...new Set(JSON.parse(getSettingSync('wa_autopost_groups') || '[]'))]; // dedupe: a group listed twice must not get double-posted
   if (!groups.length) return recordSkip('autopost', 'no groups selected');
 
   const startH    = parseInt(getSettingSync('wa_autopost_start')    || '9');
@@ -59,9 +59,11 @@ async function runAutoPost() {
   const db = await getDb();
   // Pick next active offer (round-robin via last_posted_at)
   const offer = get(db,
-    `SELECT * FROM wa_offers WHERE active=1 ORDER BY last_posted_at ASC NULLS FIRST, id ASC LIMIT 1`
+    `SELECT * FROM wa_offers WHERE active=1
+       AND (COALESCE(TRIM(text),'') <> '' OR image_b64 IS NOT NULL)
+     ORDER BY last_posted_at ASC NULLS FIRST, id ASC LIMIT 1`
   );
-  if (!offer) return recordSkip('autopost', 'no active WA offers');
+  if (!offer) return recordSkip('autopost', 'no active WA offers with content');
 
   let sent = 0;
   let metaMap = {};
