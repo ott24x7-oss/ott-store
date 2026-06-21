@@ -318,6 +318,24 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
 .js-reveal .reveal.in{opacity:1;transform:none}
 @media (prefers-reduced-motion:reduce){.js-reveal .reveal{opacity:1!important;transform:none!important}}
 
+/* ── New layout: value-prop band, hero trust-chips, SVG category icons ── */
+.svi{fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.vp-section{padding:30px 0 6px}
+.vp-head{margin:0 0 16px}
+.vp-head .kicker{margin-bottom:8px}
+.vp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.vp-card{padding:22px 20px;border-radius:22px;background:linear-gradient(180deg,rgba(255,255,255,.085),rgba(255,255,255,.028));border:1px solid var(--mv-stroke);backdrop-filter:blur(16px);transition:transform .25s ease,border-color .25s ease}
+.vp-card:hover{transform:translateY(-5px);border-color:rgba(255,255,255,.3)}
+.vp-ic{width:48px;height:48px;border-radius:15px;display:grid;place-items:center;margin-bottom:15px;background:linear-gradient(135deg,var(--mv-red),var(--mv-purple));box-shadow:0 14px 32px rgba(43,111,255,.32)}
+.vp-ic svg{width:24px;height:24px;color:#fff}
+.vp-card b{display:block;font-size:16px;color:#fff;margin-bottom:6px;letter-spacing:-.2px}
+.vp-card p{margin:0;color:var(--th-muted);font-size:13.5px;line-height:1.6}
+.hero-chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 26px}
+.hero-chip{display:inline-flex;align-items:center;gap:7px;padding:8px 13px;border-radius:999px;background:rgba(255,255,255,.055);border:1px solid var(--mv-stroke);font-size:12.5px;font-weight:850;color:#eaf0ff}
+.hero-chip svg{width:15px;height:15px;color:var(--mv-gold)}
+.category-card .category-icon svg{width:28px;height:28px;color:#fff}
+@media(max-width:760px){.vp-grid{grid-template-columns:1fr 1fr;gap:10px}.vp-card{padding:17px 15px;border-radius:18px}.vp-card p{font-size:12.5px}.hero-chips{justify-content:center;margin-bottom:20px}}
+
 </style>
 </head>
 <body>
@@ -364,6 +382,12 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
       <a class="btn btn-soft" href="/my" data-tk="mv_btn_account">My Account</a>
       <a class="btn btn-gold" href="https://wa.me/" id="mv-wa-btn" target="_blank" rel="noopener" data-tk="mv_btn_wa">WhatsApp Order</a>
     </div>
+    <div class="hero-chips">
+      <span class="hero-chip"><svg class="svi" viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 11-13h-7l1-7Z"/></svg> Instant delivery</span>
+      <span class="hero-chip"><svg class="svi" viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3 10h18"/></svg> UPI &amp; USDT</span>
+      <span class="hero-chip"><svg class="svi" viewBox="0 0 24 24"><path d="M12 3 5 6v5.5c0 4.3 3 6.6 7 8 4-1.4 7-3.7 7-8V6l-7-3Z"/></svg> 100% genuine</span>
+      <span class="hero-chip"><svg class="svi" viewBox="0 0 24 24"><path d="M5 13v-1a7 7 0 0 1 14 0v1"/><rect x="3" y="13" width="4" height="6" rx="1.5"/><rect x="17" y="13" width="4" height="6" rx="1.5"/></svg> 24×7 support</span>
+    </div>
     <div class="stats">
       <div class="stat"><strong id="mv-stat-products">120+</strong><span data-tk="mv_stat1_label">Products</span></div>
       <div class="stat"><strong id="mv-stat-categories">17</strong><span data-tk="mv_stat2_label">Categories</span></div>
@@ -390,21 +414,17 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
 <!-- Home sections — order & visibility managed in Admin → Homepage Content -->
 <div id="mv-sections">
 <!--MVSEC:ribbon-->
-<!-- Ribbon -->
-<div class="ribbon" data-section="ribbon"><div class="ribbon-track">
-  <span>✅ Activated on your account</span>
-  <span>⚡ Instant delivery available</span>
-  <span>🎬 OTT subscriptions</span>
-  <span>🏏 Live sports plans</span>
-  <span>💬 WhatsApp confirmation</span>
-  <span>🔐 Secure USDT &amp; UPI checkout</span>
-  <span>✅ Activated on your account</span>
-  <span>⚡ Instant delivery available</span>
-  <span>🎬 OTT subscriptions</span>
-  <span>🏏 Live sports plans</span>
-  <span>💬 WhatsApp confirmation</span>
-  <span>🔐 Secure USDT &amp; UPI checkout</span>
-</div></div>
+<!-- Value props -->
+<section class="container vp-section" data-section="ribbon" aria-label="Why OTT24x7">
+  <div class="vp-head"><div class="kicker" data-tk="mv_vp_kicker">Why shop with us</div>
+    <h2 data-tk="mv_vp_heading" style="font-size:clamp(26px,3.6vw,40px)">Premium digital products, delivered the easy way.</h2></div>
+  <div class="vp-grid">
+    <div class="vp-card"><div class="vp-ic"><svg class="svi" viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 11-13h-7l1-7Z"/></svg></div><b data-tk="mv_vp1_t">Instant delivery</b><p data-tk="mv_vp1_d">Subscriptions, AI tools and software keys land on your email and WhatsApp seconds after payment.</p></div>
+    <div class="vp-card"><div class="vp-ic"><svg class="svi" viewBox="0 0 24 24"><path d="M12 3 5 6v5.5c0 4.3 3 6.6 7 8 4-1.4 7-3.7 7-8V6l-7-3Z"/><path d="m9.2 12 2 2 3.6-3.8"/></svg></div><b data-tk="mv_vp2_t">100% genuine</b><p data-tk="mv_vp2_d">Real accounts and licences only — with free replacement for the full validity of your plan.</p></div>
+    <div class="vp-card"><div class="vp-ic"><svg class="svi" viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3 10h18"/></svg></div><b data-tk="mv_vp3_t">Secure payments</b><p data-tk="mv_vp3_d">Pay by UPI or USDT — auto-verified, so your order is delivered the moment it confirms.</p></div>
+    <div class="vp-card"><div class="vp-ic"><svg class="svi" viewBox="0 0 24 24"><path d="M5 13v-1a7 7 0 0 1 14 0v1"/><rect x="3" y="13" width="4" height="6" rx="1.5"/><rect x="17" y="13" width="4" height="6" rx="1.5"/><path d="M19 19a3 3 0 0 1-3 3h-3"/></svg></div><b data-tk="mv_vp4_t">24×7 WhatsApp support</b><p data-tk="mv_vp4_d">Real people on chat any time — before you buy and long after — to keep things running.</p></div>
+  </div>
+</section>
 <!--/MVSEC:ribbon-->
 <!--MVSEC:categories-->
 <!-- Categories -->
@@ -418,10 +438,10 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
     <a class="btn btn-soft" href="/plans" data-tk="mv_cat_viewall">View All Products</a>
   </div>
   <div class="grid-4">
-    <a class="category-card" href="/plans?cat=streaming"><span class="tag">HOT</span><div class="category-icon">🎬</div><b data-tk="mv_cat1_title">Streaming &amp; Entertainment</b><p data-tk="mv_cat1_desc">Prime Video, Apple TV+, Sony LIV, ZEE5, Hotstar and more subscription products.</p></a>
-    <a class="category-card" href="/plans?cat=sports"><span class="tag">SPORTS</span><div class="category-icon">🏏</div><b data-tk="mv_cat2_title">Sports &amp; Live Match Plans</b><p data-tk="mv_cat2_desc">Cricket, football and live sports packs with quick confirmation and support.</p></a>
-    <a class="category-card" href="/plans?cat=music"><span class="tag">MUSIC</span><div class="category-icon">🎵</div><b data-tk="mv_cat3_title">Music &amp; Audio</b><p data-tk="mv_cat3_desc">YouTube Premium, Apple Music and audio entertainment subscriptions.</p></a>
-    <a class="category-card" href="/plans?cat=ai"><span class="tag">PRO</span><div class="category-icon">🤖</div><b data-tk="mv_cat4_title">AI &amp; Premium Tools</b><p data-tk="mv_cat4_desc">AI writing, design, cloud, productivity and business subscriptions.</p></a>
+    <a class="category-card" href="/plans?cat=streaming"><span class="tag">HOT</span><div class="category-icon"><svg class="svi" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="3"/><path d="M10 9.5 15 12.5 10 15.5Z"/></svg></div><b data-tk="mv_cat1_title">Streaming &amp; Entertainment</b><p data-tk="mv_cat1_desc">Prime Video, Apple TV+, Sony LIV, ZEE5, Hotstar and more subscription products.</p></a>
+    <a class="category-card" href="/plans?cat=sports"><span class="tag">SPORTS</span><div class="category-icon"><svg class="svi" viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 0 1-8 0V4Z"/><path d="M8 6H5v1a3 3 0 0 0 3 3M16 6h3v1a3 3 0 0 1-3 3M12 13v3M9 20h6l-1-4h-4l-1 4Z"/></svg></div><b data-tk="mv_cat2_title">Sports &amp; Live Match Plans</b><p data-tk="mv_cat2_desc">Cricket, football and live sports packs with quick confirmation and support.</p></a>
+    <a class="category-card" href="/plans?cat=music"><span class="tag">MUSIC</span><div class="category-icon"><svg class="svi" viewBox="0 0 24 24"><path d="M9 17V5l10-2v12"/><circle cx="6.5" cy="17" r="2.5"/><circle cx="16.5" cy="15" r="2.5"/></svg></div><b data-tk="mv_cat3_title">Music &amp; Audio</b><p data-tk="mv_cat3_desc">YouTube Premium, Apple Music and audio entertainment subscriptions.</p></a>
+    <a class="category-card" href="/plans?cat=ai"><span class="tag">PRO</span><div class="category-icon"><svg class="svi" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2.5"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/></svg></div><b data-tk="mv_cat4_title">AI &amp; Premium Tools</b><p data-tk="mv_cat4_desc">AI writing, design, cloud, productivity and business subscriptions.</p></a>
   </div>
 </section>
 <!--/MVSEC:categories-->
