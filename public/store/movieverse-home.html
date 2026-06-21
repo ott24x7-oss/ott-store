@@ -348,6 +348,29 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
 .cta .hero-actions{justify-content:center;margin-top:4px}
 @media(max-width:760px){.product-grid{grid-template-columns:1fr}.steps::before{display:none}.cta{padding:28px 18px}}
 
+/* ── Hero entrance + continuous motion + section card stagger ── */
+@keyframes heroUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+@keyframes heroCardIn{from{opacity:0;transform:translateY(30px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes gradShift{to{background-position:220% center}}
+@keyframes cardFloat{50%{transform:translateY(-12px)}}
+@keyframes glowDrift{to{transform:translate3d(22px,18px,0) scale(1.06)}}
+.hero>section:first-child>*{animation:heroUp .72s cubic-bezier(.22,1,.36,1) both}
+.hero>section:first-child>.badge{animation-delay:.04s}
+.hero>section:first-child>h1{animation-delay:.12s}
+.hero>section:first-child>p{animation-delay:.22s}
+.hero>section:first-child>.hero-actions{animation-delay:.3s}
+.hero>section:first-child>.hero-chips{animation-delay:.38s}
+.hero>section:first-child>.stats{animation-delay:.46s}
+.hero>.cinema-stage{animation:heroCardIn .8s cubic-bezier(.22,1,.36,1) .18s both, cardFloat 7s ease-in-out 1.1s infinite}
+.gradient-text{background-size:220% auto;animation:gradShift 7s linear infinite}
+.ambient-glow{animation:glowDrift 15s ease-in-out infinite alternate}
+/* Cards stagger up as each section scrolls into view */
+.js-reveal .reveal .vp-card,.js-reveal .reveal .category-card,.js-reveal .reveal .product-row,.js-reveal .reveal .step{opacity:0}
+.js-reveal .reveal.in .vp-card,.js-reveal .reveal.in .category-card,.js-reveal .reveal.in .product-row,.js-reveal .reveal.in .step{animation:heroUp .55s cubic-bezier(.22,1,.36,1) both}
+.js-reveal .reveal.in :nth-child(2){animation-delay:.07s}
+.js-reveal .reveal.in :nth-child(3){animation-delay:.14s}
+.js-reveal .reveal.in :nth-child(4){animation-delay:.21s}
+
 </style>
 </head>
 <body>
