@@ -560,6 +560,7 @@ app.get('/plans/:slug', async (req, res) => {
       `<meta property="product:price:amount" content="${Number(plan.price_inr)}">`,
       `<meta property="product:price:currency" content="INR">`,
       buildProductJsonLd(plan, base, siteName),
+      noindex ? '' : buildProductFaqJsonLd(plan, siteName, tgUrl),
       `<script>window.__PLAN_SLUG__="${esc(plan.slug)}";window.__PLAN_ID__=${plan.id};window.__HAS_PRODUCT_HERO__=1;</script>`,
     ].filter(Boolean).join('\n');
     html = html.replace('</head>', headInject + '\n</head>');
@@ -568,7 +569,7 @@ app.get('/plans/:slug', async (req, res) => {
     // the page's single H1 (C1).
     html = html
       .replace('<h1>Browse All <span>Subscriptions</span></h1>', '<h2>Browse All <span>Subscriptions</span></h2>')
-      .replace('<!-- Page Header -->', `${buildProductHero(plan, tgUrl)}\n<!-- Page Header -->`);
+      .replace('<!-- Page Header -->', `${buildProductHero(plan, tgUrl, siteName)}\n<!-- Page Header -->`);
     res.type('text/html').send(html);
   } catch (e) {
     res.sendFile(path.join(__dirname, '..', 'public', 'store', 'plans.html'));
@@ -1150,7 +1151,47 @@ function productDur(p) {
 // description, features, breadcrumb, and Login/Guest checkout CTAs. This is what
 // makes each /plans/:slug a real, indexable product page instead of a duplicate
 // of the catalog.
-function buildProductHero(p, tgUrl) {
+// Lucide-style inline SVG icons (no emoji as structural icons).
+function ppIcon(name) {
+  const d = {
+    bolt: '<path d="M13 2 4 14h6l-1 8 11-13h-7l1-7Z"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/>',
+    shield: '<path d="M12 3 5 6v5.5c0 4.3 3 6.6 7 8 4-1.4 7-3.7 7-8V6l-7-3Z"/><path d="m9.2 12 2 2 3.6-3.8"/>',
+    check: '<path d="m5 12.5 4 4L19 7"/>',
+    headset: '<path d="M5 13v-1a7 7 0 0 1 14 0v1"/><rect x="3" y="13" width="4" height="6" rx="1.5"/><rect x="17" y="13" width="4" height="6" rx="1.5"/><path d="M19 19a3 3 0 0 1-3 3h-3"/>',
+    card: '<rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3 10h18"/>',
+    lock: '<rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>',
+    mail: '<rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="m4 8 8 5.5L20 8"/>',
+    tg: '<path d="m21.5 4.3-18 7c-1 .4-1 .9.2 1.3L8 14l1.8 5.6c.2.6.6.6 1 .2l2.5-2.4 4.7 3.5c.7.4 1.4.2 1.6-.7l3-15.4c.2-1-.4-1.4-1.1-1Z"/>',
+    box: '<path d="m3.5 7.5 8.5-4 8.5 4-8.5 4-8.5-4Z"/><path d="M3.5 7.5v9l8.5 4 8.5-4v-9"/><path d="M12 11.5v9"/>',
+  }[name] || '';
+  return `<svg class="pp-i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${d}</svg>`;
+}
+
+// Per-product FAQs — rendered on the page AND emitted as FAQPage structured data,
+// so the content is identical in both (Google requires the visible Q&A to match).
+function productFaqs(p, siteName, tgUrl) {
+  const dur = productDur(p);
+  const plat = (p.platform && p.platform.toLowerCase() !== 'other') ? p.platform : 'this product';
+  const inst = p.delivery_type === 'instant';
+  return [
+    { q: `How will I receive my ${p.name}?`,
+      a: `As soon as your payment is confirmed, your access details are delivered automatically to your email and WhatsApp${inst ? ' — usually within seconds' : ''}, so there is no manual wait.` },
+    { q: `How long is ${p.name} valid?`,
+      a: dur === 'Lifetime' ? `It is a one-time purchase with lifetime validity — no recurring charges.` : `Your ${p.name} stays valid for ${dur} from activation.` },
+    { q: `Is ${p.name} genuine and safe?`,
+      a: `Yes — you get genuine ${plat} access from ${siteName}, backed by responsive support if you ever need help.` },
+    { q: `Which payment methods can I use?`,
+      a: `You can pay by UPI, USDT, or your ${siteName} wallet balance.${tgUrl ? ' You can also order instantly on our Telegram bot with automatic delivery.' : ''}` },
+    { q: `What if I have a problem after buying?`,
+      a: `Just message our support team and we will sort it out quickly so you can keep enjoying ${p.name}.` },
+  ];
+}
+
+// Server-rendered, crawlable product page: unique H1, key facts, price + savings,
+// CTAs, trust badges, an SEO content body (About / What-you-get / How-it-works /
+// FAQ) and a mobile sticky buy-bar. Liquid-Glass styling, on-brand via --st-* tokens.
+function buildProductHero(p, tgUrl, siteName) {
   let features = [];
   try { features = JSON.parse(p.features || '[]'); } catch {}
   if (!Array.isArray(features)) features = [];
@@ -1158,39 +1199,121 @@ function buildProductHero(p, tgUrl) {
   const price = Number(p.price_inr).toLocaleString('en-IN');
   const hasOrig = p.original_price_inr && p.original_price_inr > p.price_inr;
   const off = hasOrig ? Math.round((1 - p.price_inr / p.original_price_inr) * 100) : 0;
+  const save = hasOrig ? Number(p.original_price_inr - p.price_inr).toLocaleString('en-IN') : 0;
   const oos = p.stock === 0;
+  const inst = p.delivery_type === 'instant';
   const platLabel = (p.platform && p.platform.toLowerCase() !== 'other') ? esc(p.platform) : 'Digital Product';
+  const nm = esc(p.name);
+  const site = esc(siteName || 'our store');
   const img = p.image_url
-    ? `<img src="${esc(p.image_url)}" alt="${esc((p.platform ? p.platform + ' ' : '') + p.name)}" style="max-width:170px;max-height:120px;object-fit:contain">`
-    : `<div style="font-size:3rem">📦</div>`;
+    ? `<img src="${esc(p.image_url)}" alt="${esc((p.platform ? p.platform + ' ' : '') + p.name)} — buy at ${site}" loading="eager">`
+    : `<span style="display:inline-block;width:3.4rem;height:3.4rem;color:var(--st-accent)">${ppIcon('box')}</span>`;
+  const faqs = productFaqs(p, siteName || 'our store', tgUrl);
   return `
-<section id="product-hero" style="max-width:980px;margin:0 auto;padding:1.5rem 1.5rem 0">
-  <nav aria-label="Breadcrumb" style="font-size:.8rem;color:var(--st-muted);margin-bottom:1rem">
-    <a href="/" style="color:var(--st-muted);text-decoration:none">Home</a> ›
-    <a href="/plans" style="color:var(--st-muted);text-decoration:none">Plans</a> ›
-    <span style="color:var(--st-text)">${esc(p.name)}</span>
-  </nav>
-  <div style="display:flex;gap:1.5rem;flex-wrap:wrap;align-items:center;background:var(--st-card-solid);border:1.5px solid var(--st-border);border-radius:18px;padding:1.5rem">
-    <div style="flex:0 0 auto;width:190px;height:130px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.2);border-radius:12px">${img}</div>
-    <div style="flex:1;min-width:240px">
-      <div style="font-size:.74rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--st-accent)">${platLabel}</div>
-      <h1 style="font-size:1.55rem;font-weight:900;margin:.2rem 0 .45rem;line-height:1.2">${esc(p.name)}</h1>
-      <div style="font-size:.82rem;color:var(--st-muted);margin-bottom:.6rem">⏱ ${dur} validity${p.delivery_type === 'instant' ? ' · ⚡ Instant delivery' : ''} · <strong style="color:${oos ? '#ef4444' : '#10b981'}">${oos ? 'Out of stock' : 'In stock'}</strong></div>
-      <div style="display:flex;align-items:baseline;gap:.55rem;margin-bottom:.9rem">
-        <span style="font-size:1.85rem;font-weight:900;color:var(--st-accent)">₹${price}</span>
-        ${hasOrig ? `<span style="text-decoration:line-through;color:var(--st-muted);font-size:.95rem">₹${Number(p.original_price_inr).toLocaleString('en-IN')}</span><span style="background:rgba(16,185,129,.15);color:#10b981;border-radius:6px;padding:.12rem .5rem;font-size:.72rem;font-weight:800">${off}% OFF</span>` : ''}
+<style id="pp-css">
+.pp-wrap{max-width:1040px;margin:0 auto;padding:1.25rem 1.1rem 0}
+.pp-crumb{font-size:.8rem;color:var(--st-muted);margin-bottom:1rem;display:flex;gap:.4rem;flex-wrap:wrap;align-items:center}
+.pp-crumb a{color:var(--st-muted);text-decoration:none}.pp-crumb a:hover{color:var(--st-accent)}
+.pp-i{width:1.05em;height:1.05em;flex:0 0 auto;vertical-align:-2px}
+.pp-hero{display:grid;grid-template-columns:230px 1fr;gap:1.5rem;align-items:center;background:linear-gradient(135deg,var(--st-card-solid,rgba(255,255,255,.05)),rgba(255,255,255,.01));border:1px solid var(--st-border);border-radius:18px;padding:1.4rem;box-shadow:0 14px 44px rgba(0,0,0,.18);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.pp-media{display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 35%,rgba(141,92,255,.2),rgba(0,0,0,.22));border:1px solid var(--st-border);border-radius:14px;padding:1rem;min-height:172px}
+.pp-media img{max-width:160px;max-height:132px;object-fit:contain;filter:drop-shadow(0 6px 16px rgba(0,0,0,.35))}
+.pp-badge{display:inline-block;font-size:.7rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--st-accent);background:rgba(141,92,255,.14);border:1px solid var(--st-border);padding:.22rem .6rem;border-radius:999px}
+.pp-h1{font-size:clamp(1.4rem,3.6vw,1.95rem);font-weight:900;line-height:1.18;margin:.55rem 0}
+.pp-facts{display:flex;flex-wrap:wrap;gap:.45rem;margin:0 0 .9rem}
+.pp-chip{display:inline-flex;align-items:center;gap:.34rem;font-size:.78rem;font-weight:600;color:var(--st-text);background:var(--st-card-solid,rgba(255,255,255,.05));border:1px solid var(--st-border);border-radius:999px;padding:.32rem .62rem}
+.pp-chip.ok{color:#10b981}.pp-chip.no{color:#ef4444}
+.pp-price{display:flex;align-items:baseline;gap:.55rem;flex-wrap:wrap;margin:.1rem 0 1rem}
+.pp-price b{font-size:clamp(1.7rem,5vw,2.15rem);font-weight:900;color:var(--st-accent);line-height:1}
+.pp-orig{text-decoration:line-through;color:var(--st-muted);font-size:1rem}
+.pp-off{background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:7px;padding:.16rem .5rem;font-size:.72rem;font-weight:800}
+.pp-save{font-size:.78rem;color:#10b981;font-weight:700;width:100%}
+.pp-cta{display:flex;gap:.6rem;flex-wrap:wrap}
+.pp-btn{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;font-weight:800;font-size:.92rem;border-radius:12px;padding:.78rem 1.3rem;cursor:pointer;border:0;text-decoration:none;transition:transform .15s ease,box-shadow .15s ease,filter .15s ease;min-height:46px}
+.pp-btn:active{transform:scale(.97)}
+.pp-btn-primary{background:linear-gradient(135deg,var(--st-accent,#2b6fff),#8d5cff);color:#fff;box-shadow:0 8px 22px rgba(141,92,255,.32)}
+.pp-btn-primary:hover{filter:brightness(1.07)}
+.pp-btn-ghost{background:var(--st-card-solid,rgba(255,255,255,.05));color:var(--st-text);border:1px solid var(--st-border)}
+.pp-btn-ghost:hover{border-color:var(--st-accent)}
+.pp-btn[disabled]{opacity:.5;cursor:not-allowed;filter:grayscale(.4)}
+.pp-tg{display:inline-flex;align-items:center;gap:.45rem;margin-top:.8rem;font-size:.84rem;font-weight:700;color:#2aa3e0;text-decoration:none}
+.pp-tg:hover{text-decoration:underline}
+.pp-trust{display:grid;grid-template-columns:repeat(4,1fr);gap:.7rem;margin:1.2rem 0 0}
+.pp-trust .t{display:flex;flex-direction:column;align-items:center;text-align:center;gap:.4rem;font-size:.74rem;font-weight:600;color:var(--st-muted);background:var(--st-card-solid,rgba(255,255,255,.04));border:1px solid var(--st-border);border-radius:12px;padding:.85rem .5rem;line-height:1.3}
+.pp-trust .t .pp-i{width:1.45rem;height:1.45rem;color:var(--st-accent)}
+.pp-sec{max-width:1040px;margin:2.2rem auto 0;padding:0 1.1rem}
+.pp-sec h2{font-size:1.18rem;font-weight:800;margin:0 0 .9rem}
+.pp-prose{color:var(--st-muted);font-size:.96rem;line-height:1.75;max-width:72ch}
+.pp-feats{display:grid;grid-template-columns:repeat(auto-fill,minmax(235px,1fr));gap:.7rem}
+.pp-feat{display:flex;gap:.6rem;align-items:flex-start;background:var(--st-card-solid,rgba(255,255,255,.04));border:1px solid var(--st-border);border-radius:12px;padding:.8rem .9rem;font-size:.88rem;color:var(--st-text)}
+.pp-feat .pp-i{color:#10b981;width:1.2rem;height:1.2rem;margin-top:.1rem}
+.pp-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:.85rem;counter-reset:s}
+.pp-step{position:relative;background:var(--st-card-solid,rgba(255,255,255,.04));border:1px solid var(--st-border);border-radius:14px;padding:1.15rem .95rem .9rem}
+.pp-step::before{counter-increment:s;content:counter(s);position:absolute;top:-.7rem;left:.9rem;width:1.7rem;height:1.7rem;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:.85rem;color:#fff;background:linear-gradient(135deg,var(--st-accent,#2b6fff),#8d5cff);border-radius:50%}
+.pp-step b{display:block;font-size:.92rem;margin:.15rem 0 .25rem}
+.pp-step span{font-size:.82rem;color:var(--st-muted);line-height:1.55}
+.pp-faq details{background:var(--st-card-solid,rgba(255,255,255,.04));border:1px solid var(--st-border);border-radius:12px;margin-bottom:.6rem;overflow:hidden}
+.pp-faq summary{cursor:pointer;list-style:none;padding:.92rem 1rem;font-weight:700;font-size:.92rem;display:flex;justify-content:space-between;gap:1rem;align-items:center}
+.pp-faq summary::-webkit-details-marker{display:none}
+.pp-faq summary::after{content:"+";font-size:1.35rem;line-height:1;color:var(--st-accent);transition:transform .2s}
+.pp-faq details[open] summary::after{transform:rotate(45deg)}
+.pp-faq p{margin:0;padding:0 1rem 1rem;color:var(--st-muted);font-size:.88rem;line-height:1.65}
+.pp-more{display:inline-flex;align-items:center;gap:.45rem;margin-top:.4rem;color:var(--st-accent);font-weight:700;font-size:.92rem;text-decoration:none}.pp-more:hover{text-decoration:underline}
+.pp-sticky{position:sticky;bottom:0;z-index:40;display:none;gap:.8rem;align-items:center;justify-content:space-between;background:var(--st-card-solid,#12121c);border-top:1px solid var(--st-border);padding:.7rem 1rem;margin-top:1.5rem;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+@media(max-width:720px){.pp-hero{grid-template-columns:1fr;text-align:center}.pp-media{min-height:150px}.pp-facts,.pp-price,.pp-cta{justify-content:center}.pp-trust{grid-template-columns:repeat(2,1fr)}.pp-cta .pp-btn{flex:1 1 auto}.pp-sticky{display:flex}}
+@media(prefers-reduced-motion:reduce){.pp-btn,.pp-faq summary::after{transition:none}.pp-btn:active{transform:none}}
+</style>
+<section id="product-hero">
+  <div class="pp-wrap">
+    <nav class="pp-crumb" aria-label="Breadcrumb"><a href="/">Home</a><span aria-hidden="true">›</span><a href="/plans">Plans</a><span aria-hidden="true">›</span><span style="color:var(--st-text)">${nm}</span></nav>
+    <div class="pp-hero">
+      <div class="pp-media">${img}</div>
+      <div>
+        <span class="pp-badge">${platLabel}</span>
+        <h1 class="pp-h1">${nm}</h1>
+        <div class="pp-facts">
+          <span class="pp-chip">${ppIcon('clock')} ${dur} validity</span>
+          ${inst ? `<span class="pp-chip">${ppIcon('bolt')} Instant delivery</span>` : ''}
+          <span class="pp-chip ${oos ? 'no' : 'ok'}">${ppIcon(oos ? 'box' : 'check')} ${oos ? 'Out of stock' : 'In stock'}</span>
+        </div>
+        <div class="pp-price"><b>₹${price}</b>${hasOrig ? `<span class="pp-orig">₹${Number(p.original_price_inr).toLocaleString('en-IN')}</span><span class="pp-off">${off}% OFF</span><span class="pp-save">You save ₹${save}</span>` : ''}</div>
+        <div class="pp-cta">
+          <button class="pp-btn pp-btn-primary" id="ph-guest" ${oos ? 'disabled' : ''}>${ppIcon('mail')} Buy Now</button>
+          <a class="pp-btn pp-btn-ghost" id="ph-login" href="/my?buy=${p.id}" onclick="try{localStorage.setItem('pendingBuyPlanId','${p.id}')}catch(e){}">${ppIcon('lock')} Login &amp; Buy</a>
+        </div>
+        ${tgUrl ? `<a class="pp-tg" href="${esc(tgUrl)}" target="_blank" rel="noopener">${ppIcon('tg')} Prefer chat? Buy on our Telegram bot — instant auto-delivery (UPI &amp; USDT)</a>` : ''}
       </div>
-      <div style="display:flex;gap:.6rem;flex-wrap:wrap">
-        <a class="splan-btn" id="ph-login" href="/my?buy=${p.id}" onclick="try{localStorage.setItem('pendingBuyPlanId','${p.id}')}catch(e){}" style="width:auto;padding:.7rem 1.25rem;text-decoration:none;display:inline-block">🔐 Login to Checkout</a>
-        <button class="splan-btn" id="ph-guest" ${oos ? 'disabled' : ''} style="width:auto;padding:.7rem 1.25rem;background:linear-gradient(135deg,#7c3aed,#6d28d9)">📧 Guest Checkout</button>
-      </div>
-      ${tgUrl ? `<a class="splan-tg" href="${esc(tgUrl)}" target="_blank" rel="noopener" style="display:inline-flex;width:auto;margin-top:.75rem">✈️ Buy on our Telegram bot — instant auto-delivery (UPI &amp; USDT)</a>` : ''}
+    </div>
+    <div class="pp-trust">
+      <div class="t">${ppIcon('bolt')}<span>Instant delivery</span></div>
+      <div class="t">${ppIcon('shield')}<span>100% genuine</span></div>
+      <div class="t">${ppIcon('card')}<span>Secure payment</span></div>
+      <div class="t">${ppIcon('headset')}<span>Friendly support</span></div>
     </div>
   </div>
-  ${p.description ? `<p style="color:var(--st-muted);font-size:.92rem;line-height:1.6;margin:1.1rem 0 0">${esc(p.description)}</p>` : ''}
-  ${features.length ? `<ul style="margin:1rem 0 0;padding-left:1.25rem;color:var(--st-text);font-size:.9rem;line-height:1.75">${features.map(f => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
-  <p style="margin:1.25rem 0 0;font-size:.85rem"><a href="/plans" style="color:var(--st-accent);text-decoration:none">↓ Browse all plans</a></p>
-</section>`;
+  ${p.description ? `<div class="pp-sec"><h2>About ${nm}</h2><p class="pp-prose">${esc(p.description)}</p></div>` : ''}
+  ${features.length ? `<div class="pp-sec"><h2>What you get</h2><div class="pp-feats">${features.map(f => `<div class="pp-feat">${ppIcon('check')}<span>${esc(f)}</span></div>`).join('')}</div></div>` : ''}
+  <div class="pp-sec"><h2>How to get ${nm}</h2><div class="pp-steps">
+    <div class="pp-step"><b>Choose &amp; pay</b><span>Tap Buy Now and pay securely via UPI, USDT or wallet balance.</span></div>
+    <div class="pp-step"><b>Instant delivery</b><span>Your access details arrive on email &amp; WhatsApp${inst ? ' within seconds' : ' fast'}.</span></div>
+    <div class="pp-step"><b>Start enjoying</b><span>Sign in and use ${nm} for its full ${dur} validity.</span></div>
+  </div></div>
+  <div class="pp-sec pp-faq"><h2>Frequently asked questions</h2>${faqs.map(f => `<details><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`).join('')}</div>
+  <div class="pp-sec"><a class="pp-more" href="/plans">${ppIcon('box')} Browse all ${site} plans</a></div>
+</section>
+<div class="pp-sticky">
+  <div><div style="font-size:.7rem;color:var(--st-muted);line-height:1.1">${nm}</div><div style="font-weight:900;color:var(--st-accent);font-size:1.1rem">₹${price}${hasOrig ? ` <span style="font-size:.68rem;color:#10b981;font-weight:700">${off}% off</span>` : ''}</div></div>
+  ${oos ? `<span class="pp-btn pp-btn-ghost" style="opacity:.55">Out of stock</span>` : `<a class="pp-btn pp-btn-primary" href="/my?buy=${p.id}" onclick="try{localStorage.setItem('pendingBuyPlanId','${p.id}')}catch(e){}">Buy Now ₹${price}</a>`}
+</div>`;
+}
+
+// FAQPage structured data — uses the SAME Q&A shown on the page (Google policy).
+function buildProductFaqJsonLd(p, siteName, tgUrl) {
+  const faqs = productFaqs(p, siteName || 'our store', tgUrl);
+  return `<script type="application/ld+json">${ldjson({
+    '@context': 'https://schema.org', '@type': 'FAQPage',
+    mainEntity: faqs.map(f => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+  })}</script>`;
 }
 
 function buildProductJsonLd(p, base, siteName) {
