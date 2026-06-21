@@ -335,6 +335,18 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
 .hero-chip svg{width:15px;height:15px;color:var(--mv-gold)}
 .category-card .category-icon svg{width:28px;height:28px;color:#fff}
 @media(max-width:760px){.vp-grid{grid-template-columns:1fr 1fr;gap:10px}.vp-card{padding:17px 15px;border-radius:18px}.vp-card p{font-size:12.5px}.hero-chips{justify-content:center;margin-bottom:20px}}
+/* Featured -> 2-col product grid */
+.product-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+/* How it works -> connected step flow */
+.steps{position:relative}
+.steps::before{content:'';position:absolute;top:44px;left:13%;right:13%;height:2px;z-index:0;background:linear-gradient(90deg,transparent,rgba(141,92,255,.55),rgba(43,111,255,.55),transparent)}
+.step{position:relative;z-index:1;text-align:center}
+.step .step-no{margin:0 auto 16px}
+/* CTA -> stronger centered banner */
+.cta{flex-direction:column;text-align:center;align-items:center;padding:46px 36px;background:radial-gradient(circle at 50% 0%,rgba(43,111,255,.3),transparent 55%),radial-gradient(circle at 85% 14%,rgba(255,211,106,.12),transparent 40%),linear-gradient(180deg,rgba(141,92,255,.1),rgba(255,255,255,.045))}
+.cta>div:first-child{max-width:680px}
+.cta .hero-actions{justify-content:center;margin-top:4px}
+@media(max-width:760px){.product-grid{grid-template-columns:1fr}.steps::before{display:none}.cta{padding:28px 18px}}
 
 </style>
 </head>
@@ -402,9 +414,9 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
         <small data-tk="mv_poster_sub">Instant Delivery · WhatsApp Confirmation</small>
       </div>
       <div class="poster-row">
-        <div class="poster-mini"><span>🎬</span><b data-tk="mv_poster_c1">Movies</b></div>
-        <div class="poster-mini"><span>🏏</span><b data-tk="mv_poster_c2">Sports</b></div>
-        <div class="poster-mini"><span>🎵</span><b data-tk="mv_poster_c3">Music</b></div>
+        <div class="poster-mini"><span><svg class="svi" viewBox="0 0 24 24" style="width:24px;height:24px"><rect x="3" y="4.5" width="18" height="15" rx="3"/><path d="M10 9.5 15 12.5 10 15.5Z"/></svg></span><b data-tk="mv_poster_c1">Movies</b></div>
+        <div class="poster-mini"><span><svg class="svi" viewBox="0 0 24 24" style="width:24px;height:24px"><path d="M8 4h8v5a4 4 0 0 1-8 0V4Z"/><path d="M8 6H5v1a3 3 0 0 0 3 3M16 6h3v1a3 3 0 0 1-3 3M12 13v3M9 20h6l-1-4h-4l-1 4Z"/></svg></span><b data-tk="mv_poster_c2">Sports</b></div>
+        <div class="poster-mini"><span><svg class="svi" viewBox="0 0 24 24" style="width:24px;height:24px"><path d="M9 17V5l10-2v12"/><circle cx="6.5" cy="17" r="2.5"/><circle cx="16.5" cy="15" r="2.5"/></svg></span><b data-tk="mv_poster_c3">Music</b></div>
       </div>
       <div id="mv-hero-plans"></div>
     </div>
@@ -448,19 +460,16 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
 <!--MVSEC:featured-->
 <!-- Featured plans (dynamic) -->
 <section class="container section" id="premium" data-section="featured">
-  <div class="product-showcase">
-    <div class="panel">
-      <div class="kicker" data-tk="mv_feat_kicker">Dynamic Product Skin</div>
-      <h2 data-tk="mv_feat_heading">Real plans, MovieVerse styling.</h2>
-      <p class="muted" data-tk="mv_feat_sub">These are live products from your catalog — same plans, same prices, same checkout, just dressed for the big screen.</p>
-      <br>
-      <a class="btn btn-primary" href="/plans" data-tk="mv_feat_btn">Open Shop</a>
+  <div class="section-head">
+    <div>
+      <div class="kicker" data-tk="mv_feat_kicker">Popular right now</div>
+      <h2 data-tk="mv_feat_heading">Trending subscriptions &amp; tools.</h2>
+      <p data-tk="mv_feat_sub">Live products from our catalog — instant delivery, genuine accounts, best prices.</p>
     </div>
-    <div class="panel">
-      <div class="product-list" id="mv-product-list">
-        <div class="product-row"><div><strong>Loading plans…</strong><small>Fetching from catalog</small></div></div>
-      </div>
-    </div>
+    <a class="btn btn-soft" href="/plans" data-tk="mv_feat_btn">View all products</a>
+  </div>
+  <div class="product-list product-grid" id="mv-product-list">
+    <div class="product-row"><div><strong>Loading plans…</strong><small>Fetching from catalog</small></div></div>
   </div>
 </section>
 <!--/MVSEC:featured-->
