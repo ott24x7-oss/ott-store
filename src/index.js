@@ -956,11 +956,11 @@ async function injectMovieverseDynamic(html, siteName) {
     if (heroTitle)  html = html.replace(/(<span class="gradient-text" id="mv-hero-title">)[^<]*(<\/span>)/, `$1${esc(heroTitle)}$2`);
     if (heroTitle2) html = html.replace(/(<span id="mv-hero-title2">)[^<]*(<\/span>)/, `$1${esc(heroTitle2)}$2`);
     const sub = heroSub || tagline;
-    if (sub) html = html.replace(/(<p id="mv-hero-sub">)[\s\S]*?(<\/p>)/, `$1${esc(sub)}$2`);
+    if (sub) html = html.replace(/(<p[^>]*id="mv-hero-sub"[^>]*>)[\s\S]*?(<\/p>)/, `$1${esc(sub)}$2`);
 
     // Stats
-    html = html.replace(/(<strong id="mv-stat-products">)[^<]*(<\/strong>)/, `$1${plans.length}+$2`);
-    html = html.replace(/(<strong id="mv-stat-categories">)[^<]*(<\/strong>)/, `$1${esc(statCategories)}$2`);
+    html = html.replace(/(<[a-z0-9]+[^>]*id="mv-stat-products"[^>]*>)[^<]*(<\/[a-z0-9]+>)/i, `$1${plans.length}+$2`);
+    html = html.replace(/(<[a-z0-9]+[^>]*id="mv-stat-categories"[^>]*>)[^<]*(<\/[a-z0-9]+>)/i, `$1${esc(statCategories)}$2`);
 
     // Plan cards — mirror the client markup so its re-render is a visual no-op
     const fmtInr = n => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
