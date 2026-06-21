@@ -973,10 +973,10 @@ async function injectMovieverseDynamic(html, siteName) {
       ? `<div class="${cls}"><img src="${esc(p.image_url)}" alt="${esc(p.platform || p.name || '')}" loading="lazy" onerror="this.parentNode.textContent='${esc(initials(p))}'"></div>`
       : `<div class="${cls}">${esc(initials(p))}</div>`;
 
-    const top2 = plans.filter(p => p.stock !== 0).slice(0, 2);
+    const top2 = plans.filter(p => p.stock !== 0).slice(0, 3);
     const heroPlansHtml = top2.map(p =>
       `<div class="plan-card">${thumb(p, 'plan-card-thumb')}<div style="flex:1;min-width:0"><strong>${esc(p.platform || '')} ${esc(p.name || '')}</strong><small>${esc(durOf(p))} · Fast activation</small></div><span class="price-pill">${fmtInr(p.price_inr)}</span></div>`).join('');
-    html = html.replace('<div id="mv-hero-plans"></div>', `<div id="mv-hero-plans">${heroPlansHtml}</div>`);
+    html = html.replace('<div id="mv-hero-plans" class="sf-plans"></div>', `<div id="mv-hero-plans" class="sf-plans">${heroPlansHtml}</div>`);
 
     const top4 = plans.slice(0, 4);
     const productListHtml = top4.map(p =>
