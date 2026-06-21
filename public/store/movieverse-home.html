@@ -78,7 +78,7 @@ header.mv-header{position:sticky;top:0;z-index:20;backdrop-filter:blur(22px);bac
 .live-dot{width:8px;height:8px;border-radius:50%;background:var(--mv-green);box-shadow:0 0 0 0 rgba(52,245,155,.7);animation:pulse 1.55s infinite}
 @keyframes pulse{70%{box-shadow:0 0 0 12px rgba(52,245,155,0)}100%{box-shadow:0 0 0 0 rgba(52,245,155,0)}}
 
-h1{margin:22px 0 18px;font-size:clamp(45px,7.4vw,92px);line-height:.91;letter-spacing:-4px}
+h1{margin:22px 0 18px;font-size:clamp(42px,6.6vw,80px);line-height:.96;letter-spacing:-2.4px}
 .gradient-text{background:linear-gradient(90deg,#fff,#cfe0ff 36%,#b79dff 64%,#fff);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 24px 50px rgba(43,111,255,.24))}
 .hero p{max-width:640px;color:var(--th-muted,#bdb5c9);font-size:clamp(16px,2vw,20px);line-height:1.75;margin:0 0 28px}
 .hero-actions{display:flex;gap:13px;flex-wrap:wrap;margin-bottom:28px}
@@ -87,7 +87,7 @@ h1{margin:22px 0 18px;font-size:clamp(45px,7.4vw,92px);line-height:.91;letter-sp
 .stat strong{display:block;font-size:24px;letter-spacing:-1px;color:#fff}
 .stat span{display:block;color:var(--th-muted);font-size:12px;font-weight:850;margin-top:3px}
 
-.cinema-stage{position:relative;height:670px;perspective:1200px;transform-style:preserve-3d}
+.cinema-stage{position:relative;display:flex;align-items:center;justify-content:center;padding:8px 0}
 .projector-beam{position:absolute;left:6%;top:27%;width:86%;height:48%;
   background:linear-gradient(90deg,rgba(255,211,106,.16),rgba(255,255,255,.035),transparent);
   clip-path:polygon(0 42%,100% 0,100% 100%,0 58%);filter:blur(2px);opacity:.8;animation:beam 4s ease-in-out infinite}
@@ -104,11 +104,11 @@ h1{margin:22px 0 18px;font-size:clamp(45px,7.4vw,92px);line-height:.91;letter-sp
 .reel.two{right:18px;bottom:100px;width:92px;height:92px;animation-direction:reverse}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-.screen-card{position:absolute;right:52px;top:70px;width:405px;height:545px;border-radius:34px;padding:18px;
-  background:linear-gradient(180deg,rgba(255,255,255,.17),rgba(255,255,255,.055));
-  border:1px solid rgba(255,255,255,.22);box-shadow:var(--mv-shadow),inset 0 1px 18px rgba(255,255,255,.12);
-  backdrop-filter:blur(23px);transform:rotateY(-16deg) rotateX(6deg) rotateZ(1deg);
-  animation:screenFloat 6s ease-in-out infinite;overflow:hidden}
+.screen-card{position:relative;width:100%;max-width:432px;min-height:512px;border-radius:28px;padding:18px;
+  background:linear-gradient(180deg,rgba(255,255,255,.11),rgba(255,255,255,.035));
+  border:1px solid rgba(255,255,255,.15);box-shadow:0 30px 80px rgba(0,0,0,.4),inset 0 1px 16px rgba(255,255,255,.08);
+  backdrop-filter:blur(22px);overflow:hidden;transition:transform .3s ease}
+.screen-card:hover{transform:translateY(-5px)}
 @keyframes screenFloat{50%{transform:rotateY(-10deg) rotateX(3deg) rotateZ(0deg) translateY(-18px)}}
 .screen-card:before{content:"";position:absolute;inset:0;
   background:linear-gradient(90deg,rgba(255,255,255,.055) 0 1px,transparent 1px 100%),
@@ -213,7 +213,7 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
 @media (max-width:980px){
   .hero{grid-template-columns:1fr;gap:0;padding-top:28px}
   .cinema-stage{order:-1;height:580px}
-  .screen-card{left:50%;right:auto;top:62px;width:348px;height:500px;transform:translateX(-50%) rotateY(-12deg) rotateX(5deg)}
+  .screen-card{max-width:380px;min-height:480px}
   .stats{grid-template-columns:repeat(2,1fr)}
   .grid-4,.steps{grid-template-columns:repeat(2,1fr)}
   .product-showcase{grid-template-columns:1fr}
@@ -308,13 +308,20 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
   .stat span{font-size:10.5px}
 }
 
+/* Calm ambient glow — replaces the moving spotlights/cinema-lines */
+.ambient-glow{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(60% 42% at 16% 6%,rgba(43,111,255,.16),transparent 60%),
+             radial-gradient(50% 38% at 86% 2%,rgba(141,92,255,.13),transparent 62%),
+             radial-gradient(64% 52% at 50% 110%,rgba(255,211,106,.06),transparent 60%)}
+/* Tasteful scroll-reveal — JS adds .js-reveal so non-JS / reduced-motion users still see content */
+.js-reveal .reveal{opacity:0;transform:translateY(26px);transition:opacity .6s cubic-bezier(.22,1,.36,1),transform .6s cubic-bezier(.22,1,.36,1)}
+.js-reveal .reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.js-reveal .reveal{opacity:1!important;transform:none!important}}
+
 </style>
 </head>
 <body>
-<div class="cinema-lines"></div>
-<div class="spotlight one"></div>
-<div class="spotlight two"></div>
-<div class="spotlight three"></div>
+<div class="ambient-glow" aria-hidden="true"></div>
 
 <!-- Marquee top banner -->
 <div class="top-banner"><div class="banner-track" id="mv-banner-track"></div></div>
@@ -364,16 +371,7 @@ footer.mv-footer{position:relative;z-index:2;padding:30px 0 90px;border-top:1px 
       <div class="stat"><strong data-tk="mv_stat4_num">UPI</strong><span data-tk="mv_stat4_label">Cards / Crypto</span></div>
     </div>
   </section>
-  <section class="cinema-stage" aria-label="Cinematic OTT theme preview">
-    <div class="projector-beam"></div>
-    <div class="reel one"></div>
-    <div class="reel two"></div>
-    <div class="floating-sub prime">Prime</div>
-    <div class="floating-sub sony">4K</div>
-    <div class="floating-sub hotstar">HS</div>
-    <div class="floating-sub zee">ZEE</div>
-    <div class="floating-sub music">♪</div>
-    <div class="floating-sub ai">AI</div>
+  <section class="cinema-stage" aria-label="OTT plans preview">
     <div class="screen-card">
       <div class="poster">
         <h3 id="mv-poster-title" data-tk="mv_poster_title">Premium Plans Activated On Your Account</h3>
@@ -658,5 +656,15 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catc
 })();
 </script>
 
+<script>
+/* Scroll-reveal: fade sections up as they enter. Skips reduced-motion + no-IO. */
+(function(){
+  if (!('IntersectionObserver' in window)) return;
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion:reduce)').matches) return;
+  document.body.classList.add('js-reveal');
+  var io = new IntersectionObserver(function(es){ es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } }); }, { threshold:.1, rootMargin:'0px 0px -7% 0px' });
+  document.querySelectorAll('[data-section]').forEach(function(el){ el.classList.add('reveal'); io.observe(el); });
+})();
+</script>
 </body>
 </html>
