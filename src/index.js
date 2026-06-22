@@ -562,6 +562,12 @@ app.get('/plans/:slug', async (req, res) => {
       buildProductJsonLd(plan, base, siteName),
       noindex ? '' : buildProductFaqJsonLd(plan, siteName, tgUrl),
       `<script>window.__PLAN_SLUG__="${esc(plan.slug)}";window.__PLAN_ID__=${plan.id};window.__HAS_PRODUCT_HERO__=1;</script>`,
+      // Single-product URL → render as a dedicated product PAGE, not the catalog
+      // with a hero stacked on top. Hide the catalog header/filters/grid (the
+      // hero is the page; the nav + hero's "Browse all plans" link reach the
+      // catalog). Added in <head> so there's no flash of the grid.
+      `<style>.sp-page .plans-header,.sp-page .plans-filters,.sp-page .plans-results-bar,.sp-page .plans-main{display:none!important}.sp-page #product-hero{margin-top:.5rem}</style>`,
+      `<script>document.documentElement.classList.add('sp-page')</script>`,
     ].filter(Boolean).join('\n');
     html = html.replace('</head>', headInject + '\n</head>');
     // Inject the server-rendered product hero above the catalog and demote the
