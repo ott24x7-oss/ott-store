@@ -151,8 +151,9 @@ router.get('/plans', noStoreCache, async (req, res) => {
     const params = [];
     if (req.query.platform) { sql += ` AND platform=?`; params.push(req.query.platform); }
     sql += ` ORDER BY sort_order ASC, id ASC`;
+    const { logoForDisplay } = require('./plans-util');
     const plans = all(db, sql, params);
-    plans.forEach(p => { try { p.features = JSON.parse(p.features || '[]'); } catch { p.features = []; } });
+    plans.forEach(p => { try { p.features = JSON.parse(p.features || '[]'); } catch { p.features = []; } p.image_url = logoForDisplay(p.name, p.platform, p.image_url); });
     res.json(plans);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

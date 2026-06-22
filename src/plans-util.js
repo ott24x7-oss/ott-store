@@ -48,4 +48,33 @@ function logoForName(name, platform) {
   return '';
 }
 
-module.exports = { durationDaysFromName, logoForName };
+// Strip plan/duration/marketing words to isolate the brand, then best-guess the
+// brand's domain — "<x> ai" → x.ai (Beautiful AI → beautiful.ai), otherwise the
+// first word(s) glued + .com. Last-resort logo source only.
+function guessDomain(name) {
+  const s = String(name || '').toLowerCase()
+    .replace(/[^a-z0-9 ]+/g, ' ')
+    .replace(/\b(\d+|pro|plus|premium|max|ultra|lite|basic|standard|business|enterprise|team|teams|family|individual|personal|student|education|edu|subscription|subscribe|sub|account|acc|access|plan|plans|key|keys|license|licence|activation|warranty|official|genuine|original|private|shared|solo|duo|month|months|mon|mo|year|years|yr|yrs|week|weeks|wk|day|days|lifetime|annual|monthly|weekly|trial|voucher|code|recharge|gift|card|topup|for|the|with|and|gb|tb)\b/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+  const w = s.split(' ').filter(Boolean);
+  // Only a CONFIDENT guess: AI brands almost always use a ".ai" domain
+  // (Beautiful AI → beautiful.ai, iAsk AI → iask.ai). Anything else → '' so the
+  // UI shows a clean letter tile instead of a wrong/generic logo.
+  if (w.length >= 2 && w[w.length - 1] === 'ai') return w.slice(0, -1).join('') + '.ai';
+  return '';
+}
+
+// Best logo to DISPLAY for a product, in priority order: admin-set image →
+// curated brand favicon → guessed-domain logo. '' only when nothing derivable
+// (the UI then shows a letter tile). Image loaders should onerror→letter so a
+// wrong guess never shows a broken image.
+function logoForDisplay(name, platform, imageUrl) {
+  const u = imageUrl != null ? String(imageUrl).trim() : '';
+  if (u) return u;
+  const curated = logoForName(name, platform);
+  if (curated) return curated;
+  const d = guessDomain(name);
+  return d ? `https://www.google.com/s2/favicons?domain=${d}&sz=128` : '';
+}
+
+module.exports = { durationDaysFromName, logoForName, guessDomain, logoForDisplay };

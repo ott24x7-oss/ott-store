@@ -1211,9 +1211,12 @@ function buildProductHero(p, tgUrl, siteName) {
   const platLabel = (p.platform && p.platform.toLowerCase() !== 'other') ? esc(p.platform) : 'Digital Product';
   const nm = esc(p.name);
   const site = esc(siteName || 'our store');
-  const img = p.image_url
-    ? `<img src="${esc(p.image_url)}" alt="${esc((p.platform ? p.platform + ' ' : '') + p.name)} — buy at ${site}" loading="eager">`
-    : `<span style="display:inline-block;width:3.4rem;height:3.4rem;color:var(--st-accent)">${ppIcon('box')}</span>`;
+  const { logoForDisplay } = require('./plans-util');
+  const initial = ((p.platform && p.platform.toLowerCase() !== 'other' ? p.platform : p.name) || '?').trim().charAt(0).toUpperCase();
+  const logo = logoForDisplay(p.name, p.platform, p.image_url);
+  const img = logo
+    ? `<img src="${esc(logo)}" alt="${esc((p.platform ? p.platform + ' ' : '') + p.name)} — buy at ${site}" loading="eager" onerror="this.onerror=null;this.parentNode.innerHTML='<span class=pp-fallback>${esc(initial)}</span>'">`
+    : `<span class="pp-fallback">${esc(initial)}</span>`;
   const faqs = productFaqs(p, siteName || 'our store', tgUrl);
   return `
 <style id="pp-css">
@@ -1227,6 +1230,7 @@ function buildProductHero(p, tgUrl, siteName) {
 .pp-hero>*{position:relative;z-index:2}
 .pp-media{display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#ffffff,#eaeef6);border:1px solid rgba(255,255,255,.5);border-radius:14px;padding:1.1rem;min-height:180px;box-shadow:inset 0 1px 0 rgba(255,255,255,.6)}
 .pp-media img{max-width:160px;max-height:132px;object-fit:contain;filter:drop-shadow(0 6px 16px rgba(0,0,0,.35))}
+.pp-fallback{font-weight:900;font-size:3.2rem;line-height:1;color:var(--st-accent,#2b6fff);font-family:inherit}
 .pp-badge{display:inline-block;font-size:.7rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--st-accent);background:rgba(43,111,255,.14);border:1px solid var(--st-border);padding:.22rem .6rem;border-radius:999px}
 .pp-h1{font-size:clamp(1.4rem,3.6vw,1.95rem);font-weight:900;line-height:1.18;margin:.55rem 0}
 .pp-facts{display:flex;flex-wrap:wrap;gap:.45rem;margin:0 0 .9rem}
