@@ -1,59 +1,62 @@
 /* ─── CSS Variables ──────────────────────────────────────────────────────── */
 :root {
-  --page-bg: #f5f6fa;
+  /* Light — cool, clean, comfortable */
+  --page-bg: #f3f5fb;
   --card: #ffffff;
-  --border: #e2e8f0;
-  --text: #1a202c;
-  --muted: #64748b;
-  --green: #16a34a;
+  --border: #e3e8f2;
+  --text: #1b2333;
+  --muted: #5b6577;
+  --green: #15a34a;
   --green-bg: #dcfce7;
   --blue: #2563eb;
   --blue-bg: #dbeafe;
   --red: #dc2626;
   --red-bg: #fee2e2;
-  --yellow: #d97706;
+  --yellow: #b45309;
   --yellow-bg: #fef3c7;
-  --shadow: 0 2px 16px rgba(0,0,0,.08);
-  --shadow-lg: 0 8px 32px rgba(0,0,0,.12);
+  --shadow: 0 2px 16px rgba(30,41,59,.08);
+  --shadow-lg: 0 8px 32px rgba(30,41,59,.12);
   --radius: 14px;
   --radius-sm: 8px;
+  /* cool accent ramp — no warm pink */
   --grad-1: #6366f1;
   --grad-2: #8b5cf6;
-  --grad-3: #ec4899;
+  --grad-3: #3b82f6;
   --my-card: var(--card);
   --my-border: var(--border);
   --my-text: var(--text);
   --my-muted: var(--muted);
   --my-page-bg: var(--page-bg);
   --my-shadow: var(--shadow);
-  --input-bg: #f8fafc;
-  --header-bg: rgba(255,255,255,.92);
+  --input-bg: #f5f7fc;
+  --header-bg: rgba(255,255,255,.9);
 }
 
 [data-theme="dark"] {
-  --page-bg: #0f1117;
-  --card: #1a1d27;
-  --border: #2d3148;
-  --text: #e8eaf6;
-  --muted: #8892b0;
-  --green: #22c55e;
-  --green-bg: #14532d;
-  --blue: #60a5fa;
-  --blue-bg: #1e3a5f;
-  --red: #f87171;
-  --red-bg: #450a0a;
+  /* Dark — soft cool slate (NOT near-black), easy on the eyes */
+  --page-bg: #161a24;
+  --card: #1e2330;
+  --border: #313a4f;
+  --text: #e7eaf3;
+  --muted: #9aa3ba;
+  --green: #34d399;
+  --green-bg: #123a2e;
+  --blue: #6ea0ff;
+  --blue-bg: #1c3252;
+  --red: #fb7185;
+  --red-bg: #3d1622;
   --yellow: #fbbf24;
-  --yellow-bg: #451a03;
-  --shadow: 0 2px 16px rgba(0,0,0,.4);
-  --shadow-lg: 0 8px 32px rgba(0,0,0,.5);
-  --my-card: #1a1d27;
-  --my-border: #2d3148;
-  --my-text: #e8eaf6;
-  --my-muted: #8892b0;
-  --my-page-bg: #0f1117;
-  --my-shadow: 0 2px 16px rgba(0,0,0,.4);
-  --input-bg: #12151f;
-  --header-bg: rgba(15,17,23,.92);
+  --yellow-bg: #3a2a0e;
+  --shadow: 0 2px 16px rgba(0,0,0,.32);
+  --shadow-lg: 0 10px 36px rgba(0,0,0,.42);
+  --my-card: #1e2330;
+  --my-border: #313a4f;
+  --my-text: #e7eaf3;
+  --my-muted: #9aa3ba;
+  --my-page-bg: #161a24;
+  --my-shadow: 0 2px 16px rgba(0,0,0,.32);
+  --input-bg: #181d28;
+  --header-bg: rgba(22,26,36,.9);
 }
 
 /* ─── Reset & Base ────────────────────────────────────────────────────────── */
@@ -75,8 +78,8 @@ body::before {
   inset: 0;
   z-index: -1;
   background:
-    radial-gradient(ellipse 80% 50% at 20% 0%, rgba(99,102,241,.10) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(236,72,153,.08) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 50% at 20% 0%, rgba(99,102,241,.1) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(56,189,248,.08) 0%, transparent 60%),
     radial-gradient(ellipse 50% 50% at 50% 50%, rgba(139,92,246,.05) 0%, transparent 70%);
   pointer-events: none;
 }

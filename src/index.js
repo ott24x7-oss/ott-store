@@ -1215,10 +1215,13 @@ function buildProductHero(p, tgUrl, siteName) {
 .pp-crumb{font-size:.8rem;color:var(--st-muted);margin-bottom:1rem;display:flex;gap:.4rem;flex-wrap:wrap;align-items:center}
 .pp-crumb a{color:var(--st-muted);text-decoration:none}.pp-crumb a:hover{color:var(--st-accent)}
 .pp-i{width:1.05em;height:1.05em;flex:0 0 auto;vertical-align:-2px}
-.pp-hero{display:grid;grid-template-columns:230px 1fr;gap:1.5rem;align-items:center;background:linear-gradient(135deg,var(--st-card-solid,rgba(255,255,255,.05)),rgba(255,255,255,.01));border:1px solid var(--st-border);border-radius:18px;padding:1.4rem;box-shadow:0 14px 44px rgba(0,0,0,.18);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
-.pp-media{display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 35%,rgba(141,92,255,.2),rgba(0,0,0,.22));border:1px solid var(--st-border);border-radius:14px;padding:1rem;min-height:172px}
+.pp-hero{position:relative;overflow:hidden;display:grid;grid-template-columns:240px 1fr;gap:1.6rem;align-items:center;background:linear-gradient(157deg,rgba(255,255,255,.1),rgba(255,255,255,.04) 30%,rgba(255,255,255,.022));border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:1.5rem;box-shadow:0 18px 50px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.16),inset 3px 0 0 0 var(--st-accent,#2b6fff);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.pp-hero::after{content:"";position:absolute;top:0;left:0;width:55%;height:100%;background:linear-gradient(105deg,transparent,rgba(255,255,255,.12),transparent);transform:translateX(-170%);pointer-events:none;z-index:1;animation:ppSheen 7s ease-in-out infinite}
+@keyframes ppSheen{0%{transform:translateX(-170%)}16%,100%{transform:translateX(330%)}}
+.pp-hero>*{position:relative;z-index:2}
+.pp-media{display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#ffffff,#eaeef6);border:1px solid rgba(255,255,255,.5);border-radius:14px;padding:1.1rem;min-height:180px;box-shadow:inset 0 1px 0 rgba(255,255,255,.6)}
 .pp-media img{max-width:160px;max-height:132px;object-fit:contain;filter:drop-shadow(0 6px 16px rgba(0,0,0,.35))}
-.pp-badge{display:inline-block;font-size:.7rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--st-accent);background:rgba(141,92,255,.14);border:1px solid var(--st-border);padding:.22rem .6rem;border-radius:999px}
+.pp-badge{display:inline-block;font-size:.7rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--st-accent);background:rgba(43,111,255,.14);border:1px solid var(--st-border);padding:.22rem .6rem;border-radius:999px}
 .pp-h1{font-size:clamp(1.4rem,3.6vw,1.95rem);font-weight:900;line-height:1.18;margin:.55rem 0}
 .pp-facts{display:flex;flex-wrap:wrap;gap:.45rem;margin:0 0 .9rem}
 .pp-chip{display:inline-flex;align-items:center;gap:.34rem;font-size:.78rem;font-weight:600;color:var(--st-text);background:var(--st-card-solid,rgba(255,255,255,.05));border:1px solid var(--st-border);border-radius:999px;padding:.32rem .62rem}
@@ -1261,7 +1264,7 @@ function buildProductHero(p, tgUrl, siteName) {
 .pp-more{display:inline-flex;align-items:center;gap:.45rem;margin-top:.4rem;color:var(--st-accent);font-weight:700;font-size:.92rem;text-decoration:none}.pp-more:hover{text-decoration:underline}
 .pp-sticky{position:sticky;bottom:0;z-index:40;display:none;gap:.8rem;align-items:center;justify-content:space-between;background:var(--st-card-solid,#12121c);border-top:1px solid var(--st-border);padding:.7rem 1rem;margin-top:1.5rem;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 @media(max-width:720px){.pp-hero{grid-template-columns:1fr;text-align:center}.pp-media{min-height:150px}.pp-facts,.pp-price,.pp-cta{justify-content:center}.pp-trust{grid-template-columns:repeat(2,1fr)}.pp-cta .pp-btn{flex:1 1 auto}.pp-sticky{display:flex}}
-@media(prefers-reduced-motion:reduce){.pp-btn,.pp-faq summary::after{transition:none}.pp-btn:active{transform:none}}
+@media(prefers-reduced-motion:reduce){.pp-btn,.pp-faq summary::after{transition:none}.pp-btn:active{transform:none}.pp-hero::after{display:none}}
 </style>
 <section id="product-hero">
   <div class="pp-wrap">
