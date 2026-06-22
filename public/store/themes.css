@@ -965,3 +965,102 @@
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   MovieVerse → premium PURE-BLACK + blue-sparing "liquid glass" retune.
+   Accent from the OTT24x7 logo: blue #2b6fff → violet #8d5cff; gold #ffd36a
+   kept ONLY as a tiny FEATURED pop. Appended last so it wins by source order.
+   ════════════════════════════════════════════════════════════════════════ */
+[data-store-theme="movieverse"]{
+  --th-bg:#0a0a0c; --st-bg:#0a0a0c; --sp-bg:#0a0a0c; --bg:#0a0a0c; --page-bg:#0a0a0c;
+  --th-card:rgba(255,255,255,.06); --st-card:rgba(255,255,255,.06); --card:rgba(255,255,255,.06); --glass:rgba(255,255,255,.05); --glass2:rgba(255,255,255,.1);
+  --th-card-solid:#16171c; --st-card-solid:#16171c; --card-solid:#16171c;
+  --th-border:rgba(255,255,255,.12); --st-border:rgba(255,255,255,.12); --sp-border:rgba(255,255,255,.12); --border:rgba(255,255,255,.12);
+  --th-text:#fff; --st-text:#fff; --sp-text:#fff; --text:#fff;
+  --th-muted:#9a9ba4; --st-muted:#9a9ba4; --sp-muted:#9a9ba4; --muted:#9a9ba4;
+  --th-glow:rgba(43,111,255,.30); --th-hero-line:#7aa6ff;
+  --th-blob1:rgba(43,111,255,.16); --th-blob2:rgba(141,92,255,.1); --th-blob3:rgba(43,111,255,.06);
+  --th-btn:linear-gradient(135deg,#2f63ef,#7c4ef0); --st-btn:linear-gradient(135deg,#2f63ef,#7c4ef0); --sp-btn:linear-gradient(135deg,#2f63ef,#7c4ef0);
+  --th-nav-bg:rgba(10,10,14,.72); --st-nav:rgba(10,10,14,.72); --sp-nav:rgba(10,10,14,.78); --header-bg:rgba(10,10,14,.72);
+  --grad-1:#2b6fff; --grad-2:#6a4ff0; --grad-3:#8d5cff;
+}
+/* pure-black body + ONE faint blue hero glow (replaces the navy/gold cinema mix) */
+[data-store-theme="movieverse"] body{
+  background:radial-gradient(125% 480px at 50% 0%,rgba(43,111,255,.12),transparent 70%),#000 !important;
+}
+[data-store-theme="movieverse"] body::before{opacity:.05 !important}
+/* prices → blue accent (not gold) */
+[data-store-theme="movieverse"] .plan-price,
+[data-store-theme="movieverse"] .price,
+[data-store-theme="movieverse"] .grad-text{
+  background:linear-gradient(135deg,#6ea0ff,#a98bff) !important;-webkit-background-clip:text !important;background-clip:text !important;-webkit-text-fill-color:transparent !important;
+}
+/* headings → white→blue (drop gold) */
+[data-store-theme="movieverse"] .legal-page h1,
+[data-store-theme="movieverse"] .blog-post-page h1,
+[data-store-theme="movieverse"] .sp-logo,
+[data-store-theme="movieverse"] .sp-footer-brand,
+[data-store-theme="movieverse"] .blog-page-header h1{
+  background:linear-gradient(120deg,#fff,#bcd1ff 60%,#9b8cff) !important;-webkit-background-clip:text !important;background-clip:text !important;-webkit-text-fill-color:transparent !important;
+}
+/* charcoal glass cards (not navy-tinted) */
+[data-store-theme="movieverse"] .st-card,
+[data-store-theme="movieverse"] .plan-card,
+[data-store-theme="movieverse"] .plan-item{
+  background:linear-gradient(157deg,rgba(255,255,255,.1),rgba(255,255,255,.04) 30%,rgba(255,255,255,.022)) !important;
+  border:1px solid rgba(255,255,255,.14) !important;
+  box-shadow:0 14px 34px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.16) !important;
+}
+/* hover borders → blue (not gold) */
+[data-store-theme="movieverse"] .plan-card:hover,
+[data-store-theme="movieverse"] .plan-item:hover,
+[data-store-theme="movieverse"] .my-plan-card:hover,
+[data-store-theme="movieverse"] .my-qa-tile:hover,
+[data-store-theme="movieverse"] .blog-card:hover{
+  border-color:rgba(43,111,255,.5) !important;
+}
+/* form focus → blue */
+[data-store-theme="movieverse"] .form-input:focus,
+[data-store-theme="movieverse"] input.my-input:focus,
+[data-store-theme="movieverse"] textarea.form-input:focus{
+  border-color:#2b6fff !important;box-shadow:0 0 0 3px rgba(43,111,255,.18) !important;
+}
+/* /my active tabs → blue (not gold) */
+[data-store-theme="movieverse"] .mam-btn.active,
+[data-store-theme="movieverse"] .my-tab-btn.active{color:#7aa6ff !important;border-bottom-color:#2b6fff !important;}
+[data-store-theme="movieverse"] .my-bnav-btn.active{color:#7aa6ff !important;}
+[data-store-theme="movieverse"] .my-auth-logo .al-icon{background:linear-gradient(135deg,#2b6fff,#8d5cff) !important;}
+[data-store-theme="movieverse"] .dash-hero{background:radial-gradient(circle at 50% 0%,rgba(43,111,255,.22),transparent 55%),#16171c !important;border:1px solid rgba(255,255,255,.12) !important;}
+/* CTAs that were forced gold → blue→violet primary */
+[data-store-theme="movieverse"] .btn-gold,
+[data-store-theme="movieverse"] .nav-account,
+[data-store-theme="movieverse"] .snav-login{
+  color:#fff !important;background:linear-gradient(135deg,#2f63ef,#7c4ef0) !important;box-shadow:0 14px 34px rgba(43,111,255,.34) !important;
+}
+/* modal hairline → neutral charcoal */
+[data-store-theme="movieverse"] .modal{
+  background:#16171c linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02)) !important;
+  border:1px solid rgba(255,255,255,.14) !important;
+}
+[data-store-theme="movieverse"] .modal-footer .btn-secondary:hover{border-color:rgba(43,111,255,.45) !important;background:rgba(43,111,255,.16) !important;}
+/* status colours kept DISTINCT from the blue accent: error → red */
+[data-store-theme="movieverse"] .alert-error,
+[data-store-theme="movieverse"] .badge-expired,
+[data-store-theme="movieverse"] .badge-failed{
+  background:rgba(255,75,98,.14) !important;border-color:rgba(255,75,98,.34) !important;color:#ff8796 !important;
+}
+[data-store-theme="movieverse"] .spinner{border-top-color:#2b6fff !important;}
+[data-store-theme="movieverse"] .toast{border:1px solid rgba(255,255,255,.14) !important;}
+/* /plans storefront cards (splan-*) → charcoal glass + staggered sheen */
+[data-store-theme="movieverse"] .splan-card{
+  position:relative;overflow:hidden;
+  background:linear-gradient(157deg,rgba(255,255,255,.1),rgba(255,255,255,.04) 30%,rgba(255,255,255,.022)) !important;
+  border:1px solid rgba(255,255,255,.12) !important;
+  box-shadow:0 14px 34px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.14) !important;
+}
+[data-store-theme="movieverse"] .splan-card:hover{border-color:rgba(43,111,255,.5) !important;}
+[data-store-theme="movieverse"] .splan-card::after{content:"";position:absolute;top:0;left:0;width:55%;height:100%;background:linear-gradient(105deg,transparent,rgba(255,255,255,.12),transparent);transform:translateX(-170%);pointer-events:none;z-index:2;animation:splanSheen 7.5s ease-in-out infinite}
+[data-store-theme="movieverse"] .splan-grid .splan-card:nth-child(3n+2)::after{animation-delay:2.4s}
+[data-store-theme="movieverse"] .splan-grid .splan-card:nth-child(3n)::after{animation-delay:4.8s}
+@keyframes splanSheen{0%{transform:translateX(-170%)}16%,100%{transform:translateX(340%)}}
+@media (prefers-reduced-motion:reduce){[data-store-theme="movieverse"] .splan-card::after{display:none}}

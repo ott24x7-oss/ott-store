@@ -22,25 +22,27 @@
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#070B1A; --bg-2:#0A0F26; --surface:rgba(18,24,54,.55); --surface-solid:#111735; --surface-2:#161D43;
-    --line:rgba(130,150,230,0.14); --line-2:rgba(130,150,230,0.26);
-    --text:#EEF1FB; --muted:#9AA0C2; --muted-2:#6E739A;
-    --blue:#4D7CFF; --violet:#8B5CF6;
-    --grad-b:linear-gradient(135deg,#4D7CFF 0%,#7B6BFF 55%,#9B5CF6 100%);
-    --amber:#FFC65C; --amber-2:#FF8A3D;
-    --grad-a:linear-gradient(135deg,#FFD27A 0%,#FFB23E 50%,#FF8A3D 100%);
-    --grad-head:linear-gradient(120deg,#FFD27A 0%,#FF9E4D 30%,#8FB0FF 70%,#9B5CF6 100%);
-    --green:#3CE0A0; --radius:18px; --maxw:1180px; --ease:cubic-bezier(.22,.61,.36,1);
+    /* Brand-logo accent ramp: blue play-button #2b6fff -> violet "x7" #8d5cff; gold "24/7" #ffd36a = sparing pop */
+    --bg:#0a0a0c; --bg-2:#0d0d11; --surface:rgba(22,23,28,.62); --surface-solid:#16171c; --surface-2:#202127;
+    --line:rgba(255,255,255,0.12); --line-2:rgba(255,255,255,0.20);
+    --text:#ffffff; --muted:#9a9ba4; --muted-2:#74757e;
+    --blue:#2b6fff; --violet:#8d5cff;
+    --grad-b:linear-gradient(135deg,#2b6fff 0%,#8d5cff 100%);
+    --amber:#2b6fff; --amber-2:#8d5cff;
+    --grad-a:linear-gradient(135deg,#2f63ef 0%,#7c4ef0 100%);
+    --grad-head:linear-gradient(120deg,#ffffff 0%,#bcd1ff 38%,#9b8cff 100%);
+    --gold:#ffd36a;
+    --green:#42e58b; --red:#ff4b62; --radius:18px; --maxw:1180px; --ease:cubic-bezier(.22,.61,.36,1);
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{scroll-behavior:smooth}
-  body{background:var(--bg);color:var(--text);font-family:'Hanken Grotesk',system-ui,sans-serif;
+  body{background:#000;color:var(--text);font-family:'Hanken Grotesk',system-ui,sans-serif;
     line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
-  /* ambient glows */
-  .glow{position:fixed;border-radius:50%;filter:blur(130px);z-index:0;pointer-events:none}
-  .glow.g1{width:680px;height:680px;top:-260px;left:-160px;background:radial-gradient(circle,rgba(77,124,255,.24),transparent 70%);animation:drift1 22s ease-in-out infinite alternate}
-  .glow.g2{width:600px;height:600px;top:18%;right:-240px;background:radial-gradient(circle,rgba(255,178,62,.13),transparent 70%);animation:drift2 26s ease-in-out infinite alternate}
-  .glow.g3{width:520px;height:520px;bottom:-220px;left:30%;background:radial-gradient(circle,rgba(155,92,246,.16),transparent 70%);animation:drift1 30s ease-in-out infinite alternate}
+  /* faint accent glow behind the hero, over pure black (Step 2 spec) */
+  .glow{position:fixed;border-radius:50%;filter:blur(140px);z-index:0;pointer-events:none}
+  .glow.g1{width:760px;height:520px;top:-280px;left:50%;transform:translateX(-50%);background:radial-gradient(circle,rgba(43,111,255,.16),transparent 70%);animation:drift1 24s ease-in-out infinite alternate}
+  .glow.g2{width:560px;height:560px;top:26%;right:-260px;background:radial-gradient(circle,rgba(141,92,255,.10),transparent 70%);animation:drift2 28s ease-in-out infinite alternate}
+  .glow.g3{width:480px;height:480px;bottom:-240px;left:22%;background:radial-gradient(circle,rgba(43,111,255,.06),transparent 70%);animation:drift1 32s ease-in-out infinite alternate}
   @keyframes drift1{to{transform:translate3d(40px,30px,0) scale(1.08)}}
   @keyframes drift2{to{transform:translate3d(-36px,26px,0) scale(1.06)}}
   ::selection{background:rgba(255,178,62,.30);color:#fff}
@@ -72,8 +74,8 @@
   .nav-links a:hover{color:var(--text)}
   .btn{display:inline-flex;align-items:center;gap:8px;font-family:'Hanken Grotesk';font-weight:700;border:none;
     cursor:pointer;border-radius:12px;font-size:.93rem;transition:transform .25s var(--ease),box-shadow .25s var(--ease),background .25s}
-  .btn-amber{background:var(--grad-a);color:#2A1500;padding:11px 20px;box-shadow:0 6px 22px rgba(255,160,60,.32)}
-  .btn-amber:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(255,160,60,.46)}
+  .btn-amber{background:var(--grad-a);color:#fff;padding:11px 20px;box-shadow:0 8px 24px rgba(43,111,255,.34)}
+  .btn-amber:hover{transform:translateY(-2px);box-shadow:0 12px 34px rgba(43,111,255,.5)}
   .btn-blue{background:var(--grad-b);color:#fff;padding:11px 20px;box-shadow:0 6px 22px rgba(91,107,255,.32)}
   .btn-blue:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(91,107,255,.46)}
   .btn-ghost{background:rgba(255,255,255,.05);color:var(--text);padding:11px 20px;border:1px solid var(--line-2);backdrop-filter:blur(8px)}
@@ -291,9 +293,22 @@
     .hero-cta{flex-direction:column;align-items:stretch}
     .hero-cta .btn{justify-content:center}
   }
+  /* ── premium glass recipe: diagonal sheen sweep + signature left-accent bar ── */
+  .product-row,.cat{position:relative;overflow:hidden}
+  .product-row{box-shadow:inset 3px 0 0 0 var(--blue)}
+  .product-row::after,.cat::after{content:"";position:absolute;top:0;left:0;width:55%;height:100%;
+    background:linear-gradient(105deg,transparent,rgba(255,255,255,.14),transparent);
+    transform:translateX(-170%);pointer-events:none;z-index:2;animation:cardSheen 7s ease-in-out infinite}
+  .cats .cat:nth-child(2)::after{animation-delay:1.7s}.cats .cat:nth-child(3)::after{animation-delay:3.4s}.cats .cat:nth-child(4)::after{animation-delay:5.1s}
+  .sellers .product-row:nth-child(2)::after{animation-delay:1.7s}.sellers .product-row:nth-child(3)::after{animation-delay:3.4s}.sellers .product-row:nth-child(4)::after{animation-delay:5.1s}
+  @keyframes cardSheen{0%{transform:translateX(-170%)}16%,100%{transform:translateX(340%)}}
+  /* gold stays only as a tiny rating pop */
+  .social-proof svg{fill:var(--gold)!important}
+
   @media(prefers-reduced-motion:reduce){
     *{animation:none!important;transition:none!important}
     .reveal{opacity:1;transform:none}
+    .product-row::after,.cat::after{display:none}
   }
 </style>
 </head>
