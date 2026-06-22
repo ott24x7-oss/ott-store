@@ -595,6 +595,7 @@ function buildDetailHtml(p){
   ${(u=>u?`<div style="font-size:.85rem;color:var(--st-muted);font-weight:600;margin:-.45rem 0 .85rem">≈ ${u} USDT</div>`:'')(usdtFromInr(p.price_inr))}
   ${features.length?`<ul style="list-style:none;margin:0 0 .8rem;padding:0;display:flex;flex-direction:column;gap:.32rem">${features.map(f=>`<li style="font-size:.82rem;color:var(--st-text);padding-left:1.35em;position:relative"><span style="position:absolute;left:0;color:var(--st-accent)">✓</span>${esc(f)}</li>`).join('')}</ul>`:''}
   ${p.description?`<p style="font-size:.82rem;color:var(--st-muted);line-height:1.55;margin:0 0 .9rem">${esc(p.description)}</p>`:''}
+  ${p.slug?`<a href="/plans/${esc(p.slug)}" class="splan-btn" style="display:block;text-align:center;text-decoration:none;margin-bottom:.6rem;background:rgba(255,255,255,.05);border:1px solid var(--st-border);color:var(--st-text);font-weight:700">📄 View full product page</a>`:''}
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:.25rem">
     <button id="pd-login" class="splan-btn" ${oos?'disabled':''} style="padding:.78rem .5rem;font-size:.85rem;border-radius:12px;line-height:1.25">${oos?'🔴 Out of Stock':loginLabel}</button>
     <button id="pd-guest" class="splan-btn" ${oos?'disabled':''} style="padding:.78rem .5rem;font-size:.85rem;border-radius:12px;line-height:1.25;background:linear-gradient(135deg,#7c3aed,#6d28d9)">📧 Guest Checkout</button>
