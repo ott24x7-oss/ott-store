@@ -706,9 +706,16 @@ a:hover{color:#8af1ff;text-decoration:underline}
 .sp-logo:hover{opacity:.85;text-decoration:none}
 .sp-links{display:flex;gap:.25rem;margin-left:auto;align-items:center}
 .sp-links a{color:var(--sp-muted);font-size:.875rem;font-weight:500;padding:.4rem .85rem;border-radius:8px;transition:all .15s;text-decoration:none}
-.sp-links a:hover{color:var(--sp-text);background:rgba(255,43,79,.12);text-decoration:none}
-.sp-links .sp-cta{background:var(--sp-btn);color:#fff;padding:.45rem 1.1rem;border-radius:50px;font-weight:700;font-size:.85rem;box-shadow:0 8px 24px rgba(255,43,79,.3)}
-.sp-links .sp-cta:hover{filter:brightness(1.1);text-decoration:none;color:#fff}
+.sp-links a:hover{color:var(--sp-text);background:rgba(255,255,255,.07);text-decoration:none}
+.sp-links .sp-cta{background:var(--sp-btn);color:#fff;padding:.5rem 1.2rem;border-radius:50px;font-weight:700;font-size:.86rem;box-shadow:0 8px 24px rgba(43,111,255,.34)}
+.sp-links .sp-cta:hover{filter:brightness(1.08);text-decoration:none;color:#fff}
+.sp-burger{display:none;background:rgba(255,255,255,.05);border:1px solid var(--sp-border);border-radius:10px;width:44px;height:44px;color:var(--sp-text);cursor:pointer;font-size:1.2rem;margin-left:auto;touch-action:manipulation}
+.sp-mob{display:none;position:fixed;inset:0;z-index:999;background:rgba(5,5,11,.96);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);padding:5rem 1.5rem 2rem;flex-direction:column;gap:.35rem;overflow-y:auto}
+.sp-mob.open{display:flex}
+.sp-mob a{font-size:1.05rem;font-weight:600;color:#fff;text-decoration:none;padding:.85rem .25rem;border-bottom:1px solid var(--sp-border)}
+.sp-mob a.sp-cta{margin-top:.7rem;text-align:center;background:var(--sp-btn);border:0;border-radius:50px;padding:.85rem;box-shadow:0 8px 24px rgba(43,111,255,.34)}
+.sp-mob-close{position:absolute;top:1.2rem;right:1.5rem;background:rgba(255,255,255,.06);border:1px solid var(--sp-border);color:#fff;border-radius:10px;width:44px;height:44px;cursor:pointer;font-size:1.1rem}
+@media(max-width:860px){.sp-links{display:none}.sp-burger{display:grid;place-items:center}}
 /* Theme toggle */
 .sp-theme-btn{background:var(--sp-card);border:1px solid var(--sp-border);color:var(--sp-text);border-radius:50%;width:34px;height:34px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:.5rem}
 /* Page footer */
@@ -839,10 +846,15 @@ function spNav(siteName, logoLight, logoDark, menuItems) {
       ? `<a href="${esc(it.href)}" class="sp-cta">${esc(it.label)}</a>`
       : `<a href="${esc(it.href)}">${esc(it.label)}</a>`
   ).join('');
+  const mobItems = resolved.filter(it => it.mobile !== false && it.mobile !== 0 && it.mobile !== '0');
+  const mobHtml = mobItems.map(it => `<a href="${esc(it.href)}"${it.cta ? ' class="sp-cta"' : ''}>${esc(it.label)}</a>`).join('');
   return `<nav class="sp-nav"><div class="sp-nav-inner">
 <a href="/" class="sp-logo" id="sp-nav-logo">${logoHtml}</a>
 <div class="sp-links">${linksHtml}</div>
-</div></nav>`;
+<button class="sp-burger" id="sp-burger" aria-label="Menu">☰</button>
+</div></nav>
+<div class="sp-mob" id="sp-mob"><button class="sp-mob-close" id="sp-mob-close" aria-label="Close">✕</button>${mobHtml}</div>
+<script>(function(){var b=document.getElementById('sp-burger'),m=document.getElementById('sp-mob'),c=document.getElementById('sp-mob-close');function cl(){m&&m.classList.remove('open');}b&&b.addEventListener('click',function(){m&&m.classList.add('open');});c&&c.addEventListener('click',cl);m&&[].forEach.call(m.querySelectorAll('a'),function(a){a.addEventListener('click',cl);});})();</script>`;
 }
 
 function spFooter(siteName) {
