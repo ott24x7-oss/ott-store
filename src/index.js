@@ -1222,7 +1222,7 @@ function buildProductHero(p, tgUrl, siteName) {
 <style id="pp-css">
 .pp-wrap{max-width:1040px;margin:0 auto;padding:1.25rem 1.1rem 0}
 .pp-crumb{font-size:.8rem;color:var(--st-muted);margin-bottom:1rem;display:flex;gap:.4rem;flex-wrap:wrap;align-items:center}
-.pp-crumb a{color:var(--st-muted);text-decoration:none}.pp-crumb a:hover{color:var(--st-accent)}
+.pp-crumb a{color:var(--st-muted);text-decoration:none;display:inline-block;padding:.25rem 0}.pp-crumb a:hover{color:var(--st-accent)}
 .pp-i{width:1.05em;height:1.05em;flex:0 0 auto;vertical-align:-2px}
 .pp-hero{position:relative;overflow:hidden;display:grid;grid-template-columns:240px 1fr;gap:1.6rem;align-items:center;background:linear-gradient(157deg,rgba(255,255,255,.1),rgba(255,255,255,.04) 30%,rgba(255,255,255,.022));border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:1.5rem;box-shadow:0 18px 50px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.16),inset 3px 0 0 0 var(--st-accent,#2b6fff);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
 .pp-hero::after{content:"";position:absolute;top:0;left:0;width:55%;height:100%;background:linear-gradient(105deg,transparent,rgba(255,255,255,.12),transparent);transform:translateX(-170%);pointer-events:none;z-index:1;animation:ppSheen 7s ease-in-out infinite}
