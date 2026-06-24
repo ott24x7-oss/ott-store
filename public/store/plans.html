@@ -768,9 +768,10 @@ function showGuestUpiPayment(plan,r){
 <div style="text-align:center">
   <h3 style="margin:0 0 .1rem;font-size:1rem">💳 Pay via UPI</h3>
   <div style="font-size:.8rem;color:var(--st-muted);margin-bottom:.75rem">${esc(plan.name)}</div>
-  <div style="font-size:.78rem;color:var(--st-muted)">Pay exactly</div>
+  <div style="font-size:.78rem;color:var(--st-muted)">Pay this EXACT amount</div>
   <div style="font-size:2.2rem;font-weight:900;color:var(--st-accent)">₹${r.unique_amount}</div>
-  <div style="font-size:.72rem;color:var(--st-muted);margin-bottom:.5rem">${dynamicQr?'Scan the QR or tap below — the exact amount is filled in for you':'(unique amount — do not round off)'}</div>
+  <button id="gp-copy-amt" type="button" class="splan-btn" style="display:inline-flex;align-items:center;width:auto;margin:.15rem 0 .45rem;padding:.42rem 1rem;font-size:.82rem;background:var(--st-card);border:1px solid var(--st-border);color:var(--st-text)">📋 Copy amount</button>
+  <div style="font-size:.74rem;color:#f59e0b;font-weight:800;margin-bottom:.55rem">${dynamicQr?'Scan the QR or tap below — the exact amount is filled in for you':'⚠️ Pay exactly ₹'+r.unique_amount+' — a rounded or wrong amount delays your order'}</div>
   <div id="gp-timer" style="display:inline-flex;align-items:center;gap:.4rem;font-size:.82rem;font-weight:800;color:var(--st-accent);background:rgba(43,111,255,.1);border:1px solid var(--st-border);border-radius:999px;padding:.32rem .8rem;margin-bottom:.75rem">⏱ <span id="gp-time" style="font-variant-numeric:tabular-nums">--:--:--</span> left to pay</div>
   ${qr?`<div style="display:flex;justify-content:center;margin-bottom:.4rem"><img src="${esc(qr)}" style="width:160px;height:160px;border-radius:12px;background:#fff;padding:6px;object-fit:contain" onerror="this.style.display='none'"></div>${dynamicQr?'<div style="font-size:.7rem;color:#22c55e;margin-bottom:.6rem">✓ Amount auto-filled — just confirm</div>':''}`:''}
   <div style="background:var(--st-card);border-radius:8px;padding:.65rem;margin-bottom:.5rem">
@@ -788,9 +789,11 @@ function showGuestUpiPayment(plan,r){
 
   showAmountAlert(r.unique_amount);
 
-  // Copy UPI ID button (with brief "Copied" feedback)
+  // Copy UPI ID + Copy amount buttons (with brief "Copied" feedback)
   const _cp=document.getElementById('gp-copy');
   if(_cp)_cp.onclick=()=>{copyText(r.upi_id);_cp.textContent='✓ Copied!';setTimeout(()=>{_cp.textContent='📋 Copy UPI ID';},1500);};
+  const _ca=document.getElementById('gp-copy-amt');
+  if(_ca)_ca.onclick=()=>{copyText(String(r.unique_amount));_ca.textContent='✓ Copied!';setTimeout(()=>{_ca.textContent='📋 Copy amount';},1500);};
   // Live countdown to the payment-window expiry
   (function(){
     const _exp=r.expires_at?new Date(r.expires_at).getTime():(Date.now()+((r.window_minutes||1440)*60000));

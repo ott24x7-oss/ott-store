@@ -150,8 +150,20 @@ async function parseAndMatch(rawMessages) {
           const list = cands.map(t => `#${t.id} (expected ₹${t.unique_amount})`).join(', ');
           await notifyAdmin(`⚠️ *Payment needs manual verify*\nReceived *₹${amt}* but ${cands.length} pending orders could match: ${list}.\nOpen Admin → Payment Log and tap *✓ Verify* on the right one.`, { db });
         } catch {}
+      } else {
+        // cands.length === 0 — no exact base-price match. If the amount is CLOSE to a
+        // pending order's expected amount it's likely a customer mistype / over- or
+        // under-payment, so alert the admin instead of silently dropping it. (Far-off
+        // amounts match nothing and are correctly ignored as unrelated.)
+        const near = pendingInr.filter(t => t.status === 'pending' && Math.abs(t.unique_amount - amt) <= 10);
+        if (near.length) {
+          try {
+            const { notifyAdmin } = require('./notify');
+            const list = near.map(t => `#${t.id} (expected ₹${t.unique_amount})`).join(', ');
+            await notifyAdmin(`⚠️ *Payment amount mismatch*\nReceived *₹${amt}* but no order expects that exact amount. Closest pending: ${list}.\nIf a customer paid the wrong amount, open Admin → Payment Log → *✓ Verify* the right order (or refund).`, { db });
+          } catch {}
+        }
       }
-      // cands.length === 0 → unrelated payment, ignore.
     }
 
     // Match USDT (Binance / BEP20 / TRC20)
