@@ -35,7 +35,7 @@
     --green:#42e58b; --red:#ff4b62; --radius:18px; --maxw:1180px; --ease:cubic-bezier(.22,.61,.36,1);
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html{scroll-behavior:smooth}
+  html{scroll-behavior:smooth;overflow-x:hidden}
   body{background:#000;color:var(--text);font-family:'Hanken Grotesk',system-ui,sans-serif;
     line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
   /* faint accent glow behind the hero, over pure black (Step 2 spec) */
@@ -94,7 +94,7 @@
 
   /* ---- HERO ---- */
   .hero{padding:70px 0 60px;position:relative}
-  .hero-grid{display:grid;grid-template-columns:1.04fr .96fr;gap:52px;align-items:center;position:relative;z-index:2}
+  .hero-grid{display:grid;grid-template-columns:minmax(0,1.04fr) minmax(0,.96fr);gap:52px;align-items:center;position:relative;z-index:2}
   .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:.78rem;font-weight:600;letter-spacing:.03em;
     color:var(--green);background:rgba(60,224,160,.08);border:1px solid rgba(60,224,160,.22);padding:7px 13px;border-radius:100px;margin-bottom:22px}
   .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green)}
@@ -275,7 +275,7 @@
 
   /* ---- responsive ---- */
   @media(max-width:920px){
-    .hero-grid{grid-template-columns:1fr;gap:42px}
+    .hero-grid{grid-template-columns:minmax(0,1fr);gap:42px}
     .stats{grid-template-columns:repeat(2,1fr)}
     .cats,.why,.steps{grid-template-columns:repeat(2,1fr)}
     .sellers{grid-template-columns:1fr}
