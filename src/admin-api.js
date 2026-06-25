@@ -2790,6 +2790,8 @@ const ALLOWED_THEMES = new Set([
   'aurora-teal','volcano','lavender-mist','navy-classic','emerald-city',
   'crystal-clean','obsidian-gold','electric-blue','crimson-tide','teal-ocean',
   'movieverse',
+  // 10 premium template themes (volt…ember) — see src/index.js + themes.css.
+  'volt','sunset','aqua','plasma','gold','ice','mint','rose','cyber','ember',
 ]);
 router.post('/store-theme', requireAdmin, async (req, res) => {
   try {

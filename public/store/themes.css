@@ -978,6 +978,7 @@
   --th-border:rgba(255,255,255,.12); --st-border:rgba(255,255,255,.12); --sp-border:rgba(255,255,255,.12); --border:rgba(255,255,255,.12);
   --th-text:#fff; --st-text:#fff; --sp-text:#fff; --text:#fff;
   --th-muted:#9a9ba4; --st-muted:#9a9ba4; --sp-muted:#9a9ba4; --muted:#9a9ba4;
+  --th-accent:#2b6fff; --th-accent-end:#8d5cff; --th-accent-pop:#7aa6ff; --btn-ink:#fff;
   --th-glow:rgba(43,111,255,.30); --th-hero-line:#7aa6ff;
   --th-blob1:rgba(43,111,255,.16); --th-blob2:rgba(141,92,255,.1); --th-blob3:rgba(43,111,255,.06);
   --th-btn:linear-gradient(135deg,#2f63ef,#7c4ef0); --st-btn:linear-gradient(135deg,#2f63ef,#7c4ef0); --sp-btn:linear-gradient(135deg,#2f63ef,#7c4ef0);
@@ -1064,3 +1065,138 @@
 [data-store-theme="movieverse"] .splan-grid .splan-card:nth-child(3n)::after{animation-delay:4.8s}
 @keyframes splanSheen{0%{transform:translateX(-170%)}16%,100%{transform:translateX(340%)}}
 @media (prefers-reduced-motion:reduce){[data-store-theme="movieverse"] .splan-card::after{display:none}}
+
+/* ════════════════════════════════════════════════════════════════════════
+   10 PREMIUM TEMPLATE THEMES  ·  volt · sunset · aqua · plasma · gold
+                                  ice · mint · rose · cyber · ember
+   Same pure-black "liquid-glass" shell as MovieVerse — only the accent
+   identity changes per theme. Each sets the full --th-/--st-/--sp- alias
+   trio (+ legacy --red/--orange/--bg) so the palette reaches the landing,
+   /plans, /my, single-product and legal pages alike. Appended last → wins.
+   Buttons use the bright accent gradient with a near-black --btn-ink (the
+   source-template look); cyber is the one indigo→cyan case that takes white
+   ink on a slightly deepened gradient for AA contrast.
+   ════════════════════════════════════════════════════════════════════════ */
+[data-store-theme="volt"],[data-store-theme="sunset"],[data-store-theme="aqua"],[data-store-theme="plasma"],[data-store-theme="gold"],[data-store-theme="ice"],[data-store-theme="mint"],[data-store-theme="rose"],[data-store-theme="cyber"],[data-store-theme="ember"]{
+  --th-bg:#0a0a0c; --st-bg:#0a0a0c; --sp-bg:#0a0a0c; --bg:#0a0a0c; --page-bg:#0a0a0c;
+  --th-card:rgba(255,255,255,.06); --st-card:rgba(255,255,255,.06); --card:rgba(255,255,255,.06); --glass:rgba(255,255,255,.05); --glass2:rgba(255,255,255,.1);
+  --th-card-solid:#16171c; --st-card-solid:#16171c; --card-solid:#16171c;
+  --th-border:rgba(255,255,255,.12); --st-border:rgba(255,255,255,.12); --sp-border:rgba(255,255,255,.12); --border:rgba(255,255,255,.12);
+  --th-text:#fff; --st-text:#fff; --sp-text:#fff; --text:#fff;
+  --th-muted:#9a9ba4; --st-muted:#9a9ba4; --sp-muted:#9a9ba4; --muted:#9a9ba4;
+  --th-nav-bg:rgba(10,10,14,.72); --st-nav:rgba(10,10,14,.72); --sp-nav:rgba(10,10,14,.78); --header-bg:rgba(10,10,14,.72);
+  --th-faq-bg:rgba(255,255,255,.03); --th-stat-bg:rgba(255,255,255,.04); --th-step-bg:rgba(255,255,255,.05);
+  --th-dark:1;
+}
+[data-store-theme="volt"]{
+  --th-accent:#9be80f;--st-accent:#9be80f;--sp-accent:#9be80f;--red:#9be80f;
+  --th-accent-end:#00d08a;--st-accent-end:#00d08a;--sp-accent2:#00d08a;--sp-accent-end:#00d08a;--orange:#00d08a;--purple:#00d08a;
+  --th-accent-pop:#b6ff3d;--btn-ink:#0a0b0d;
+  --th-btn:linear-gradient(135deg,#9be80f,#00d08a);--st-btn:linear-gradient(135deg,#9be80f,#00d08a);--sp-btn:linear-gradient(135deg,#9be80f,#00d08a);--th-badge-bg:linear-gradient(135deg,#9be80f,#00d08a);
+  --th-glow:rgba(155,232,15,.30);--th-hero-line:#c6ff7a;
+  --th-blob1:rgba(155,232,15,.16);--th-blob2:rgba(0,208,138,.10);--th-blob3:rgba(155,232,15,.06);
+  --th-hero-bg:radial-gradient(ellipse 130% 70% at 50% -5%,rgba(155,232,15,.16),#0a0a0c 62%);
+  --grad-1:#9be80f;--grad-2:#54dc6a;--grad-3:#00d08a;
+}
+[data-store-theme="sunset"]{
+  --th-accent:#fb923c;--st-accent:#fb923c;--sp-accent:#fb923c;--red:#fb923c;
+  --th-accent-end:#f43f5e;--st-accent-end:#f43f5e;--sp-accent2:#f43f5e;--sp-accent-end:#f43f5e;--orange:#f43f5e;--purple:#f43f5e;
+  --th-accent-pop:#ffb37a;--btn-ink:#0a0b0d;
+  --th-btn:linear-gradient(135deg,#fb923c,#f43f5e);--st-btn:linear-gradient(135deg,#fb923c,#f43f5e);--sp-btn:linear-gradient(135deg,#fb923c,#f43f5e);--th-badge-bg:linear-gradient(135deg,#fb923c,#f43f5e);
+  --th-glow:rgba(251,146,60,.30);--th-hero-line:#ffc59e;
+  --th-blob1:rgba(251,146,60,.16);--th-blob2:rgba(244,63,94,.10);--th-blob3:rgba(251,146,60,.06);
+  --th-hero-bg:radial-gradient(ellipse 130% 70% at 50% -5%,rgba(251,146,60,.16),#0a0a0c 62%);
+  --grad-1:#fb923c;--grad-2:#f76a4d;--grad-3:#f43f5e;
+}
+[data-store-theme="aqua"]{
+  --th-accent:#22d3ee;--st-accent:#22d3ee;--sp-accent:#22d3ee;--red:#22d3ee;
+  --th-accent-end:#3b82f6;--st-accent-end:#3b82f6;--sp-accent2:#3b82f6;--sp-accent-end:#3b82f6;--orange:#3b82f6;--purple:#3b82f6;
+  --th-accent-pop:#67e8f9;--btn-ink:#0a0b0d;
+  --th-btn:linear-gradient(135deg,#22d3ee,#3b82f6);--st-btn:linear-gradient(135deg,#22d3ee,#3b82f6);--sp-btn:linear-gradient(135deg,#22d3ee,#3b82f6);--th-badge-bg:linear-gradient(135deg,#22d3ee,#3b82f6);
+  --th-glow:rgba(34,211,238,.30);--th-hero-line:#9be8fb;
+  --th-blob1:rgba(34,211,238,.16);--th-blob2:rgba(59,130,246,.10);--th-blob3:rgba(34,211,238,.06);
+  --th-hero-bg:radial-gradient(ellipse 130% 70% at 50% -5%,rgba(34,211,238,.16),#0a0a0c 62%);
+  --grad-1:#22d3ee;--grad-2:#2eaaf2;--grad-3:#3b82f6;
+}
+[data-store-theme="plasma"]{
+  --th-accent:#a855f7;--st-accent:#a855f7;--sp-accent:#a855f7;--red:#a855f7;
+  --th-accent-end:#ec4899;--st-accent-end:#ec4899;--sp-accent2:#ec4899;--sp-accent-end:#ec4899;--orange:#ec4899;--purple:#ec4899;
+  --th-accent-pop:#d8b4fe;--btn-ink:#0a0b0d;
+  --th-btn:linear-gradient(135deg,#a855f7,#ec4899);--st-btn:linear-gradient(135deg,#a855f7,#ec4899);--sp-btn:linear-gradient(135deg,#a855f7,#ec4899);--th-badge-bg:linear-gradient(135deg,#a855f7,#ec4899);
+  --th-glow:rgba(168,85,247,.30);--th-hero-line:#d8b4fe;
+  --th-blob1:rgba(168,85,247,.16);--th-blob2:rgba(236,72,153,.10);--th-blob3:rgba(168,85,247,.06);
+  --th-hero-bg:radial-gradient(ellipse 130% 70% at 50% -5%,rgba(168,85,247,.16),#0a0a0c 62%);
+  --grad-1:#a855f7;--grad-2:#c96fc8;--grad-3:#ec4899;
+}
+[data-store-theme="gold"]{
+  --th-accent:#fbbf24;--st-accent:#fbbf24;--sp-accent:#fbbf24;--red:#fbbf24;
+  --th-accent-end:#f97316;--st-accent-end:#f97316;--sp-accent2:#f97316;--sp-accent-end:#f97316;--orange:#f97316;--purple:#f97316;
+  --th-accent-pop:#fcd34d;--btn-ink:#0a0b0d;
+  --th-btn:linear-gradient(135deg,#fbbf24,#f97316);--st-btn:linear-gradient(135deg,#fbbf24,#f97316);--sp-btn:linear-gradient(135deg,#fbbf24,#f97316);--th-badge-bg:linear-gradient(135deg,#fbbf24,#f97316);
+  --th-glow:rgba(251,191,36,.30);--th-hero-line:#fcd98b;
+  --th-blob1:rgba(251,191,36,.16);--th-blob2:rgba(249,115,22,.10);--th-blob3:rgba(251,191,36,.06);
+  --th-hero-bg:radial-gradient(ellipse 130% 70% at 50% -5%,rgba(251,191,36,.16),#0a0a0c 62%);
+  --grad-1:#fbbf24;--grad-2:#fa9d1d;--grad-3:#f97316;
+}
+[data-store-theme="ice"]{
+  --th-accent:#60a5fa;--st-accent:#60a5fa;--sp-accent:#60a5fa;--red:#60a5fa;
+  --th-accent-end:#818cf8;--st-accent-end:#818cf8;--sp-accent2:#818cf8;--sp-accent-end:#818cf8;--orange:#818cf8;--purple:#818cf8;
+  --th-accent-pop:#bfdbfe;--btn-ink:#0a0b0d;
+  --th-btn:linear-gradient(135deg,#60a5fa,#818cf8);--st-btn:linear-gradient(135deg,#60a5fa,#818cf8);--sp-btn:linear-gradient(135deg,#60a5fa,#818cf8);--th-badge-bg:linear-gradient(135deg,#60a5fa,#818cf8);
+  --th-glow:rgba(96,165,250,.30);--th-hero-line:#bcd6ff;
+  --th-blob1:rgba(96,165,250,.16);--th-blob2:rgba(129,140,248,.10);--th-blob3:rgba(96,165,250,.06);
+  --th-hero-bg:radial-gradient(ellipse 130% 70% at 50% -5%,rgba(96,165,250,.16),#0a0a0c 62%);
+  --grad-1:#60a5fa;--grad-2:#6f99f9;--grad-3:#818cf8;
+}
+[data-store-theme="mint"]{
+  --th-accent:#2dd4bf;--st-accent:#2dd4bf;--sp-accent:#2dd4bf;--red:#2dd4bf;
+  --th-accent-end:#4ade80;--st-accent-end:#4ade80;--sp-accent2:#4ade80;--sp-accent-end:#4ade80;--orange:#4ade80;--purple:#4ade80;
+  --th-accent-pop:#5eead4;--btn-ink:#0a0b0d;
+  --th-btn:linear-gradient(135deg,#2dd4bf,#4ade80);--st-btn:linear-gradient(135deg,#2dd4bf,#4ade80);--sp-btn:linear-gradient(135deg,#2dd4bf,#4ade80);--th-badge-bg:linear-gradient(135deg,#2dd4bf,#4ade80);
+  --th-glow:rgba(45,212,191,.30);--th-hero-line:#9bf0dd;
+  --th-blob1:rgba(45,212,191,.16);--th-blob2:rgba(74,222,128,.10);--th-blob3:rgba(45,212,191,.06);
+  --th-hero-bg:radial-gradient(ellipse 130% 70% at 50% -5%,rgba(45,212,191,.16),#0a0a0c 62%);
+  --grad-1:#2dd4bf;--grad-2:#3bd9a0;--grad-3:#4ade80;
+}
+[data-store-theme="rose"]{
+  --th-accent:#f472b6;--st-accent:#f472b6;--sp-accent:#f472b6;--red:#f472b6;
+  --th-accent-end:#fb7185;--st-accent-end:#fb7185;--sp-accent2:#fb7185;--sp-accent-end:#fb7185;--orange:#fb7185;--purple:#fb7185;
+  --th-accent-pop:#fbcfe8;--btn-ink:#0a0b0d;
+  --th-btn:linear-gradient(135deg,#f472b6,#fb7185);--st-btn:linear-gradient(135deg,#f472b6,#fb7185);--sp-btn:linear-gradient(135deg,#f472b6,#fb7185);--th-badge-bg:linear-gradient(135deg,#f472b6,#fb7185);
+  --th-glow:rgba(244,114,182,.30);--th-hero-line:#fbc7e0;
+  --th-blob1:rgba(244,114,182,.16);--th-blob2:rgba(251,113,133,.10);--th-blob3:rgba(244,114,182,.06);
+  --th-hero-bg:radial-gradient(ellipse 130% 70% at 50% -5%,rgba(244,114,182,.16),#0a0a0c 62%);
+  --grad-1:#f472b6;--grad-2:#f7729e;--grad-3:#fb7185;
+}
+[data-store-theme="cyber"]{
+  --th-accent:#6366f1;--st-accent:#6366f1;--sp-accent:#6366f1;--red:#6366f1;
+  --th-accent-end:#06b6d4;--st-accent-end:#06b6d4;--sp-accent2:#06b6d4;--sp-accent-end:#06b6d4;--orange:#06b6d4;--purple:#06b6d4;
+  --th-accent-pop:#a5b4fc;--btn-ink:#ffffff;
+  --th-btn:linear-gradient(135deg,#5457e8,#0e7490);--st-btn:linear-gradient(135deg,#5457e8,#0e7490);--sp-btn:linear-gradient(135deg,#5457e8,#0e7490);--th-badge-bg:linear-gradient(135deg,#5457e8,#0e7490);
+  --th-glow:rgba(99,102,241,.30);--th-hero-line:#aab1fb;
+  --th-blob1:rgba(99,102,241,.16);--th-blob2:rgba(6,182,212,.10);--th-blob3:rgba(99,102,241,.06);
+  --th-hero-bg:radial-gradient(ellipse 130% 70% at 50% -5%,rgba(99,102,241,.16),#0a0a0c 62%);
+  --grad-1:#6366f1;--grad-2:#3590e3;--grad-3:#06b6d4;
+}
+[data-store-theme="ember"]{
+  --th-accent:#ef4444;--st-accent:#ef4444;--sp-accent:#ef4444;--red:#ef4444;
+  --th-accent-end:#f59e0b;--st-accent-end:#f59e0b;--sp-accent2:#f59e0b;--sp-accent-end:#f59e0b;--orange:#f59e0b;--purple:#f59e0b;
+  --th-accent-pop:#fca5a5;--btn-ink:#0a0b0d;
+  --th-btn:linear-gradient(135deg,#ef4444,#f59e0b);--st-btn:linear-gradient(135deg,#ef4444,#f59e0b);--sp-btn:linear-gradient(135deg,#ef4444,#f59e0b);--th-badge-bg:linear-gradient(135deg,#ef4444,#f59e0b);
+  --th-glow:rgba(239,68,68,.30);--th-hero-line:#ffb3a3;
+  --th-blob1:rgba(239,68,68,.16);--th-blob2:rgba(245,158,11,.10);--th-blob3:rgba(239,68,68,.06);
+  --th-hero-bg:radial-gradient(ellipse 130% 70% at 50% -5%,rgba(239,68,68,.16),#0a0a0c 62%);
+  --grad-1:#ef4444;--grad-2:#f27127;--grad-3:#f59e0b;
+}
+/* Premium glass cards + animated sheen for the 10 template themes
+   (reuses @keyframes splanSheen defined above; neutral-white sheen is
+   theme-agnostic, hover border picks up each theme's --st-accent). */
+[data-store-theme="volt"] .splan-card,[data-store-theme="sunset"] .splan-card,[data-store-theme="aqua"] .splan-card,[data-store-theme="plasma"] .splan-card,[data-store-theme="gold"] .splan-card,[data-store-theme="ice"] .splan-card,[data-store-theme="mint"] .splan-card,[data-store-theme="rose"] .splan-card,[data-store-theme="cyber"] .splan-card,[data-store-theme="ember"] .splan-card{
+  position:relative;overflow:hidden;
+  background:linear-gradient(157deg,rgba(255,255,255,.1),rgba(255,255,255,.04) 30%,rgba(255,255,255,.022)) !important;
+  border:1px solid rgba(255,255,255,.12) !important;
+  box-shadow:0 14px 34px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.14) !important;
+}
+[data-store-theme="volt"] .splan-card:hover,[data-store-theme="sunset"] .splan-card:hover,[data-store-theme="aqua"] .splan-card:hover,[data-store-theme="plasma"] .splan-card:hover,[data-store-theme="gold"] .splan-card:hover,[data-store-theme="ice"] .splan-card:hover,[data-store-theme="mint"] .splan-card:hover,[data-store-theme="rose"] .splan-card:hover,[data-store-theme="cyber"] .splan-card:hover,[data-store-theme="ember"] .splan-card:hover{border-color:var(--st-accent) !important;}
+[data-store-theme="volt"] .splan-card::after,[data-store-theme="sunset"] .splan-card::after,[data-store-theme="aqua"] .splan-card::after,[data-store-theme="plasma"] .splan-card::after,[data-store-theme="gold"] .splan-card::after,[data-store-theme="ice"] .splan-card::after,[data-store-theme="mint"] .splan-card::after,[data-store-theme="rose"] .splan-card::after,[data-store-theme="cyber"] .splan-card::after,[data-store-theme="ember"] .splan-card::after{content:"";position:absolute;top:0;left:0;width:55%;height:100%;background:linear-gradient(105deg,transparent,rgba(255,255,255,.12),transparent);transform:translateX(-170%);pointer-events:none;z-index:2;animation:splanSheen 7.5s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){[data-store-theme="volt"] .splan-card::after,[data-store-theme="sunset"] .splan-card::after,[data-store-theme="aqua"] .splan-card::after,[data-store-theme="plasma"] .splan-card::after,[data-store-theme="gold"] .splan-card::after,[data-store-theme="ice"] .splan-card::after,[data-store-theme="mint"] .splan-card::after,[data-store-theme="rose"] .splan-card::after,[data-store-theme="cyber"] .splan-card::after,[data-store-theme="ember"] .splan-card::after{display:none}}

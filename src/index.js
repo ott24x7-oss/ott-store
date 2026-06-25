@@ -374,7 +374,7 @@ app.get('/sitemap.xml', async (req, res) => {
 });
 
 // ─── Active theme helper ─────────────────────────────────────────────────────
-// Allowed list mirrors the 23 themes defined in public/store/themes.css and the
+// Allowed list mirrors the themes defined in public/store/themes.css and the
 // admin Store Themes picker. Anything not in this list falls back to default
 // so a malformed setting can never put pages into an undefined state.
 const ALLOWED_THEMES = new Set([
@@ -383,6 +383,15 @@ const ALLOWED_THEMES = new Set([
   'aurora-teal','volcano','lavender-mist','navy-classic','emerald-city',
   'crystal-clean','obsidian-gold','electric-blue','crimson-tide','teal-ocean',
   'movieverse',
+  // 10 premium template themes (volt…ember) — share the MovieVerse landing,
+  // recoloured per theme via public/store/themes.css + movieverse-home.html.
+  'volt','sunset','aqua','plasma','gold','ice','mint','rose','cyber','ember',
+]);
+// Themes that render the cinematic MovieVerse landing (movieverse-home.html)
+// instead of the generic index.html home. The 10 template themes opt in so the
+// premium hero recolours to their palette across every page.
+const PREMIUM_HOME_THEMES = new Set([
+  'movieverse','volt','sunset','aqua','plasma','gold','ice','mint','rose','cyber','ember',
 ]);
 async function getActiveTheme() {
   try {
@@ -599,13 +608,12 @@ app.get('/', async (req, res) => {
     // MovieVerse gets its own bespoke home file (heavy cinema markup).
     // All other themes share index.html with a data-store-theme attr swap so
     // the same CSS palette cascade we use on /plans + /my applies to /, too.
-    const homeFile = storeTheme === 'movieverse' ? 'movieverse-home.html' : 'index.html';
+    const homeFile = PREMIUM_HOME_THEMES.has(storeTheme) ? 'movieverse-home.html' : 'index.html';
     let html = readStoreHtml(homeFile);
-    // For the default index.html, swap the hardcoded data-store-theme attribute
-    // to the current setting so the 22 non-MovieVerse themes also render.
-    if (homeFile === 'index.html') {
-      html = html.replace(/data-store-theme="[^"]*"/, `data-store-theme="${storeTheme}"`);
-    }
+    // Swap the hardcoded data-store-theme attribute to the active setting so the
+    // palette cascade applies — both for the cinematic landing (movieverse + the
+    // 10 template themes, recoloured by their override blocks) and index.html.
+    html = html.replace(/data-store-theme="[^"]*"/, `data-store-theme="${storeTheme}"`);
     // SEO guardrail: keep the title <=60 and meta description <=155 chars, trimmed
     // on a word boundary (trailing separators stripped) so neither is truncated in
     // search results, whatever the admin SEO settings hold.
@@ -683,19 +691,23 @@ const SHARED_STYLES = `
 })();</script>
 <style>
 :root{
-  --sp-bg:#05050b;--sp-card:rgba(255,255,255,.06);--sp-card2:rgba(255,255,255,.09);--sp-border:rgba(255,255,255,.12);
-  --sp-text:#f7f7ff;--sp-muted:rgba(255,255,255,.55);--sp-nav:rgba(5,5,11,.88);
+  /* --sp-* read from the active theme's --th-* tokens (themes.css, set on
+     <html data-store-theme>); the red/orange literals are the fallback for the
+     unthemed default. This is what lets the 10 template themes recolour the
+     blog / legal / reseller shell, not just /plans + the landing. */
+  --sp-bg:var(--th-bg,#05050b);--sp-card:var(--th-card,rgba(255,255,255,.06));--sp-card2:rgba(255,255,255,.09);--sp-border:var(--th-border,rgba(255,255,255,.12));
+  --sp-text:var(--th-text,#f7f7ff);--sp-muted:var(--th-muted,rgba(255,255,255,.55));--sp-nav:var(--th-nav-bg,rgba(5,5,11,.88));
   --sp-red:#ff2b4f;--sp-orange:#ff8a00;--sp-cyan:#42e8ff;--sp-purple:#9b5cff;
-  --sp-accent:#ff2b4f;--sp-accent2:#ff8a00;
-  --sp-btn:linear-gradient(135deg,#ff2b4f,#ff8a00);
+  --sp-accent:var(--th-accent,#ff2b4f);--sp-accent2:var(--th-accent-end,#ff8a00);
+  --sp-btn:var(--th-btn,linear-gradient(135deg,#ff2b4f,#ff8a00));
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{background:var(--sp-bg);scroll-behavior:smooth;overflow-x:hidden}
 body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--sp-bg);color:var(--sp-text);min-height:100vh;overflow-x:hidden}
 body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
-  background:radial-gradient(circle at top left,rgba(255,43,79,.22),transparent 28%),
-             radial-gradient(circle at 70% 20%,rgba(66,232,255,.16),transparent 30%),
-             radial-gradient(circle at bottom right,rgba(155,92,255,.24),transparent 32%)}
+  background:radial-gradient(circle at top left,var(--th-blob1,rgba(255,43,79,.22)),transparent 28%),
+             radial-gradient(circle at 70% 20%,var(--th-blob3,rgba(66,232,255,.16)),transparent 30%),
+             radial-gradient(circle at bottom right,var(--th-blob2,rgba(155,92,255,.24)),transparent 32%)}
 a{color:var(--sp-cyan);text-decoration:none}
 a:hover{color:#8af1ff;text-decoration:underline}
 /* Cinematic nav */
@@ -707,13 +719,13 @@ a:hover{color:#8af1ff;text-decoration:underline}
 .sp-links{display:flex;gap:.25rem;margin-left:auto;align-items:center}
 .sp-links a{color:var(--sp-muted);font-size:.875rem;font-weight:500;padding:.4rem .85rem;border-radius:8px;transition:all .15s;text-decoration:none}
 .sp-links a:hover{color:var(--sp-text);background:rgba(255,255,255,.07);text-decoration:none}
-.sp-links .sp-cta{background:var(--sp-btn);color:#fff;padding:.5rem 1.2rem;border-radius:50px;font-weight:700;font-size:.86rem;box-shadow:0 8px 24px rgba(43,111,255,.34)}
-.sp-links .sp-cta:hover{filter:brightness(1.08);text-decoration:none;color:#fff}
+.sp-links .sp-cta{background:var(--sp-btn);color:var(--btn-ink,#fff);padding:.5rem 1.2rem;border-radius:50px;font-weight:700;font-size:.86rem;box-shadow:0 10px 26px -8px rgba(0,0,0,.5)}
+.sp-links .sp-cta:hover{filter:brightness(1.08);text-decoration:none;color:var(--btn-ink,#fff)}
 .sp-burger{display:none;background:rgba(255,255,255,.05);border:1px solid var(--sp-border);border-radius:10px;width:44px;height:44px;color:var(--sp-text);cursor:pointer;font-size:1.2rem;margin-left:auto;touch-action:manipulation}
 .sp-mob{display:none;position:fixed;inset:0;z-index:999;background:rgba(5,5,11,.96);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);padding:5rem 1.5rem 2rem;flex-direction:column;gap:.35rem;overflow-y:auto}
 .sp-mob.open{display:flex}
 .sp-mob a{font-size:1.05rem;font-weight:600;color:#fff;text-decoration:none;padding:.85rem .25rem;border-bottom:1px solid var(--sp-border)}
-.sp-mob a.sp-cta{margin-top:.7rem;text-align:center;background:var(--sp-btn);border:0;border-radius:50px;padding:.85rem;box-shadow:0 8px 24px rgba(43,111,255,.34)}
+.sp-mob a.sp-cta{margin-top:.7rem;text-align:center;background:var(--sp-btn);color:var(--btn-ink,#fff);border:0;border-radius:50px;padding:.85rem;box-shadow:0 10px 26px -8px rgba(0,0,0,.5)}
 .sp-mob-close{position:absolute;top:1.2rem;right:1.5rem;background:rgba(255,255,255,.06);border:1px solid var(--sp-border);color:#fff;border-radius:10px;width:44px;height:44px;cursor:pointer;font-size:1.1rem}
 @media(max-width:860px){.sp-links{display:none}.sp-burger{display:grid;place-items:center}}
 /* Theme toggle */
@@ -754,7 +766,7 @@ a:hover{color:#8af1ff;text-decoration:underline}
 .blog-body li{margin-bottom:.4rem}
 .blog-body a{color:var(--sp-accent,#7c3aed);text-decoration:underline}
 .blog-body blockquote{border-left:3px solid var(--sp-accent,#7c3aed);padding-left:1rem;margin:1rem 0;color:var(--sp-muted)}
-.blog-body a.blog-btn{display:inline-block;background:var(--sp-accent,#7c3aed);color:#fff;padding:.7rem 1.4rem;border-radius:9px;text-decoration:none;font-weight:600;margin:.5rem .5rem .5rem 0}
+.blog-body a.blog-btn{display:inline-block;background:var(--sp-btn,var(--sp-accent,#7c3aed));color:var(--btn-ink,#fff);padding:.7rem 1.4rem;border-radius:9px;text-decoration:none;font-weight:600;margin:.5rem .5rem .5rem 0}
 .bc-readmore{display:inline-block;margin-top:.85rem;color:var(--sp-accent,#7c3aed);font-weight:600;font-size:.875rem;text-decoration:none}
 .bc-readmore:hover{text-decoration:underline}
 .blog-seo-section{max-width:840px;margin:1.5rem auto 2rem;padding:1.25rem 1.5rem;background:rgba(255,255,255,.03);border:1px solid var(--sp-border,rgba(255,255,255,.08));border-radius:14px;line-height:1.75;color:var(--sp-muted)}
@@ -1256,7 +1268,7 @@ function buildProductHero(p, tgUrl, siteName) {
 .pp-cta{display:flex;gap:.6rem;flex-wrap:wrap}
 .pp-btn{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;font-weight:800;font-size:.92rem;border-radius:12px;padding:.78rem 1.3rem;cursor:pointer;border:0;text-decoration:none;transition:transform .15s ease,box-shadow .15s ease,filter .15s ease;min-height:46px}
 .pp-btn:active{transform:scale(.97)}
-.pp-btn-primary{background:linear-gradient(135deg,var(--st-accent,#2b6fff),#8d5cff);color:#fff;box-shadow:0 8px 22px rgba(141,92,255,.32)}
+.pp-btn-primary{background:var(--st-btn,linear-gradient(135deg,var(--st-accent,#2b6fff),#8d5cff));color:var(--btn-ink,#fff);box-shadow:0 10px 24px -8px rgba(0,0,0,.5)}
 .pp-btn-primary:hover{filter:brightness(1.07)}
 .pp-btn-ghost{background:var(--st-card-solid,rgba(255,255,255,.05));color:var(--st-text);border:1px solid var(--st-border)}
 .pp-btn-ghost:hover{border-color:var(--st-accent)}

@@ -3108,9 +3108,11 @@ views.hometext = async function () {
   try {
     const s = await api('/settings');
 
-    // ── MovieVerse theme: its own text editor (the cinematic home is a separate
-    // file with a different layout, so it gets a dedicated set of fields). ──
-    if ((s.store_theme || '') === 'movieverse') {
+    // ── Cinematic landing themes (MovieVerse + the 10 template palettes) share
+    // movieverse-home.html, so they all get its dedicated text editor — the
+    // generic index.html field set below would write the wrong keys. ──
+    const CINEMATIC_HOME = ['movieverse','volt','sunset','aqua','plasma','gold','ice','mint','rose','cyber','ember'];
+    if (CINEMATIC_HOME.includes(s.store_theme || '')) {
       const MV_SECTIONS = [
         { title: 'Hero', slots: [
           ['mv_eyebrow', 'Eyebrow badge', 'MovieVerse · Premium OTT Store'],
@@ -6604,6 +6606,17 @@ views['store-theme'] = async function () {
       { id:'crimson-tide',    label:'Crimson Tide',      bg:'#0d0000', card:'#1f0000', a1:'#dc2626', a2:'#ef4444', text:'#fee2e2', dark:true  },
       { id:'teal-ocean',      label:'Teal Ocean',        bg:'#01151e', card:'#00253a', a1:'#0891b2', a2:'#0ea5e9', text:'#e0f2fe', dark:true  },
       { id:'movieverse',      label:'MovieVerse 🎬',     bg:'#04030a', card:'#0a0816', a1:'#ff2a4d', a2:'#ffd36a', text:'#fff8f2', dark:true  },
+      // 10 premium template themes — all render the cinematic landing, recoloured per palette.
+      { id:'volt',            label:'Volt ⚡',           bg:'#0a0a0c', card:'#16171c', a1:'#9be80f', a2:'#00d08a', text:'#ffffff', dark:true  },
+      { id:'sunset',          label:'Sunset 🌅',         bg:'#0a0a0c', card:'#16171c', a1:'#fb923c', a2:'#f43f5e', text:'#ffffff', dark:true  },
+      { id:'aqua',            label:'Aqua 🌊',           bg:'#0a0a0c', card:'#16171c', a1:'#22d3ee', a2:'#3b82f6', text:'#ffffff', dark:true  },
+      { id:'plasma',          label:'Plasma 🔮',         bg:'#0a0a0c', card:'#16171c', a1:'#a855f7', a2:'#ec4899', text:'#ffffff', dark:true  },
+      { id:'gold',            label:'Gold 🏆',           bg:'#0a0a0c', card:'#16171c', a1:'#fbbf24', a2:'#f97316', text:'#ffffff', dark:true  },
+      { id:'ice',             label:'Ice ❄️',            bg:'#0a0a0c', card:'#16171c', a1:'#60a5fa', a2:'#818cf8', text:'#ffffff', dark:true  },
+      { id:'mint',            label:'Mint 🌿',           bg:'#0a0a0c', card:'#16171c', a1:'#2dd4bf', a2:'#4ade80', text:'#ffffff', dark:true  },
+      { id:'rose',            label:'Rose 🌹',           bg:'#0a0a0c', card:'#16171c', a1:'#f472b6', a2:'#fb7185', text:'#ffffff', dark:true  },
+      { id:'cyber',           label:'Cyber 🤖',          bg:'#0a0a0c', card:'#16171c', a1:'#6366f1', a2:'#06b6d4', text:'#ffffff', dark:true  },
+      { id:'ember',           label:'Ember 🔥',          bg:'#0a0a0c', card:'#16171c', a1:'#ef4444', a2:'#f59e0b', text:'#ffffff', dark:true  },
     ];
 
     // Mini-page mockup: brand row + hero gradient + price/title text + 2 buttons + card row.
