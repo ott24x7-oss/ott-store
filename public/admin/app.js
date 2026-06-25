@@ -6691,33 +6691,14 @@ views['pwa-manager'] = async function (tab) {
 views['store-theme'] = async function () {
   setMain('<div class="spinner"></div>');
   try {
-    const s = await api('/store-theme');
-    const current = s.theme || 'midnight-purple';
+    const [settings, st] = await Promise.all([api('/settings'), api('/store-theme')]);
+    const current = st.theme || 'movieverse';
 
     const THEMES = [
-      { id:'midnight-purple', label:'Midnight Purple',   bg:'#0d1117', card:'#161b2e', a1:'#7c3aed', a2:'#a855f7', text:'#e2e8f0', dark:true  },
-      { id:'neon-dark',       label:'Neon Dark',         bg:'#0a0a0f', card:'#12121e', a1:'#00ff94', a2:'#00d4ff', text:'#f0fdf4', dark:true  },
-      { id:'ocean-deep',      label:'Ocean Deep',        bg:'#061e2f', card:'#0a2540', a1:'#0ea5e9', a2:'#38bdf8', text:'#e0f2fe', dark:true  },
-      { id:'cosmic',          label:'Cosmic',            bg:'#050d1a', card:'#0d1630', a1:'#8b5cf6', a2:'#3b82f6', text:'#ede9fe', dark:true  },
-      { id:'sunset-glow',     label:'Sunset Glow',       bg:'#1a0d05', card:'#2a1508', a1:'#f97316', a2:'#ef4444', text:'#fff7ed', dark:true  },
-      { id:'forest-dark',     label:'Forest Dark',       bg:'#051a0d', card:'#0a2e18', a1:'#22c55e', a2:'#10b981', text:'#f0fdf4', dark:true  },
-      { id:'royal-gold',      label:'Royal Gold',        bg:'#0d0a00', card:'#1e1800', a1:'#f59e0b', a2:'#fbbf24', text:'#fffbeb', dark:true  },
-      { id:'rose-noir',       label:'Rose Noir',         bg:'#1a050e', card:'#2a0a1a', a1:'#f43f5e', a2:'#ec4899', text:'#fff1f2', dark:true  },
-      { id:'arctic-light',    label:'Arctic Light',      bg:'#f0f4f8', card:'#ffffff', a1:'#0ea5e9', a2:'#6366f1', text:'#0f172a', dark:false },
-      { id:'sakura',          label:'Sakura',            bg:'#fff5f7', card:'#ffffff', a1:'#f43f5e', a2:'#ec4899', text:'#1e0010', dark:false },
-      { id:'slate-minimal',   label:'Slate Minimal',     bg:'#f8fafc', card:'#ffffff', a1:'#475569', a2:'#334155', text:'#0f172a', dark:false },
-      { id:'cyberpunk',       label:'Cyberpunk',         bg:'#0d0017', card:'#160028', a1:'#ff00ff', a2:'#00ffff', text:'#f0e6ff', dark:true  },
-      { id:'aurora-teal',     label:'Aurora Teal',       bg:'#020d12', card:'#061824', a1:'#14b8a6', a2:'#06b6d4', text:'#ccfbf1', dark:true  },
-      { id:'volcano',         label:'Volcano',           bg:'#160800', card:'#240e00', a1:'#f97316', a2:'#dc2626', text:'#fff7ed', dark:true  },
-      { id:'lavender-mist',   label:'Lavender Mist',     bg:'#f5f0ff', card:'#ffffff', a1:'#7c3aed', a2:'#a855f7', text:'#1e0050', dark:false },
-      { id:'navy-classic',    label:'Navy Classic',      bg:'#001233', card:'#001e4d', a1:'#3b82f6', a2:'#1d4ed8', text:'#dbeafe', dark:true  },
-      { id:'emerald-city',    label:'Emerald City',      bg:'#022c22', card:'#044034', a1:'#059669', a2:'#10b981', text:'#d1fae5', dark:true  },
-      { id:'crystal-clean',   label:'Crystal Clean',     bg:'#ffffff', card:'#f8fafc', a1:'#2563eb', a2:'#4f46e5', text:'#0f172a', dark:false },
-      { id:'obsidian-gold',   label:'Obsidian Gold',     bg:'#0c0c0c', card:'#1a1a1a', a1:'#f59e0b', a2:'#d97706', text:'#fef9c3', dark:true  },
-      { id:'electric-blue',   label:'Electric Blue',     bg:'#000a1a', card:'#00122e', a1:'#2563eb', a2:'#3b82f6', text:'#dbeafe', dark:true  },
-      { id:'crimson-tide',    label:'Crimson Tide',      bg:'#0d0000', card:'#1f0000', a1:'#dc2626', a2:'#ef4444', text:'#fee2e2', dark:true  },
-      { id:'teal-ocean',      label:'Teal Ocean',        bg:'#01151e', card:'#00253a', a1:'#0891b2', a2:'#0ea5e9', text:'#e0f2fe', dark:true  },
-      { id:'movieverse',      label:'MovieVerse 🎬',     bg:'#04030a', card:'#0a0816', a1:'#ff2a4d', a2:'#ffd36a', text:'#fff8f2', dark:true  },
+      // Curated, distinct colour presets — one per colour family (the older
+      // duplicate-coloured legacy themes were removed). Each feeds the Design
+      // Engine's brand/accent when applied. MovieVerse keeps the cinematic home.
+      { id:'movieverse',      label:'MovieVerse 🎬',     bg:'#04030a', card:'#0a0816', a1:'#2b6fff', a2:'#8d5cff', text:'#fff8f2', dark:true  },
       // 10 premium template themes — all render the cinematic landing, recoloured per palette.
       { id:'volt',            label:'Volt ⚡',           bg:'#0a0a0c', card:'#16171c', a1:'#9be80f', a2:'#00d08a', text:'#ffffff', dark:true  },
       { id:'sunset',          label:'Sunset 🌅',         bg:'#0a0a0c', card:'#16171c', a1:'#fb923c', a2:'#f43f5e', text:'#ffffff', dark:true  },
@@ -6800,6 +6781,31 @@ views['store-theme'] = async function () {
   </div>
   <a href="/" target="_blank" class="btn btn-sm btn-secondary">Preview Storefront ↗</a>
 </div>
+<div class="card" style="margin-bottom:1.5rem;display:flex;flex-direction:column;gap:.85rem">
+  <div style="font-weight:800;display:flex;align-items:center;gap:.5rem">🖼️ Store Logo <span style="font-size:.72rem;color:var(--muted);font-weight:500">— shown in your storefront header across all themes</span></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+    <div class="card" style="padding:1rem;border:2px dashed var(--border)">
+      <div style="font-size:.8rem;font-weight:700;margin-bottom:.2rem">☀️ Light-background logo</div>
+      <div style="font-size:.7rem;color:var(--muted);margin-bottom:.6rem">Used in light mode · 280×100px · max 2MB · PNG/SVG/WebP</div>
+      <div id="logo-light-preview" style="height:56px;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:8px;margin-bottom:.7rem;overflow:hidden;border:1px solid var(--border)">${settings.logo_light_url ? `<img src="${esc(settings.logo_light_url)}" style="max-height:48px;max-width:100%;object-fit:contain">` : '<span style="font-size:.75rem;color:#888">No logo</span>'}</div>
+      <div style="display:flex;gap:.5rem">
+        <label style="flex:1;cursor:pointer"><input type="file" accept="image/*" style="display:none" onchange="uploadLogo('light',this)"><span class="btn btn-secondary btn-sm" style="width:100%;display:block;text-align:center">Upload</span></label>
+        ${settings.logo_light_url ? `<button type="button" class="btn btn-red btn-sm" onclick="deleteLogo('light')">Remove</button>` : ''}
+      </div>
+    </div>
+    <div class="card" style="padding:1rem;border:2px dashed var(--border)">
+      <div style="font-size:.8rem;font-weight:700;margin-bottom:.2rem">🌙 Dark-background logo</div>
+      <div style="font-size:.7rem;color:var(--muted);margin-bottom:.6rem">Used in dark mode · 280×100px · max 2MB · PNG/SVG/WebP</div>
+      <div id="logo-dark-preview" style="height:56px;display:flex;align-items:center;justify-content:center;background:#111;border-radius:8px;margin-bottom:.7rem;overflow:hidden;border:1px solid var(--border)">${settings.logo_dark_url ? `<img src="${esc(settings.logo_dark_url)}" style="max-height:48px;max-width:100%;object-fit:contain">` : '<span style="font-size:.75rem;color:#888">No logo</span>'}</div>
+      <div style="display:flex;gap:.5rem">
+        <label style="flex:1;cursor:pointer"><input type="file" accept="image/*" style="display:none" onchange="uploadLogo('dark',this)"><span class="btn btn-secondary btn-sm" style="width:100%;display:block;text-align:center">Upload</span></label>
+        ${settings.logo_dark_url ? `<button type="button" class="btn btn-red btn-sm" onclick="deleteLogo('dark')">Remove</button>` : ''}
+      </div>
+    </div>
+  </div>
+</div>
+<h3 style="font-weight:800;margin:0 0 .2rem">Colour presets</h3>
+<p style="color:var(--muted);font-size:.82rem;margin-bottom:1rem">Tap a preset to recolour your whole site. For custom colours, fonts, light/dark &amp; contrast, open <strong>🎨 Appearance</strong>.</p>
 <div id="theme-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px">
 ${cards}
 </div>
@@ -6824,6 +6830,8 @@ ${cards}
       const msg = document.getElementById('theme-msg');
       try {
         await api('/store-theme', { method:'POST', body: JSON.stringify({ theme: id }) });
+        // Drive the Design Engine's colours from the preset so it actually recolours.
+        await api('/design-settings', { method:'POST', body: JSON.stringify({ design_brand: theme.a1, design_accent: theme.a2 }) });
         if (msg) { msg.innerHTML = `<div class="alert alert-success">Theme updated successfully — ${esc(theme.label)} is now live.</div>`; setTimeout(() => { if (msg) msg.innerHTML = ''; }, 4000); }
         showToast(`Theme applied: ${theme.label}`);
         views['store-theme']();
