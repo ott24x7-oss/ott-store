@@ -230,13 +230,27 @@ function readStoreHtml(file) {
   return h;
 }
 
+// Deploy fingerprint — newest mtime among the key static assets, base36. It is
+// injected into the service-worker CACHE name so any deploy that changes a
+// CSS/JS/HTML asset purges the old SW cache (the stale-while-revalidate store)
+// on activate and refetches fresh. Without it, a deployed themes.css/store-theme
+// change was served from the SW's old cache on already-visited devices — themes
+// looked "not applying" and recently-added mobile-nav CSS appeared missing.
+const BUILD_ID = (() => {
+  try {
+    const fs = require('fs');
+    const files = ['public/store/themes.css','public/store/store-theme.css','public/store/plans.html','public/store/my.html','public/store/movieverse-home.html','public/store/index.html','public/style.css','public/admin/app.js'];
+    const mt = files.map(f => { try { return fs.statSync(path.join(__dirname, '..', f)).mtimeMs; } catch { return 0; } });
+    return 'b' + Math.floor(Math.max(...mt)).toString(36);
+  } catch { return 'v8'; }
+})();
 app.get('/sw.js', async (req, res) => {
   const vapidKey = await getSetting('vapid_public_key').catch(() => '');
   res.setHeader('Content-Type', 'application/javascript');
   res.setHeader('Service-Worker-Allowed', '/');
   res.setHeader('Cache-Control', 'no-cache');
   res.send(`
-const CACHE='ott-v7';
+const CACHE='ott-${BUILD_ID}';
 self.addEventListener('install',e=>{self.skipWaiting()});
 self.addEventListener('activate',e=>{
   e.waitUntil((async()=>{
