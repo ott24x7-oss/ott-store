@@ -2580,7 +2580,9 @@ views.appearance = async function () {
       <div class="form-group"><label class="form-label">Heading font</label><select class="form-input" id="ap-fh">${fontOpt(s.design_font_heading)}</select></div>
       <div class="form-group"><label class="form-label">Body font</label><select class="form-input" id="ap-fb">${fontOpt(s.design_font_body)}</select></div>
     </div>
-    <div class="form-group"><label class="form-label" style="display:block;margin-bottom:.45rem">Mode</label>${seg('mode', s.design_mode || 'dark', [{ v: 'dark', label: '🌙 Dark' }, { v: 'light', label: '☀️ Light' }])}</div>
+    <div class="form-group"><label class="form-label" style="display:block;margin-bottom:.45rem">Mode</label>${seg('mode', s.design_mode || 'dark', [{ v: 'dark', label: '🌙 Dark' }, { v: 'light', label: '☀️ Light' }])}
+      <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;margin-top:.65rem;font-size:.82rem;color:var(--muted)"><input type="checkbox" id="ap-vtoggle" ${s.design_visitor_toggle === '1' ? 'checked' : ''} style="width:17px;height:17px"> Let visitors switch light/dark themselves (remembered per device)</label>
+    </div>
     <div class="form-group"><label class="form-label" style="display:block;margin-bottom:.45rem">Contrast</label>${seg('contrast', s.design_contrast || 'normal', [{ v: 'normal', label: 'Normal' }, { v: 'high', label: 'High (AA+)' }])}</div>
     <div class="form-group"><label class="form-label" style="display:block;margin-bottom:.45rem">Density</label>${seg('density', s.design_density || 'comfortable', [{ v: 'compact', label: 'Compact' }, { v: 'comfortable', label: 'Comfortable' }, { v: 'spacious', label: 'Spacious' }])}</div>
     <div class="form-group"><label class="form-label">Corner radius — <b id="ap-rv">${s.design_radius || 16}</b>px</label><input type="range" id="ap-radius" min="0" max="28" value="${s.design_radius || 16}" style="width:100%"></div>
@@ -2596,7 +2598,7 @@ views.appearance = async function () {
       design_brand: brand, design_accent: accent,
       design_font_heading: s.design_font_heading || 'Bricolage Grotesque', design_font_body: s.design_font_body || 'Hanken Grotesk',
       design_mode: s.design_mode || 'dark', design_contrast: s.design_contrast || 'normal', design_density: s.design_density || 'comfortable',
-      design_radius: String(s.design_radius || 16),
+      design_radius: String(s.design_radius || 16), design_visitor_toggle: s.design_visitor_toggle === '1' ? '1' : '0',
     };
     const FONTW = 'wght@400;500;600;700;800';
     function ensureFontLink() {
@@ -2635,6 +2637,7 @@ views.appearance = async function () {
     document.querySelectorAll('.ap-segs').forEach(wrap => { const name = wrap.dataset.seg; wrap.querySelectorAll('.ap-seg').forEach(b => b.onclick = () => { state['design_' + name] = b.dataset.val; wrap.querySelectorAll('.ap-seg').forEach(x => x.classList.toggle('on', x === b)); renderPreview(); }); });
     const rg = $('ap-radius');
     rg.oninput = () => { state.design_radius = rg.value; $('ap-rv').textContent = rg.value; renderPreview(); };
+    $('ap-vtoggle').onchange = e => { state.design_visitor_toggle = e.target.checked ? '1' : '0'; };
     $('ap-reset').onclick = async () => { try { await api('/design-settings', { method: 'POST', body: JSON.stringify({ design_brand: '', design_accent: '' }) }); location.reload(); } catch (ex) { $('ap-msg').innerHTML = `<div class="alert alert-error">${esc(ex.message)}</div>`; } };
     $('ap-save').onclick = async () => {
       const btn = $('ap-save'); btn.disabled = true; btn.textContent = 'Saving…';

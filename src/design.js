@@ -189,7 +189,10 @@ const BRIDGE = `
 body,.my-page,.admin-wrap,.sp-main,.legal-page,.blog-post-page{font-family:var(--d-font-body)!important}
 h1,h2,h3,h4,h5,h6,.h1,.h2,.big,.display,.sidebar-logo,.snav-logo,.sp-logo,.mv-logo,.hero-title,.section-title{font-family:var(--d-font-heading)!important}
 input,select,textarea,button{font-family:var(--d-font-body)}
-code,kbd,pre,[style*="monospace"]{font-family:'DM Mono',ui-monospace,monospace}`;
+code,kbd,pre,[style*="monospace"]{font-family:'DM Mono',ui-monospace,monospace}
+/* visitor light/dark toggle — shown only when enabled in Appearance (data-vtoggle="1") */
+html:not([data-vtoggle="1"]) #theme-toggle,html:not([data-vtoggle="1"]) #theme-toggle-hdr,html:not([data-vtoggle="1"]) #theme-toggle-drawer{display:none!important}
+html[data-vtoggle="1"] #theme-toggle,html[data-vtoggle="1"] #theme-toggle-hdr{display:inline-flex!important}`;
 
 // ── font <link> for the chosen heading + body fonts ─────────────────────────
 function fontLink(d) {
@@ -215,11 +218,19 @@ function densityCss(d) {
 function designHtmlAttrs(settings, storeTheme) {
   const d = resolve(settings, storeTheme);
   if (!d.enabled) return '';
-  return ` data-theme="${d.mode}" data-contrast="${d.high ? 'high' : 'normal'}" data-density="${d.density}"`;
+  return ` data-theme="${d.mode}" data-contrast="${d.high ? 'high' : 'normal'}" data-density="${d.density}" data-vtoggle="${d.visitorToggle ? '1' : '0'}"`;
+}
+// Runs FIRST in <head>: when visitors may switch light/dark, honour their saved
+// choice; otherwise lock to the admin's mode. Set before the page's own theme
+// scripts so it wins the first paint (those scripts then keep the current attr).
+function earlyModeScript(settings, storeTheme) {
+  const d = resolve(settings, storeTheme);
+  if (!d.enabled) return '';
+  return `<script>(function(){try{var v=${d.visitorToggle ? 1 : 0},t=(v&&localStorage.getItem('theme'))||'${d.mode}';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>`;
 }
 
 module.exports = {
   FONTS, PALETTE_MAP, DEFAULTS,
-  resolve, designHead, designHtmlAttrs, fontLink, buildVars, BRIDGE,
+  resolve, designHead, designHtmlAttrs, earlyModeScript, fontLink, buildVars, BRIDGE,
   pickInk, hexToRgb, contrastRatio, relLuminance,
 };

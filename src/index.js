@@ -444,6 +444,8 @@ async function withDesign(html, storeTheme) {
     all(db, "SELECT key,value FROM settings WHERE key LIKE 'design_%'").forEach(r => ds[r.key] = r.value);
     const head = design.designHead(ds, storeTheme);
     if (head) html = html.replace('</head>', head + '\n</head>');
+    const early = design.earlyModeScript(ds, storeTheme);
+    if (early) html = html.replace(/<head([^>]*)>/i, (m) => m + '\n' + early);
     const d = design.resolve(ds, storeTheme);
     if (d.enabled) {
       html = html.replace(/<html([^>]*)>/i, (m, g) => {
@@ -451,6 +453,7 @@ async function withDesign(html, storeTheme) {
         h = /data-theme=/.test(h) ? h.replace(/data-theme="[^"]*"/, `data-theme="${d.mode}"`) : h + ` data-theme="${d.mode}"`;
         if (!/data-contrast=/.test(h)) h += ` data-contrast="${d.high ? 'high' : 'normal'}"`;
         if (!/data-density=/.test(h)) h += ` data-density="${d.density}"`;
+        if (!/data-vtoggle=/.test(h)) h += ` data-vtoggle="${d.visitorToggle ? '1' : '0'}"`;
         return `<html${h}>`;
       });
     }
