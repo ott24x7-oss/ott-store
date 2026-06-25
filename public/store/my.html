@@ -297,8 +297,7 @@ html[data-theme="dark"] .my-logo .logo-dark{display:block}
 <body>
 <script>
 (function(){
-  document.documentElement.setAttribute('data-theme','dark');
-  localStorage.setItem('theme','dark');
+  document.documentElement.setAttribute('data-theme',document.documentElement.getAttribute('data-theme')||'dark');
   var st=localStorage.getItem('store_theme')||'midnight-purple';
   document.documentElement.setAttribute('data-store-theme',st);
 })();

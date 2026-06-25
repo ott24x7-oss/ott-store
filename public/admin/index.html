@@ -139,7 +139,7 @@ input:checked + .toggle-slider::before { transform: translateX(20px); }
 <body>
 <script>
 (function(){
-  var t = localStorage.getItem('theme') || 'dark';
+  var t = document.documentElement.getAttribute('data-theme') || localStorage.getItem('theme') || 'dark';
   document.documentElement.setAttribute('data-theme', t);
 })();
 </script>

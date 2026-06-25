@@ -164,8 +164,7 @@ a.splan-name:hover{color:var(--st-accent)}
 
 <script>
 (function(){
-  document.documentElement.setAttribute('data-theme','dark');
-  localStorage.setItem('theme','dark');
+  document.documentElement.setAttribute('data-theme',document.documentElement.getAttribute('data-theme')||'dark');
 })();
 </script>
 

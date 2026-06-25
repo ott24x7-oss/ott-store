@@ -660,7 +660,7 @@ fetch('/user/api/store').then(r=>r.json()).then(s=>{
 const logoStyle=document.createElement('style');
 logoStyle.textContent=`.logo-light{display:block}.logo-dark{display:none}html[data-theme="dark"] .logo-light{display:none}html[data-theme="dark"] .logo-dark{display:block}`;
 document.head.appendChild(logoStyle);
-document.documentElement.setAttribute('data-theme','dark');
+document.documentElement.setAttribute('data-theme',document.documentElement.getAttribute('data-theme')||'dark');
 
 // ── Auth check ──
 fetch('/user/api/me',{credentials:'include'}).then(r=>{

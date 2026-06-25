@@ -7,6 +7,7 @@ const fs = require('fs');
 const cfg = require('./config');
 const { getDb, getSetting, getSettingSync, all, get } = require('./db');
 const { apiLimiter } = require('./security');
+const design = require('./design');
 
 // ── Crash guards ─────────────────────────────────────────────────────────────
 // Keep the process (and the WhatsApp bot's in-progress QR pairing) alive through
@@ -103,6 +104,19 @@ app.use(ensureCsrfToken);
 // so we send no-cache for them — otherwise admins see a stale UI for up to 4h
 // after each push. Versioned assets (anything under /static/) can still be
 // long-cached if added later.
+
+// Admin SPA shell — served through the Design Engine. MUST be registered before
+// express.static, which would otherwise serve public/admin/index.html as a raw
+// directory index and skip the design-token injection.
+app.get(['/admin', '/admin/'], async (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+  try {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin', 'index.html'), 'utf8');
+    res.type('text/html').send(await withDesign(html));
+  } catch {
+    res.sendFile(path.join(__dirname, '..', 'public', 'admin', 'index.html'));
+  }
+});
 app.use(express.static(path.join(__dirname, '..', 'public'), {
   setHeaders: (res, filePath) => {
     if (/[\\\/](admin|store)[\\\/].+\.(html|js|css)$/i.test(filePath) ||
@@ -414,6 +428,36 @@ async function getActiveTheme() {
   } catch { return 'midnight-purple'; }
 }
 
+// ─── Design Engine injection ──────────────────────────────────────────────────
+// Reads the saved design_* settings, builds the canonical --d-* token <style> +
+// font <link>, injects them LAST in <head> (so they win the cascade over the 3
+// legacy systems), and stamps data-theme / data-contrast / data-density on
+// <html> so the first paint matches. Applied to EVERY served page so one
+// Appearance change reflects across storefront, portal and admin at once. Never
+// throws — a design failure must not blank a page.
+async function withDesign(html, storeTheme) {
+  try {
+    if (typeof html !== 'string' || !html.includes('</head>')) return html;
+    if (!storeTheme) storeTheme = await getActiveTheme();
+    const db = await getDb();
+    const ds = {};
+    all(db, "SELECT key,value FROM settings WHERE key LIKE 'design_%'").forEach(r => ds[r.key] = r.value);
+    const head = design.designHead(ds, storeTheme);
+    if (head) html = html.replace('</head>', head + '\n</head>');
+    const d = design.resolve(ds, storeTheme);
+    if (d.enabled) {
+      html = html.replace(/<html([^>]*)>/i, (m, g) => {
+        let h = g;
+        h = /data-theme=/.test(h) ? h.replace(/data-theme="[^"]*"/, `data-theme="${d.mode}"`) : h + ` data-theme="${d.mode}"`;
+        if (!/data-contrast=/.test(h)) h += ` data-contrast="${d.high ? 'high' : 'normal'}"`;
+        if (!/data-density=/.test(h)) h += ` data-density="${d.density}"`;
+        return `<html${h}>`;
+      });
+    }
+  } catch { /* never block a page on design */ }
+  return html;
+}
+
 // ─── Public storefront pages ──────────────────────────────────────────────────
 app.get('/blog/:slug', async (req, res) => {
   try {
@@ -423,7 +467,7 @@ app.get('/blog/:slug', async (req, res) => {
     const [siteName, ogImage, baseUrl, logos, storeTheme] = await Promise.all([
       getSetting('site_name'), getSetting('seo_og_image'), getSetting('base_url'), getLogoUrls(), getActiveTheme(),
     ]);
-    res.send(buildBlogPostPage(post, siteName || 'OTT Store', post.og_image || ogImage || '', baseUrl || cfg.baseUrl, logos, storeTheme));
+    res.send(await withDesign(buildBlogPostPage(post, siteName || 'OTT Store', post.og_image || ogImage || '', baseUrl || cfg.baseUrl, logos, storeTheme), storeTheme));
   } catch (e) { res.status(500).send('Server error'); }
 });
 
@@ -436,7 +480,7 @@ app.get('/blog', async (req, res) => {
       getSetting('seo_blog_top'), getSetting('seo_blog_bottom'),
     ]);
     const stripScripts = (s) => String(s || '').replace(/<script[\s\S]*?<\/script>/gi, '');
-    res.send(buildBlogIndexPage(posts, siteName || 'OTT Store', seoDesc || '', baseUrl || cfg.baseUrl, logos, storeTheme, stripScripts(seoTop), stripScripts(seoBottom)));
+    res.send(await withDesign(buildBlogIndexPage(posts, siteName || 'OTT Store', seoDesc || '', baseUrl || cfg.baseUrl, logos, storeTheme, stripScripts(seoTop), stripScripts(seoBottom)), storeTheme));
   } catch (e) { res.status(500).send('Server error'); }
 });
 
@@ -455,7 +499,7 @@ async function serveMyHtml(req, res, tab) {
       /<html lang="en" data-theme="dark">/,
       `<html lang="en" data-theme="dark" data-store-theme="${storeTheme}" data-initial-tab="${tab}">`,
     );
-    res.type('text/html').send(html);
+    res.type('text/html').send(await withDesign(html, storeTheme));
   } catch {
     res.sendFile(path.join(__dirname, '..', 'public', 'store', 'my.html'));
   }
@@ -463,10 +507,8 @@ async function serveMyHtml(req, res, tab) {
 app.get('/my', (req, res) => serveMyHtml(req, res, 'dashboard'));
 for (const t of MY_TABS) app.get(`/my/${t}`, (req, res) => serveMyHtml(req, res, t));
 
-app.get('/admin', (req, res) => {
-  res.setHeader('Cache-Control', 'no-cache, must-revalidate');
-  res.sendFile(path.join(__dirname, '..', 'public', 'admin', 'index.html'));
-});
+// '/admin' is served earlier (before express.static) so the Design Engine can
+// inject its tokens — see the app.get(['/admin','/admin/']) handler above.
 
 // Public static pages — served from DB legal_pages table
 const staticRoutes = { '/about': 'about', '/contact': 'contact', '/privacy': 'privacy', '/terms': 'terms', '/refund': 'refund' };
@@ -477,10 +519,10 @@ for (const [route, slug] of Object.entries(staticRoutes)) {
       const page = db ? (() => { const { get: dbGet } = require('./db'); return dbGet(db, `SELECT * FROM legal_pages WHERE slug=?`, [slug]); })() : null;
       const [siteName, logos, storeTheme] = await Promise.all([getSetting('site_name'), getLogoUrls(), getActiveTheme()]);
       const name = siteName || 'OTT Store';
-      if (page) return res.send(buildLegalPage(page, name, logos, storeTheme));
+      if (page) return res.send(await withDesign(buildLegalPage(page, name, logos, storeTheme), storeTheme));
       const filePath = path.join(__dirname, '..', 'public', 'store', `${slug}.html`);
       if (fs.existsSync(filePath)) return res.sendFile(filePath);
-      res.send(buildSimplePage(slug, name, logos, storeTheme));
+      res.send(await withDesign(buildSimplePage(slug, name, logos, storeTheme), storeTheme));
     } catch {
       res.send(buildSimplePage(slug, 'OTT Store', { light: '', dark: '' }, 'midnight-purple'));
     }
@@ -491,7 +533,7 @@ for (const [route, slug] of Object.entries(staticRoutes)) {
 app.get('/reseller', async (req, res) => {
   try {
     const [siteName, logos, storeTheme] = await Promise.all([getSetting('site_name'), getLogoUrls(), getActiveTheme()]);
-    res.type('text/html').send(buildResellerPage(siteName || 'Virtual Market', logos, storeTheme));
+    res.type('text/html').send(await withDesign(buildResellerPage(siteName || 'Virtual Market', logos, storeTheme), storeTheme));
   } catch { res.status(500).send('Server error'); }
 });
 
@@ -530,7 +572,7 @@ app.get('/plans', async (req, res) => {
       buildPlansListJsonLd(products, base, siteName),
     ].join('\n');
     html = html.replace('</head>', headInject + '\n</head>');
-    res.type('text/html').send(html);
+    res.type('text/html').send(await withDesign(html, storeTheme));
   } catch {
     res.sendFile(path.join(__dirname, '..', 'public', 'store', 'plans.html'));
   }
@@ -599,7 +641,7 @@ app.get('/plans/:slug', async (req, res) => {
     html = html
       .replace('<h1>Browse All <span>Subscriptions</span></h1>', '<h2>Browse All <span>Subscriptions</span></h2>')
       .replace('<!-- Page Header -->', `${buildProductHero(plan, tgUrl, siteName)}\n<!-- Page Header -->`);
-    res.type('text/html').send(html);
+    res.type('text/html').send(await withDesign(html, storeTheme));
   } catch (e) {
     res.sendFile(path.join(__dirname, '..', 'public', 'store', 'plans.html'));
   }
@@ -675,7 +717,7 @@ app.get('/', async (req, res) => {
     html = homeFile === 'movieverse-home.html'
       ? await injectMovieverseDynamic(html, name)
       : await injectDefaultHomeDynamic(html, name);
-    res.type('text/html').send(html);
+    res.type('text/html').send(await withDesign(html, storeTheme));
   } catch {
     res.sendFile(path.join(__dirname, '..', 'public', 'store', 'index.html'));
   }
@@ -700,8 +742,7 @@ function metaToken(v) {
 
 const SHARED_STYLES = `
 <script>(function(){
-  document.documentElement.setAttribute('data-theme','dark');
-  try{localStorage.setItem('theme','dark');}catch(e){}
+  document.documentElement.setAttribute('data-theme',document.documentElement.getAttribute('data-theme')||'dark');
 })();</script>
 <style>
 :root{
@@ -1665,7 +1706,7 @@ async function start() {
       const storeTheme = await getActiveTheme();
       let html = readStoreHtml('404.html');
       html = html.replace(/data-store-theme="[^"]*"/, `data-store-theme="${storeTheme}"`);
-      res.status(404).type('text/html').send(html);
+      res.status(404).type('text/html').send(await withDesign(html, storeTheme));
     } catch {
       res.status(404).type('text/plain').send('Not found');
     }

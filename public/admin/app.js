@@ -39,6 +39,7 @@ const MENU = [
   { id: 'email-marketing', label: 'Email Marketing', icon: '📧' },
   { id: 'pwa-manager',   label: 'App Manager',   icon: '📱' },
   { group: 'STOREFRONT' },
+  { id: 'appearance',     label: 'Appearance',    icon: '🎨' },
   { id: 'mystore',        label: 'My Store',      icon: '🏪' },
   { id: 'hometext',       label: 'Homepage Content', icon: '📝' },
   { id: 'header-menu',    label: 'Menu Builder',  icon: '🧭' },
@@ -2533,6 +2534,117 @@ views.mystore = async function () {
         setTimeout(() => document.getElementById('store-msg').innerHTML = '', 2500);
       } catch (ex) { document.getElementById('store-msg').innerHTML = `<div class="alert alert-error">${esc(ex.message)}</div>`; }
     };
+  } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
+
+// ── views.appearance — the Design Engine control panel ───────────────────────
+// One surface controlling colours, fonts, light/dark, contrast, density and
+// radius across the whole site (storefront + portal + this admin). Saves to the
+// design_* settings consumed by src/design.js on every page render.
+views.appearance = async function () {
+  setMain('<div class="spinner"></div>');
+  try {
+    const data = await api('/design-settings');
+    const s = data.settings || {}, fonts = data.fonts || [], palettes = data.palettes || {}, R = data.resolved || {};
+    const brand = s.design_brand || R.brand || '#2b6fff';
+    const accent = s.design_accent || R.accent || '#8d5cff';
+    const fontOpt = sel => fonts.map(f => `<option ${sel === f ? 'selected' : ''}>${f}</option>`).join('');
+    const palSw = Object.keys(palettes).map(id => { const p = palettes[id]; return `<button type="button" class="ap-pal" data-brand="${p.brand}" data-accent="${p.accent}" title="${id}" style="background:linear-gradient(135deg,${p.brand},${p.accent})"></button>`; }).join('');
+    const seg = (name, val, opts) => `<div class="ap-segs" data-seg="${name}">` + opts.map(o => `<button type="button" class="ap-seg${val === o.v ? ' on' : ''}" data-val="${o.v}">${o.label}</button>`).join('') + `</div>`;
+    setMain(`
+<style>
+.ap-seg{padding:.5rem .85rem;background:var(--card);color:var(--muted);cursor:pointer;font-weight:600;font-size:.82rem;border:0;border-right:1px solid var(--border)}
+.ap-seg:last-child{border-right:0}
+.ap-segs{display:inline-flex;border-radius:10px;overflow:hidden;border:1px solid var(--border)}
+.ap-seg.on{background:linear-gradient(135deg,var(--grad-1),var(--grad-3));color:#fff}
+.ap-pal{width:30px;height:30px;border-radius:8px;border:2px solid var(--border);cursor:pointer;padding:0;transition:transform .12s}
+.ap-pal:hover{transform:scale(1.12)}
+#ap-grid input[type=color]{width:46px;height:38px;border:1px solid var(--border);border-radius:8px;background:none;cursor:pointer;padding:2px;vertical-align:middle}
+@media(max-width:860px){#ap-grid{grid-template-columns:1fr!important}}
+</style>
+<h2 style="font-weight:800;margin-bottom:.3rem">🎨 Appearance</h2>
+<p class="muted" style="margin-bottom:1.2rem;max-width:660px">One control surface for your entire site — the storefront, the customer portal and this admin panel all read from these settings. Save once and it applies everywhere.</p>
+<div id="ap-msg"></div>
+<div id="ap-grid" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,350px);gap:1.5rem;align-items:start">
+  <div class="card" style="display:flex;flex-direction:column;gap:1.3rem">
+    <div>
+      <label class="form-label" style="margin-bottom:.5rem;display:block">Brand &amp; accent colours</label>
+      <div style="display:flex;gap:1.6rem;flex-wrap:wrap">
+        <div><div class="muted" style="font-size:.72rem;margin-bottom:.3rem">Brand</div><input type="color" id="ap-brand" value="${brand}"><input class="form-input" id="ap-brandhex" value="${brand}" style="width:96px;display:inline-block;margin-left:.4rem"></div>
+        <div><div class="muted" style="font-size:.72rem;margin-bottom:.3rem">Accent</div><input type="color" id="ap-accent" value="${accent}"><input class="form-input" id="ap-accenthex" value="${accent}" style="width:96px;display:inline-block;margin-left:.4rem"></div>
+      </div>
+      <div class="muted" style="font-size:.72rem;margin:.8rem 0 .35rem">Quick presets</div>
+      <div style="display:flex;gap:.45rem;flex-wrap:wrap">${palSw}</div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Heading font</label><select class="form-input" id="ap-fh">${fontOpt(s.design_font_heading)}</select></div>
+      <div class="form-group"><label class="form-label">Body font</label><select class="form-input" id="ap-fb">${fontOpt(s.design_font_body)}</select></div>
+    </div>
+    <div class="form-group"><label class="form-label" style="display:block;margin-bottom:.45rem">Mode</label>${seg('mode', s.design_mode || 'dark', [{ v: 'dark', label: '🌙 Dark' }, { v: 'light', label: '☀️ Light' }])}</div>
+    <div class="form-group"><label class="form-label" style="display:block;margin-bottom:.45rem">Contrast</label>${seg('contrast', s.design_contrast || 'normal', [{ v: 'normal', label: 'Normal' }, { v: 'high', label: 'High (AA+)' }])}</div>
+    <div class="form-group"><label class="form-label" style="display:block;margin-bottom:.45rem">Density</label>${seg('density', s.design_density || 'comfortable', [{ v: 'compact', label: 'Compact' }, { v: 'comfortable', label: 'Comfortable' }, { v: 'spacious', label: 'Spacious' }])}</div>
+    <div class="form-group"><label class="form-label">Corner radius — <b id="ap-rv">${s.design_radius || 16}</b>px</label><input type="range" id="ap-radius" min="0" max="28" value="${s.design_radius || 16}" style="width:100%"></div>
+    <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap"><button type="button" id="ap-save" class="btn btn-primary">Save &amp; apply everywhere</button><button type="button" id="ap-reset" class="btn btn-secondary">Reset colours to palette</button></div>
+  </div>
+  <div style="position:sticky;top:1rem">
+    <div class="muted" style="font-size:.72rem;margin-bottom:.45rem;text-transform:uppercase;letter-spacing:.06em">Live preview</div>
+    <div id="ap-preview"></div>
+  </div>
+</div>
+`);
+    const state = {
+      design_brand: brand, design_accent: accent,
+      design_font_heading: s.design_font_heading || 'Bricolage Grotesque', design_font_body: s.design_font_body || 'Hanken Grotesk',
+      design_mode: s.design_mode || 'dark', design_contrast: s.design_contrast || 'normal', design_density: s.design_density || 'comfortable',
+      design_radius: String(s.design_radius || 16),
+    };
+    const FONTW = 'wght@400;500;600;700;800';
+    function ensureFontLink() {
+      const fams = [state.design_font_heading, state.design_font_body].map(f => f.replace(/ /g, '+') + ':' + FONTW);
+      let l = document.getElementById('ap-font-link'); if (!l) { l = document.createElement('link'); l.id = 'ap-font-link'; l.rel = 'stylesheet'; document.head.appendChild(l); }
+      l.href = 'https://fonts.googleapis.com/css2?' + [...new Set(fams)].map(f => 'family=' + f).join('&') + '&display=swap';
+    }
+    function ink(hex) { const c = hex.replace('#', ''); const r = parseInt(c.slice(0, 2), 16), g = parseInt(c.slice(2, 4), 16), b = parseInt(c.slice(4, 6), 16); return ((0.2126 * r + 0.7152 * g + 0.0722 * b) / 255) > 0.5 ? '#0a0b0d' : '#ffffff'; }
+    function renderPreview() {
+      ensureFontLink();
+      const dark = state.design_mode !== 'light';
+      const hi = state.design_contrast === 'high';
+      const bg = dark ? '#0a0a0c' : '#f4f6fb', surf = dark ? 'rgba(255,255,255,.06)' : '#ffffff', txt = dark ? '#fff' : (hi ? '#0a0f1c' : '#1b2333'), mut = dark ? (hi ? '#c4c6d0' : '#9a9ba4') : (hi ? '#3a4456' : '#5b6577'), bd = dark ? 'rgba(255,255,255,.12)' : '#e3e8f2';
+      const rad = state.design_radius + 'px', grad = `linear-gradient(135deg,${state.design_brand},${state.design_accent})`;
+      document.getElementById('ap-preview').innerHTML =
+        `<div style="background:${bg};border:1px solid ${bd};border-radius:${rad};padding:1.3rem;font-family:'${state.design_font_body}',system-ui,sans-serif">
+          <div style="font-family:'${state.design_font_heading}',system-ui,sans-serif;font-weight:800;font-size:1.5rem;line-height:1.1;background:${grad};-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:.35rem">Your Brand 24×7</div>
+          <div style="color:${mut};font-size:.85rem;margin-bottom:1.1rem">Premium digital products, delivered fast. This is how your body text reads in ${dark ? 'dark' : 'light'} mode.</div>
+          <div style="background:${surf};border:1px solid ${bd};border-radius:${rad};padding:.9rem;margin-bottom:1.1rem">
+            <div style="color:${txt};font-weight:700;font-size:.92rem">Sample card</div>
+            <div style="color:${mut};font-size:.78rem">Surface + border</div>
+          </div>
+          <button style="background:${grad};color:${ink(state.design_brand)};border:0;border-radius:${rad};padding:.6rem 1.15rem;font-weight:700;font-family:inherit;cursor:pointer">Primary button</button>
+          <a style="color:${state.design_brand};font-weight:600;font-size:.85rem;margin-left:1rem">A link</a>
+        </div>`;
+    }
+    const $ = id => document.getElementById(id);
+    const bC = $('ap-brand'), bH = $('ap-brandhex'), aC = $('ap-accent'), aH = $('ap-accenthex');
+    bC.oninput = () => { state.design_brand = bC.value; bH.value = bC.value; renderPreview(); };
+    bH.onchange = () => { if (/^#?[0-9a-fA-F]{6}$/.test(bH.value)) { const v = bH.value[0] === '#' ? bH.value : '#' + bH.value; state.design_brand = v; bC.value = v; renderPreview(); } };
+    aC.oninput = () => { state.design_accent = aC.value; aH.value = aC.value; renderPreview(); };
+    aH.onchange = () => { if (/^#?[0-9a-fA-F]{6}$/.test(aH.value)) { const v = aH.value[0] === '#' ? aH.value : '#' + aH.value; state.design_accent = v; aC.value = v; renderPreview(); } };
+    document.querySelectorAll('.ap-pal').forEach(p => p.onclick = () => { state.design_brand = p.dataset.brand; state.design_accent = p.dataset.accent; bC.value = bH.value = p.dataset.brand; aC.value = aH.value = p.dataset.accent; renderPreview(); });
+    $('ap-fh').onchange = e => { state.design_font_heading = e.target.value; renderPreview(); };
+    $('ap-fb').onchange = e => { state.design_font_body = e.target.value; renderPreview(); };
+    document.querySelectorAll('.ap-segs').forEach(wrap => { const name = wrap.dataset.seg; wrap.querySelectorAll('.ap-seg').forEach(b => b.onclick = () => { state['design_' + name] = b.dataset.val; wrap.querySelectorAll('.ap-seg').forEach(x => x.classList.toggle('on', x === b)); renderPreview(); }); });
+    const rg = $('ap-radius');
+    rg.oninput = () => { state.design_radius = rg.value; $('ap-rv').textContent = rg.value; renderPreview(); };
+    $('ap-reset').onclick = async () => { try { await api('/design-settings', { method: 'POST', body: JSON.stringify({ design_brand: '', design_accent: '' }) }); location.reload(); } catch (ex) { $('ap-msg').innerHTML = `<div class="alert alert-error">${esc(ex.message)}</div>`; } };
+    $('ap-save').onclick = async () => {
+      const btn = $('ap-save'); btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        await api('/design-settings', { method: 'POST', body: JSON.stringify(state) });
+        $('ap-msg').innerHTML = '<div class="alert alert-success">Saved! Applying across your site…</div>';
+        setTimeout(() => location.reload(), 900);
+      } catch (ex) { $('ap-msg').innerHTML = `<div class="alert alert-error">${esc(ex.message)}</div>`; btn.disabled = false; btn.textContent = 'Save & apply everywhere'; }
+    };
+    renderPreview();
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };
 

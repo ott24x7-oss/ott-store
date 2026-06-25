@@ -15,6 +15,7 @@ const { sendOrderDelivery, sendMail } = require('./mailer');
 const { buildXlsx, parseXlsx } = require('./xlsx');
 const totp = require('./totp');
 const crypto = require('crypto');
+const design = require('./design');
 
 const router = express.Router();
 
@@ -2802,6 +2803,57 @@ router.post('/store-theme', requireAdmin, async (req, res) => {
     run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES ('store_theme',?)`, [theme]);
     await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'set_store_theme', targetKind: 'setting', targetId: 'store_theme', after_json: JSON.stringify({ theme }), ip: req.ip });
     res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Design / Appearance — the site-wide Design Engine ───────────────────────
+// GET returns the saved design_* settings (merged with defaults), the resolved
+// preview values, the curated font list and the palette presets. POST validates
+// + saves. One source of truth for colours, fonts, light/dark, contrast, density
+// across storefront + portal + admin (consumed by src/design.js → every page).
+router.get('/design-settings', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const saved = {};
+    all(db, "SELECT key,value FROM settings WHERE key LIKE 'design_%'").forEach(r => saved[r.key] = r.value);
+    const stRow = get(db, `SELECT value FROM settings WHERE key='store_theme'`);
+    const storeTheme = (stRow && stRow.value) || 'movieverse';
+    res.json({
+      settings: { ...design.DEFAULTS, ...saved },
+      resolved: design.resolve(saved, storeTheme),
+      fonts: Object.keys(design.FONTS),
+      palettes: design.PALETTE_MAP,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/design-settings', requireAdmin, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const isHex = v => v === '' || /^#?[0-9a-fA-F]{6}$/.test(v);
+    const norm = h => (h && h[0] !== '#') ? '#' + h : h;
+    const allow = {
+      design_brand:          v => isHex(v) ? norm(v) : null,
+      design_accent:         v => isHex(v) ? norm(v) : null,
+      design_mode:           v => ['light', 'dark'].includes(v) ? v : null,
+      design_contrast:       v => ['normal', 'high'].includes(v) ? v : null,
+      design_density:        v => ['compact', 'comfortable', 'spacious'].includes(v) ? v : null,
+      design_radius:         v => { const n = parseInt(v, 10); return (Number.isFinite(n) && n >= 0 && n <= 28) ? String(n) : null; },
+      design_font_heading:   v => design.FONTS[v] ? v : null,
+      design_font_body:      v => design.FONTS[v] ? v : null,
+      design_visitor_toggle: v => ['0', '1'].includes(String(v)) ? String(v) : null,
+      design_enabled:        v => ['0', '1'].includes(String(v)) ? String(v) : null,
+    };
+    const db = await getDb();
+    const applied = {};
+    for (const [k, fn] of Object.entries(allow)) {
+      if (body[k] === undefined) continue;
+      const val = fn(String(body[k]));
+      if (val === null) return res.status(400).json({ error: `Invalid value for ${k}: ${body[k]}` });
+      run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, [k, val]);
+      applied[k] = val;
+    }
+    await audit({ actorKind: 'admin', actorLabel: 'admin', action: 'set_design', targetKind: 'setting', targetId: 'design', after_json: JSON.stringify(applied), ip: req.ip });
+    res.json({ ok: true, applied });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
