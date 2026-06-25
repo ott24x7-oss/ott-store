@@ -785,7 +785,7 @@ fetch('/user/api/me',{credentials:'include'}).then(function(r){
 }).catch(function(){});
 
 // PWA
-if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(function(){});}
+if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').then(function(r){try{r.update()}catch(e){}}).catch(function(){});if(navigator.serviceWorker.controller){var _swReloaded=false;navigator.serviceWorker.addEventListener('controllerchange',function(){if(_swReloaded)return;_swReloaded=true;location.reload();});}}
 })();
 </script>
 </body>

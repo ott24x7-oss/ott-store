@@ -344,6 +344,11 @@ fetch('/user/api/store').then(r=>r.json()).then(s=>{
   if(s.store_theme)document.documentElement.setAttribute('data-store-theme',s.store_theme);
 }).catch(()=>{});
 
+// Force a service-worker update check and auto-reload once when the new worker
+// takes control, so a deploy's fresh themes.css applies without a manual hard
+// refresh. Guarded to pages that already have a controller so it never loops.
+if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').then(r=>{try{r.update()}catch(e){}}).catch(()=>{});if(navigator.serviceWorker.controller){let _swReloaded=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(_swReloaded)return;_swReloaded=true;location.reload();});}}
+
 // Auth check
 fetch('/user/api/me',{credentials:'include'}).then(r=>{
   if(r.ok){isLoggedIn=true;document.getElementById('header-login-btn').textContent='👤 My Account';}

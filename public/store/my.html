@@ -2178,7 +2178,7 @@ fetch('/user/api/store').then(r=>r.json()).then(s=>{
 <!-- PWA: "Install App" popup on the login screen -->
 <script>
 (function(){
-  if ('serviceWorker' in navigator) { try { navigator.serviceWorker.register('/sw.js').catch(function(){}); } catch(e){} }
+  if ('serviceWorker' in navigator) { try { navigator.serviceWorker.register('/sw.js').then(function(r){try{r.update()}catch(e){}}).catch(function(){}); if(navigator.serviceWorker.controller){var _swReloaded=false;navigator.serviceWorker.addEventListener('controllerchange',function(){if(_swReloaded)return;_swReloaded=true;location.reload();});} } catch(e){} }
   var deferred = null;
   var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
   var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
