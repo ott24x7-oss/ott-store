@@ -88,12 +88,19 @@ async function parseAndMatch(rawMessages) {
   let graceMin = 180;
   try { graceMin = Math.max(15, parseInt(await getSetting('payment_match_grace_minutes') || '180', 10) || 180); } catch {}
   try { run(db, `UPDATE topups SET status='expired' WHERE status='pending' AND expires_at IS NOT NULL AND datetime(expires_at) < datetime('now', ?)`, [`-${graceMin} minutes`]); } catch {}
+  // Only AUTO-verify RECENT payments: the topup must have been created within the
+  // last N minutes (default 10). Older pending payments are NOT auto-matched — the
+  // admin verifies those manually in Payment Log. This stops a late or unrelated
+  // bank email from auto-crediting a stale order.
+  let windowMin = 10;
+  try { windowMin = Math.max(1, parseInt(await getSetting('payment_match_window_minutes') || '10', 10) || 10); } catch {}
   const pending = all(db, `SELECT * FROM topups
     WHERE status='pending' AND purpose='order'
+      AND created_at >= datetime('now', ?)
       AND (
         (method='upi_imap'   AND unique_amount      IS NOT NULL) OR
         (method LIKE 'usdt_%' AND unique_amount_usdt IS NOT NULL)
-      )`);
+      )`, [`-${windowMin} minutes`]);
   if (!pending.length) return 0;
 
   const pendingInr  = pending.filter(t => t.method === 'upi_imap');
@@ -123,47 +130,20 @@ async function parseAndMatch(rawMessages) {
       await handleDirectCheckout(db, topup, cust).catch(() => {});
     }
 
-    // ROUND-AMOUNT FALLBACK: the customer paid the rounded amount they remember
-    // (e.g. ₹200 for a ₹200.50 order), so the exact-unique match above missed it.
-    // Match by whole-rupee base — but ONLY when EXACTLY ONE pending order fits, so
-    // we never guess between two orders. Ambiguous → alert the admin to verify.
+    // NO ROUND-AMOUNT AUTO-VERIFY: only the EXACT unique amount auto-approves (above).
+    // If a paid amount didn't match a unique amount but is plausibly for a pending
+    // order (it equals the base price, or is within ₹10 of the unique amount), alert
+    // the admin to verify it MANUALLY in Payment Log — we never auto-create the order.
+    // Far-off amounts match nothing and are ignored as unrelated.
     for (const amt of inrUnmatched) {
-      const cands = pendingInr.filter(t => t.status === 'pending'
-        && Math.round(t.amount_inr) === Math.round(amt)); // customer paid the BASE price, not the unique amount
-      if (cands.length === 1) {
-        const topup = cands[0];
-        topup.status = 'approved';
-        run(db, `UPDATE topups SET status='approved' WHERE id=?`, [topup.id]);
-        run(db, `INSERT INTO audit_log (actor_kind,actor_label,action,target_kind,target_id,after_json) VALUES (?,?,?,?,?,?)`,
-          ['system', 'imap-verify', 'checkout_upi_round_amount_approve', 'topup', String(topup.id),
-           JSON.stringify({ paid: amt, expected_unique: topup.unique_amount, base: topup.amount_inr })]);
-        matched++;
-        const cust = get(db, 'SELECT * FROM customers WHERE jid=?', [topup.customer_jid]);
-        await handleDirectCheckout(db, topup, cust).catch(() => {});
-        try {
-          const { notifyAdmin } = require('./notify');
-          await notifyAdmin(`⚠️ *Auto-verified by ROUND amount*\nCustomer paid *₹${amt}* (expected *₹${topup.unique_amount}*) — order created from payment #${topup.id} for ${cust?.name || topup.customer_jid}.\n\nIf this payment was NOT for this order, cancel it in Admin → Orders.`, { db });
-        } catch {}
-      } else if (cands.length > 1) {
-        try {
-          const { notifyAdmin } = require('./notify');
-          const list = cands.map(t => `#${t.id} (expected ₹${t.unique_amount})`).join(', ');
-          await notifyAdmin(`⚠️ *Payment needs manual verify*\nReceived *₹${amt}* but ${cands.length} pending orders could match: ${list}.\nOpen Admin → Payment Log and tap *✓ Verify* on the right one.`, { db });
-        } catch {}
-      } else {
-        // cands.length === 0 — no exact base-price match. If the amount is CLOSE to a
-        // pending order's expected amount it's likely a customer mistype / over- or
-        // under-payment, so alert the admin instead of silently dropping it. (Far-off
-        // amounts match nothing and are correctly ignored as unrelated.)
-        const near = pendingInr.filter(t => t.status === 'pending' && Math.abs(t.unique_amount - amt) <= 10);
-        if (near.length) {
-          try {
-            const { notifyAdmin } = require('./notify');
-            const list = near.map(t => `#${t.id} (expected ₹${t.unique_amount})`).join(', ');
-            await notifyAdmin(`⚠️ *Payment amount mismatch*\nReceived *₹${amt}* but no order expects that exact amount. Closest pending: ${list}.\nIf a customer paid the wrong amount, open Admin → Payment Log → *✓ Verify* the right order (or refund).`, { db });
-          } catch {}
-        }
-      }
+      const related = pendingInr.filter(t => t.status === 'pending'
+        && (Math.round(t.amount_inr) === Math.round(amt) || Math.abs(t.unique_amount - amt) <= 10));
+      if (!related.length) continue;
+      try {
+        const { notifyAdmin } = require('./notify');
+        const list = related.map(t => `#${t.id} (expected ₹${t.unique_amount})`).join(', ');
+        await notifyAdmin(`⚠️ *Payment needs manual verify*\nReceived *₹${amt}* — it does NOT match any order's exact (unique) amount, so it was not auto-verified. Possible order(s): ${list}.\nIf you confirmed the money arrived, open Admin → Payment Log and tap *✓ Verify* the right one.`, { db });
+      } catch {}
     }
 
     // Match USDT (Binance / BEP20 / TRC20)
