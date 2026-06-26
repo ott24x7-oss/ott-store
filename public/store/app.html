@@ -186,6 +186,19 @@
   @keyframes sp-load{0%{transform:translateX(-120%)}100%{transform:translateX(330%)}}
   @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
   @media(max-width:380px){ .app{padding:16px 12px 108px} .page-title{font-size:24px} .wallet-card .bal{font-size:32px} }
+  /* ── payment method picker ── */
+  .pay-methods{display:flex;flex-direction:column;gap:10px}
+  .pay-method{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--card3);border:1px solid var(--line2);border-radius:16px;padding:14px;color:var(--txt);cursor:pointer;transition:border-color .2s,transform .12s,box-shadow .2s}
+  .pay-method:hover{border-color:rgba(251,191,36,.5);box-shadow:0 8px 22px rgba(251,191,36,.12)}
+  .pay-method:active{transform:scale(.985)}
+  .pm-ic{font-size:22px;width:46px;height:46px;flex:0 0 46px;display:grid;place-items:center;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:13px}
+  .pm-tx{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+  .pm-tx b{font-size:15px;font-weight:700}
+  .pm-tx i{font-style:normal;font-size:11.5px;color:var(--muted)}
+  .pm-ar{width:20px;height:20px;color:var(--muted);flex:0 0 20px}
+  .pm-ar svg{width:20px;height:20px}
+  .pay-back{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;margin-bottom:10px}
+  .pay-back svg{width:16px;height:16px;transform:rotate(180deg)}
   /* ── payment sheet ── */
   .grad-text{background:var(--grad);background-size:230% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:goldShimmer 4.6s linear infinite}
   .pay-amt-wrap{text-align:center;background:radial-gradient(120% 130% at 50% 0%,rgba(251,191,36,.12),transparent 70%);border:1px solid var(--line2);border-radius:18px;padding:18px 14px;margin-bottom:14px}
@@ -469,36 +482,72 @@
       +'<button class="btn btn-gold btn-block" id="buyBtn" style="margin-top:14px">Buy now · '+inr(p.price)+'</button>'
       +'<button class="btn btn-dark btn-block" style="margin-top:9px" onclick="closeSheet()">Cancel</button>'
     );
-    $('buyBtn').onclick=function(){ startCheckout(p); };
+    $('buyBtn').onclick=function(){ openPayMethods(p); };
   }
 
-  /* ── checkout (UPI direct + poll) ── */
+  /* ── checkout: method picker → UPI / USDT / Wallet → shared poll ── */
   var pollTimer=null;
   function stopPoll(){ if(pollTimer){ clearInterval(pollTimer); pollTimer=null; } }
-  function startCheckout(p, phone){
-    openSheet('<div class="pay-load" style="min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center"><div class="spin"></div>Creating your payment…</div>');
-    var body={plan_id:p.id}; if(phone) body.phone=phone;
-    api('/checkout/upi-direct',{method:'POST',body:JSON.stringify(body)}).then(function(r){
-      if(r.data && r.data.need_phone){ return askPhone(p); }
-      if(!r.ok || !r.data || !r.data.ok){ openSheet(payErr((r.data&&r.data.error)||'Could not start payment.',p)); return; }
-      renderPay(p, r.data);
-    }).catch(function(){ openSheet(payErr('Network error. Try again.',p)); });
-  }
-  function askPhone(p){
+  function loadingSheet(msg){ openSheet('<div class="pay-load" style="min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px"><div class="spin"></div>'+esc(msg)+'</div>'); }
+  function payErr(msg){ return '<div class="pay-done"><div class="pd-ic" style="color:var(--red);background:var(--red-soft);border-color:rgba(239,122,106,.34)">'+svg('plus')+'</div><div class="pd-t" style="font-size:19px">'+esc(msg)+'</div><button class="btn btn-gold btn-block" onclick="closeSheet()">Close</button></div>'; }
+  function askPhone(retry){
     openSheet('<div class="pd-t" style="font-size:20px">Add WhatsApp number</div><div class="page-sub">We deliver your order to WhatsApp + email.</div>'
       +'<div class="field"><label>WhatsApp number</label><input id="ph" type="tel" inputmode="tel" placeholder="+91…"></div>'
       +'<button class="btn btn-gold btn-block" id="phBtn" style="margin-top:6px">Continue</button>'
       +'<button class="btn btn-dark btn-block" style="margin-top:9px" onclick="closeSheet()">Cancel</button>');
-    $('phBtn').onclick=function(){ var v=($('ph').value||'').trim(); if(!v){toast('Enter your number');return;} startCheckout(p,v); };
+    $('phBtn').onclick=function(){ var v=($('ph').value||'').trim(); if(!v){toast('Enter your number');return;} retry(v); };
   }
-  function payErr(msg,p){ return '<div class="pay-done"><div class="pd-ic" style="color:var(--red);background:var(--red-soft);border-color:rgba(239,122,106,.34)">'+svg('plus')+'</div><div class="pd-t">'+esc(msg)+'</div><button class="btn btn-gold btn-block" onclick="closeSheet()">Close</button></div>'; }
-  function renderPay(p, d){
-    var amt=Number(d.unique_amount||d.plan_price||p.price);
-    var qr=d.upi_qr||d.qr_url||'';
-    var link=d.upi_link||'';
+  function methodsFor(p){
+    var s=STATE.store||{}, m=[];
+    if(STATE.balance>=p.price && p.price>0) m.push({id:'wallet',ic:'👛',t:'Pay with Wallet',i:'Instant · balance '+inr(STATE.balance)});
+    if(s.upi_available || s.upi_id) m.push({id:'upi',ic:'🇮🇳',t:'UPI',i:'GPay · PhonePe · Paytm'});
+    if(s.usdt_binance_enabled==='1'||s.usdt_bep20_enabled==='1'||s.usdt_trc20_enabled==='1') m.push({id:'usdt',ic:'₮',t:'USDT (crypto)',i:'Binance · BEP20 · TRC20'});
+    return m;
+  }
+  function openPayMethods(p){
+    STATE.current=p;
+    var ms=methodsFor(p);
+    if(!ms.length){ startCheckout(p); return; }
+    if(ms.length===1){ pickMethod(p, ms[0].id); return; }
+    openSheet('<div class="d-nm" style="margin-bottom:4px">'+esc(p.name)+'</div><div class="d-pr" style="margin-bottom:14px">'+inr(p.price)+'</div>'
+      +'<div class="pf-l">Choose how to pay</div><div class="pay-methods">'
+      +ms.map(function(x){return '<button class="pay-method" data-m="'+x.id+'"><span class="pm-ic">'+x.ic+'</span><span class="pm-tx"><b>'+esc(x.t)+'</b><i>'+esc(x.i)+'</i></span><span class="pm-ar">'+svg('arrow')+'</span></button>';}).join('')
+      +'</div><button class="btn btn-dark btn-block" style="margin-top:12px" onclick="closeSheet()">Cancel</button>');
+    [].forEach.call(document.querySelectorAll('[data-m]'),function(b){ b.onclick=function(){ pickMethod(p,b.dataset.m); }; });
+  }
+  window.__backToMethods=function(){ if(STATE.current) openPayMethods(STATE.current); };
+  function pickMethod(p,m){ if(m==='wallet') payWallet(p); else if(m==='usdt') openUsdtNetworks(p); else startCheckout(p); }
+
+  function wirePoll(tid,p){
+    [].forEach.call(document.querySelectorAll('[data-copy]'),function(b){ b.onclick=function(){ copyText(b.dataset.copy); }; });
+    var tries=0; stopPoll();
+    pollTimer=setInterval(function(){
+      tries++;
+      api('/checkout/poll/'+tid).then(function(r){
+        if(!r.ok||!r.data) return;
+        if(r.data.status==='paid'){ stopPoll(); paySuccess(r.data.order,p); }
+        else if(r.data.status==='expired'||r.data.status==='rejected'){ stopPoll(); var w=$('payWait'); if(w) w.innerHTML='<span style="color:var(--red)">Payment window closed. Reopen to retry.</span>'; }
+      }).catch(function(){});
+      if(tries>250) stopPoll();
+    },4000);
+  }
+
+  /* UPI */
+  function startCheckout(p, phone){
+    loadingSheet('Creating your payment…');
+    var body={plan_id:p.id}; if(phone) body.phone=phone;
+    api('/checkout/upi-direct',{method:'POST',body:JSON.stringify(body)}).then(function(r){
+      if(r.data && r.data.need_phone) return askPhone(function(ph){ startCheckout(p,ph); });
+      if(!r.ok||!r.data||!r.data.ok){ openSheet(payErr((r.data&&r.data.error)||'Could not start payment.')); return; }
+      renderUpiPay(p,r.data);
+    }).catch(function(){ openSheet(payErr('Network error. Try again.')); });
+  }
+  function renderUpiPay(p,d){
+    var amt=Number(d.unique_amount||d.plan_price||p.price), qr=d.upi_qr||d.qr_url||'', link=d.upi_link||'';
     openSheet(
-      '<div class="pay-amt-wrap"><div class="pay-amt-l">Pay exactly</div><div class="pay-amt grad-text">'+inr(amt)+'</div><div style="font-size:12px;color:var(--g1);font-weight:600">'+esc(p.name)+'</div></div>'
-      +'<div class="pay-steps">Pay the <b>exact</b> amount above by UPI. It auto-verifies in a few seconds — don’t round it off.</div>'
+      '<div class="pay-back" onclick="window.__backToMethods()">'+svg('arrow')+'Payment options</div>'
+      +'<div class="pay-amt-wrap"><div class="pay-amt-l">Pay exactly</div><div class="pay-amt grad-text">'+inr(amt)+'</div><div style="font-size:12px;color:var(--g1);font-weight:600">'+esc(p.name)+'</div></div>'
+      +'<div class="pay-steps">Pay the <b>exact</b> amount by UPI — don’t round it off. Auto-verifies in seconds.</div>'
       +(qr?'<img class="pay-qr" src="'+esc(qr)+'" alt="UPI QR">':'')
       +(d.upi_id?'<div class="pay-field"><div class="pf-l">UPI ID — tap to copy</div><button class="pf-copy" data-copy="'+esc(d.upi_id)+'"><span class="v">'+esc(d.upi_id)+'</span><span class="ic">'+svg('copy')+'</span></button></div>':'')
       +'<div class="pay-field"><div class="pf-l">Exact amount — tap to copy</div><button class="pf-copy" data-copy="'+amt.toFixed(2)+'"><span class="v">₹'+amt.toFixed(2)+'</span><span class="ic">'+svg('copy')+'</span></button></div>'
@@ -506,23 +555,62 @@
       +'<div class="pay-wait" id="payWait"><div class="spin"></div><span>Waiting for your payment…</span></div>'
       +'<button class="btn btn-dark btn-block" onclick="closeSheet()">I’ll pay later</button>'
     );
-    [].forEach.call(document.querySelectorAll('[data-copy]'),function(b){ b.onclick=function(){ copyText(b.dataset.copy); }; });
-    var tid=d.topup_id; var tries=0;
-    stopPoll();
-    pollTimer=setInterval(function(){
-      tries++;
-      api('/checkout/poll/'+tid).then(function(r){
-        if(!r.ok||!r.data) return;
-        if(r.data.status==='paid'){ stopPoll(); paySuccess(r.data.order,p); }
-        else if(r.data.status==='expired'||r.data.status==='rejected'){ stopPoll(); var w=$('payWait'); if(w){ w.classList.remove('ok'); w.innerHTML='<span style="color:var(--red)">Payment window closed. Reopen to retry.</span>'; } }
-      }).catch(function(){});
-      if(tries>200) stopPoll();
-    }, 4000);
+    wirePoll(d.topup_id,p);
   }
+
+  /* USDT */
+  function openUsdtNetworks(p){
+    var s=STATE.store||{}, nets=[];
+    if(s.usdt_binance_enabled==='1') nets.push({id:'binance',t:'Binance Pay',i:'Pay via Binance UID'});
+    if(s.usdt_bep20_enabled==='1') nets.push({id:'bep20',t:'USDT · BEP20',i:'BNB Smart Chain'});
+    if(s.usdt_trc20_enabled==='1') nets.push({id:'trc20',t:'USDT · TRC20',i:'Tron network'});
+    if(nets.length===1){ startUsdt(p, nets[0].id); return; }
+    openSheet('<div class="pay-back" onclick="window.__backToMethods()">'+svg('arrow')+'Payment options</div>'
+      +'<div class="pf-l">Choose USDT network</div><div class="pay-methods">'
+      +nets.map(function(n){return '<button class="pay-method" data-n="'+n.id+'"><span class="pm-ic">₮</span><span class="pm-tx"><b>'+esc(n.t)+'</b><i>'+esc(n.i)+'</i></span><span class="pm-ar">'+svg('arrow')+'</span></button>';}).join('')
+      +'</div><button class="btn btn-dark btn-block" style="margin-top:12px" onclick="closeSheet()">Cancel</button>');
+    [].forEach.call(document.querySelectorAll('[data-n]'),function(b){ b.onclick=function(){ startUsdt(p,b.dataset.n); }; });
+  }
+  function startUsdt(p, network, phone){
+    loadingSheet('Creating USDT payment…');
+    var body={plan_id:p.id, network:network}; if(phone) body.phone=phone;
+    api('/checkout/usdt-direct',{method:'POST',body:JSON.stringify(body)}).then(function(r){
+      if(r.data && r.data.need_phone) return askPhone(function(ph){ startUsdt(p,network,ph); });
+      if(!r.ok||!r.data||!r.data.ok){ openSheet(payErr((r.data&&r.data.error)||'Could not start USDT payment.')); return; }
+      renderUsdtPay(p,r.data);
+    }).catch(function(){ openSheet(payErr('Network error. Try again.')); });
+  }
+  function renderUsdtPay(p,d){
+    var amt=Number(d.unique_usdt||d.base_usdt||0);
+    var netLabel={binance:'Binance UID',bep20:'USDT · BEP20 (BSC)',trc20:'USDT · TRC20 (Tron)'}[d.network]||String(d.network||'').toUpperCase();
+    var addrLabel=d.network==='binance'?'Binance UID':'Wallet address';
+    openSheet(
+      '<div class="pay-back" onclick="window.__backToMethods()">'+svg('arrow')+'Payment options</div>'
+      +'<div class="pay-amt-wrap"><div class="pay-amt-l">Send exactly</div><div class="pay-amt grad-text">'+amt.toFixed(3)+'</div><div style="font-size:12px;color:var(--g1);font-weight:600">USDT · '+esc(netLabel)+' · ≈ '+inr(d.plan_price_inr)+'</div></div>'
+      +'<div class="pay-steps">Send the <b>exact</b> USDT amount to the address below. Auto-verifies once the network confirms.</div>'
+      +(d.qr_url?'<img class="pay-qr" src="'+esc(d.qr_url)+'" alt="USDT QR">':'')
+      +'<div class="pay-field"><div class="pf-l">'+esc(addrLabel)+' — tap to copy</div><button class="pf-copy" data-copy="'+esc(d.address)+'"><span class="v">'+esc(d.address)+'</span><span class="ic">'+svg('copy')+'</span></button></div>'
+      +'<div class="pay-field"><div class="pf-l">Exact amount — tap to copy</div><button class="pf-copy" data-copy="'+amt.toFixed(3)+'"><span class="v">'+amt.toFixed(3)+' USDT</span><span class="ic">'+svg('copy')+'</span></button></div>'
+      +'<div class="pay-wait" id="payWait"><div class="spin"></div><span>Waiting for your transfer…</span></div>'
+      +'<button class="btn btn-dark btn-block" onclick="closeSheet()">I’ll pay later</button>'
+    );
+    wirePoll(d.topup_id,p);
+  }
+
+  /* Wallet (pay from balance — instant) */
+  function payWallet(p, phone){
+    loadingSheet('Paying from wallet…');
+    var body={plan_id:p.id}; if(phone) body.phone=phone;
+    api('/checkout/wallet',{method:'POST',body:JSON.stringify(body)}).then(function(r){
+      if(r.data && r.data.need_phone) return askPhone(function(ph){ payWallet(p,ph); });
+      if(r.ok && r.data && r.data.ok){ if(r.data.new_balance!=null) STATE.balance=r.data.new_balance; paySuccess(r.data.order||{id:r.data.order_id},p); }
+      else openSheet(payErr((r.data&&r.data.error)||'Could not pay from wallet.'));
+    }).catch(function(){ openSheet(payErr('Network error. Try again.')); });
+  }
+
   function paySuccess(order,p){
-    var w=$('payWait'); if(w){ w.classList.add('ok'); w.innerHTML=svg('check')+'<span>Payment received!</span>'; }
     STATE.page='orders';
-    openSheet('<div class="pay-done"><div class="pd-ic">'+svg('check')+'</div><div class="pd-t">Payment received 🎉</div><div class="page-sub">Your order for <b style="color:var(--g1)">'+esc(p.name)+'</b> is placed. Credentials arrive on WhatsApp + email shortly.</div><button class="btn btn-gold btn-block" id="okBtn" style="margin-top:8px">View my orders '+svg('arrow')+'</button></div>');
+    openSheet('<div class="pay-done"><div class="pd-ic">'+svg('check')+'</div><div class="pd-t">Payment received 🎉</div><div class="page-sub" style="margin-bottom:0">Your order for <b style="color:var(--g1)">'+esc(p.name)+'</b> is placed. Credentials arrive on WhatsApp + email shortly.</div><button class="btn btn-gold btn-block" id="okBtn" style="margin-top:14px">View my orders '+svg('arrow')+'</button></div>');
     $('okBtn').onclick=function(){ closeSheet(); go('orders'); renderNav(); };
     loadOrders();
   }
