@@ -1,0 +1,27 @@
+{
+  "appId": "com.ott24x7.app",
+  "appName": "OTT24x7",
+  "webDir": "www",
+  "server": {
+    "url": "https://ott24x7.com/app",
+    "androidScheme": "https",
+    "cleartext": false,
+    "allowNavigation": ["ott24x7.com", "*.ott24x7.com"]
+  },
+  "android": {
+    "backgroundColor": "#06070C",
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 600,
+      "backgroundColor": "#06070C",
+      "showSpinner": false,
+      "androidSplashResourceName": "splash"
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#06070C"
+    }
+  }
+}

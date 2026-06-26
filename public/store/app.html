@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en" data-app="ott24x7">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#06070C">
+<meta name="robots" content="noindex,nofollow">
+<title>OTT24x7</title>
+<link rel="manifest" href="/app.webmanifest">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<style>
+  /* ── Gold "liquid glass" mini-app design (ported from the OTT24x7 Telegram mini-app) ── */
+  :root{
+    --bg:#06070C; --bg2:#0B0D16; --card:#0B0D16; --card2:#141828; --card3:#1b2030;
+    --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.14);
+    --txt:#EEF2F8; --muted:#9AA4B8; --muted2:#5A647A;
+    --g1:#FFD45E; --g2:#FBBF24; --g3:#F97316; --gold:#FBBF24; --gold-ink:#170F02;
+    --gold-soft:rgba(251,191,36,.14); --gold-line:rgba(251,191,36,.42);
+    --grad:linear-gradient(100deg,#FBBF24,#F97316);
+    --neon:0 0 16px rgba(255,224,150,.5),0 0 36px rgba(251,191,36,.26);
+    --green:#37d39a; --green-soft:rgba(55,211,154,.15);
+    --red:#ef7a6a; --red-soft:rgba(239,122,106,.15);
+    --ease:cubic-bezier(.22,1,.36,1);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html{scrollbar-gutter:stable}
+  body{
+    font-family:"DM Sans",-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--txt);
+    background:
+      radial-gradient(130% 70% at 50% 108%, rgba(251,191,36,.16), transparent 60%),
+      radial-gradient(90% 50% at 50% -6%, rgba(251,191,36,.07), transparent 55%),
+      var(--bg);
+    min-height:100vh;font-size:14px;line-height:1.5;overflow-x:hidden;-webkit-font-smoothing:antialiased;
+  }
+  .app{max-width:480px;margin:0 auto;padding:18px 16px 110px;min-height:100vh}
+  .center{display:grid;place-items:center;min-height:60vh;text-align:center;color:var(--muted);padding:30px}
+  .spin{width:34px;height:34px;border:3px solid rgba(255,255,255,.14);border-top-color:var(--gold);border-radius:50%;animation:sp .8s linear infinite;margin:0 auto 14px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .hidden{display:none!important}
+  .kicker{font-size:11px;font-weight:700;letter-spacing:.22em;color:var(--muted);text-transform:uppercase}
+  .kicker.gold{color:var(--g2)}
+  .page-title{font-size:27px;font-weight:800;letter-spacing:-.02em;margin:4px 0 2px;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .page-sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+  .sec-head{display:flex;align-items:center;justify-content:space-between;margin:22px 0 12px}
+  .sec-head h2{font-size:18px;font-weight:800;letter-spacing:-.01em}
+  .sec-head .link{background:none;border:0;color:var(--g2);font-weight:700;font-size:13px;cursor:pointer}
+  .sec-head .count{color:var(--muted);font-size:13px;font-weight:600}
+  .card{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02)),var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:0 18px 44px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.09);backdrop-filter:blur(18px) saturate(1.5);-webkit-backdrop-filter:blur(18px) saturate(1.5)}
+  .pad{padding:18px}
+  .glass{background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.015));backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+  .home-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .avatar{width:46px;height:46px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--grad);color:var(--gold-ink);font-weight:900;font-size:19px;box-shadow:0 8px 22px rgba(251,191,36,.34),inset 0 1px 0 rgba(255,255,255,.4);position:relative}
+  .avatar:after{content:"";position:absolute;right:1px;bottom:1px;width:11px;height:11px;border-radius:50%;background:var(--green);border:2px solid var(--card)}
+  .hh-txt{flex:1;min-width:0}
+  .hh-txt .k{font-size:10.5px;letter-spacing:.18em;color:var(--muted);font-weight:700;text-transform:uppercase}
+  .hh-txt .n{font-size:19px;font-weight:800;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bal-pill{display:flex;align-items:center;gap:7px;background:var(--grad);color:var(--gold-ink);border:0;border-radius:999px;padding:9px 15px;font-weight:800;font-size:14px;cursor:pointer;box-shadow:0 10px 24px rgba(251,191,36,.34),inset 0 1px 0 rgba(255,255,255,.45);flex:none}
+  .bal-pill svg{width:16px;height:16px}
+  .search{display:flex;align-items:center;gap:10px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.02)),var(--card2);border:1px solid var(--line);border-radius:14px;padding:0 14px;height:48px;transition:border-color .2s,box-shadow .2s}
+  .search:focus-within{border-color:var(--gold-line);box-shadow:0 0 0 3px rgba(251,191,36,.14)}
+  .search svg{width:18px;height:18px;color:var(--muted);flex:none}
+  .search input{flex:1;background:none;border:0;outline:none;color:var(--txt);font-size:14px;font-family:inherit}
+  .search input::placeholder{color:var(--muted2)}
+  .hero{position:relative;overflow:hidden;border-radius:22px;border:1px solid var(--gold-line);padding:22px 20px;min-height:128px;display:flex;flex-direction:column;justify-content:center;margin-top:16px;
+    background:radial-gradient(120% 120% at 85% 0%, rgba(251,191,36,.42), transparent 55%), linear-gradient(135deg,#241a0c,#100d0a 70%);
+    box-shadow:0 18px 44px rgba(0,0,0,.45),0 0 30px rgba(251,191,36,.16),inset 0 1px 0 rgba(255,255,255,.1)}
+  .hero:after{content:"";position:absolute;top:0;left:0;width:55%;height:100%;background:linear-gradient(105deg,transparent,rgba(255,228,170,.16),transparent);transform:translateX(-160%);animation:sheen 6s ease-in-out 1.2s infinite;pointer-events:none;z-index:1}
+  .hero h3,.hero .hero-cta{position:relative;z-index:2}
+  .hero h3{font-size:20px;font-weight:800;line-height:1.25;letter-spacing:-.01em;max-width:80%}
+  .hero h3 b{color:var(--g1)}
+  .hero .hero-ic{position:absolute;right:-10px;bottom:-14px;width:120px;height:120px;color:rgba(251,191,36,.16)}
+  .pills{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 8px;scrollbar-width:none}
+  .pills::-webkit-scrollbar{display:none}
+  .pill{flex:none;display:inline-flex;align-items:center;gap:7px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.02)),var(--card2);border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:9px 15px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;transition:transform .18s var(--ease),border-color .2s,background .2s}
+  .pill:active{transform:scale(.96)}
+  .pill.cat{gap:9px;padding:6px 17px 6px 6px}
+  .pill.cat .pem{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:15px;line-height:1;flex:none;background:rgba(251,191,36,.14);border:1px solid rgba(251,191,36,.32)}
+  .pill.cat.active .pem{background:rgba(255,255,255,.32);border-color:transparent}
+  .pill.active{background:var(--grad);color:var(--gold-ink);border-color:transparent;box-shadow:0 8px 20px rgba(251,191,36,.3),inset 0 1px 0 rgba(255,255,255,.42)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+  .pcard{position:relative;border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.02)),var(--card);border-radius:18px;padding:11px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 28px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.05);transition:transform .26s var(--ease),border-color .2s,box-shadow .26s var(--ease);animation:rise .5s var(--ease) both}
+  #gridHost{animation:none}
+  .pcard:active{transform:scale(.98)}
+  .pcard .thumb{height:84px;border-radius:13px;background:linear-gradient(160deg,#fff,#e9edf4);display:grid;place-items:center;font-size:34px;overflow:hidden;margin-bottom:10px}
+  .pcard .thumb img{width:100%;height:100%;object-fit:contain;padding:9px;box-sizing:border-box}
+  .pcard .cat{font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--g2)}
+  .pcard .nm{font-size:13px;font-weight:600;line-height:1.3;margin:3px 0 0;min-height:34px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .pcard .row{display:flex;align-items:center;justify-content:space-between;margin-top:8px;gap:6px}
+  .pcard .pr{font-size:16px;font-weight:800;color:var(--g1)}
+  .pcard .add{width:34px;height:34px;flex:none;border:0;border-radius:11px;background:var(--grad);color:var(--gold-ink);display:grid;place-items:center;cursor:pointer;font-size:18px;font-weight:800;box-shadow:0 6px 16px rgba(251,191,36,.34),inset 0 1px 0 rgba(255,255,255,.45)}
+  .empty{border:1.5px dashed var(--line2);border-radius:22px;padding:40px 24px;text-align:center;background:rgba(255,255,255,.015);margin-top:6px}
+  .empty .e-ic{width:74px;height:74px;border-radius:20px;display:grid;place-items:center;margin:0 auto 18px;background:var(--card3);color:var(--muted)}
+  .empty .e-ic.gold{background:var(--grad);color:var(--gold-ink);box-shadow:0 14px 34px rgba(251,191,36,.34)}
+  .empty .e-ic svg{width:34px;height:34px}
+  .empty h3{font-size:19px;font-weight:800}
+  .empty p{color:var(--muted);font-size:13px;margin:6px 0 18px;max-width:280px;margin-left:auto;margin-right:auto}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:13px 20px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;transition:transform .15s var(--ease),filter .2s}
+  .btn:active{transform:scale(.97)}
+  .btn-gold{background:var(--grad);color:var(--gold-ink);box-shadow:0 12px 28px rgba(251,191,36,.36),inset 0 1px 0 rgba(255,255,255,.45)}
+  .btn-gold:hover{filter:brightness(1.05)}
+  .btn-dark{background:var(--card3);color:var(--txt);border:1px solid var(--line2)}
+  .btn-block{width:100%}
+  .btn svg{width:17px;height:17px}
+  .wallet-card{position:relative;overflow:hidden;border-radius:22px;border:1px solid var(--gold-line);padding:20px;
+    background:radial-gradient(120% 120% at 88% 8%, rgba(251,191,36,.26), transparent 52%), linear-gradient(160deg,#1a1710,#0e0d0b);
+    box-shadow:0 20px 50px rgba(0,0,0,.55),0 0 34px rgba(251,191,36,.18),inset 0 1px 0 rgba(255,255,255,.1)}
+  .wallet-card:after{content:"";position:absolute;top:0;left:-30%;width:45%;height:100%;background:linear-gradient(105deg,transparent,rgba(255,228,170,.14),transparent);transform:translateX(-120%);animation:sheen 7s ease-in-out 1.6s infinite;pointer-events:none}
+  .wallet-card .lbl{font-size:10.5px;letter-spacing:.2em;color:var(--muted);font-weight:700;text-transform:uppercase}
+  .wallet-card .bal{font-size:38px;font-weight:900;letter-spacing:-.02em;margin:2px 0 8px;color:#fff}
+  .wbtns{display:flex;gap:9px;margin-top:14px}
+  .wbtn{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:999px;padding:11px 17px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
+  .wbtn svg{width:15px;height:15px}
+  .wbtn.gold{background:var(--grad);color:var(--gold-ink);box-shadow:0 8px 20px rgba(251,191,36,.3)}
+  .wbtn.dark{background:rgba(255,255,255,.1);color:#fff;border:1px solid var(--line2)}
+  .sum-ic{position:absolute;right:18px;top:18px;width:52px;height:52px;border-radius:15px;background:var(--grad);color:var(--gold-ink);display:grid;place-items:center;box-shadow:0 10px 24px rgba(251,191,36,.34),inset 0 1px 0 rgba(255,255,255,.45)}
+  .sum-ic svg{width:24px;height:24px}
+  .row-item{display:flex;align-items:center;gap:12px;border:1px solid var(--line);background:var(--card);border-radius:16px;padding:13px;margin-bottom:10px}
+  .row-item .ri-ic{width:44px;height:44px;flex:none;border-radius:13px;background:linear-gradient(160deg,#fff,#e9edf4);color:#333;display:grid;place-items:center;overflow:hidden}
+  .row-item .ri-ic img{width:100%;height:100%;object-fit:contain;padding:7px}
+  .row-item .ri-ic svg{width:20px;height:20px;color:var(--g2)}
+  .row-item .ri-mid{flex:1;min-width:0}
+  .row-item .ri-mid .t{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row-item .ri-mid .s{color:var(--muted);font-size:12px;margin-top:2px}
+  .row-item .ri-end{text-align:right;flex:none}
+  .row-item .ri-end .a{font-weight:800;font-size:15px}
+  .sbadge{display:inline-block;font-size:10px;font-weight:800;padding:3px 9px;border-radius:999px;letter-spacing:.03em;margin-top:4px}
+  .sbadge.ok{background:var(--green-soft);color:var(--green)} .sbadge.pend{background:var(--gold-soft);color:var(--g1)} .sbadge.bad{background:var(--red-soft);color:var(--red)}
+  .keys{margin-top:10px;background:#0b1411;border:1px solid rgba(55,211,154,.3);color:#bdf3da;border-radius:12px;padding:11px;font-family:Consolas,monospace;font-size:12px;white-space:pre-wrap;word-break:break-all}
+  .nav{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;justify-content:center;padding:0 12px 14px;pointer-events:none}
+  .nav-bar{pointer-events:auto;display:flex;justify-content:space-between;gap:2px;width:100%;max-width:456px;background:rgba(18,18,20,.92);backdrop-filter:blur(22px) saturate(1.4);-webkit-backdrop-filter:blur(22px) saturate(1.4);border:1px solid var(--line2);border-radius:24px;padding:10px 8px;box-shadow:0 -10px 40px rgba(0,0,0,.6),0 10px 34px rgba(251,191,36,.18),inset 0 1px 0 rgba(255,255,255,.08)}
+  .nav-item{flex:1;display:grid;justify-items:center;gap:5px;background:none;border:0;cursor:pointer;padding:0;font-family:inherit}
+  .nav-item .ni-ic{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:var(--card3);color:var(--muted);transition:.2s var(--ease)}
+  .nav-item .ni-ic svg{width:21px;height:21px}
+  .nav-item .ni-lb{font-size:10.5px;color:var(--muted);font-weight:600}
+  .nav-item.active .ni-ic{background:var(--grad);color:var(--gold-ink);box-shadow:0 8px 20px rgba(251,191,36,.44),inset 0 1px 0 rgba(255,255,255,.45);transform:translateY(-2px)}
+  .nav-item.active .ni-lb{color:var(--g1);font-weight:800}
+  .sheet{position:fixed;inset:0;z-index:80;background:rgba(4,4,6,.66);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .28s var(--ease)}
+  .sheet.show{opacity:1;pointer-events:auto}
+  .sheet .panel{width:100%;max-width:480px;margin:0 auto;background:linear-gradient(180deg,#19191d,#101013);border:1px solid var(--line2);border-bottom:0;border-radius:26px 26px 0 0;padding:12px 16px calc(16px + env(safe-area-inset-bottom));max-height:92vh;overflow:auto;transform:translateY(101%);transition:transform .36s var(--ease);box-shadow:0 -24px 60px rgba(0,0,0,.6)}
+  .sheet .panel:before{content:"";display:block;width:40px;height:4px;border-radius:999px;background:rgba(255,255,255,.2);margin:0 auto 14px}
+  .sheet.show .panel{transform:none}
+  .d-head{display:flex;align-items:center;gap:13px;margin-bottom:12px}
+  .d-ic{flex:none;width:60px;height:60px;border-radius:15px;background:linear-gradient(160deg,#fff,#e9edf4);display:grid;place-items:center;font-size:30px;overflow:hidden}
+  .d-ic img{max-width:100%;max-height:60px;object-fit:contain;padding:9px;box-sizing:border-box}
+  .d-txt{flex:1;min-width:0}
+  .d-nm{font-size:16px;font-weight:800;line-height:1.2}
+  .d-pr{font-size:20px;font-weight:900;color:var(--g1);margin-top:3px}
+  .meta{display:grid;gap:7px;margin:8px 0 12px;font-size:13px}
+  .meta .m{display:flex;justify-content:space-between;gap:12px;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:11px;padding:9px 12px}
+  .meta .m span:first-child{color:var(--muted)}
+  .desc{font-size:12.5px;line-height:1.5;color:#cfcdc6;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:12px;padding:11px 13px;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden}
+  .toast{position:fixed;left:50%;bottom:120px;transform:translateX(-50%) translateY(70px);z-index:120;background:#23231f;border:1px solid var(--gold-line);color:#fff;padding:12px 18px;border-radius:13px;font-weight:600;box-shadow:0 14px 34px rgba(0,0,0,.5);transition:.28s var(--ease);max-width:88%;opacity:0;visibility:hidden}
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1;visibility:visible}
+  @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  @keyframes goldShimmer{0%{background-position:0% 50%}100%{background-position:230% 50%}}
+  .bal-pill,.btn-gold,.wbtn.gold,.pill.active,.add,.nav-item.active .ni-ic,.sum-ic,.e-ic.gold,.avatar{background-size:230% 100%;filter:drop-shadow(0 0 9px rgba(255,224,150,.42)) drop-shadow(0 0 20px rgba(251,191,36,.2))}
+  .bal-pill,.btn-gold,.wbtn.gold,.nav-item.active .ni-ic,.sum-ic,.pill.active{animation:goldShimmer 4.6s linear infinite}
+  .wallet-card .bal{background:var(--grad);background-size:230% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:goldShimmer 4.6s linear infinite;filter:drop-shadow(0 0 12px rgba(255,224,150,.4))}
+  @keyframes sheen{0%{transform:translateX(-160%)}55%,100%{transform:translateX(320%)}}
+  .app>*{animation:rise .42s var(--ease) both}
+  .grid .pcard:nth-child(2){animation-delay:.04s}.grid .pcard:nth-child(3){animation-delay:.08s}.grid .pcard:nth-child(4){animation-delay:.12s}.grid .pcard:nth-child(n+5){animation-delay:.15s}
+  /* ── auth ── */
+  .auth-logo{width:64px;height:64px;border-radius:18px;background:var(--grad);color:var(--gold-ink);display:grid;place-items:center;font-weight:900;font-size:26px;margin:0 auto 20px;box-shadow:0 14px 34px rgba(251,191,36,.4)}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px}
+  .field input{width:100%;background:var(--card2);border:1px solid var(--line);border-radius:13px;padding:13px 14px;color:var(--txt);font-size:15px;font-family:inherit;outline:none;transition:border-color .2s,box-shadow .2s}
+  .field input:focus{border-color:var(--gold-line);box-shadow:0 0 0 3px rgba(251,191,36,.14)}
+  .auth-switch{text-align:center;color:var(--muted);font-size:13px;margin-top:16px}
+  .auth-switch b{color:var(--g1);font-weight:800;cursor:pointer}
+  .alert{border-radius:12px;padding:11px 13px;font-size:13px;font-weight:600;margin-bottom:12px}
+  .alert.err{background:var(--red-soft);color:var(--red);border:1px solid rgba(239,122,106,.3)}
+  .alert.ok{background:var(--green-soft);color:var(--green);border:1px solid rgba(55,211,154,.3)}
+  /* ── splash ── */
+  #splash{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;transition:opacity .55s ease,visibility .55s ease;background:radial-gradient(120% 90% at 50% 42%, #2c2310 0%, #14110b 46%, #08070a 78%)}
+  #splash.hide{opacity:0;visibility:hidden}
+  #splash .sp-inner{display:flex;flex-direction:column;align-items:center;gap:26px;padding:24px}
+  #splash .sp-logo{position:relative;border-radius:16px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.06),0 24px 70px rgba(251,191,36,.4)}
+  #splash .sp-logo img{display:block;width:clamp(200px,56vw,280px);height:auto}
+  #splash .sp-logo .sp-word{display:block;font-size:30px;font-weight:900;color:#f3ead3;padding:30px 40px;letter-spacing:.5px}
+  #splash .sp-logo .sp-word b{color:var(--g1)}
+  #splash .sp-bar{width:min(230px,62vw);height:3px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden}
+  #splash .sp-bar i{display:block;height:100%;width:42%;border-radius:999px;background:var(--grad);animation:sp-load 1.25s ease-in-out infinite}
+  #splash .sp-text{font-size:12px;letter-spacing:.4em;color:#b6a079;font-weight:700;padding-left:.4em}
+  @keyframes sp-load{0%{transform:translateX(-120%)}100%{transform:translateX(330%)}}
+  @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+  @media(max-width:380px){ .app{padding:16px 12px 108px} .page-title{font-size:24px} .wallet-card .bal{font-size:32px} }
+  /* ── payment sheet ── */
+  .grad-text{background:var(--grad);background-size:230% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:goldShimmer 4.6s linear infinite}
+  .pay-amt-wrap{text-align:center;background:radial-gradient(120% 130% at 50% 0%,rgba(251,191,36,.12),transparent 70%);border:1px solid var(--line2);border-radius:18px;padding:18px 14px;margin-bottom:14px}
+  .pay-amt-l{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .pay-amt{font-size:42px;font-weight:800;letter-spacing:-.02em;line-height:1.1;margin:4px 0 6px;filter:drop-shadow(0 0 14px rgba(255,224,150,.4))}
+  .pay-field{margin-bottom:12px}
+  .pf-l{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px}
+  .pf-copy{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;background:var(--card3);border:1px dashed var(--line2);border-radius:13px;padding:13px 14px;color:var(--txt);font-size:14px;font-weight:600;word-break:break-all;text-align:left;cursor:pointer;transition:border-color .2s}
+  .pf-copy:hover{border-color:rgba(251,191,36,.5)}
+  .pf-copy .v{flex:1;min-width:0}.pf-copy .ic{flex:0 0 18px;color:var(--g1)}.pf-copy .ic svg{width:18px;height:18px}
+  .pay-qr{display:block;width:200px;height:200px;margin:0 auto 12px;border-radius:14px;background:#fff;padding:8px}
+  .pay-steps{font-size:13px;color:var(--txt);line-height:1.6;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.22);border-radius:12px;padding:11px 13px;margin-bottom:12px}
+  .pay-steps b{color:var(--g1);font-weight:700}
+  .pay-wait{display:flex;align-items:center;gap:11px;justify-content:center;text-align:center;color:var(--muted);font-size:13px;background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:13px;padding:14px;margin-bottom:10px}
+  .pay-wait .spin{width:20px;height:20px;border-width:2px;margin:0;flex:0 0 20px}
+  .pay-wait.ok{color:var(--green);background:rgba(55,211,154,.08);border-color:rgba(55,211,154,.3)}
+  .pay-done{text-align:center;padding:14px 4px}
+  .pd-ic{width:64px;height:64px;margin:0 auto 12px;color:var(--green);background:rgba(55,211,154,.1);border:1px solid rgba(55,211,154,.34);border-radius:50%;display:grid;place-items:center;filter:drop-shadow(0 0 16px rgba(55,211,154,.35))}
+  .pd-ic svg{width:34px;height:34px}
+  .pd-t{font-size:23px;font-weight:800;margin-bottom:8px}
+</style>
+</head>
+<body>
+  <div id="splash" aria-hidden="true">
+    <div class="sp-inner">
+      <div class="sp-logo">
+        <img src="/data/uploads/logo_dark.png" alt="OTT24x7" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+        <span class="sp-word" style="display:none">OTT24<b>x7</b></span>
+      </div>
+      <div class="sp-bar"><i></i></div>
+      <div class="sp-text">LOADING&nbsp;STORE</div>
+    </div>
+  </div>
+  <main class="app" id="app"></main>
+  <nav class="nav hidden" id="navWrap"><div class="nav-bar" id="nav"></div></nav>
+  <div class="sheet" id="sheet"><div class="panel" id="panel"></div></div>
+  <div class="toast" id="toast"></div>
+<script>
+(function(){
+  "use strict";
+  var $=function(id){return document.getElementById(id);};
+  var esc=function(s){var d=document.createElement('div');d.textContent=(s==null?'':s);return d.innerHTML;};
+  var inr=function(n){return '₹'+Number(n||0).toLocaleString('en-IN');};
+  var STATE={products:[],orders:[],user:null,balance:0,page:'home',cat:'all',search:'',current:null,store:null};
+
+  var ICONS={
+    home:'<path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/><path d="M10 19v-5h4v5"/>',
+    shop:'<path d="M4 8l1.2-3.2A1 1 0 0 1 6.1 4h11.8a1 1 0 0 1 .9.8L20 8"/><path d="M4 8h16v1.2a2.4 2.4 0 0 1-4.8 0 2.4 2.4 0 0 1-4.8 0 2.4 2.4 0 0 1-4.8 0z"/><path d="M5.5 11.5V19h13v-7.5"/>',
+    orders:'<path d="M12 3.2l7.5 4.3v8.9L12 20.8 4.5 16.4V7.5z"/><path d="M4.6 7.7L12 12l7.4-4.3"/><path d="M12 12v8.6"/>',
+    wallet:'<rect x="3.5" y="6" width="17" height="13" rx="3"/><path d="M3.5 9.5h13a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-13"/><circle cx="16.5" cy="12.5" r="1.1" fill="currentColor" stroke="none"/>',
+    user:'<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/>',
+    search:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
+    bag:'<path d="M6 8h12l-1 12H7z"/><path d="M9 8a3 3 0 0 1 6 0"/>',
+    box:'<path d="M12 3.2l7.5 4.3v8.9L12 20.8 4.5 16.4V7.5z"/><path d="M4.6 7.7L12 12l7.4-4.3"/><path d="M12 12v8.6"/>',
+    copy:'<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>',
+    plus:'<path d="M12 5v14M5 12h14"/>',
+    arrow:'<path d="M5 12h14M13 6l6 6-6 6"/>',
+    check:'<circle cx="12" cy="12" r="9"/><path d="M8.3 12.3l2.6 2.6 4.8-5.4"/>',
+    spark:'<path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/>',
+    trend:'<path d="M4 15l5-5 4 4 6-7"/><path d="M16 7h4v4"/>',
+    logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>',
+    open:'<path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/>'
+  };
+  function svg(name){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+(ICONS[name]||'')+'</svg>';}
+  function toast(m){var t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},2600);}
+  function copyText(x){try{navigator.clipboard.writeText(x);toast('Copied');}catch(e){toast(String(x));}}
+  function csrf(){var m=document.cookie.match(/csrfToken=([^;]+)/);return m?decodeURIComponent(m[1]):'';}
+
+  function api(path,opts){
+    opts=opts||{};
+    var headers={'Content-Type':'application/json'};
+    if((opts.method||'GET').toUpperCase()!=='GET'){var t=csrf();if(t)headers['X-CSRF-Token']=t;}
+    var ctrl=new AbortController();var to=setTimeout(function(){ctrl.abort();},15000);
+    return fetch('/user/api'+path,{method:opts.method||'GET',credentials:'include',headers:headers,body:opts.body,signal:ctrl.signal})
+      .then(function(r){return r.json().then(function(j){return {ok:r.ok,status:r.status,data:j};},function(){return {ok:r.ok,status:r.status,data:{}};});})
+      .finally(function(){clearTimeout(to);});
+  }
+  function thumbHTML(p){
+    return p.logo
+      ? '<img src="'+esc(p.logo)+'" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.replaceWith(Object.assign(document.createElement(\'span\'),{textContent:\'\\uD83D\\uDECD\'}))">'
+      : '🛍';
+  }
+
+  /* ── boot ── */
+  function boot(){
+    api('/me').then(function(r){
+      if(r.ok && r.data && !r.data.error){ STATE.user=r.data; loadData(); }
+      else { renderLogin(); hideSplash(); }
+    }).catch(function(){ renderLogin(); hideSplash(); });
+    api('/store').then(function(r){ if(r.ok){STATE.store=r.data; if(r.data && r.data.site_name) document.title=r.data.site_name;} }).catch(function(){});
+  }
+  function hideSplash(){ var s=$('splash'); if(s){ s.classList.add('hide'); setTimeout(function(){ if(s) s.remove(); },600); } }
+
+  function loadData(){
+    Promise.all([api('/plans'), api('/wallet').catch(function(){return{ok:false};})]).then(function(res){
+      var plans=(res[0].ok && Array.isArray(res[0].data))?res[0].data:[];
+      STATE.products=plans.map(function(p){return {
+        id:p.id, slug:p.slug, name:p.name, price:p.price_inr, original:p.original_price_inr,
+        category:p.platform||'Other', logo:p.image_url||'', description:p.description||'',
+        duration:p.duration_days, delivery:p.delivery_type, features:p.features||[], stock:p.stock
+      };});
+      if(res[1] && res[1].ok && res[1].data) STATE.balance=res[1].data.balance||0;
+      renderNav(); $('navWrap').classList.remove('hidden'); render(); hideSplash();
+    }).catch(function(){ $('app').innerHTML='<div class="center">⚠️ Network error. Pull to refresh.</div>'; hideSplash(); });
+  }
+
+  /* ── auth screens ── */
+  var authMode='login';
+  function renderLogin(){
+    $('navWrap').classList.add('hidden');
+    var reg=authMode==='register';
+    $('app').innerHTML=
+      '<div style="min-height:88vh;display:flex;flex-direction:column;justify-content:center;max-width:380px;margin:0 auto">'
+      +'<div class="auth-logo">O</div>'
+      +'<div style="text-align:center;margin-bottom:22px"><div class="page-title" style="font-size:26px;margin:0">'+(reg?'Create account':'Welcome back')+'</div><div class="page-sub" style="margin:4px 0 0">'+(reg?'Join OTT24x7 in seconds':'Sign in to your OTT24x7 store')+'</div></div>'
+      +'<div id="authMsg"></div>'
+      +(reg?'<div class="field"><label>Name</label><input id="f_name" autocomplete="name" placeholder="Your name"></div>':'')
+      +'<div class="field"><label>Email</label><input id="f_email" type="email" autocomplete="email" inputmode="email" placeholder="you@email.com"></div>'
+      +(reg?'<div class="field"><label>WhatsApp number</label><input id="f_phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+91… (for delivery)"></div>':'')
+      +'<div class="field"><label>Password</label><input id="f_pass" type="password" autocomplete="'+(reg?'new-password':'current-password')+'" placeholder="••••••"></div>'
+      +'<button class="btn btn-gold btn-block" id="authBtn" style="margin-top:6px">'+(reg?'Create account':'Sign in')+' '+svg('arrow')+'</button>'
+      +'<div class="auth-switch">'+(reg?'Already have an account? <b id="authToggle">Sign in</b>':'New here? <b id="authToggle">Create account</b>')+'</div>'
+      +'</div>';
+    $('authToggle').onclick=function(){ authMode=reg?'login':'register'; renderLogin(); };
+    $('authBtn').onclick=submitAuth;
+    var pass=$('f_pass'); if(pass) pass.onkeydown=function(e){ if(e.key==='Enter') submitAuth(); };
+  }
+  function submitAuth(){
+    var reg=authMode==='register';
+    var email=($('f_email').value||'').trim(), pass=$('f_pass').value||'';
+    var msg=$('authMsg'); msg.innerHTML='';
+    if(!email||!pass){ msg.innerHTML='<div class="alert err">Email and password are required.</div>'; return; }
+    var btn=$('authBtn'); btn.disabled=true; var old=btn.innerHTML; btn.innerHTML='Please wait…';
+    var body, path;
+    if(reg){ path='/register'; body={name:($('f_name').value||'').trim(),email:email,password:pass,phone:($('f_phone').value||'').trim()||undefined}; }
+    else { path='/login'; body={email:email,password:pass}; }
+    api(path,{method:'POST',body:JSON.stringify(body)}).then(function(r){
+      btn.disabled=false; btn.innerHTML=old;
+      if(r.ok && r.data && r.data.ok){ toast(reg?'Account created':'Welcome back'); boot(); }
+      else { msg.innerHTML='<div class="alert err">'+esc((r.data&&r.data.error)||'Something went wrong.')+'</div>'; }
+    }).catch(function(){ btn.disabled=false; btn.innerHTML=old; msg.innerHTML='<div class="alert err">Network error. Try again.</div>'; });
+  }
+
+  /* ── nav ── */
+  var NAV=[['home','Home'],['shop','Shop'],['orders','Orders'],['wallet','Wallet'],['profile','Profile']];
+  function renderNav(){
+    $('nav').innerHTML=NAV.map(function(n){
+      var id=n[0],active=STATE.page===id,ic=id==='profile'?'user':id;
+      return '<button class="nav-item'+(active?' active':'')+'" data-page="'+id+'"><span class="ni-ic">'+svg(ic)+'</span><span class="ni-lb">'+n[1]+'</span></button>';
+    }).join('');
+    [].forEach.call($('nav').querySelectorAll('.nav-item'),function(b){ b.onclick=function(){ go(b.dataset.page); }; });
+  }
+  function go(page){ STATE.page=page; window.scrollTo(0,0); render(); renderNav(); if(page==='orders') loadOrders(); if(page==='wallet') loadWallet(); }
+  window.go=go;
+  function render(){ ({home:renderHome,shop:renderShop,orders:renderOrders,wallet:renderWallet,profile:renderProfile}[STATE.page]||renderHome)(); }
+
+  /* ── products ── */
+  function cats(){ var s={}, out=['all']; STATE.products.forEach(function(p){ if(p.category && !s[p.category]){ s[p.category]=1; out.push(p.category); } }); return out; }
+  function filtered(){
+    var q=STATE.search.trim().toLowerCase();
+    return STATE.products.filter(function(p){
+      var c=STATE.cat==='all'||p.category===STATE.cat;
+      var s=!q||(p.name||'').toLowerCase().indexOf(q)>-1||(p.category||'').toLowerCase().indexOf(q)>-1;
+      return c&&s;
+    });
+  }
+  function pillsHTML(){
+    return '<div class="pills">'+cats().map(function(c){
+      var nm=c==='all'?'All':c;
+      return '<button class="pill cat'+(STATE.cat===c?' active':'')+'" data-cat="'+esc(c)+'"><span class="pem">'+(c==='all'?'🛍':esc(nm.charAt(0).toUpperCase()))+'</span><span>'+esc(nm)+'</span></button>';
+    }).join('')+'</div>';
+  }
+  function cardHTML(p){
+    var off=(p.original&&p.original>p.price)?'<span class="ms-tag">-'+Math.round((1-p.price/p.original)*100)+'%</span>':'';
+    return '<article class="pcard" data-id="'+p.id+'">'+off
+      +'<div class="thumb">'+thumbHTML(p)+'</div>'
+      +'<div class="cat">'+esc(p.category)+'</div>'
+      +'<div class="nm">'+esc(p.name)+'</div>'
+      +'<div class="row"><span class="pr">'+inr(p.price)+'</span><button class="add" data-buy="'+p.id+'" aria-label="Buy">'+svg('plus')+'</button></div>'
+      +'</article>';
+  }
+  function gridHTML(list){ return '<div class="grid">'+list.map(cardHTML).join('')+'</div>'; }
+  function emptyHTML(title,sub){ return '<div class="empty"><div class="e-ic gold">'+svg('search')+'</div><h3>'+esc(title)+'</h3><p>'+esc(sub)+'</p></div>'; }
+  function prodById(id){ return STATE.products.find(function(p){return p.id===id;}); }
+  function wireGrid(){
+    [].forEach.call(document.querySelectorAll('.pcard'),function(c){ c.onclick=function(ev){ if(ev.target.closest('[data-buy]'))return; openProduct(prodById(Number(c.dataset.id))); }; });
+    [].forEach.call(document.querySelectorAll('[data-buy]'),function(b){ b.onclick=function(ev){ ev.stopPropagation(); openProduct(prodById(Number(b.dataset.buy))); }; });
+  }
+  function wireSearch(){
+    var i=document.querySelector('.search input'); if(!i) return;
+    i.oninput=function(){ STATE.search=i.value; var g=$('gridHost'); if(g){ var l=filtered(); g.innerHTML=l.length?gridHTML(l):emptyHTML('No products found','Try another search or category.'); wireGrid(); var cn=$('cnt'); if(cn) cn.textContent=l.length+' items'; } };
+  }
+  function wireCommon(){
+    [].forEach.call(document.querySelectorAll('[data-go]'),function(b){ b.onclick=function(){ go(b.dataset.go); }; });
+    [].forEach.call(document.querySelectorAll('.pill'),function(b){ b.onclick=function(){ STATE.cat=b.dataset.cat; render(); }; });
+    wireGrid(); wireSearch();
+  }
+
+  /* ── pages ── */
+  function renderHome(){
+    var name=(STATE.user&&(STATE.user.name||STATE.user.email))||'Guest';
+    var list=filtered().slice(0,8);
+    $('app').innerHTML=
+      '<div class="card pad" style="border-radius:22px">'
+        +'<div class="home-head"><div class="avatar">'+esc(name.charAt(0).toUpperCase())+'</div>'
+          +'<div class="hh-txt"><div class="k">Welcome back</div><div class="n">'+esc(name)+'</div></div>'
+          +'<button class="bal-pill" data-go="wallet">'+svg('wallet')+inr(STATE.balance)+'</button></div>'
+        +'<div class="search">'+svg('search')+'<input placeholder="Search products, brands…" value="'+esc(STATE.search)+'"></div>'
+      +'</div>'
+      +'<div class="hero" data-go="shop"><div class="hero-ic">'+svg('spark')+'</div><h3>Premium OTT &amp; Software<br><b>Instant Delivery · 24×7</b></h3></div>'
+      +'<div class="sec-head"><h2>Categories</h2><button class="link" data-go="shop">See all</button></div>'+pillsHTML()
+      +'<div class="sec-head"><h2>For you</h2><span class="count" id="cnt">'+filtered().length+' items</span></div>'
+      +'<div id="gridHost">'+(list.length?gridHTML(list):emptyHTML('No products yet','Please check back soon.'))+'</div>';
+    wireCommon();
+  }
+  function renderShop(){
+    var list=filtered();
+    $('app').innerHTML=
+      '<div class="kicker gold">Discover</div><h1 class="page-title">Shop</h1><div class="page-sub">Browse all products</div>'
+      +'<div class="search" style="margin-bottom:14px">'+svg('search')+'<input placeholder="Search products…" value="'+esc(STATE.search)+'"></div>'+pillsHTML()
+      +'<div class="sec-head"><h2>'+(STATE.cat==='all'?'All products':esc(STATE.cat))+'</h2><span class="count" id="cnt">'+list.length+' items</span></div>'
+      +'<div id="gridHost">'+(list.length?gridHTML(list):emptyHTML('No products found','Try another search or category.'))+'</div>';
+    wireCommon();
+  }
+  function loadOrders(){ api('/orders').then(function(r){ STATE.orders=(r.ok&&Array.isArray(r.data))?r.data:[]; if(STATE.page==='orders') renderOrders(); }).catch(function(){}); }
+  function renderOrders(){
+    var o=STATE.orders||[];
+    if(!o.length){ $('app').innerHTML='<div class="kicker gold">Your purchases</div><h1 class="page-title">Orders</h1><div class="page-sub">Your orders appear here</div>'+'<div style="min-height:50vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px"><div class="e-ic gold" style="width:84px;height:84px;border-radius:22px;display:grid;place-items:center;margin-bottom:18px;background:var(--grad);color:var(--gold-ink)">'+svg('box')+'</div><h3 style="font-size:21px;font-weight:800">No orders yet</h3><p style="color:var(--muted);font-size:13px;margin:7px 0 20px;max-width:280px">Once you buy something it shows up here.</p><button class="btn btn-gold" data-go="shop">Browse products '+svg('arrow')+'</button></div>'; wireCommon(); return; }
+    function kind(s){ s=String(s||'').toLowerCase(); if(['refunded','cancelled','expired','rejected'].indexOf(s)>-1)return 'bad'; if(s==='pending')return 'pend'; return 'ok'; }
+    function lbl(s){ var k=kind(s); return k==='ok'?'Delivered':(k==='bad'?'Cancelled':'Pending'); }
+    $('app').innerHTML='<div class="kicker gold">Your purchases</div><h1 class="page-title">Orders</h1><div class="page-sub">'+o.length+' order'+(o.length>1?'s':'')+'</div>'
+      +o.map(function(x){
+        var creds=(x.credentials&&x.status==='delivered')?'<div class="keys">'+esc(typeof x.credentials==='string'?x.credentials:JSON.stringify(x.credentials))+'</div>':'';
+        return '<div class="row-item" style="flex-wrap:wrap"><div class="ri-ic">'+(x.plan_image?'<img src="'+esc(x.plan_image)+'" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{innerHTML:\''+'\'}))">':svg('box'))+'</div>'
+          +'<div class="ri-mid"><div class="t">'+esc((x.platform?x.platform+' — ':'')+(x.plan_name||'Order'))+'</div><div class="s">#'+esc(x.id)+' · '+esc((x.created_at||'').split(' ')[0])+'</div></div>'
+          +'<div class="ri-end"><div class="a">'+inr(x.amount_inr)+'</div><span class="sbadge '+kind(x.status)+'">'+lbl(x.status)+'</span></div>'+creds+'</div>';
+      }).join('');
+    wireCommon();
+  }
+  function loadWallet(){ api('/wallet').then(function(r){ if(r.ok&&r.data){ STATE.balance=r.data.balance||0; STATE.txns=r.data.txns||[]; if(STATE.page==='wallet') renderWallet(); } }).catch(function(){}); }
+  function renderWallet(){
+    var txns=STATE.txns||[];
+    $('app').innerHTML='<div class="kicker gold">Your balance</div><h1 class="page-title">Wallet</h1><div class="page-sub">Store credit &amp; history</div>'
+      +'<div class="wallet-card"><div class="sum-ic">'+svg('wallet')+'</div><div class="lbl">Available balance</div><div class="bal">'+inr(STATE.balance)+'</div>'
+        +'<div class="wbtns"><button class="wbtn gold" data-go="shop">'+svg('bag')+'Shop now</button></div></div>'
+      +'<div class="sec-head"><h2>Recent activity</h2></div>'
+      +(txns.length?txns.map(function(t){var pos=Number(t.amount||0)>=0; return '<div class="row-item"><div class="ri-ic">'+svg('trend')+'</div><div class="ri-mid"><div class="t">'+esc(t.reason||t.type||'Transaction')+'</div><div class="s">'+esc((t.created_at||'').split(' ')[0])+'</div></div><div class="ri-end"><div class="a" style="color:'+(pos?'var(--green)':'var(--red)')+'">'+(pos?'+':'')+inr(t.amount)+'</div></div></div>';}).join(''):'<div class="empty"><div class="e-ic gold">'+svg('wallet')+'</div><h3>No transactions yet</h3><p>Your wallet activity will appear here.</p></div>');
+    wireCommon();
+  }
+  function renderProfile(){
+    var u=STATE.user||{};
+    $('app').innerHTML='<div class="kicker gold">Account</div><h1 class="page-title">Profile</h1><div class="page-sub">Manage your account</div>'
+      +'<div class="card pad"><div class="home-head" style="margin:0"><div class="avatar">'+esc(((u.name||u.email||'U').charAt(0)).toUpperCase())+'</div><div class="hh-txt"><div class="n">'+esc(u.name||'OTT24x7 user')+'</div><div class="k" style="text-transform:none;letter-spacing:0;color:var(--muted);font-size:13px">'+esc(u.email||'')+'</div></div></div></div>'
+      +'<div class="meta" style="margin:16px 0">'
+        +'<div class="m"><span>WhatsApp</span><span>'+esc(u.phone||'Not set')+'</span></div>'
+        +'<div class="m"><span>Wallet</span><span>'+inr(STATE.balance)+'</span></div>'
+        +(u.referral_code?'<div class="m"><span>Referral code</span><span style="color:var(--g1);font-weight:800">'+esc(u.referral_code)+'</span></div>':'')
+      +'</div>'
+      +'<button class="btn btn-dark btn-block" id="logoutBtn">'+svg('logout')+'Sign out</button>'
+      +'<div class="hint" style="text-align:center;color:var(--muted);font-size:12.5px;margin:18px 10px 4px">OTT24x7 · Premium digital store</div>';
+    wireCommon();
+    $('logoutBtn').onclick=function(){ api('/logout',{method:'POST'}).finally(function(){ STATE.user=null; authMode='login'; renderLogin(); $('navWrap').classList.add('hidden'); }); };
+  }
+
+  /* ── product sheet ── */
+  function openSheet(html){ $('panel').innerHTML=html; $('sheet').classList.add('show'); }
+  function closeSheet(){ $('sheet').classList.remove('show'); }
+  $('sheet').onclick=function(e){ if(e.target===$('sheet')) closeSheet(); };
+  window.closeSheet=closeSheet;
+
+  function durTxt(d){ if(!d) return 'Lifetime'; if(d>=365) return Math.round(d/365)+' year'+(d>=730?'s':''); if(d>=30) return Math.round(d/30)+' month'+(d>=60?'s':''); return d+' days'; }
+  function openProduct(p){
+    if(!p) return; STATE.current=p;
+    var off=(p.original&&p.original>p.price)?'<span style="text-decoration:line-through;color:var(--muted);font-size:14px;margin-left:8px">'+inr(p.original)+'</span>':'';
+    openSheet(
+      '<div class="d-head"><div class="d-ic">'+thumbHTML(p)+'</div><div class="d-txt"><div class="d-nm">'+esc(p.name)+'</div><div class="d-pr">'+inr(p.price)+off+'</div></div></div>'
+      +'<div class="meta"><div class="m"><span>Category</span><span>'+esc(p.category)+'</span></div>'
+        +'<div class="m"><span>Validity</span><span>'+esc(durTxt(p.duration))+'</span></div>'
+        +'<div class="m"><span>Delivery</span><span>'+(p.delivery==='instant'?'Instant':'Fast')+'</span></div></div>'
+      +(p.description?'<div class="desc">'+esc(p.description)+'</div>':'')
+      +'<button class="btn btn-gold btn-block" id="buyBtn" style="margin-top:14px">Buy now · '+inr(p.price)+'</button>'
+      +'<button class="btn btn-dark btn-block" style="margin-top:9px" onclick="closeSheet()">Cancel</button>'
+    );
+    $('buyBtn').onclick=function(){ startCheckout(p); };
+  }
+
+  /* ── checkout (UPI direct + poll) ── */
+  var pollTimer=null;
+  function stopPoll(){ if(pollTimer){ clearInterval(pollTimer); pollTimer=null; } }
+  function startCheckout(p, phone){
+    openSheet('<div class="pay-load" style="min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center"><div class="spin"></div>Creating your payment…</div>');
+    var body={plan_id:p.id}; if(phone) body.phone=phone;
+    api('/checkout/upi-direct',{method:'POST',body:JSON.stringify(body)}).then(function(r){
+      if(r.data && r.data.need_phone){ return askPhone(p); }
+      if(!r.ok || !r.data || !r.data.ok){ openSheet(payErr((r.data&&r.data.error)||'Could not start payment.',p)); return; }
+      renderPay(p, r.data);
+    }).catch(function(){ openSheet(payErr('Network error. Try again.',p)); });
+  }
+  function askPhone(p){
+    openSheet('<div class="pd-t" style="font-size:20px">Add WhatsApp number</div><div class="page-sub">We deliver your order to WhatsApp + email.</div>'
+      +'<div class="field"><label>WhatsApp number</label><input id="ph" type="tel" inputmode="tel" placeholder="+91…"></div>'
+      +'<button class="btn btn-gold btn-block" id="phBtn" style="margin-top:6px">Continue</button>'
+      +'<button class="btn btn-dark btn-block" style="margin-top:9px" onclick="closeSheet()">Cancel</button>');
+    $('phBtn').onclick=function(){ var v=($('ph').value||'').trim(); if(!v){toast('Enter your number');return;} startCheckout(p,v); };
+  }
+  function payErr(msg,p){ return '<div class="pay-done"><div class="pd-ic" style="color:var(--red);background:var(--red-soft);border-color:rgba(239,122,106,.34)">'+svg('plus')+'</div><div class="pd-t">'+esc(msg)+'</div><button class="btn btn-gold btn-block" onclick="closeSheet()">Close</button></div>'; }
+  function renderPay(p, d){
+    var amt=Number(d.unique_amount||d.plan_price||p.price);
+    var qr=d.upi_qr||d.qr_url||'';
+    var link=d.upi_link||'';
+    openSheet(
+      '<div class="pay-amt-wrap"><div class="pay-amt-l">Pay exactly</div><div class="pay-amt grad-text">'+inr(amt)+'</div><div style="font-size:12px;color:var(--g1);font-weight:600">'+esc(p.name)+'</div></div>'
+      +'<div class="pay-steps">Pay the <b>exact</b> amount above by UPI. It auto-verifies in a few seconds — don’t round it off.</div>'
+      +(qr?'<img class="pay-qr" src="'+esc(qr)+'" alt="UPI QR">':'')
+      +(d.upi_id?'<div class="pay-field"><div class="pf-l">UPI ID — tap to copy</div><button class="pf-copy" data-copy="'+esc(d.upi_id)+'"><span class="v">'+esc(d.upi_id)+'</span><span class="ic">'+svg('copy')+'</span></button></div>':'')
+      +'<div class="pay-field"><div class="pf-l">Exact amount — tap to copy</div><button class="pf-copy" data-copy="'+amt.toFixed(2)+'"><span class="v">₹'+amt.toFixed(2)+'</span><span class="ic">'+svg('copy')+'</span></button></div>'
+      +(link?'<a class="btn btn-gold btn-block" href="'+esc(link)+'" style="margin-bottom:10px">Open UPI app '+svg('open')+'</a>':'')
+      +'<div class="pay-wait" id="payWait"><div class="spin"></div><span>Waiting for your payment…</span></div>'
+      +'<button class="btn btn-dark btn-block" onclick="closeSheet()">I’ll pay later</button>'
+    );
+    [].forEach.call(document.querySelectorAll('[data-copy]'),function(b){ b.onclick=function(){ copyText(b.dataset.copy); }; });
+    var tid=d.topup_id; var tries=0;
+    stopPoll();
+    pollTimer=setInterval(function(){
+      tries++;
+      api('/checkout/poll/'+tid).then(function(r){
+        if(!r.ok||!r.data) return;
+        if(r.data.status==='paid'){ stopPoll(); paySuccess(r.data.order,p); }
+        else if(r.data.status==='expired'||r.data.status==='rejected'){ stopPoll(); var w=$('payWait'); if(w){ w.classList.remove('ok'); w.innerHTML='<span style="color:var(--red)">Payment window closed. Reopen to retry.</span>'; } }
+      }).catch(function(){});
+      if(tries>200) stopPoll();
+    }, 4000);
+  }
+  function paySuccess(order,p){
+    var w=$('payWait'); if(w){ w.classList.add('ok'); w.innerHTML=svg('check')+'<span>Payment received!</span>'; }
+    STATE.page='orders';
+    openSheet('<div class="pay-done"><div class="pd-ic">'+svg('check')+'</div><div class="pd-t">Payment received 🎉</div><div class="page-sub">Your order for <b style="color:var(--g1)">'+esc(p.name)+'</b> is placed. Credentials arrive on WhatsApp + email shortly.</div><button class="btn btn-gold btn-block" id="okBtn" style="margin-top:8px">View my orders '+svg('arrow')+'</button></div>');
+    $('okBtn').onclick=function(){ closeSheet(); go('orders'); renderNav(); };
+    loadOrders();
+  }
+
+  boot();
+  setTimeout(function(){ var s=$('splash'); if(s&&!s.classList.contains('hide')) hideSplash(); }, 6000);
+})();
+</script>
+</body>
+</html>

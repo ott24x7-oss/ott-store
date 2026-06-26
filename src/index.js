@@ -540,6 +540,27 @@ app.get('/reseller', async (req, res) => {
   } catch { res.status(500).send('Server error'); }
 });
 
+// ─── /app — gold mini-app SPA (the Android app's web shell) ───────────────────
+// Self-contained gold "liquid glass" storefront (ported from the Telegram mini-app),
+// wired to /user/api. NOT run through the Design Engine — it has its own fixed skin.
+// Packaged into the Android app via a WebView/Capacitor wrapper (see android/).
+app.get('/app', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+  res.sendFile(path.join(__dirname, '..', 'public', 'store', 'app.html'));
+});
+app.get('/app.webmanifest', (req, res) => {
+  res.type('application/manifest+json').setHeader('Cache-Control', 'no-cache');
+  res.json({
+    name: 'OTT24x7', short_name: 'OTT24x7', description: 'OTT24x7 — premium digital store',
+    start_url: '/app', scope: '/app', display: 'standalone', orientation: 'portrait',
+    background_color: '#06070C', theme_color: '#06070C',
+    icons: [
+      { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+    ],
+  });
+});
+
 // ─── /plans — product listing page (server-rendered so theme is correct on first paint) ──
 // Trim to <=n chars on a word boundary, stripping trailing separators — keeps
 // titles/descriptions from being cut mid-word in search results.

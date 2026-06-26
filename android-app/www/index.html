@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#06070C">
+<title>OTT24x7</title>
+<style>
+  html,body{height:100%}
+  body{margin:0;background:radial-gradient(120% 90% at 50% 42%,#2c2310,#14110b 46%,#08070a 78%);
+    color:#EEF2F8;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    display:grid;place-items:center;text-align:center;padding:24px}
+  .logo{font-size:34px;font-weight:900;letter-spacing:.5px;color:#f3ead3}
+  .logo b{color:#FFD45E}
+  .bar{width:200px;height:3px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden;margin:22px auto 14px}
+  .bar i{display:block;height:100%;width:42%;border-radius:999px;background:linear-gradient(100deg,#FBBF24,#F97316);animation:l 1.2s ease-in-out infinite}
+  .t{font-size:12px;letter-spacing:.4em;color:#b6a079;font-weight:700}
+  @keyframes l{0%{transform:translateX(-120%)}100%{transform:translateX(330%)}}
+</style>
+</head>
+<body>
+  <!-- This is only shown if the live store can't be reached. Capacitor's
+       server.url (https://ott24x7.com/app) is what normally loads. -->
+  <div>
+    <div class="logo">OTT24<b>x7</b></div>
+    <div class="bar"><i></i></div>
+    <div class="t">LOADING&nbsp;STORE</div>
+  </div>
+</body>
+</html>
