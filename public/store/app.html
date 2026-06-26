@@ -172,6 +172,12 @@
   .alert{border-radius:12px;padding:11px 13px;font-size:13px;font-weight:600;margin-bottom:12px}
   .alert.err{background:var(--red-soft);color:var(--red);border:1px solid rgba(239,122,106,.3)}
   .alert.ok{background:var(--green-soft);color:var(--green);border:1px solid rgba(55,211,154,.3)}
+  .alert.info{background:var(--gold-soft);color:var(--g1);border:1px solid var(--gold-line)}
+  .am-tabs{display:flex;gap:5px;margin-bottom:16px;background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:5px}
+  .am-tab{flex:1;background:none;border:0;color:var(--muted);font-weight:700;font-size:12px;padding:9px 3px;border-radius:10px;cursor:pointer;font-family:inherit;white-space:nowrap;transition:.2s}
+  .am-tab.on{background:var(--grad);color:var(--gold-ink);box-shadow:0 6px 16px rgba(251,191,36,.3)}
+  .otp-input{width:100%;text-align:center;letter-spacing:.4rem;font-size:1.5rem;font-weight:800;font-family:Consolas,monospace;background:var(--card2);border:1px solid var(--line);border-radius:13px;padding:14px;color:var(--txt);outline:none}
+  .otp-input:focus{border-color:var(--gold-line);box-shadow:0 0 0 3px rgba(251,191,36,.14)}
   /* ── splash ── */
   #splash{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;transition:opacity .55s ease,visibility .55s ease;background:radial-gradient(120% 90% at 50% 42%, #2c2310 0%, #14110b 46%, #08070a 78%)}
   #splash.hide{opacity:0;visibility:hidden}
@@ -282,13 +288,14 @@
       : '🛍';
   }
 
-  /* ── boot ── */
+  /* ── boot ── (load /store first so the auth screen knows wa_enabled + name) */
   function boot(){
-    api('/me').then(function(r){
-      if(r.ok && r.data && !r.data.error){ STATE.user=r.data; loadData(); }
-      else { renderLogin(); hideSplash(); }
-    }).catch(function(){ renderLogin(); hideSplash(); });
-    api('/store').then(function(r){ if(r.ok){STATE.store=r.data; if(r.data && r.data.site_name) document.title=r.data.site_name;} }).catch(function(){});
+    api('/store').then(function(r){ if(r.ok){STATE.store=r.data; if(r.data&&r.data.site_name)document.title=r.data.site_name;} },function(){})
+      .then(function(){ return api('/me'); })
+      .then(function(r){
+        if(r&&r.ok && r.data && !r.data.error){ STATE.user=r.data; loadData(); }
+        else { renderLogin(); hideSplash(); }
+      }).catch(function(){ renderLogin(); hideSplash(); });
   }
   function hideSplash(){ var s=$('splash'); if(s){ s.classList.add('hide'); setTimeout(function(){ if(s) s.remove(); },600); } }
 
@@ -305,41 +312,171 @@
     }).catch(function(){ $('app').innerHTML='<div class="center">⚠️ Network error. Pull to refresh.</div>'; hideSplash(); });
   }
 
-  /* ── auth screens ── */
-  var authMode='login';
-  function renderLogin(){
+  /* ── auth — same methods as the website: OTP / Password / Magic / WhatsApp ── */
+  function lastEmail(){ try{ return localStorage.getItem('app_last_email')||''; }catch(e){ return ''; } }
+  function authErr(id,m){ var e=$(id); if(e){ e.textContent=m; e.style.display=''; } }
+  function renderLogin(method){ renderAuth(method); }   // alias for existing callers
+  function renderAuth(method){
+    method=method||'otp';
     $('navWrap').classList.add('hidden');
-    var reg=authMode==='register';
+    var wa=(STATE.store&&STATE.store.wa_enabled==='1');
+    var name=(STATE.store&&STATE.store.site_name)||'OTT24x7';
     $('app').innerHTML=
-      '<div style="min-height:88vh;display:flex;flex-direction:column;justify-content:center;max-width:380px;margin:0 auto">'
-      +'<div class="auth-logo">O</div>'
-      +'<div style="text-align:center;margin-bottom:22px"><div class="page-title" style="font-size:26px;margin:0">'+(reg?'Create account':'Welcome back')+'</div><div class="page-sub" style="margin:4px 0 0">'+(reg?'Join OTT24x7 in seconds':'Sign in to your OTT24x7 store')+'</div></div>'
-      +'<div id="authMsg"></div>'
-      +(reg?'<div class="field"><label>Name</label><input id="f_name" autocomplete="name" placeholder="Your name"></div>':'')
-      +'<div class="field"><label>Email</label><input id="f_email" type="email" autocomplete="email" inputmode="email" placeholder="you@email.com"></div>'
-      +(reg?'<div class="field"><label>WhatsApp number</label><input id="f_phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+91… (for delivery)"></div>':'')
-      +'<div class="field"><label>Password</label><input id="f_pass" type="password" autocomplete="'+(reg?'new-password':'current-password')+'" placeholder="••••••"></div>'
-      +'<button class="btn btn-gold btn-block" id="authBtn" style="margin-top:6px">'+(reg?'Create account':'Sign in')+' '+svg('arrow')+'</button>'
-      +'<div class="auth-switch">'+(reg?'Already have an account? <b id="authToggle">Sign in</b>':'New here? <b id="authToggle">Create account</b>')+'</div>'
+      '<div style="min-height:90vh;display:flex;flex-direction:column;justify-content:center;max-width:400px;margin:0 auto">'
+      +'<div class="auth-logo">'+esc(name.charAt(0).toUpperCase())+'</div>'
+      +'<div style="text-align:center;margin-bottom:20px"><div class="page-title" style="font-size:24px;margin:0">Welcome to '+esc(name)+'</div><div class="page-sub" style="margin:4px 0 0">Sign in to your account</div></div>'
+      +'<div class="am-tabs">'
+        +'<button class="am-tab'+(method==='otp'?' on':'')+'" data-m="otp">📱 OTP</button>'
+        +'<button class="am-tab'+(method==='password'?' on':'')+'" data-m="password">🔑 Password</button>'
+        +'<button class="am-tab'+(method==='magic'?' on':'')+'" data-m="magic">✉️ Magic</button>'
+        +(wa?'<button class="am-tab'+(method==='whatsapp'?' on':'')+'" data-m="whatsapp">💬 WhatsApp</button>':'')
+      +'</div><div id="authForm"></div>'
+      +'<p style="text-align:center;font-size:.78rem;color:var(--muted);margin-top:16px">By continuing you agree to our <a href="/terms" style="color:var(--g1)">Terms</a> &amp; <a href="/privacy" style="color:var(--g1)">Privacy</a></p>'
       +'</div>';
-    $('authToggle').onclick=function(){ authMode=reg?'login':'register'; renderLogin(); };
-    $('authBtn').onclick=submitAuth;
-    var pass=$('f_pass'); if(pass) pass.onkeydown=function(e){ if(e.key==='Enter') submitAuth(); };
+    [].forEach.call(document.querySelectorAll('.am-tab'),function(b){ b.onclick=function(){ setMethod(b.dataset.m); }; });
+    setMethod(method);
   }
-  function submitAuth(){
-    var reg=authMode==='register';
-    var email=($('f_email').value||'').trim(), pass=$('f_pass').value||'';
-    var msg=$('authMsg'); msg.innerHTML='';
-    if(!email||!pass){ msg.innerHTML='<div class="alert err">Email and password are required.</div>'; return; }
-    var btn=$('authBtn'); btn.disabled=true; var old=btn.innerHTML; btn.innerHTML='Please wait…';
-    var body, path;
-    if(reg){ path='/register'; body={name:($('f_name').value||'').trim(),email:email,password:pass,phone:($('f_phone').value||'').trim()||undefined}; }
-    else { path='/login'; body={email:email,password:pass}; }
-    api(path,{method:'POST',body:JSON.stringify(body)}).then(function(r){
-      btn.disabled=false; btn.innerHTML=old;
-      if(r.ok && r.data && r.data.ok){ toast(reg?'Account created':'Welcome back'); boot(); }
-      else { msg.innerHTML='<div class="alert err">'+esc((r.data&&r.data.error)||'Something went wrong.')+'</div>'; }
-    }).catch(function(){ btn.disabled=false; btn.innerHTML=old; msg.innerHTML='<div class="alert err">Network error. Try again.</div>'; });
+  function setMethod(m){
+    [].forEach.call(document.querySelectorAll('.am-tab'),function(b){ b.classList.toggle('on', b.dataset.m===m); });
+    var a=$('authForm');
+    if(m==='password') renderPassword(a); else if(m==='magic') renderMagic(a); else if(m==='whatsapp') renderWa(a); else renderOtp(a);
+  }
+  window.setMethod=setMethod;
+
+  /* OTP (default, passwordless — auto-creates account) */
+  function renderOtp(a){
+    a.innerHTML=
+      '<div id="otp1"><div id="otpe1" class="alert err" style="display:none"></div>'
+        +'<div class="field"><label>Email address</label><input id="otpEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" value="'+esc(lastEmail())+'"></div>'
+        +'<button class="btn btn-gold btn-block" id="otpSendBtn">Send OTP '+svg('arrow')+'</button>'
+        +'<p style="text-align:center;font-size:.78rem;color:var(--muted);margin-top:10px">New here? An account is created automatically.</p></div>'
+      +'<div id="otp2" style="display:none"><div id="otpe2" class="alert err" style="display:none"></div>'
+        +'<p style="text-align:center;color:var(--muted);font-size:.85rem;margin-bottom:10px">Enter the 6-digit code sent to <b id="otpEd" style="color:var(--g1)"></b></p>'
+        +'<input id="otpCode" class="otp-input" type="text" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code">'
+        +'<button class="btn btn-gold btn-block" id="otpVerifyBtn" style="margin-top:12px">Verify &amp; Sign in</button>'
+        +'<p style="text-align:center;font-size:.8rem;color:var(--muted);margin-top:12px"><span id="otpBack" style="color:var(--g1);cursor:pointer">Change email</span> · <span id="otpResend" style="color:var(--g1);cursor:pointer">Resend code</span></p></div>';
+    $('otpSendBtn').onclick=function(){ otpSend(); };
+    $('otpVerifyBtn').onclick=otpVerify;
+    $('otpBack').onclick=function(){ $('otp1').style.display=''; $('otp2').style.display='none'; };
+    $('otpResend').onclick=function(){ otpSend(true); };
+    $('otpEmail').onkeydown=function(e){ if(e.key==='Enter') otpSend(); };
+    $('otpCode').onkeydown=function(e){ if(e.key==='Enter') otpVerify(); };
+  }
+  function otpSend(resend){
+    var email=($('otpEmail')?$('otpEmail').value:lastEmail()).trim();
+    if(!email){ authErr('otpe1','Please enter your email.'); return; }
+    var btn=$('otpSendBtn'); if(btn){btn.disabled=true;btn.textContent='Sending…';}
+    api('/send-otp',{method:'POST',body:JSON.stringify({email:email})}).then(function(r){
+      if(btn){btn.disabled=false;btn.innerHTML='Send OTP '+svg('arrow');}
+      if(r.ok){ try{localStorage.setItem('app_last_email',email);}catch(e){} $('otp1').style.display='none'; $('otp2').style.display=''; $('otpEd').textContent=email; setTimeout(function(){var c=$('otpCode');if(c)c.focus();},100); if(resend) toast('New code sent'); }
+      else authErr('otpe1',(r.data&&r.data.error)||'Could not send code.');
+    }).catch(function(){ if(btn){btn.disabled=false;btn.innerHTML='Send OTP '+svg('arrow');} authErr('otpe1','Network error.'); });
+  }
+  function otpVerify(){
+    var email=lastEmail(), otp=($('otpCode')?$('otpCode').value:'').trim();
+    if(!otp){ authErr('otpe2','Enter the 6-digit code.'); return; }
+    var btn=$('otpVerifyBtn'); if(btn){btn.disabled=true;btn.textContent='Verifying…';}
+    api('/verify-otp',{method:'POST',body:JSON.stringify({email:email,otp:otp})}).then(function(r){
+      if(r.ok && (!r.data||!r.data.error)){ toast('Signed in'); boot(); }
+      else { if(btn){btn.disabled=false;btn.textContent='Verify & Sign in';} authErr('otpe2',(r.data&&r.data.error)||'Invalid code.'); }
+    }).catch(function(){ if(btn){btn.disabled=false;btn.textContent='Verify & Sign in';} authErr('otpe2','Network error.'); });
+  }
+
+  /* Password + Register + Forgot */
+  function renderPassword(a){
+    a.innerHTML='<div id="pwe" class="alert err" style="display:none"></div>'
+      +'<div class="field"><label>Email</label><input id="pwEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" value="'+esc(lastEmail())+'"></div>'
+      +'<div class="field"><label>Password</label><input id="pwPass" type="password" autocomplete="current-password" placeholder="••••••"></div>'
+      +'<button class="btn btn-gold btn-block" id="pwBtn">Sign in</button>'
+      +'<p style="text-align:center;font-size:.8rem;color:var(--muted);margin-top:12px"><span id="pwForgot" style="color:var(--g1);cursor:pointer">Forgot password?</span> · New user? <span id="pwReg" style="color:var(--g1);cursor:pointer">Create account</span></p>';
+    $('pwBtn').onclick=pwLogin; $('pwForgot').onclick=showForgot; $('pwReg').onclick=showRegister;
+    $('pwPass').onkeydown=function(e){ if(e.key==='Enter') pwLogin(); };
+  }
+  function pwLogin(){
+    var email=($('pwEmail').value||'').trim(), pass=$('pwPass').value||'';
+    if(!email||!pass){ authErr('pwe','Email and password required.'); return; }
+    var btn=$('pwBtn'); btn.disabled=true; btn.textContent='Signing in…';
+    api('/login',{method:'POST',body:JSON.stringify({email:email,password:pass})}).then(function(r){
+      if(r.ok && r.data && r.data.ok){ try{localStorage.setItem('app_last_email',email);}catch(e){} boot(); }
+      else { btn.disabled=false; btn.textContent='Sign in'; authErr('pwe',(r.data&&r.data.error)||'Invalid email or password.'); }
+    }).catch(function(){ btn.disabled=false; btn.textContent='Sign in'; authErr('pwe','Network error.'); });
+  }
+  function showRegister(){
+    var a=$('authForm');
+    a.innerHTML='<div id="rge" class="alert err" style="display:none"></div>'
+      +'<div class="field"><label>Full name</label><input id="rgName" autocomplete="name" placeholder="Your name"></div>'
+      +'<div class="field"><label>Email</label><input id="rgEmail" type="email" inputmode="email" placeholder="you@email.com"></div>'
+      +'<div class="field"><label>Password</label><input id="rgPass" type="password" autocomplete="new-password" placeholder="Min. 6 characters"></div>'
+      +'<div class="field"><label>WhatsApp number <span style="color:var(--muted2);text-transform:none;letter-spacing:0;font-weight:600">(optional)</span></label><input id="rgPhone" type="tel" inputmode="tel" placeholder="+91…"></div>'
+      +'<button class="btn btn-gold btn-block" id="rgBtn">Create account '+svg('arrow')+'</button>'
+      +'<p style="text-align:center;font-size:.8rem;color:var(--muted);margin-top:12px">Already have an account? <span id="rgLogin" style="color:var(--g1);cursor:pointer">Sign in</span></p>';
+    $('rgBtn').onclick=doRegister; $('rgLogin').onclick=function(){ setMethod('password'); };
+  }
+  function doRegister(){
+    var name=($('rgName').value||'').trim(), email=($('rgEmail').value||'').trim(), pass=$('rgPass').value||'', phone=($('rgPhone').value||'').trim();
+    if(!name||!email||!pass){ authErr('rge','Name, email and password are required.'); return; }
+    if(pass.length<6){ authErr('rge','Password must be at least 6 characters.'); return; }
+    var btn=$('rgBtn'); btn.disabled=true; btn.textContent='Creating…';
+    api('/register',{method:'POST',body:JSON.stringify({name:name,email:email,password:pass,phone:phone||undefined})}).then(function(r){
+      if(r.ok && r.data && r.data.ok){ try{localStorage.setItem('app_last_email',email);}catch(e){} toast('Account created'); boot(); }
+      else { btn.disabled=false; btn.innerHTML='Create account '+svg('arrow'); authErr('rge',(r.data&&r.data.error)||'Could not create account.'); }
+    }).catch(function(){ btn.disabled=false; btn.innerHTML='Create account '+svg('arrow'); authErr('rge','Network error.'); });
+  }
+  function showForgot(){
+    var a=$('authForm');
+    a.innerHTML='<div id="fpm" style="display:none"></div>'
+      +'<p style="font-size:.85rem;color:var(--muted);margin-bottom:10px">Enter your email — we’ll send a reset link.</p>'
+      +'<div class="field"><label>Email</label><input id="fpEmail" type="email" placeholder="you@email.com" value="'+esc(lastEmail())+'"></div>'
+      +'<button class="btn btn-gold btn-block" id="fpBtn">Send reset link</button>'
+      +'<button class="btn btn-dark btn-block" style="margin-top:9px" id="fpBack">← Back to login</button>';
+    $('fpBack').onclick=function(){ setMethod('password'); };
+    $('fpBtn').onclick=function(){
+      var email=($('fpEmail').value||'').trim(); if(!email) return;
+      var btn=$('fpBtn'); btn.disabled=true; btn.textContent='Sending…';
+      api('/forgot-password',{method:'POST',body:JSON.stringify({email:email})}).then(function(){
+        $('fpm').style.display=''; $('fpm').innerHTML='<div class="alert ok">✉️ Reset link sent! Check your inbox (and spam).</div>'; btn.disabled=false; btn.textContent='Resend';
+      }).catch(function(){ $('fpm').style.display=''; $('fpm').innerHTML='<div class="alert err">Network error.</div>'; btn.disabled=false; btn.textContent='Send reset link'; });
+    };
+  }
+
+  /* Magic link (email) */
+  function renderMagic(a){
+    a.innerHTML='<div id="mlm" style="display:none"></div>'
+      +'<div class="field"><label>Email address</label><input id="mlEmail" type="email" inputmode="email" placeholder="you@email.com" value="'+esc(lastEmail())+'"></div>'
+      +'<button class="btn btn-gold btn-block" id="mlBtn">Send magic link '+svg('arrow')+'</button>'
+      +'<p style="text-align:center;font-size:.78rem;color:var(--muted);margin-top:10px">We’ll email you a one-click login link — no password.</p>';
+    $('mlBtn').onclick=function(){
+      var email=($('mlEmail').value||'').trim(); if(!email){ $('mlm').style.display=''; $('mlm').innerHTML='<div class="alert err">Please enter your email.</div>'; return; }
+      var btn=$('mlBtn'); btn.disabled=true; btn.textContent='Sending…';
+      api('/send-magic-link',{method:'POST',body:JSON.stringify({email:email})}).then(function(){
+        try{localStorage.setItem('app_last_email',email);}catch(e){}
+        $('mlm').style.display=''; $('mlm').innerHTML='<div class="alert ok">✉️ Magic link sent! Open it on this device to sign in. Expires in 15 min.</div>'; btn.disabled=false; btn.innerHTML='Resend link';
+      }).catch(function(){ $('mlm').style.display=''; $('mlm').innerHTML='<div class="alert err">Network error.</div>'; btn.disabled=false; btn.innerHTML='Send magic link '+svg('arrow'); });
+    };
+  }
+
+  /* WhatsApp tap-to-login */
+  function renderWa(a){
+    a.innerHTML='<div id="wa1"><div id="wae1" class="alert err" style="display:none"></div>'
+        +'<div class="field"><label>WhatsApp number</label><input id="waPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+91 98765 43210"></div>'
+        +'<button class="btn btn-gold btn-block" id="waBtn">💬 Send login link to WhatsApp</button>'
+        +'<p style="text-align:center;font-size:.78rem;color:var(--muted);margin-top:10px">We’ll send a 1-tap login link to your WhatsApp.</p></div>'
+      +'<div id="wa2" style="display:none;text-align:center"><div style="font-size:2.6rem;margin-bottom:6px">💬</div><h3 style="font-weight:800;font-size:18px">Check your WhatsApp</h3>'
+        +'<p style="color:var(--muted);font-size:.9rem;margin:6px 0 12px">We sent a login link to <b id="waMask" style="color:var(--g1)"></b>. Tap it to sign in.</p>'
+        +'<p style="font-size:.8rem;color:var(--muted)"><span id="waResend" style="color:var(--g1);cursor:pointer">Resend</span> · <span id="waChange" style="color:var(--g1);cursor:pointer">Change number</span></p></div>';
+    var sp=null; try{sp=localStorage.getItem('app_last_phone');}catch(e){} if(sp) $('waPhone').value=sp;
+    $('waBtn').onclick=function(){ waSend(); };
+    $('waChange').onclick=function(){ $('wa1').style.display=''; $('wa2').style.display='none'; };
+    $('waResend').onclick=function(){ waSend(true); };
+    $('waPhone').onkeydown=function(e){ if(e.key==='Enter') waSend(); };
+  }
+  function waSend(resend){
+    var phone=($('waPhone')?$('waPhone').value:'').trim(); if(!phone){ authErr('wae1','Enter your WhatsApp number.'); return; }
+    var btn=$('waBtn'); if(btn){btn.disabled=true;btn.textContent='Sending…';}
+    api('/send-wa-magic',{method:'POST',body:JSON.stringify({phone:phone})}).then(function(r){
+      if(r.ok){ try{localStorage.setItem('app_last_phone',phone);}catch(e){} $('wa1').style.display='none'; $('wa2').style.display=''; $('waMask').textContent=(r.data&&r.data.masked)||'****'; if(resend) toast('Link sent again'); }
+      else { if(btn){btn.disabled=false;btn.innerHTML='💬 Send login link to WhatsApp';} authErr('wae1',(r.data&&r.data.error)||'Could not send link.'); }
+    }).catch(function(){ if(btn){btn.disabled=false;btn.innerHTML='💬 Send login link to WhatsApp';} authErr('wae1','Network error.'); });
   }
 
   /* ── nav ── */
