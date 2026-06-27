@@ -1119,7 +1119,7 @@
         +row({ic:'bell',t:'Notifications',s:'Manage push & email preferences',act:'soon'})
         +row({ic:'lock',t:'Security',s:'Password, devices & privacy',act:'soon'})
         +(!isStandalone()?row({ic:'download',t:'Install App',s:'Add OTT24x7 to your home screen',act:'install'}):'')
-        +((STATE.store&&STATE.store.apk_url)?row({ic:'download',t:'Download Android APK',s:'Get the native Android app',act:'apk'}):'')
+        +((STATE.store&&STATE.store.apk_url && !isStandalone())?row({ic:'download',t:'Download Android APK',s:'Get the native Android app',act:'apk'}):'')
       +'</div>'
       +'<button class="signout" id="logoutBtn">'+svg('logout')+'Sign out</button>'
       +'<div style="text-align:center;color:var(--muted2);font-size:12px;margin:16px 0 4px">OTT24x7 · Premium digital store</div>'
@@ -1291,7 +1291,14 @@
   /* ── PWA: service worker + install GATE (mobile browser, not installed) ── */
   if('serviceWorker' in navigator){ try{ navigator.serviceWorker.register('/sw.js',{scope:'/'}); }catch(e){} }
   var deferredPrompt=null;
-  function isStandalone(){ try{ return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true; }catch(e){ return false; } }
+  // Running inside the installed native (Capacitor) app? Detected via the custom
+  // user-agent tag (appendUserAgent), the Capacitor bridge, or a ?native=1 flag.
+  function isNativeApp(){ try{
+    if(/OTT24x7App/i.test(navigator.userAgent)) return true;
+    if(/[?&]native=1\b/.test(location.search)) return true;
+    var C=window.Capacitor; if(C && (typeof C.isNativePlatform==='function' ? C.isNativePlatform() : C.isNative)) return true;
+  }catch(e){} return false; }
+  function isStandalone(){ try{ return isNativeApp() || window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true; }catch(e){ return isNativeApp(); } }
   function isiOS(){ return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream; }
   function isMobileDevice(){ return /android|iphone|ipad|ipod|mobile|silk|kindle/i.test(navigator.userAgent); }
   function gateSkipped(){ try{ return sessionStorage.getItem('app_gate_skip')==='1'; }catch(e){ return false; } }

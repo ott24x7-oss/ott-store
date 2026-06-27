@@ -2,6 +2,7 @@
   "appId": "com.ott24x7.app",
   "appName": "OTT24x7",
   "webDir": "www",
+  "appendUserAgent": "OTT24x7App",
   "server": {
     "url": "https://ott24x7.com/app",
     "androidScheme": "https",
