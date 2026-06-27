@@ -437,10 +437,21 @@
   .tx-ic{width:42px;height:42px;flex:none;border-radius:12px;display:grid;place-items:center}
   .tx-ic.pos{color:var(--green);background:var(--green-soft)}.tx-ic.neg{color:var(--red);background:var(--red-soft)}
   .tx-ic svg{width:20px;height:20px}
+  svg{width:18px;height:18px}
   .pill .pem svg{width:17px;height:17px}
   .pm-ic svg{width:24px;height:24px}
-  .wbig svg{width:100%;height:100%}
+  .d-ic svg{width:30px;height:30px}
   .hbox svg{width:100%;height:100%}
+  /* ── wallet card ── */
+  .wallet-card{min-height:172px}
+  .wallet-card .lbl,.wallet-card .bal,.wc-foot{position:relative;z-index:2}
+  .wallet-card .bal{font-size:40px;margin:2px 0 0}
+  .wc-art{position:absolute;right:16px;top:48%;transform:translateY(-50%);width:108px;height:108px;z-index:1;filter:drop-shadow(0 14px 28px rgba(245,158,11,.42));pointer-events:none}
+  .wc-art svg{width:108px;height:108px}
+  .wc-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:24px;flex-wrap:wrap}
+  .wc-safe{display:inline-flex;align-items:center;gap:7px;color:rgba(255,255,255,.72);font-size:12px;font-weight:600}
+  .wc-safe svg{width:15px;height:15px;color:var(--g1)}
+  .wallet-card .wbtn.gold{padding:12px 20px;font-size:14px}
 </style>
 </head>
 <body>
@@ -917,6 +928,18 @@
   }
   function topupMethods(){ return siteMethods(); }
   function runTopup(amount,id){ if(id.indexOf('usdt:')===0) startTopup(amount,'usdt',id.slice(5)); else startTopup(amount,id); }
+  function walletArt(){
+    return '<div class="wc-art"><svg viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">'
+      +'<defs><linearGradient id="wcA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd877"/><stop offset="1" stop-color="#f59e0b"/></linearGradient>'
+      +'<linearGradient id="wcB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a2a0c"/><stop offset="1" stop-color="#160f03"/></linearGradient></defs>'
+      +'<rect x="36" y="23" width="72" height="44" rx="9" fill="#ffd877" opacity=".5" transform="rotate(-10 72 45)"/>'
+      +'<rect x="17" y="41" width="90" height="60" rx="15" fill="url(#wcB)" stroke="url(#wcA)" stroke-width="2.5"/>'
+      +'<rect x="17" y="55" width="90" height="2.5" fill="#ffffff" opacity=".08"/>'
+      +'<path d="M107 65 h-15 a8 8 0 0 0 0 16 h15 a6 6 0 0 0 6-6 v-4 a6 6 0 0 0-6-6z" fill="url(#wcA)"/>'
+      +'<circle cx="93" cy="73" r="4.5" fill="#160f03"/>'
+      +'<path d="M114 27 l2.2 6.4 6.4 2.2-6.4 2.2-2.2 6.4-2.2-6.4-6.4-2.2 6.4-2.2z" fill="#ffd877" opacity=".85"/>'
+      +'</svg></div>';
+  }
   function renderWallet(){
     var bal=STATE.balance||0, txns=STATE.txns||[], amt=STATE.topupAmount||100;
     var AMTS=[[100,'Popular'],[250,'Popular'],[500,'Best Value'],[1000,'Popular']];
@@ -924,10 +947,12 @@
     var ms=topupMethods();
     $('app').innerHTML=appHeader()
       +'<div class="phead"><button class="pback" data-go="home">'+svg('arrow')+'</button><div><h1>Wallet</h1><p>Add money &amp; enjoy seamless purchases</p></div></div>'
-      +'<div class="wallet-card"><div class="wbig">'+svg('wallet')+'</div>'
-        +'<div class="lbl">Available Balance</div><div class="bal">'+inr(bal)+'</div>'
-        +'<div style="display:flex;align-items:center;gap:7px;color:var(--muted);font-size:12.5px;margin-top:9px">'+svg('shield')+'100% Safe &amp; Secure</div>'
-        +'<div class="wbtns" style="margin-top:16px"><button class="wbtn gold" id="addMoneyBtn">'+svg('plus')+'Add Money</button></div></div>'
+      +'<div class="wallet-card">'+walletArt()
+        +'<div class="lbl">Available Balance</div>'
+        +'<div class="bal">₹'+Number(bal||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div>'
+        +'<div class="wc-foot"><div class="wc-safe">'+svg('shield')+'100% Safe &amp; Secure</div>'
+          +'<button class="wbtn gold" id="addMoneyBtn">'+svg('plus')+'Add Money</button></div>'
+      +'</div>'
       +'<div class="stitle">Recharge Amount</div>'
       +'<div class="rrow">'
         +AMTS.map(function(a){ return '<div class="rtile'+(amt===a[0]?' on':'')+'" data-amt="'+a[0]+'"><span class="chk">'+svg('check')+'</span><div class="amt">'+inr(a[0])+'</div><div class="tag">'+a[1]+'</div></div>'; }).join('')
