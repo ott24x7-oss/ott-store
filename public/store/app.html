@@ -326,8 +326,8 @@
         <span class="sp-ripple r2"></span>
         <span class="sp-ripple r3"></span>
         <div class="sp-logo">
-          <img src="/data/uploads/logo_dark.png" alt="OTT24x7" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
-          <span class="sp-word" style="display:none">OTT24<b>x7</b></span>
+          <img alt="" decoding="async" style="display:none" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+          <span class="sp-word">OTT24<b>x7</b></span>
         </div>
       </div>
       <div class="sp-brand">PREMIUM&nbsp;OTT&nbsp;STORE</div>
@@ -393,7 +393,7 @@
 
   /* ── boot ── (load /store first so the auth screen knows wa_enabled + name) */
   function boot(){
-    api('/store').then(function(r){ if(r.ok){STATE.store=r.data; if(r.data&&r.data.site_name)document.title=r.data.site_name;} },function(){})
+    api('/store').then(function(r){ if(r.ok){STATE.store=r.data; if(r.data&&r.data.site_name)document.title=r.data.site_name; setSplashLogo();} },function(){})
       .then(function(){ return api('/me'); })
       .then(function(r){
         if(r&&r.ok && r.data && !r.data.error){ STATE.user=r.data; loadData(); }
@@ -401,6 +401,15 @@
       }).catch(function(){ renderLogin(); hideSplash(); });
   }
   function hideSplash(){ var s=$('splash'); if(s){ s.classList.add('hide'); setTimeout(function(){ if(s) s.remove(); },600); } }
+  // App logo: prefer an app-only logo (logo_app_url), else the website dark logo. Swapped in once /store loads.
+  function setSplashLogo(){
+    try{
+      var lg=(STATE.store&&(STATE.store.logo_app_url||STATE.store.logo_dark_url))||'';
+      var im=document.querySelector('#splash .sp-logo img'); if(!im||!lg) return;
+      im.style.display='block'; im.src=lg;
+      var w=im.nextElementSibling; if(w) w.style.display='none';
+    }catch(e){}
+  }
 
   function loadData(){
     Promise.all([api('/plans'), api('/wallet').catch(function(){return{ok:false};}), api('/orders').catch(function(){return{ok:false};})]).then(function(res){
@@ -652,7 +661,7 @@
     var cancelled=orders.filter(function(o){ return isBad(o.status); }).length;
     var pending=total-completed-cancelled;
     var recent=orders.slice(0,4), popular=(STATE.products||[]).slice(0,6);
-    var logo=(STATE.store&&(STATE.store.logo_dark_url||STATE.store.logo_url))||'';
+    var logo=(STATE.store&&(STATE.store.logo_app_url||STATE.store.logo_dark_url||STATE.store.logo_url))||'';
     var siteName=(STATE.store&&STATE.store.site_name)||'OTT24x7';
     function stat(ic,n,l,col,bg){ return '<div class="ds-cell"><div class="ds-ic" style="background:'+bg+';color:'+col+'">'+svg(ic)+'</div><div class="ds-num" style="color:'+col+'">'+n+'</div><div class="ds-lbl">'+l+'</div></div>'; }
     function ordRow(o){

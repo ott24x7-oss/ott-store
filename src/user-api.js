@@ -104,7 +104,7 @@ router.get('/store', noStoreCache, async (req, res) => {
   try {
     const db = await getDb();
     const rows = all(db, `SELECT key, value FROM settings WHERE key LIKE 'home_%' OR key IN
-      ('site_name','site_tagline','hero_title','hero_title2','hero_subtext','hero_cta_label','hero_cta_url','logo_url','logo_light_url','logo_dark_url','announcement','upi_id','upi_name',
+      ('site_name','site_tagline','hero_title','hero_title2','hero_subtext','hero_cta_label','hero_cta_url','logo_url','logo_light_url','logo_dark_url','logo_app_url','announcement','upi_id','upi_name',
        'support_whatsapp','support_email','wa_bot_number','telegram_bot_url',
        'pwa_force_prompt','vapid_public_key','store_theme','wa_enabled','imap_enabled',
        'header_menu_items',

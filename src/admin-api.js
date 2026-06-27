@@ -231,7 +231,7 @@ const logoUpload = multer({
 
 router.post('/upload-logo/:type', requireAdmin, logoUpload.single('logo'), async (req, res) => {
   try {
-    const type = req.params.type === 'dark' ? 'dark' : 'light';
+    const type = ['dark', 'app'].includes(req.params.type) ? req.params.type : 'light';
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const ext = (req.file.originalname.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '');
     const filename = `logo_${type}_${Date.now()}.${ext}`;
@@ -247,7 +247,7 @@ router.post('/upload-logo/:type', requireAdmin, logoUpload.single('logo'), async
 
 router.delete('/upload-logo/:type', requireAdmin, async (req, res) => {
   try {
-    const type = req.params.type === 'dark' ? 'dark' : 'light';
+    const type = ['dark', 'app'].includes(req.params.type) ? req.params.type : 'light';
     const db = await getDb();
     const row = get(db, `SELECT value FROM settings WHERE key=?`, [`logo_${type}_url`]);
     if (row?.value) {

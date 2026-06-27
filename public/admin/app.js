@@ -2479,7 +2479,7 @@ views.mystore = async function () {
   </div>
   <div class="form-group">
     <label class="form-label" style="margin-bottom:.6rem">Site Logo</label>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem">
       <div class="card" style="padding:1rem;border:2px dashed var(--border)">
         <div style="font-size:.8rem;font-weight:700;margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem">☀️ Light Mode Logo</div>
         <div style="font-size:.72rem;color:var(--muted);margin-bottom:.75rem">Recommended: 280×100px · Max 2MB · PNG/SVG/WebP</div>
@@ -2506,6 +2506,20 @@ views.mystore = async function () {
             <span class="btn btn-secondary btn-sm" style="width:100%;display:block;text-align:center">Upload</span>
           </label>
           ${s.logo_dark_url ? `<button type="button" class="btn btn-red btn-sm" onclick="deleteLogo('dark')">Remove</button>` : ''}
+        </div>
+      </div>
+      <div class="card" style="padding:1rem;border:2px dashed var(--border)">
+        <div style="font-size:.8rem;font-weight:700;margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem">📱 App Logo <span style="font-size:.7rem;color:var(--muted);font-weight:500">(optional)</span></div>
+        <div style="font-size:.72rem;color:var(--muted);margin-bottom:.75rem">Used only in the Android / mini app · falls back to the dark logo · 280×100px · Max 2MB</div>
+        <div id="logo-app-preview" style="height:56px;display:flex;align-items:center;justify-content:center;background:#13142a;border-radius:8px;margin-bottom:.75rem;overflow:hidden;border:1px solid var(--border)">
+          ${s.logo_app_url ? `<img src="${esc(s.logo_app_url)}" style="max-height:48px;max-width:100%;object-fit:contain">` : '<span style="font-size:.75rem;color:var(--muted)">No logo</span>'}
+        </div>
+        <div style="display:flex;gap:.5rem">
+          <label style="flex:1;cursor:pointer">
+            <input type="file" accept="image/*" style="display:none" onchange="uploadLogo('app',this)">
+            <span class="btn btn-secondary btn-sm" style="width:100%;display:block;text-align:center">Upload</span>
+          </label>
+          ${s.logo_app_url ? `<button type="button" class="btn btn-red btn-sm" onclick="deleteLogo('app')">Remove</button>` : ''}
         </div>
       </div>
     </div>
@@ -6786,7 +6800,7 @@ views['store-theme'] = async function () {
 </div>
 <div class="card" style="margin-bottom:1.5rem;display:flex;flex-direction:column;gap:.85rem">
   <div style="font-weight:800;display:flex;align-items:center;gap:.5rem">🖼️ Store Logo <span style="font-size:.72rem;color:var(--muted);font-weight:500">— shown in your storefront header across all themes</span></div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem">
     <div class="card" style="padding:1rem;border:2px dashed var(--border)">
       <div style="font-size:.8rem;font-weight:700;margin-bottom:.2rem">☀️ Light-background logo</div>
       <div style="font-size:.7rem;color:var(--muted);margin-bottom:.6rem">Used in light mode · 280×100px · max 2MB · PNG/SVG/WebP</div>
@@ -6803,6 +6817,15 @@ views['store-theme'] = async function () {
       <div style="display:flex;gap:.5rem">
         <label style="flex:1;cursor:pointer"><input type="file" accept="image/*" style="display:none" onchange="uploadLogo('dark',this)"><span class="btn btn-secondary btn-sm" style="width:100%;display:block;text-align:center">Upload</span></label>
         ${settings.logo_dark_url ? `<button type="button" class="btn btn-red btn-sm" onclick="deleteLogo('dark')">Remove</button>` : ''}
+      </div>
+    </div>
+    <div class="card" style="padding:1rem;border:2px dashed var(--border)">
+      <div style="font-size:.8rem;font-weight:700;margin-bottom:.2rem">📱 App logo <span style="font-size:.65rem;color:var(--muted);font-weight:500">— optional</span></div>
+      <div style="font-size:.7rem;color:var(--muted);margin-bottom:.6rem">Shown only in the Android / mini app · falls back to the dark logo · 280×100px · max 2MB</div>
+      <div id="logo-app-preview" style="height:56px;display:flex;align-items:center;justify-content:center;background:#13142a;border-radius:8px;margin-bottom:.7rem;overflow:hidden;border:1px solid var(--border)">${settings.logo_app_url ? `<img src="${esc(settings.logo_app_url)}" style="max-height:48px;max-width:100%;object-fit:contain">` : '<span style="font-size:.75rem;color:#888">No logo</span>'}</div>
+      <div style="display:flex;gap:.5rem">
+        <label style="flex:1;cursor:pointer"><input type="file" accept="image/*" style="display:none" onchange="uploadLogo('app',this)"><span class="btn btn-secondary btn-sm" style="width:100%;display:block;text-align:center">Upload</span></label>
+        ${settings.logo_app_url ? `<button type="button" class="btn btn-red btn-sm" onclick="deleteLogo('app')">Remove</button>` : ''}
       </div>
     </div>
   </div>
