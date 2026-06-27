@@ -530,6 +530,78 @@ async function serveMyHtml(req, res, tab) {
 app.get('/my', (req, res) => serveMyHtml(req, res, 'dashboard'));
 for (const t of MY_TABS) app.get(`/my/${t}`, (req, res) => serveMyHtml(req, res, t));
 
+// ─── Android APK download + sideload-install landing page ─────────────────────
+function buildGetAppPage(o) {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const siteName = esc(o.siteName || 'OTT24x7');
+  const logo = (o.logos && (o.logos.dark || o.logos.light || o.logos.app)) || '';
+  const hasApk = !!o.apkUrl;
+  const sizeMb = o.apkSize ? (Number(o.apkSize) / 1048576).toFixed(1) + ' MB' : '';
+  const dlIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="#1a1206" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v10.5M7.5 11l4.5 4.5 4.5-4.5M5 20h14"/></svg>';
+  return `<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>Download the ${siteName} Android App (APK)</title>
+<meta name="description" content="Download the official ${siteName} Android app and install it in seconds — step-by-step instructions for the custom APK included.">
+<link rel="apple-touch-icon" href="/icon-192.png"><link rel="icon" href="/icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:radial-gradient(120% 80% at 50% 0%,#1c1305,#0a0703 55%,#000 100%);color:#f4f5f7;min-height:100vh;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:560px;margin:0 auto;padding:30px 20px 60px}
+.top{display:flex;justify-content:center;margin-bottom:24px}.top img{height:42px;max-width:200px;object-fit:contain}
+.top .word{font-size:25px;font-weight:900}.top .word b{color:#f59e0b}
+.card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:22px;padding:26px 22px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.badge{width:84px;height:84px;border-radius:23px;background:linear-gradient(135deg,#fbbf24,#f59e0b);display:grid;place-items:center;margin:0 auto 18px;box-shadow:0 18px 44px rgba(245,158,11,.5)}
+.badge svg{width:44px;height:44px}
+h1{font-size:25px;font-weight:800;letter-spacing:-.02em}
+.sub{color:#9a9aa8;font-size:14px;margin:8px 0 18px}
+.ver{display:inline-block;font-size:12px;color:#f6c453;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4);border-radius:999px;padding:4px 12px;margin-bottom:18px;font-weight:700}
+.dlbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1206;border:0;border-radius:15px;padding:16px;font-weight:800;font-size:16px;text-decoration:none;box-shadow:0 14px 34px rgba(245,158,11,.45)}
+.dlbtn svg{width:22px;height:22px}
+.warn{display:flex;gap:11px;text-align:left;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.34);border-radius:14px;padding:13px 15px;margin-top:18px;font-size:13px;color:#e8d9b8}
+.warn b{color:#f6c453}
+.steps{margin-top:26px;text-align:left}.steps h2{font-size:17px;font-weight:800;margin-bottom:14px}
+.step{display:flex;gap:13px;align-items:flex-start;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:15px;padding:14px;margin-bottom:11px}
+.step .n{width:30px;height:30px;flex:none;border-radius:50%;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1206;display:grid;place-items:center;font-weight:800;font-size:14px}
+.step .t{font-size:13.5px;color:#d7d7df}.step .t b{color:#fff;font-weight:700}
+.alt{text-align:center;margin-top:26px;font-size:13px;color:#9a9aa8}.alt a{color:#f6c453;font-weight:700}
+.soon{background:rgba(255,255,255,.05);border:1px dashed rgba(255,255,255,.2);border-radius:14px;padding:16px;color:#cdcdd6;font-size:14px;margin-top:4px}
+@media(max-width:420px){.wrap{padding:24px 14px 50px}}
+</style></head><body>
+<div class="wrap">
+  <div class="top">${logo ? `<img src="${esc(logo)}" alt="${siteName}">` : `<div class="word">OTT24<b>x7</b></div>`}</div>
+  <div class="card">
+    <div class="badge">${dlIcon.replace('width="2"', 'width="1.9"')}</div>
+    <h1>Download the Android App</h1>
+    <div class="sub">Official ${siteName} app — fast, full-screen ordering.</div>
+    ${o.apkVer ? `<div class="ver">Version ${esc(o.apkVer)}${sizeMb ? ' · ' + sizeMb : ''}</div>` : ''}
+    ${hasApk
+      ? `<a class="dlbtn" href="${esc(o.apkUrl)}${o.apkVer ? '?v=' + encodeURIComponent(o.apkVer) : ''}" download="OTT24x7.apk">${dlIcon}Download APK</a>
+         <div class="warn"><span>⚠️</span><div>This is the <b>official ${siteName} app</b>. Because it isn't from the Play Store, Android shows a security warning — it's completely safe to tap <b>“Install anyway”</b>.</div></div>`
+      : `<div class="soon">📱 The Android app is being prepared — please check back soon, or use the web app below.</div>`}
+  </div>
+  ${hasApk ? `<div class="steps"><h2>How to install (1 minute)</h2>
+    <div class="step"><span class="n">1</span><div class="t">Tap <b>Download APK</b> above and wait for it to finish downloading.</div></div>
+    <div class="step"><span class="n">2</span><div class="t">Open the file from the <b>download notification</b> or your <b>Downloads</b> folder.</div></div>
+    <div class="step"><span class="n">3</span><div class="t">If asked, turn on <b>“Allow from this source”</b> (install unknown apps) for your browser, then go back.</div></div>
+    <div class="step"><span class="n">4</span><div class="t">If <b>Play Protect</b> warns about the app, tap <b>More details → Install anyway</b>.</div></div>
+    <div class="step"><span class="n">5</span><div class="t">Tap <b>Install</b>, then <b>Open</b>. You're all set! 🎉</div></div>
+  </div>` : ''}
+  <div class="alt">On iPhone, or prefer not to install? <a href="/app">Open the web app →</a></div>
+</div>
+</body></html>`;
+}
+app.get(['/get-app', '/download-app', '/android'], async (req, res) => {
+  try {
+    const [apkUrl, apkVer, apkSize, siteName, logos, storeTheme] = await Promise.all([
+      getSetting('apk_url'), getSetting('apk_version'), getSetting('apk_size'),
+      getSetting('site_name'), getLogoUrls(), getActiveTheme(),
+    ]);
+    res.type('text/html').send(await withDesign(buildGetAppPage({ apkUrl, apkVer, apkSize, siteName, logos }), storeTheme));
+  } catch { res.status(500).send('Error loading page'); }
+});
+
 // '/admin' is served earlier (before express.static) so the Design Engine can
 // inject its tokens — see the app.get(['/admin','/admin/']) handler above.
 

@@ -2524,6 +2524,22 @@ views.mystore = async function () {
       </div>
     </div>
   </div>
+  <div class="form-group">
+    <label class="form-label" style="margin-bottom:.6rem">📱 Android App (APK)</label>
+    <div class="card" style="padding:1rem;border:2px dashed var(--border)">
+      <div style="font-size:.74rem;color:var(--muted);margin-bottom:.7rem">Upload the APK you built in Android Studio — it gets hosted and offered for download at <code>/get-app</code> with full install instructions. Or paste an external link (Drive, GitHub Releases).</div>
+      <div id="apk-status" style="font-size:.8rem;margin-bottom:.75rem">${s.apk_url ? `<span style="color:var(--green);font-weight:700">✓ APK live${s.apk_version ? ` · v${esc(s.apk_version)}` : ''}</span> — <a href="/get-app" target="_blank" style="color:var(--accent)">view download page ↗</a>` : '<span style="color:var(--muted)">No APK set yet — users see “coming soon”.</span>'}</div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.6rem">
+        <input id="apk-version" class="form-input" placeholder="Version e.g. 1.0.0" style="max-width:170px" value="${esc(s.apk_version || '')}">
+        <label style="cursor:pointer"><input type="file" accept=".apk,application/vnd.android.package-archive" style="display:none" onchange="uploadApk(this)"><span class="btn btn-secondary btn-sm">Upload APK</span></label>
+        ${s.apk_url ? `<button type="button" class="btn btn-red btn-sm" onclick="deleteApk()">Remove</button>` : ''}
+      </div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <input id="apk-ext-url" class="form-input" placeholder="…or paste external APK URL (https://)" style="flex:1;min-width:200px" value="${esc((s.apk_url && /^https?:/.test(s.apk_url)) ? s.apk_url : '')}">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="saveApkUrl()">Save URL</button>
+      </div>
+    </div>
+  </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Support Email</label><input class="form-input" name="support_email" type="email" value="${esc(s.support_email||'')}"></div>
     <div class="form-group"><label class="form-label">WhatsApp Support</label><input class="form-input" name="support_whatsapp" value="${esc(s.support_whatsapp||'')}" placeholder="+91... (green WhatsApp button in chat widget)"></div>
@@ -6903,6 +6919,41 @@ window.goView = goView;
 window.views = views;
 window.uploadLogo = uploadLogo;
 window.deleteLogo = deleteLogo;
+
+// ── Android APK upload helpers ────────────────────────────────────────────────
+async function uploadApk(input) {
+  const file = input.files[0]; if (!file) return;
+  if (!/\.apk$/i.test(file.name)) { showToast('Please choose a .apk file', 'error'); input.value = ''; return; }
+  const ver = (document.getElementById('apk-version') || {}).value || '';
+  const fd = new FormData(); fd.append('apk', file); fd.append('version', ver);
+  try {
+    showToast(`Uploading APK… (${(file.size / 1048576).toFixed(1)} MB)`);
+    const r = await fetch('/admin/api/upload-apk', { method: 'POST', body: fd, credentials: 'include', headers: { 'X-CSRF-Token': getCsrfToken() } });
+    const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Upload failed');
+    showToast('APK uploaded — live at /get-app'); if (window.views && window.views.mystore) window.views.mystore();
+  } catch (e) { showToast(e.message, 'error'); }
+  input.value = '';
+}
+async function saveApkUrl() {
+  const url = ((document.getElementById('apk-ext-url') || {}).value || '').trim();
+  const ver = ((document.getElementById('apk-version') || {}).value || '').trim();
+  try {
+    const r = await fetch('/admin/api/apk-url', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrfToken() }, body: JSON.stringify({ url, version: ver }) });
+    const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Save failed');
+    showToast(url ? 'APK link saved' : 'APK link cleared'); if (window.views && window.views.mystore) window.views.mystore();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+async function deleteApk() {
+  if (!confirm('Remove the APK download?')) return;
+  try {
+    const r = await fetch('/admin/api/upload-apk', { method: 'DELETE', credentials: 'include', headers: { 'X-CSRF-Token': getCsrfToken() } });
+    const j = await r.json(); if (!r.ok) throw new Error(j.error);
+    showToast('APK removed'); if (window.views && window.views.mystore) window.views.mystore();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+window.uploadApk = uploadApk;
+window.saveApkUrl = saveApkUrl;
+window.deleteApk = deleteApk;
 
 // ── Hash-based routing: handle browser back/forward ───────────────────────────
 window.addEventListener('popstate', () => {

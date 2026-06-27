@@ -478,7 +478,9 @@
   .installgate .ig-step .n{width:25px;height:25px;flex:none;border-radius:50%;background:var(--grad);color:var(--gold-ink);display:grid;place-items:center;font-weight:800;font-size:12.5px}
   .installgate .ig-step b{color:var(--g1)}
   .installgate .ig-step .emo{font-size:15px}
-  .installgate .ig-skip{margin-top:18px;background:none;border:0;color:var(--muted2);font-size:12.5px;cursor:pointer;font-family:inherit;text-decoration:underline;padding:6px}
+  .installgate .ig-apk{display:inline-flex;align-items:center;justify-content:center;gap:6px;margin-top:11px;width:100%;background:rgba(255,255,255,.05);border:1px solid var(--gold-line);color:var(--g1);border-radius:13px;padding:13px;font-weight:800;font-size:14px;text-decoration:none}
+  .installgate .ig-apk.hidden{display:none}
+  .installgate .ig-skip{margin-top:16px;background:none;border:0;color:var(--muted2);font-size:12.5px;cursor:pointer;font-family:inherit;text-decoration:underline;padding:6px}
 </style>
 </head>
 <body>
@@ -514,6 +516,7 @@
       <div class="ig-sub">Get the full OTT24x7 experience — faster, full-screen, right on your home screen.</div>
       <ul class="ig-benefits" id="igBenefits"></ul>
       <div id="igAction"></div>
+      <a class="ig-apk hidden" id="igApk" href="/get-app">⬇&nbsp; Download Android APK</a>
       <button class="ig-skip" id="igSkip">Continue in browser</button>
     </div>
   </div>
@@ -1116,6 +1119,7 @@
         +row({ic:'bell',t:'Notifications',s:'Manage push & email preferences',act:'soon'})
         +row({ic:'lock',t:'Security',s:'Password, devices & privacy',act:'soon'})
         +(!isStandalone()?row({ic:'download',t:'Install App',s:'Add OTT24x7 to your home screen',act:'install'}):'')
+        +((STATE.store&&STATE.store.apk_url)?row({ic:'download',t:'Download Android APK',s:'Get the native Android app',act:'apk'}):'')
       +'</div>'
       +'<button class="signout" id="logoutBtn">'+svg('logout')+'Sign out</button>'
       +'<div style="text-align:center;color:var(--muted2);font-size:12px;margin:16px 0 4px">OTT24x7 · Premium digital store</div>'
@@ -1126,6 +1130,7 @@
       else if(a==='whatsapp'){ var s=STATE.store||{}; var wa=String(s.support_whatsapp||s.wa_bot_number||'').replace(/\D/g,''); if(wa) window.open('https://wa.me/'+wa,'_blank'); else toast('Support number not set'); }
       else if(a==='copyref'){ copyText(b.dataset.copy); }
       else if(a==='install'){ doInstall(); }
+      else if(a==='apk'){ window.location.href='/get-app'; }
       else toast('Coming soon');
     }; });
     $('logoutBtn').onclick=function(){ api('/logout',{method:'POST'}).finally(function(){ STATE.user=null; renderLogin(); $('navWrap').classList.add('hidden'); }); };
@@ -1319,6 +1324,7 @@
     var B=[['bolt','Instant ordering & delivery'],['wallet','Wallet & 1-tap top-up'],['bell','Order updates & offers']];
     $('igBenefits').innerHTML=B.map(function(b){ return '<li><span class="bi">'+svg(b[0])+'</span>'+esc(b[1])+'</li>'; }).join('');
     $('igAction').innerHTML=gateAction();
+    var apk=$('igApk'); if(apk){ if(isiOS()) apk.classList.add('hidden'); else apk.classList.remove('hidden'); }
     g.classList.remove('hidden'); document.body.style.overflow='hidden';
     var ib=$('igInstall'); if(ib) ib.onclick=doInstall;
     $('igSkip').onclick=function(){ try{ sessionStorage.setItem('app_gate_skip','1'); }catch(e){} g.classList.add('hidden'); document.body.style.overflow=''; };

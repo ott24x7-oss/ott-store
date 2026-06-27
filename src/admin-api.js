@@ -32,6 +32,8 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 *
 // Separate uploader for database restore — the .db can be larger than the 2 MB
 // image cap, so allow up to 100 MB (still well under Telegram's 50 MB send cap).
 const dbUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
+// Custom Android APK (sideload build) — can be larger than the DB cap.
+const apkUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200 * 1024 * 1024 } });
 
 // ─── Admin auth middleware ────────────────────────────────────────────────────
 function requireAdmin(req, res, next) {
@@ -256,6 +258,49 @@ router.delete('/upload-logo/:type', requireAdmin, async (req, res) => {
       if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
     }
     run(db, `DELETE FROM settings WHERE key=?`, [`logo_${type}_url`]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Android APK (custom sideload build) ──────────────────────────────────────
+// Admin uploads the APK they built in Android Studio → hosted under /data/uploads
+// and offered for download on /get-app. Or set an external URL (Drive, GitHub).
+router.post('/upload-apk', requireAdmin, apkUpload.single('apk'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    if (!/\.apk$/i.test(req.file.originalname || '')) return res.status(400).json({ error: 'File must be a .apk' });
+    fs.writeFileSync(path.join(UPLOADS_DIR, 'ott24x7.apk'), req.file.buffer);
+    const url = '/data/uploads/ott24x7.apk';
+    const version = String(req.body.version || '').trim().slice(0, 40);
+    const db = await getDb();
+    run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES ('apk_url',?)`, [url]);
+    run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES ('apk_version',?)`, [version]);
+    run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES ('apk_size',?)`, [String(req.file.size)]);
+    res.json({ ok: true, url, version, size: req.file.size });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+// Set/clear an external APK URL (when hosting the file elsewhere).
+router.post('/apk-url', requireAdmin, async (req, res) => {
+  try {
+    const url = String(req.body.url || '').trim();
+    if (url && !/^https?:\/\//i.test(url)) return res.status(400).json({ error: 'Enter a full https:// URL' });
+    const db = await getDb();
+    if (url) {
+      run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES ('apk_url',?)`, [url]);
+      run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES ('apk_version',?)`, [String(req.body.version || '').trim().slice(0, 40)]);
+      run(db, `DELETE FROM settings WHERE key='apk_size'`);
+    } else {
+      run(db, `DELETE FROM settings WHERE key IN ('apk_url','apk_version','apk_size')`);
+    }
+    res.json({ ok: true, url });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.delete('/upload-apk', requireAdmin, async (req, res) => {
+  try {
+    const fp = path.join(UPLOADS_DIR, 'ott24x7.apk');
+    if (fs.existsSync(fp)) fs.unlinkSync(fp);
+    const db = await getDb();
+    run(db, `DELETE FROM settings WHERE key IN ('apk_url','apk_version','apk_size')`);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
