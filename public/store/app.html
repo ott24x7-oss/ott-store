@@ -481,6 +481,27 @@
   .installgate .ig-apk{display:inline-flex;align-items:center;justify-content:center;gap:6px;margin-top:11px;width:100%;background:rgba(255,255,255,.05);border:1px solid var(--gold-line);color:var(--g1);border-radius:13px;padding:13px;font-weight:800;font-size:14px;text-decoration:none}
   .installgate .ig-apk.hidden{display:none}
   .installgate .ig-skip{margin-top:16px;background:none;border:0;color:var(--muted2);font-size:12.5px;cursor:pointer;font-family:inherit;text-decoration:underline;padding:6px}
+  /* ── onboarding (intro slides) ── */
+  .onboard{position:fixed;inset:0;z-index:9998;display:flex;flex-direction:column;overflow:hidden;
+    background:radial-gradient(120% 80% at 50% 16%,#1c1305,#0a0703 55%,#000 100%)}
+  .onboard.hidden{display:none}
+  .ob-skip{position:absolute;top:calc(14px + env(safe-area-inset-top));right:16px;z-index:3;background:none;border:0;color:var(--muted);font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;padding:8px}
+  .ob-track{flex:1;display:flex;transition:transform .4s var(--ease);will-change:transform}
+  .ob-slide{min-width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 32px}
+  .ob-illus{width:148px;height:148px;border-radius:38px;display:grid;place-items:center;margin-bottom:34px;position:relative;
+    background:radial-gradient(circle at 50% 34%,rgba(245,158,11,.32),transparent 70%),var(--card);border:1px solid var(--gold-line);
+    box-shadow:0 24px 60px rgba(245,158,11,.32),inset 0 1px 0 rgba(255,255,255,.08);animation:obPop .6s var(--ease) both}
+  @keyframes obPop{0%{opacity:0;transform:scale(.8)}100%{opacity:1;transform:scale(1)}}
+  .ob-illus svg{width:70px;height:70px;color:var(--g2)}
+  .ob-slide h2{font-size:27px;font-weight:800;letter-spacing:-.02em;margin-bottom:12px;line-height:1.15}
+  .ob-slide h2 b{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .ob-slide p{color:var(--muted);font-size:15px;line-height:1.55;max-width:300px}
+  .ob-foot{padding:0 28px calc(26px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:16px}
+  .ob-dots{display:flex;gap:8px}
+  .ob-dots i{width:8px;height:8px;border-radius:99px;background:var(--card3);transition:width .3s,background .3s}
+  .ob-dots i.on{width:26px;background:var(--grad)}
+  .ob-next{width:100%}
+  .ob-login{font-size:13px;color:var(--muted)}.ob-login b{color:var(--g1);font-weight:800;cursor:pointer}
 </style>
 </head>
 <body>
@@ -518,6 +539,15 @@
       <div id="igAction"></div>
       <a class="ig-apk hidden" id="igApk" href="/get-app">⬇&nbsp; Download Android APK</a>
       <button class="ig-skip" id="igSkip">Continue in browser</button>
+    </div>
+  </div>
+  <div class="onboard hidden" id="onboard">
+    <button class="ob-skip" id="obSkip">Skip</button>
+    <div class="ob-track" id="obTrack"></div>
+    <div class="ob-foot">
+      <div class="ob-dots" id="obDots"></div>
+      <button class="btn btn-gold btn-block ob-next" id="obNext">Next</button>
+      <div class="ob-login">Already a member? <b id="obLogin">Log in</b></div>
     </div>
   </div>
 <script>
@@ -600,7 +630,7 @@
         else { renderLogin(); hideSplash(); }
       }).catch(function(){ renderLogin(); hideSplash(); });
   }
-  function hideSplash(){ var s=$('splash'); if(s){ s.classList.add('hide'); setTimeout(function(){ if(s) s.remove(); },600); } }
+  function hideSplash(){ var s=$('splash'); if(s){ s.classList.add('hide'); setTimeout(function(){ if(s) s.remove(); maybeOnboard(); },600); } else { maybeOnboard(); } }
   // App logo: prefer an app-only logo (logo_app_url), else the website dark logo. Swapped in once /store loads.
   function setSplashLogo(){
     try{
@@ -1344,6 +1374,40 @@
   window.addEventListener('beforeinstallprompt',function(e){ e.preventDefault(); deferredPrompt=e; });
   window.addEventListener('appinstalled',function(){ var g=$('installgate'); if(g) g.classList.add('hidden'); document.body.style.overflow=''; toast('App installed 🎉'); });
   maybeGate();
+
+  /* ── first-launch onboarding (intro slides) ── */
+  var OB=[
+    {ic:'spark', t:'Welcome to <b>OTT24x7</b>', p:'Premium OTT, AI tools &amp; software subscriptions — at India\'s best prices.'},
+    {ic:'box', t:'200+ Premium Services', p:'Netflix, Prime, Spotify, ChatGPT, Windows &amp; more — 100% genuine, instant delivery.'},
+    {ic:'bolt', t:'Fast, Secure &amp; 24×7', p:'Pay by UPI, USDT or Wallet. Instant delivery and round-the-clock WhatsApp support.'}
+  ];
+  var obIdx=0;
+  function onboarded(){ try{ return localStorage.getItem('app_onboarded')==='1'; }catch(e){ return false; } }
+  function finishOnboard(){ try{ localStorage.setItem('app_onboarded','1'); }catch(e){} var o=$('onboard'); if(o) o.classList.add('hidden'); document.body.style.overflow=''; }
+  function obGo(i){
+    obIdx=Math.max(0,Math.min(OB.length-1,i));
+    var t=$('obTrack'); if(t) t.style.transform='translateX(-'+(obIdx*100)+'%)';
+    [].forEach.call($('obDots').children,function(d,j){ d.classList.toggle('on',j===obIdx); });
+    $('obNext').textContent=(obIdx===OB.length-1)?'Get Started':'Next';
+  }
+  function showOnboard(){
+    var o=$('onboard'); if(!o || !o.classList.contains('hidden')) return;
+    $('obTrack').innerHTML=OB.map(function(s){ return '<div class="ob-slide"><div class="ob-illus">'+svg(s.ic)+'</div><h2>'+s.t+'</h2><p>'+s.p+'</p></div>'; }).join('');
+    $('obDots').innerHTML=OB.map(function(_,j){ return '<i class="'+(j===0?'on':'')+'"></i>'; }).join('');
+    obIdx=0; obGo(0);
+    o.classList.remove('hidden'); document.body.style.overflow='hidden';
+    $('obNext').onclick=function(){ if(obIdx<OB.length-1) obGo(obIdx+1); else finishOnboard(); };
+    $('obSkip').onclick=finishOnboard; $('obLogin').onclick=finishOnboard;
+    var sx=0; o.ontouchstart=function(e){ sx=e.touches[0].clientX; }; o.ontouchend=function(e){ var dx=e.changedTouches[0].clientX-sx; if(Math.abs(dx)>50) obGo(obIdx+(dx<0?1:-1)); };
+  }
+  function maybeOnboard(){
+    var force=/[?&]onboard=1/.test(location.search);
+    if(!force){
+      if(onboarded()) return;
+      var g=$('installgate'); if(g && !g.classList.contains('hidden')) return; // don't stack on the install gate
+    }
+    showOnboard();
+  }
 
   boot();
   setTimeout(function(){ var s=$('splash'); if(s&&!s.classList.contains('hide')) hideSplash(); }, 6000);
