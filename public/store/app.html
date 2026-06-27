@@ -8,6 +8,10 @@
 <title>OTT24x7</title>
 <link rel="manifest" href="/app.webmanifest">
 <link rel="apple-touch-icon" href="/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="OTT24x7">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <style>
@@ -452,6 +456,19 @@
   .wc-safe{display:inline-flex;align-items:center;gap:7px;color:rgba(255,255,255,.72);font-size:12px;font-weight:600}
   .wc-safe svg{width:15px;height:15px;color:var(--g1)}
   .wallet-card .wbtn.gold{padding:12px 20px;font-size:14px}
+  /* ── install banner ── */
+  .installbar{position:fixed;left:12px;right:12px;bottom:92px;z-index:70;max-width:456px;margin:0 auto;display:flex;align-items:center;gap:12px;
+    background:linear-gradient(180deg,#19160e,#0e0c08);border:1px solid var(--gold-line);border-radius:18px;padding:11px 13px;
+    box-shadow:0 18px 44px rgba(0,0,0,.6),0 0 26px rgba(245,158,11,.18);transform:translateY(18px);opacity:0;transition:transform .3s var(--ease),opacity .3s var(--ease)}
+  .installbar.show{transform:none;opacity:1}
+  .installbar.hidden{display:none}
+  .installbar .ib-ic{width:42px;height:42px;flex:none;border-radius:12px;background:var(--grad);color:var(--gold-ink);display:grid;place-items:center;box-shadow:0 6px 16px rgba(245,158,11,.4)}
+  .installbar .ib-ic svg{width:22px;height:22px}
+  .installbar .ib-tx{flex:1;min-width:0}
+  .installbar .ib-tx b{font-size:14px;font-weight:800;display:block}
+  .installbar .ib-tx span{font-size:11px;color:var(--muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .installbar .ib-go{flex:none;background:var(--grad);color:var(--gold-ink);border:0;border-radius:11px;padding:9px 15px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
+  .installbar .ib-x{flex:none;background:none;border:0;color:var(--muted2);font-size:16px;cursor:pointer;width:24px;height:24px;line-height:1}
 </style>
 </head>
 <body>
@@ -479,6 +496,12 @@
   <nav class="nav hidden" id="navWrap"><div class="nav-bar" id="nav"></div></nav>
   <div class="sheet" id="sheet"><div class="panel" id="panel"></div></div>
   <div class="toast" id="toast"></div>
+  <div class="installbar hidden" id="installbar">
+    <div class="ib-ic" id="ibIc"></div>
+    <div class="ib-tx"><b>Install OTT24x7</b><span id="ibSub">Add to your home screen</span></div>
+    <button class="ib-go" id="ibGo">Install</button>
+    <button class="ib-x" id="ibX" aria-label="Dismiss">✕</button>
+  </div>
 <script>
 (function(){
   "use strict";
@@ -527,7 +550,8 @@
     code2:'<path d="M9 8l-4 4 4 4M15 8l4 4-4 4"/>',
     music2:'<circle cx="6.5" cy="17" r="2.5"/><circle cx="17.5" cy="15" r="2.5"/><path d="M9 17V6l11-2v11"/>',
     wrench:'<path d="M14.7 6.3a3.5 3.5 0 0 0 4.5 4.5l-8.4 8.4a2.1 2.1 0 1 1-3-3l8.4-8.4a3.5 3.5 0 0 0-1.5-1.5z"/>',
-    grid:'<rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/><rect x="13" y="13" width="7" height="7" rx="1.6"/>'
+    grid:'<rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/><rect x="13" y="13" width="7" height="7" rx="1.6"/>',
+    download:'<path d="M12 4v10.5M7.5 11l4.5 4.5 4.5-4.5M5 20h14"/>'
   };
   function svg(name){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+(ICONS[name]||'')+'</svg>';}
   function toast(m){var t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},2600);}
@@ -1076,6 +1100,7 @@
         +row({ic:'pin',t:'Saved Addresses',s:'Manage your delivery addresses',act:'soon'})
         +row({ic:'bell',t:'Notifications',s:'Manage push & email preferences',act:'soon'})
         +row({ic:'lock',t:'Security',s:'Password, devices & privacy',act:'soon'})
+        +(!isStandalone()?row({ic:'download',t:'Install App',s:'Add OTT24x7 to your home screen',act:'install'}):'')
       +'</div>'
       +'<button class="signout" id="logoutBtn">'+svg('logout')+'Sign out</button>'
       +'<div style="text-align:center;color:var(--muted2);font-size:12px;margin:16px 0 4px">OTT24x7 · Premium digital store</div>'
@@ -1085,6 +1110,7 @@
       if(a==='wallet') go('wallet');
       else if(a==='whatsapp'){ var s=STATE.store||{}; var wa=String(s.support_whatsapp||s.wa_bot_number||'').replace(/\D/g,''); if(wa) window.open('https://wa.me/'+wa,'_blank'); else toast('Support number not set'); }
       else if(a==='copyref'){ copyText(b.dataset.copy); }
+      else if(a==='install'){ doInstall(); }
       else toast('Coming soon');
     }; });
     $('logoutBtn').onclick=function(){ api('/logout',{method:'POST'}).finally(function(){ STATE.user=null; renderLogin(); $('navWrap').classList.add('hidden'); }); };
@@ -1241,6 +1267,38 @@
     $('okBtn').onclick=function(){ closeSheet(); go('orders'); renderNav(); };
     loadOrders();
   }
+
+  /* ── PWA: service worker + install prompt (iOS / Android / desktop) ── */
+  if('serviceWorker' in navigator){ try{ navigator.serviceWorker.register('/sw.js',{scope:'/'}); }catch(e){} }
+  var deferredPrompt=null;
+  function isStandalone(){ try{ return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true; }catch(e){ return false; } }
+  function isiOS(){ return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream; }
+  function installHidden(){ try{ return localStorage.getItem('app_install_hide')==='1'; }catch(e){ return false; } }
+  function hideInstall(remember){ var b=$('installbar'); if(b){ b.classList.remove('show'); setTimeout(function(){ if(b) b.classList.add('hidden'); },300); } if(remember){ try{ localStorage.setItem('app_install_hide','1'); }catch(e){} } }
+  function showInstall(){
+    if(isStandalone()||installHidden()) return;
+    var b=$('installbar'); if(!b) return;
+    $('ibIc').innerHTML=svg('download');
+    $('ibSub').textContent=isiOS()?'Tap Share, then “Add to Home Screen”':'Add to your home screen · 1-tap access';
+    b.classList.remove('hidden'); requestAnimationFrame(function(){ b.classList.add('show'); });
+    $('ibGo').onclick=doInstall; $('ibX').onclick=function(){ hideInstall(true); };
+  }
+  function doInstall(){
+    if(deferredPrompt){ var dp=deferredPrompt; deferredPrompt=null; dp.prompt(); dp.userChoice.then(function(c){ if(c&&c.outcome==='accepted'){ hideInstall(false); toast('Installing…'); } }); return; }
+    if(isiOS()){ iosInstallSheet(); return; }
+    toast('Open your browser menu → Install app');
+  }
+  function iosInstallSheet(){
+    openSheet('<div class="pd-t" style="font-size:20px">Install OTT24x7</div>'
+      +'<div class="page-sub" style="margin-bottom:14px">Add the app to your iPhone home screen:</div>'
+      +'<div class="meta"><div class="m"><span>1 · Tap the <b style="color:var(--g1)">Share</b> button</span><span>⬆️</span></div>'
+        +'<div class="m"><span>2 · Choose <b style="color:var(--g1)">Add to Home Screen</b></span><span>➕</span></div>'
+        +'<div class="m"><span>3 · Tap <b style="color:var(--g1)">Add</b></span><span>✓</span></div></div>'
+      +'<button class="btn btn-gold btn-block" style="margin-top:14px" onclick="closeSheet()">Got it</button>');
+  }
+  window.addEventListener('beforeinstallprompt',function(e){ e.preventDefault(); deferredPrompt=e; showInstall(); });
+  window.addEventListener('appinstalled',function(){ hideInstall(false); toast('App installed 🎉'); });
+  setTimeout(function(){ if(isiOS()) showInstall(); }, 2600);
 
   boot();
   setTimeout(function(){ var s=$('splash'); if(s&&!s.classList.contains('hide')) hideSplash(); }, 6000);
