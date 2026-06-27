@@ -235,17 +235,47 @@
   .am-tab.on{background:var(--grad);color:var(--gold-ink);box-shadow:0 6px 16px rgba(139,92,246,.3)}
   .otp-input{width:100%;text-align:center;letter-spacing:.4rem;font-size:1.5rem;font-weight:800;font-family:Consolas,monospace;background:var(--card2);border:1px solid var(--line);border-radius:13px;padding:14px;color:var(--txt);outline:none}
   .otp-input:focus{border-color:var(--gold-line);box-shadow:0 0 0 3px rgba(139,92,246,.14)}
-  /* ── splash ── */
-  #splash{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;transition:opacity .55s ease,visibility .55s ease;background:radial-gradient(120% 90% at 50% 42%, #1e1640 0%, #110d26 46%, #08070f 78%)}
+  /* ── splash — animated logo reveal ── */
+  #splash{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;overflow:hidden;
+    transition:opacity .6s ease,visibility .6s ease;
+    background:radial-gradient(120% 90% at 50% 38%, #1e1640 0%, #110d26 48%, #08070f 80%)}
   #splash.hide{opacity:0;visibility:hidden}
-  #splash .sp-inner{display:flex;flex-direction:column;align-items:center;gap:26px;padding:24px}
-  #splash .sp-logo{position:relative;border-radius:16px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.06),0 24px 70px rgba(139,92,246,.4)}
-  #splash .sp-logo img{display:block;width:clamp(200px,56vw,280px);height:auto}
-  #splash .sp-logo .sp-word{display:block;font-size:30px;font-weight:900;color:#f3ead3;padding:30px 40px;letter-spacing:.5px}
-  #splash .sp-logo .sp-word b{color:var(--g1)}
-  #splash .sp-bar{width:min(230px,62vw);height:3px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden}
-  #splash .sp-bar i{display:block;height:100%;width:42%;border-radius:999px;background:var(--grad);animation:sp-load 1.25s ease-in-out infinite}
-  #splash .sp-text{font-size:12px;letter-spacing:.4em;color:#b6a079;font-weight:700;padding-left:.4em}
+  #splash .sp-aura{position:absolute;border-radius:50%;filter:blur(48px);opacity:.5;pointer-events:none}
+  #splash .sp-aura.a1{width:340px;height:340px;background:radial-gradient(circle,#7c3aed,transparent 70%);top:-70px;left:-50px;animation:sp-drift1 9s ease-in-out infinite}
+  #splash .sp-aura.a2{width:300px;height:300px;background:radial-gradient(circle,#4338ca,transparent 70%);bottom:-60px;right:-40px;animation:sp-drift2 11s ease-in-out infinite}
+  #splash .sp-inner{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:24px;padding:24px}
+  #splash .sp-badge{position:relative;display:grid;place-items:center;animation:sp-pop 1s cubic-bezier(.2,1.3,.3,1) both}
+  #splash .sp-halo{position:absolute;inset:-34px;border-radius:50%;background:radial-gradient(circle,rgba(139,92,246,.45),transparent 65%);animation:sp-glow 2.4s ease-in-out infinite}
+  #splash .sp-ring{position:absolute;inset:-13px;border-radius:24px;filter:blur(2px);opacity:.9;
+    background:conic-gradient(from 0deg,transparent 0%,transparent 32%,rgba(167,139,250,.6),rgba(99,102,241,.6),transparent 72%,transparent 100%);
+    animation:sp-spin 3.2s linear infinite}
+  #splash .sp-ripple{position:absolute;inset:0;border-radius:20px;border:1.5px solid rgba(167,139,250,.5);animation:sp-ripple 2.7s ease-out infinite}
+  #splash .sp-ripple.r2{animation-delay:.9s}
+  #splash .sp-ripple.r3{animation-delay:1.8s}
+  #splash .sp-logo{position:relative;z-index:3;border-radius:18px;overflow:hidden;background:rgba(12,14,28,.92);
+    box-shadow:0 0 0 1px rgba(255,255,255,.08),0 24px 70px rgba(139,92,246,.45)}
+  #splash .sp-logo img{display:block;width:clamp(190px,54vw,260px);height:auto}
+  #splash .sp-logo .sp-word{display:block;font-size:32px;font-weight:900;color:#fff;padding:28px 38px;letter-spacing:.5px}
+  #splash .sp-logo .sp-word b{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  #splash .sp-logo:after{content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(105deg,transparent 38%,rgba(255,255,255,.35) 50%,transparent 62%);
+    transform:translateX(-130%);animation:sp-sheen 2.8s ease-in-out 1s infinite}
+  #splash .sp-brand{font-size:12.5px;letter-spacing:.5em;color:#cabfee;font-weight:700;padding-left:.5em;opacity:0;transform:translateY(8px);animation:sp-up .7s ease .5s forwards}
+  #splash .sp-bar{width:min(220px,60vw);height:3px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden;opacity:0;transform:translateY(8px);animation:sp-up .7s ease .66s forwards}
+  #splash .sp-bar i{display:block;height:100%;width:40%;border-radius:999px;background:var(--grad);animation:sp-load 1.25s ease-in-out infinite}
+  #splash .sp-text{font-size:11px;letter-spacing:.42em;color:#8b80b3;font-weight:700;padding-left:.42em;opacity:0;transform:translateY(8px);animation:sp-up .7s ease .82s forwards}
+  @keyframes sp-pop{0%{opacity:0;transform:scale(.62) translateY(10px)}60%{opacity:1}100%{opacity:1;transform:scale(1) translateY(0)}}
+  @keyframes sp-spin{to{transform:rotate(360deg)}}
+  @keyframes sp-glow{0%,100%{opacity:.45;transform:scale(.95)}50%{opacity:.85;transform:scale(1.06)}}
+  @keyframes sp-ripple{0%{opacity:.7;transform:scale(1)}100%{opacity:0;transform:scale(1.55)}}
+  @keyframes sp-sheen{0%{transform:translateX(-130%)}55%,100%{transform:translateX(130%)}}
+  @keyframes sp-up{to{opacity:1;transform:translateY(0)}}
+  @keyframes sp-drift1{0%,100%{transform:translate(0,0)}50%{transform:translate(40px,30px)}}
+  @keyframes sp-drift2{0%,100%{transform:translate(0,0)}50%{transform:translate(-36px,-26px)}}
+  @media (prefers-reduced-motion:reduce){
+    #splash .sp-ring,#splash .sp-halo,#splash .sp-ripple,#splash .sp-aura,#splash .sp-logo:after{animation:none!important}
+    #splash .sp-badge,#splash .sp-brand,#splash .sp-bar,#splash .sp-text{animation-duration:.01s!important}
+  }
   @keyframes sp-load{0%{transform:translateX(-120%)}100%{transform:translateX(330%)}}
   @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
   @media(max-width:380px){ .app{padding:16px 12px 108px} .page-title{font-size:24px} .wallet-card .bal{font-size:32px} }
@@ -286,13 +316,23 @@
 </head>
 <body>
   <div id="splash" aria-hidden="true">
+    <span class="sp-aura a1"></span>
+    <span class="sp-aura a2"></span>
     <div class="sp-inner">
-      <div class="sp-logo">
-        <img src="/data/uploads/logo_dark.png" alt="OTT24x7" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
-        <span class="sp-word" style="display:none">OTT24<b>x7</b></span>
+      <div class="sp-badge">
+        <span class="sp-halo"></span>
+        <span class="sp-ring"></span>
+        <span class="sp-ripple"></span>
+        <span class="sp-ripple r2"></span>
+        <span class="sp-ripple r3"></span>
+        <div class="sp-logo">
+          <img src="/data/uploads/logo_dark.png" alt="OTT24x7" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+          <span class="sp-word" style="display:none">OTT24<b>x7</b></span>
+        </div>
       </div>
+      <div class="sp-brand">PREMIUM&nbsp;OTT&nbsp;STORE</div>
       <div class="sp-bar"><i></i></div>
-      <div class="sp-text">LOADING&nbsp;STORE</div>
+      <div class="sp-text">LOADING</div>
     </div>
   </div>
   <main class="app" id="app"></main>

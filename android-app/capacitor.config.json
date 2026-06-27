@@ -9,19 +9,19 @@
     "allowNavigation": ["ott24x7.com", "*.ott24x7.com"]
   },
   "android": {
-    "backgroundColor": "#06070C",
+    "backgroundColor": "#0a0b16",
     "allowMixedContent": false
   },
   "plugins": {
     "SplashScreen": {
       "launchShowDuration": 600,
-      "backgroundColor": "#06070C",
+      "backgroundColor": "#110d26",
       "showSpinner": false,
       "androidSplashResourceName": "splash"
     },
     "StatusBar": {
       "style": "DARK",
-      "backgroundColor": "#06070C"
+      "backgroundColor": "#0a0b16"
     }
   }
 }
