@@ -457,6 +457,23 @@ async function withDesign(html, storeTheme) {
         return `<html${h}>`;
       });
     }
+    // Mobile "Get the app" banner — nudges phone visitors of the storefront into
+    // the installable /app. Never appears on /app itself (served outside withDesign)
+    // or on desktop; dismissible and hidden once the PWA is installed (standalone).
+    if (html.includes('</body>')) {
+      const cta = `<div id="ott-appcta"></div><script>(function(){try{
+if(localStorage.getItem('ott_appbanner_hide')==='1')return;
+if(!window.matchMedia('(max-width:820px)').matches)return;
+if(window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone)return;
+var w=document.getElementById('ott-appcta');if(!w)return;
+var bar=document.createElement('div');
+bar.style.cssText='position:fixed;left:10px;right:10px;bottom:12px;z-index:99999;max-width:520px;margin:0 auto;display:flex;align-items:center;gap:11px;background:linear-gradient(180deg,#19160e,#0c0a06);border:1px solid rgba(245,158,11,.5);border-radius:16px;padding:11px 13px;box-shadow:0 16px 40px rgba(0,0,0,.55);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
+bar.innerHTML='<div style="width:40px;height:40px;flex:none;border-radius:11px;background:linear-gradient(135deg,#fbbf24,#f59e0b);display:grid;place-items:center;color:#1a1206;font-weight:900;font-size:17px">&#9654;</div><div style="flex:1;min-width:0;color:#fff"><div style="font-weight:800;font-size:14px">Get the OTT24x7 app</div><div style="font-size:11px;color:#cdcdd6">Faster orders &#183; wallet &#183; instant access</div></div><a href="/app" style="flex:none;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1206;text-decoration:none;border-radius:10px;padding:9px 14px;font-weight:800;font-size:13px">Open</a><button id="ott-appx" aria-label="Dismiss" style="flex:none;background:none;border:0;color:#7a7a86;font-size:16px;cursor:pointer;width:22px">&#10005;</button>';
+w.appendChild(bar);
+var x=document.getElementById('ott-appx');if(x)x.onclick=function(){try{localStorage.setItem('ott_appbanner_hide','1')}catch(e){}w.innerHTML='';};
+}catch(e){}})();</script>`;
+      html = html.replace('</body>', cta + '\n</body>');
+    }
   } catch { /* never block a page on design */ }
   return html;
 }
