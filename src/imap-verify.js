@@ -95,7 +95,7 @@ async function parseAndMatch(rawMessages) {
   let windowMin = 10;
   try { windowMin = Math.max(1, parseInt(await getSetting('payment_match_window_minutes') || '10', 10) || 10); } catch {}
   const pending = all(db, `SELECT * FROM topups
-    WHERE status='pending' AND purpose='order'
+    WHERE status='pending' AND purpose IN ('order','wallet')
       AND created_at >= datetime('now', ?)
       AND (
         (method='upi_imap'   AND unique_amount      IS NOT NULL) OR
@@ -126,8 +126,7 @@ async function parseAndMatch(rawMessages) {
         ['system', 'imap-verify', 'checkout_upi_auto_approve', 'topup', String(topup.id),
          JSON.stringify({ amount_inr: topup.amount_inr, unique_amount: topup.unique_amount })]);
       matched++;
-      const cust = get(db, 'SELECT * FROM customers WHERE jid=?', [topup.customer_jid]);
-      await handleDirectCheckout(db, topup, cust).catch(() => {});
+      await settleMatchedTopup(db, topup);
     }
 
     // NO ROUND-AMOUNT AUTO-VERIFY: only the EXACT unique amount auto-approves (above).
@@ -156,11 +155,25 @@ async function parseAndMatch(rawMessages) {
         ['system', 'imap-verify', 'checkout_usdt_auto_approve', 'topup', String(topup.id),
          JSON.stringify({ method: topup.method, amount_usdt: topup.amount_usdt, unique_usdt: topup.unique_amount_usdt, amount_inr: topup.amount_inr })]);
       matched++;
-      const cust = get(db, 'SELECT * FROM customers WHERE jid=?', [topup.customer_jid]);
-      await handleDirectCheckout(db, topup, cust).catch(() => {});
+      await settleMatchedTopup(db, topup);
     }
   }
   return matched;
+}
+
+// Settle a payment-matched topup: credit the wallet (purpose='wallet') or run
+// the order-delivery path (purpose='order'). Wallet credit is idempotent via ref_id.
+async function settleMatchedTopup(db, topup) {
+  if (topup.purpose === 'wallet') {
+    const { creditWallet } = require('./wallet');
+    const ref = 'topup:' + topup.id;
+    if (!get(db, `SELECT 1 FROM wallet_txns WHERE ref_id=? LIMIT 1`, [ref])) {
+      try { creditWallet(db, topup.customer_jid, topup.amount_inr, { type: 'topup', label: 'Wallet top-up', ref_id: ref }); } catch {}
+    }
+    return;
+  }
+  const cust = get(db, 'SELECT * FROM customers WHERE jid=?', [topup.customer_jid]);
+  await handleDirectCheckout(db, topup, cust).catch(() => {});
 }
 
 async function handleDirectCheckout(db, topup, cust) {
@@ -432,6 +445,16 @@ async function manualVerifyTopup(topupId) {
   const topup = get(db, `SELECT * FROM topups WHERE id=?`, [topupId]);
   if (!topup) return { ok: false, error: 'Payment not found' };
   if (topup.order_id) return { ok: false, error: `Already verified — order #${topup.order_id} exists` };
+  // Wallet top-up: credit the balance (idempotent via ref_id) and mark approved.
+  if (topup.purpose === 'wallet') {
+    if (topup.status === 'approved') return { ok: false, error: 'Already verified — wallet already credited' };
+    const { creditWallet, getBalance } = require('./wallet');
+    const ref = 'topup:' + topup.id;
+    if (!get(db, `SELECT 1 FROM wallet_txns WHERE ref_id=? LIMIT 1`, [ref]))
+      creditWallet(db, topup.customer_jid, topup.amount_inr, { type: 'topup', label: 'Wallet top-up', ref_id: ref });
+    run(db, `UPDATE topups SET status='approved' WHERE id=?`, [topup.id]);
+    return { ok: true, credited: topup.amount_inr, balance: getBalance(db, topup.customer_jid) };
+  }
   if (topup.purpose && topup.purpose !== 'order') return { ok: false, error: 'Not an order payment' };
   const plan = get(db, `SELECT id, platform, name, stock, provider_api, delivery_type FROM plans WHERE id=? AND active=1`, [topup.plan_id]);
   if (!plan) return { ok: false, error: 'Plan not found or inactive' };

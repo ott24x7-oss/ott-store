@@ -885,11 +885,90 @@ router.post('/checkout/usdt-direct', requireCustomer, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── Wallet top-up (UPI / USDT — credits balance on payment) ──────────────────
+// Re-enabled: customer adds store credit by paying a unique amount; the IMAP
+// verifier matches the payment and credits the wallet (purpose='wallet').
+router.post('/checkout/topup-upi', requireCustomer, async (req, res) => {
+  try {
+    const db = await getDb();
+    if ((await getSetting('imap_enabled')) !== '1') return res.status(400).json({ error: 'UPI auto-verify not enabled' });
+    const amount = Math.floor(Number(req.body.amount) || 0);
+    if (!(amount >= 10) || amount > 100000) return res.status(400).json({ error: 'Enter an amount between ₹10 and ₹1,00,000.' });
+    const c = get(db, 'SELECT * FROM customers WHERE jid=?', [req.customer.jid]);
+    if (!c) return res.status(404).json({ error: 'Customer not found' });
+
+    run(db, `UPDATE topups SET status='expired' WHERE customer_jid=? AND purpose='wallet' AND status='pending'`, [c.jid]);
+
+    const { generateUniqueAmount } = require('./imap-verify');
+    const usedUniques = all(db, `SELECT unique_amount FROM topups WHERE status='pending' AND method='upi_imap' AND unique_amount IS NOT NULL`).map(r => r.unique_amount);
+    const uniqueMaxDelta = parseInt(await getSetting('upi_unique_max_delta') || '6', 10);
+    const uniqueDir = await getSetting('upi_unique_direction') || 'both';
+    const uniqueAmount = generateUniqueAmount(amount, usedUniques, uniqueMaxDelta, uniqueDir);
+    const eupi = await getEffectiveUpi(db);
+    const upiId = eupi.upi_id;
+    const upiName = (eupi.upi_name || '').replace(/[^a-zA-Z0-9 ]/g, '');
+    const windowMin = parseInt(await getSetting('upi_payment_window_minutes') || '1440', 10);
+    const expiresAt = new Date(Date.now() + windowMin * 60 * 1000).toISOString();
+
+    const r = run(db, `INSERT INTO topups (customer_jid,amount_inr,unique_amount,method,status,purpose,currency,expires_at) VALUES (?,?,?,?,?,?,?,?)`,
+      [c.jid, amount, uniqueAmount, 'upi_imap', 'pending', 'wallet', 'INR', expiresAt]);
+
+    let upiLink = '', upiQr = '';
+    if (upiId) {
+      const tn = 'Wallet topup';
+      if (eupi.qr_url) {
+        upiLink = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(upiName || 'Store')}&cu=INR&tn=${encodeURIComponent(tn)}`;
+      } else {
+        upiLink = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(upiName || 'Store')}&am=${uniqueAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(tn)}`;
+        try { upiQr = await require('qrcode').toDataURL(upiLink, { width: 240, margin: 1 }); } catch {}
+      }
+    }
+    res.json({ ok: true, topup_id: r.lastInsertRowid, unique_amount: uniqueAmount, upi_id: upiId, upi_name: upiName,
+      upi_link: upiLink, upi_qr: upiQr, qr_url: eupi.qr_url || '', amount, expires_at: expiresAt, window_minutes: windowMin });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/checkout/topup-usdt', requireCustomer, async (req, res) => {
+  try {
+    const db = await getDb();
+    if ((await getSetting('imap_enabled')) !== '1') return res.status(400).json({ error: 'Payment auto-verify not enabled' });
+    const amount = Math.floor(Number(req.body.amount) || 0);
+    if (!(amount >= 10) || amount > 100000) return res.status(400).json({ error: 'Enter an amount between ₹10 and ₹1,00,000.' });
+    const net = String(req.body.network || '').toLowerCase();
+    if (!['binance', 'bep20', 'trc20'].includes(net)) return res.status(400).json({ error: 'Invalid network. Use binance / bep20 / trc20.' });
+    if ((await getSetting(`usdt_${net}_enabled`)) !== '1') return res.status(400).json({ error: `USDT ${net.toUpperCase()} is not enabled` });
+    const addressKey = net === 'binance' ? 'usdt_binance_uid' : `usdt_${net}_address`;
+    const address = (await getSetting(addressKey) || '').trim();
+    if (!address) return res.status(400).json({ error: `USDT ${net.toUpperCase()} receiver not configured` });
+    const c = get(db, 'SELECT * FROM customers WHERE jid=?', [req.customer.jid]);
+    if (!c) return res.status(404).json({ error: 'Customer not found' });
+
+    const rate = parseFloat(await getSetting('usdt_inr_rate') || '99');
+    const feePct = parseFloat(await getSetting('usdt_fee_pct') || '1.5');
+    if (!(rate > 0)) return res.status(500).json({ error: 'USDT rate not configured' });
+    const subUsdt = amount / rate;
+    const baseUsdt = subUsdt + subUsdt * (feePct / 100);
+    const { generateUniqueUsdtAmount } = require('./imap-verify');
+    const uniqueUsdt = generateUniqueUsdtAmount(baseUsdt);
+
+    run(db, `UPDATE topups SET status='expired' WHERE customer_jid=? AND purpose='wallet' AND method=? AND status='pending'`, [c.jid, `usdt_${net}`]);
+    const windowMin = parseInt(await getSetting('usdt_payment_window_minutes') || '20', 10);
+    const expiresAt = new Date(Date.now() + windowMin * 60 * 1000).toISOString();
+    const qrUrl = (await getSetting(`usdt_${net}_qr_url`) || '').trim();
+
+    const r = run(db, `INSERT INTO topups (customer_jid,amount_inr,amount_usdt,unique_amount_usdt,method,status,purpose,currency,expires_at) VALUES (?,?,?,?,?,?,?,?,?)`,
+      [c.jid, amount, baseUsdt, uniqueUsdt, `usdt_${net}`, 'pending', 'wallet', 'USDT', expiresAt]);
+
+    res.json({ ok: true, topup_id: r.lastInsertRowid, network: net, address, qr_url: qrUrl, amount,
+      rate_inr_per_usd: rate, base_usdt: Number(baseUsdt.toFixed(4)), unique_usdt: uniqueUsdt, expires_at: expiresAt, window_minutes: windowMin });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Poll checkout status — returns topup status + order info if created
 router.get('/checkout/poll/:topupId', requireCustomer, async (req, res) => {
   try {
     const db = await getDb();
-    const topup = get(db, `SELECT * FROM topups WHERE id=? AND customer_jid=? AND purpose='order'`,
+    const topup = get(db, `SELECT * FROM topups WHERE id=? AND customer_jid=? AND purpose IN ('order','wallet')`,
       [req.params.topupId, req.customer.jid]);
     if (!topup) return res.status(404).json({ error: 'Not found' });
 

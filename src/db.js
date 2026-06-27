@@ -503,8 +503,8 @@ function migrate(db) {
   // so we no longer zero wallet_inr here — that line wiped every balance on each boot.
   // Remove dead Razorpay / manual-UPI settings so nothing reads stale values.
   try { db.run(`DELETE FROM settings WHERE key IN ('razorpay_enabled','razorpay_key_id','razorpay_key_secret','upi_manual_enabled')`); } catch {}
-  // Cancel any in-flight wallet topups still pending — the route is gone.
-  try { db.run(`UPDATE topups SET status='cancelled' WHERE status='pending' AND COALESCE(purpose,'wallet')='wallet'`); } catch {}
+  // Wallet top-up is re-enabled (purpose='wallet'): pending top-ups are NOT
+  // cancelled on boot — the IMAP verifier credits them within their window.
 
   // ── Indexes for hot-path queries ──────────────────────────────────────────
   // Customer-facing endpoints repeatedly filter orders/topups/audit_log by jid
