@@ -899,12 +899,24 @@
       +'<div class="ri-mid"><div class="t">'+esc(t.label||t.reason||(pos?'Money Added':'Purchase'))+'</div><div class="s">'+esc(when)+'</div></div>'
       +'<div class="ri-end"><div class="a" style="color:'+(pos?'var(--green)':'var(--red)')+'">'+(pos?'+':'−')+inr(Math.abs(v))+'</div><span class="sbadge ok" style="margin-top:5px">Success</span></div></div>';
   }
-  function topupMethods(){
-    var s=STATE.store||{}, m=[];
-    if(s.imap_enabled==='1' && (s.upi_available||s.upi_id)) m.push({id:'upi',ic:'bank',t:'UPI',i:'GPay · PhonePe · Paytm'});
-    if(s.imap_enabled==='1' && (s.usdt_binance_enabled==='1'||s.usdt_bep20_enabled==='1'||s.usdt_trc20_enabled==='1')) m.push({id:'usdt',ic:'usdt',t:'USDT',i:'Crypto · Binance/BEP20/TRC20'});
+  // Mirror the website's checkout exactly (see plans.html): UPI only when
+  // imap_enabled + upi_id, and each USDT network only when enabled AND its
+  // address/UID is configured — so the app never shows a method the site lacks.
+  function usdtNetworks(){
+    var s=STATE.store||{}, n=[];
+    if(s.usdt_binance_enabled==='1' && s.usdt_binance_uid) n.push({net:'binance',t:'USDT · Binance',i:'Binance Pay UID'});
+    if(s.usdt_bep20_enabled==='1' && s.usdt_bep20_address) n.push({net:'bep20',t:'USDT · BEP20',i:'BNB Smart Chain'});
+    if(s.usdt_trc20_enabled==='1' && s.usdt_trc20_address) n.push({net:'trc20',t:'USDT · TRC20',i:'Tron network'});
+    return n;
+  }
+  function siteMethods(){
+    var s=STATE.store||{}, imap=s.imap_enabled==='1', m=[];
+    if(imap && s.upi_id) m.push({id:'upi',ic:'bank',t:'UPI',i:'GPay · PhonePe · Paytm'});
+    if(imap) usdtNetworks().forEach(function(n){ m.push({id:'usdt:'+n.net,ic:'usdt',t:n.t,i:n.i}); });
     return m;
   }
+  function topupMethods(){ return siteMethods(); }
+  function runTopup(amount,id){ if(id.indexOf('usdt:')===0) startTopup(amount,'usdt',id.slice(5)); else startTopup(amount,id); }
   function renderWallet(){
     var bal=STATE.balance||0, txns=STATE.txns||[], amt=STATE.topupAmount||100;
     var AMTS=[[100,'Popular'],[250,'Popular'],[500,'Best Value'],[1000,'Popular']];
@@ -929,7 +941,7 @@
       +trustBar();
     wireCommon();
     [].forEach.call(document.querySelectorAll('[data-amt]'),function(t){ t.onclick=function(){ var v=t.dataset.amt; if(v==='custom'){ askCustomAmount(); } else { STATE.topupAmount=Number(v); renderWallet(); } }; });
-    [].forEach.call(document.querySelectorAll('[data-pm]'),function(b){ b.onclick=function(){ startTopup(STATE.topupAmount||100, b.dataset.pm); }; });
+    [].forEach.call(document.querySelectorAll('[data-pm]'),function(b){ b.onclick=function(){ runTopup(STATE.topupAmount||100, b.dataset.pm); }; });
     var amb=$('addMoneyBtn'); if(amb) amb.onclick=function(){ openTopupMethods(STATE.topupAmount||100); };
   }
   /* ── wallet top-up (UPI / USDT — credits balance on payment) ── */
@@ -944,11 +956,11 @@
   function openTopupMethods(amount){
     var ms=topupMethods();
     if(!ms.length){ toast('Top-up is not available right now'); return; }
-    if(ms.length===1){ startTopup(amount, ms[0].id); return; }
+    if(ms.length===1){ runTopup(amount, ms[0].id); return; }
     openSheet('<div class="pd-t" style="font-size:20px">Add '+inr(amount)+'</div><div class="page-sub" style="margin-bottom:14px">Choose how to pay</div><div class="pay-methods">'
       +ms.map(function(x){ return '<button class="pay-method" data-tm="'+x.id+'"><span class="pm-ic">'+svg(x.ic)+'</span><span class="pm-tx"><b>'+esc(x.t)+'</b><i>'+esc(x.i)+'</i></span><span class="pm-ar">'+svg('arrow')+'</span></button>'; }).join('')
       +'</div><button class="btn btn-dark btn-block" style="margin-top:12px" onclick="closeSheet()">Cancel</button>');
-    [].forEach.call(document.querySelectorAll('[data-tm]'),function(b){ b.onclick=function(){ startTopup(amount,b.dataset.tm); }; });
+    [].forEach.call(document.querySelectorAll('[data-tm]'),function(b){ b.onclick=function(){ runTopup(amount,b.dataset.tm); }; });
   }
   function openTopupUsdtNetworks(amount){
     var s=STATE.store||{}, nets=[];
@@ -1088,10 +1100,10 @@
     $('phBtn').onclick=function(){ var v=($('ph').value||'').trim(); if(!v){toast('Enter your number');return;} retry(v); };
   }
   function methodsFor(p){
-    var s=STATE.store||{}, m=[];
+    var m=[];
     if(STATE.balance>=p.price && p.price>0) m.push({id:'wallet',ic:'👛',t:'Pay with Wallet',i:'Instant · balance '+inr(STATE.balance)});
-    if(s.upi_available || s.upi_id) m.push({id:'upi',ic:'🇮🇳',t:'UPI',i:'GPay · PhonePe · Paytm'});
-    if(s.usdt_binance_enabled==='1'||s.usdt_bep20_enabled==='1'||s.usdt_trc20_enabled==='1') m.push({id:'usdt',ic:'₮',t:'USDT (crypto)',i:'Binance · BEP20 · TRC20'});
+    // Same methods the website offers (UPI + each configured USDT network).
+    siteMethods().forEach(function(x){ m.push({id:x.id, ic:(x.id==='upi'?'🇮🇳':'₮'), t:x.t, i:x.i}); });
     return m;
   }
   function openPayMethods(p){
@@ -1106,7 +1118,7 @@
     [].forEach.call(document.querySelectorAll('[data-m]'),function(b){ b.onclick=function(){ pickMethod(p,b.dataset.m); }; });
   }
   window.__backToMethods=function(){ if(STATE.current) openPayMethods(STATE.current); };
-  function pickMethod(p,m){ if(m==='wallet') payWallet(p); else if(m==='usdt') openUsdtNetworks(p); else startCheckout(p); }
+  function pickMethod(p,m){ if(m==='wallet') payWallet(p); else if(m.indexOf('usdt:')===0) startUsdt(p,m.slice(5)); else startCheckout(p); }
 
   function wirePoll(tid,p){
     [].forEach.call(document.querySelectorAll('[data-copy]'),function(b){ b.onclick=function(){ copyText(b.dataset.copy); }; });
