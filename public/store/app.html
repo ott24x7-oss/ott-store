@@ -456,19 +456,29 @@
   .wc-safe{display:inline-flex;align-items:center;gap:7px;color:rgba(255,255,255,.72);font-size:12px;font-weight:600}
   .wc-safe svg{width:15px;height:15px;color:var(--g1)}
   .wallet-card .wbtn.gold{padding:12px 20px;font-size:14px}
-  /* ── install banner ── */
-  .installbar{position:fixed;left:12px;right:12px;bottom:92px;z-index:70;max-width:456px;margin:0 auto;display:flex;align-items:center;gap:12px;
-    background:linear-gradient(180deg,#19160e,#0e0c08);border:1px solid var(--gold-line);border-radius:18px;padding:11px 13px;
-    box-shadow:0 18px 44px rgba(0,0,0,.6),0 0 26px rgba(245,158,11,.18);transform:translateY(18px);opacity:0;transition:transform .3s var(--ease),opacity .3s var(--ease)}
-  .installbar.show{transform:none;opacity:1}
-  .installbar.hidden{display:none}
-  .installbar .ib-ic{width:42px;height:42px;flex:none;border-radius:12px;background:var(--grad);color:var(--gold-ink);display:grid;place-items:center;box-shadow:0 6px 16px rgba(245,158,11,.4)}
-  .installbar .ib-ic svg{width:22px;height:22px}
-  .installbar .ib-tx{flex:1;min-width:0}
-  .installbar .ib-tx b{font-size:14px;font-weight:800;display:block}
-  .installbar .ib-tx span{font-size:11px;color:var(--muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .installbar .ib-go{flex:none;background:var(--grad);color:var(--gold-ink);border:0;border-radius:11px;padding:9px 15px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
-  .installbar .ib-x{flex:none;background:none;border:0;color:var(--muted2);font-size:16px;cursor:pointer;width:24px;height:24px;line-height:1}
+  /* ── install gate (full-screen; mobile browser, not installed) ── */
+  .installgate{position:fixed;inset:0;z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+    padding:30px 24px calc(26px + env(safe-area-inset-bottom));overflow-y:auto;
+    background:radial-gradient(120% 90% at 50% 26%, #1c1305 0%, #120c03 48%, #050402 80%)}
+  .installgate.hidden{display:none}
+  .installgate .ig-inner{max-width:360px;width:100%;display:flex;flex-direction:column;align-items:center;animation:rise .5s var(--ease) both}
+  .installgate .ig-badge{width:84px;height:84px;border-radius:23px;background:var(--grad);display:grid;place-items:center;margin-bottom:18px;box-shadow:0 20px 50px rgba(245,158,11,.5),inset 0 1px 0 rgba(255,255,255,.4)}
+  .installgate .ig-badge svg{width:42px;height:42px;color:var(--gold-ink)}
+  .installgate .ig-word{font-size:25px;font-weight:900;letter-spacing:.5px;color:#fff;margin-bottom:14px}
+  .installgate .ig-word b{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .installgate h2{font-size:23px;font-weight:800;margin-bottom:7px}
+  .installgate .ig-sub{color:var(--muted);font-size:13.5px;line-height:1.5;margin-bottom:22px;max-width:300px}
+  .installgate .ig-benefits{list-style:none;display:flex;flex-direction:column;gap:10px;width:100%;margin-bottom:22px;text-align:left}
+  .installgate .ig-benefits li{display:flex;align-items:center;gap:12px;font-size:13.5px;font-weight:600;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:13px;padding:11px 13px}
+  .installgate .ig-benefits .bi{width:34px;height:34px;flex:none;border-radius:10px;background:var(--gold-soft);color:var(--g2);display:grid;place-items:center}
+  .installgate .ig-benefits .bi svg{width:18px;height:18px}
+  .installgate #igAction{width:100%}
+  .installgate .ig-steps{display:flex;flex-direction:column;gap:9px;width:100%;text-align:left}
+  .installgate .ig-step{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:13px;padding:11px 13px;font-size:13px;line-height:1.4}
+  .installgate .ig-step .n{width:25px;height:25px;flex:none;border-radius:50%;background:var(--grad);color:var(--gold-ink);display:grid;place-items:center;font-weight:800;font-size:12.5px}
+  .installgate .ig-step b{color:var(--g1)}
+  .installgate .ig-step .emo{font-size:15px}
+  .installgate .ig-skip{margin-top:18px;background:none;border:0;color:var(--muted2);font-size:12.5px;cursor:pointer;font-family:inherit;text-decoration:underline;padding:6px}
 </style>
 </head>
 <body>
@@ -496,11 +506,16 @@
   <nav class="nav hidden" id="navWrap"><div class="nav-bar" id="nav"></div></nav>
   <div class="sheet" id="sheet"><div class="panel" id="panel"></div></div>
   <div class="toast" id="toast"></div>
-  <div class="installbar hidden" id="installbar">
-    <div class="ib-ic" id="ibIc"></div>
-    <div class="ib-tx"><b>Install OTT24x7</b><span id="ibSub">Add to your home screen</span></div>
-    <button class="ib-go" id="ibGo">Install</button>
-    <button class="ib-x" id="ibX" aria-label="Dismiss">✕</button>
+  <div class="installgate hidden" id="installgate">
+    <div class="ig-inner">
+      <div class="ig-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L5 13h6l-1 9 8-12h-6z"/></svg></div>
+      <div class="ig-word">OTT24<b>x7</b></div>
+      <h2>Install the App</h2>
+      <div class="ig-sub">Get the full OTT24x7 experience — faster, full-screen, right on your home screen.</div>
+      <ul class="ig-benefits" id="igBenefits"></ul>
+      <div id="igAction"></div>
+      <button class="ig-skip" id="igSkip">Continue in browser</button>
+    </div>
   </div>
 <script>
 (function(){
@@ -1268,37 +1283,54 @@
     loadOrders();
   }
 
-  /* ── PWA: service worker + install prompt (iOS / Android / desktop) ── */
+  /* ── PWA: service worker + install GATE (mobile browser, not installed) ── */
   if('serviceWorker' in navigator){ try{ navigator.serviceWorker.register('/sw.js',{scope:'/'}); }catch(e){} }
   var deferredPrompt=null;
   function isStandalone(){ try{ return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true; }catch(e){ return false; } }
   function isiOS(){ return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream; }
-  function installHidden(){ try{ return localStorage.getItem('app_install_hide')==='1'; }catch(e){ return false; } }
-  function hideInstall(remember){ var b=$('installbar'); if(b){ b.classList.remove('show'); setTimeout(function(){ if(b) b.classList.add('hidden'); },300); } if(remember){ try{ localStorage.setItem('app_install_hide','1'); }catch(e){} } }
-  function showInstall(){
-    if(isStandalone()||installHidden()) return;
-    var b=$('installbar'); if(!b) return;
-    $('ibIc').innerHTML=svg('download');
-    $('ibSub').textContent=isiOS()?'Tap Share, then “Add to Home Screen”':'Add to your home screen · 1-tap access';
-    b.classList.remove('hidden'); requestAnimationFrame(function(){ b.classList.add('show'); });
-    $('ibGo').onclick=doInstall; $('ibX').onclick=function(){ hideInstall(true); };
-  }
+  function isMobileDevice(){ return /android|iphone|ipad|ipod|mobile|silk|kindle/i.test(navigator.userAgent); }
+  function gateSkipped(){ try{ return sessionStorage.getItem('app_gate_skip')==='1'; }catch(e){ return false; } }
   function doInstall(){
-    if(deferredPrompt){ var dp=deferredPrompt; deferredPrompt=null; dp.prompt(); dp.userChoice.then(function(c){ if(c&&c.outcome==='accepted'){ hideInstall(false); toast('Installing…'); } }); return; }
+    if(deferredPrompt){ var dp=deferredPrompt; deferredPrompt=null; dp.prompt(); dp.userChoice.then(function(c){ if(c&&c.outcome==='accepted') toast('Installing…'); }); return; }
     if(isiOS()){ iosInstallSheet(); return; }
-    toast('Open your browser menu → Install app');
+    toast('Open your browser menu → Install / Add to Home Screen');
   }
   function iosInstallSheet(){
-    openSheet('<div class="pd-t" style="font-size:20px">Install OTT24x7</div>'
-      +'<div class="page-sub" style="margin-bottom:14px">Add the app to your iPhone home screen:</div>'
+    openSheet('<div class="pd-t" style="font-size:20px">Add to Home Screen</div>'
+      +'<div class="page-sub" style="margin-bottom:14px">Install OTT24x7 on your iPhone:</div>'
       +'<div class="meta"><div class="m"><span>1 · Tap the <b style="color:var(--g1)">Share</b> button</span><span>⬆️</span></div>'
         +'<div class="m"><span>2 · Choose <b style="color:var(--g1)">Add to Home Screen</b></span><span>➕</span></div>'
         +'<div class="m"><span>3 · Tap <b style="color:var(--g1)">Add</b></span><span>✓</span></div></div>'
       +'<button class="btn btn-gold btn-block" style="margin-top:14px" onclick="closeSheet()">Got it</button>');
   }
-  window.addEventListener('beforeinstallprompt',function(e){ e.preventDefault(); deferredPrompt=e; showInstall(); });
-  window.addEventListener('appinstalled',function(){ hideInstall(false); toast('App installed 🎉'); });
-  setTimeout(function(){ if(isiOS()) showInstall(); }, 2600);
+  function gateAction(){
+    if(isiOS()){
+      return '<div class="ig-steps">'
+        +'<div class="ig-step"><span class="n">1</span><div>Tap the <b>Share</b> button <span class="emo">⬆️</span> in the toolbar</div></div>'
+        +'<div class="ig-step"><span class="n">2</span><div>Choose <b>Add to Home Screen</b> <span class="emo">➕</span></div></div>'
+        +'<div class="ig-step"><span class="n">3</span><div>Tap <b>Add</b>, then open OTT24x7 from your home screen</div></div>'
+      +'</div>';
+    }
+    return '<button class="btn btn-gold btn-block" id="igInstall">'+svg('download')+'Install App</button>'
+      +'<div style="font-size:11.5px;color:var(--muted);text-align:center;margin-top:9px">One tap · adds to your home screen</div>';
+  }
+  function showGate(){
+    var g=$('installgate'); if(!g) return;
+    var B=[['bolt','Instant ordering & delivery'],['wallet','Wallet & 1-tap top-up'],['bell','Order updates & offers']];
+    $('igBenefits').innerHTML=B.map(function(b){ return '<li><span class="bi">'+svg(b[0])+'</span>'+esc(b[1])+'</li>'; }).join('');
+    $('igAction').innerHTML=gateAction();
+    g.classList.remove('hidden'); document.body.style.overflow='hidden';
+    var ib=$('igInstall'); if(ib) ib.onclick=doInstall;
+    $('igSkip').onclick=function(){ try{ sessionStorage.setItem('app_gate_skip','1'); }catch(e){} g.classList.add('hidden'); document.body.style.overflow=''; };
+  }
+  function maybeGate(){
+    var force=/[?&]gate=1/.test(location.search);
+    if(!force && (isStandalone() || !isMobileDevice() || gateSkipped())) return;
+    showGate();
+  }
+  window.addEventListener('beforeinstallprompt',function(e){ e.preventDefault(); deferredPrompt=e; });
+  window.addEventListener('appinstalled',function(){ var g=$('installgate'); if(g) g.classList.add('hidden'); document.body.style.overflow=''; toast('App installed 🎉'); });
+  maybeGate();
 
   boot();
   setTimeout(function(){ var s=$('splash'); if(s&&!s.classList.contains('hide')) hideSplash(); }, 6000);

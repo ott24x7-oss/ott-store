@@ -512,6 +512,9 @@ app.get('/blog', async (req, res) => {
 // into the right view without a flash of the dashboard).
 const MY_TABS = ['dashboard', 'plans', 'orders', 'referral', 'support', 'profile'];
 async function serveMyHtml(req, res, tab) {
+  // App-first on mobile: phone browsers get the installable app (/app) instead of
+  // the web portal (which then shows the install gate). Desktop keeps full /my.
+  if (/Android|iPhone|iPad|iPod|Mobile|Silk/i.test(req.headers['user-agent'] || '')) return res.redirect('/app');
   try {
     const storeTheme = await getActiveTheme();
     let html = readStoreHtml('my.html');
