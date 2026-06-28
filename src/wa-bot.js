@@ -130,6 +130,42 @@ async function handleLoginTrigger(msg, jid, text) {
 }
 const _waLoginLast = new Map(); // jid → last-login-link timestamp (ms)
 
+// ─── WhatsApp community feed — mirror the announcement group → /community ─────
+const COMMUNITY_DIR = path.join(__dirname, '..', 'data', 'uploads', 'community');
+async function captureCommunityPost(msg) {
+  try {
+    if (getSettingSync('community_enabled') !== '1') return;
+    const jid = msg.key && msg.key.remoteJid;
+    const wantJid = (getSettingSync('community_jid') || '').trim();
+    if (!jid || !wantJid || jid !== wantJid) return;
+    const m = msg.message; if (!m) return;
+    const inner = (m.viewOnceMessageV2 && m.viewOnceMessageV2.message) || (m.viewOnceMessage && m.viewOnceMessage.message) || m;
+    const text = extractWAText(msg) || (inner.imageMessage && inner.imageMessage.caption) || (inner.videoMessage && inner.videoMessage.caption) || null;
+    const img = inner.imageMessage || null;
+    if (!text && !img) return; // skip stickers / reactions / system events
+    const msgId = msg.key && msg.key.id; if (!msgId) return;
+    const { run, get } = require('./db');
+    const db = await getDb();
+    if (get(db, `SELECT 1 FROM community_posts WHERE wa_msg_id=? LIMIT 1`, [msgId])) return; // dedupe
+    let imagePath = null;
+    if (img && _B && typeof _B.downloadMediaMessage === 'function') {
+      try {
+        fs.mkdirSync(COMMUNITY_DIR, { recursive: true });
+        const buf = await _B.downloadMediaMessage(msg, 'buffer', {}, { reuploadRequest: sock && sock.updateMediaMessage });
+        if (buf && buf.length) {
+          const fname = String(msgId).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 60) + '.jpg';
+          fs.writeFileSync(path.join(COMMUNITY_DIR, fname), buf);
+          imagePath = '/data/uploads/community/' + fname;
+        }
+      } catch { /* image is optional — keep the text post */ }
+    }
+    const ts = Number(msg.messageTimestamp) || Math.floor(Date.now() / 1000);
+    const sender = String((msg.key && msg.key.participant) || msg.pushName || '').split('@')[0];
+    run(db, `INSERT OR IGNORE INTO community_posts (wa_msg_id, jid, sender, body, image_path, msg_ts) VALUES (?,?,?,?,?,?)`,
+      [msgId, jid, sender, (text || '').trim(), imagePath, ts]);
+  } catch { /* never break the message pipeline */ }
+}
+
 async function processIncomingWA(msg) {
   const jid = msg.key.remoteJid;
   if (!jid) return;
@@ -389,6 +425,9 @@ async function startBaileysBot() {
         if (!msg.key.fromMe && type === 'notify') {
           processIncomingWA(msg).catch(() => {});
         }
+        // Mirror community/announcement-group posts to the /community feed
+        // (captures own posts too, since admins may post from this number).
+        if (type === 'notify') captureCommunityPost(msg).catch(() => {});
       }
     });
 

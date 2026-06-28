@@ -602,6 +602,86 @@ app.get(['/get-app', '/download-app', '/android'], async (req, res) => {
   } catch { res.status(500).send('Error loading page'); }
 });
 
+// ─── WhatsApp community — live updates feed mirrored from the announcement group ─
+function buildCommunityPage(o) {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const siteName = esc(o.siteName || 'OTT24x7');
+  const name = esc(o.name || 'Community');
+  const subtitle = esc(o.subtitle || '');
+  const logo = (o.logos && (o.logos.dark || o.logos.light || o.logos.app)) || '';
+  const invite = o.inviteUrl || '';
+  const joinBtn = invite ? `<a class="join" href="${esc(invite)}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15l-1.4 5 5.1-1.3A10 10 0 1 0 12 2z"/></svg>Join the WhatsApp Community</a>` : '';
+  return `<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>${name} — Live Updates & Offers | ${siteName}</title>
+<meta name="description" content="Live deals, offers and updates from the ${siteName} WhatsApp community — see every announcement as it's posted.">
+<link rel="apple-touch-icon" href="/icon-192.png"><link rel="icon" href="/icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:radial-gradient(120% 70% at 50% 0%,#1c1305,#0a0703 50%,#000 100%);color:#f4f5f7;min-height:100vh;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:600px;margin:0 auto;padding:24px 16px 80px}
+.head{text-align:center;padding:12px 8px 20px}
+.head .lg img{height:42px;max-width:190px;object-fit:contain;margin-bottom:14px}
+.head .lg .word{font-size:24px;font-weight:900}.head .lg .word b{color:#f59e0b}
+.live{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:800;letter-spacing:.1em;color:#34d399;background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.4);border-radius:999px;padding:5px 13px;margin-bottom:14px}
+.live .dot{width:8px;height:8px;border-radius:50%;background:#34d399;box-shadow:0 0 8px #34d399;animation:pulse 1.6s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+h1{font-size:26px;font-weight:800;letter-spacing:-.02em}
+.sub{color:#9a9aa8;font-size:14px;margin:8px auto 18px;max-width:390px}
+.join{display:inline-flex;align-items:center;justify-content:center;gap:9px;background:linear-gradient(135deg,#25d366,#10894a);color:#fff;border-radius:13px;padding:13px 22px;font-weight:800;font-size:15px;text-decoration:none;box-shadow:0 12px 30px rgba(37,211,102,.35)}
+.join svg{width:20px;height:20px}
+.applink{display:block;margin-top:12px;color:#f6c453;font-size:13px;font-weight:700;text-decoration:none}
+.feed{margin-top:22px;display:flex;flex-direction:column;gap:14px}
+.post{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:18px;overflow:hidden;box-shadow:0 12px 30px rgba(0,0,0,.34)}
+.post-img{display:block;width:100%;max-height:440px;object-fit:cover;background:#111}
+.post-body{padding:14px 16px;font-size:14.5px;line-height:1.6;word-break:break-word}
+.post-body a{color:#f6c453;font-weight:700}
+.post-time{padding:2px 16px 13px;font-size:11.5px;color:#82828c}
+.post.post-new{animation:slideIn .5s ease}
+@keyframes slideIn{0%{opacity:0;transform:translateY(-12px)}100%{opacity:1;transform:none}}
+.empty{text-align:center;color:#9a9aa8;font-size:14px;padding:48px 20px}
+.more{display:block;margin:18px auto 0;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);color:#cdcdd6;border-radius:12px;padding:11px 22px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit}
+.more.hidden{display:none}
+@media(max-width:420px){.wrap{padding:20px 12px 70px}}
+</style></head><body>
+<div class="wrap">
+  <div class="head">
+    <div class="lg">${logo ? `<img src="${esc(logo)}" alt="${siteName}">` : `<div class="word">OTT24<b>x7</b></div>`}</div>
+    <div class="live"><span class="dot"></span>LIVE UPDATES</div>
+    <h1>${name}</h1>
+    ${subtitle ? `<p class="sub">${subtitle}</p>` : ''}
+    ${joinBtn}
+    <a class="applink" href="/app">Browse all products in the app →</a>
+  </div>
+  ${o.enabled
+      ? `<div class="feed" id="feed"></div><button class="more hidden" id="more">Load older updates</button>`
+      : `<div class="empty">Updates aren't switched on yet — please check back soon${invite ? `, or <a href="${esc(invite)}" target="_blank" style="color:#f6c453">join the community</a>` : ''}.</div>`}
+</div>
+${o.enabled ? `<script>(function(){
+var lastId=0,oldestId=0,feed=document.getElementById('feed'),more=document.getElementById('more');
+function esc(s){var d=document.createElement('div');d.textContent=(s==null?'':s);return d.innerHTML;}
+function fmt(t){t=esc(t).replace(/\\n/g,'<br>');t=t.replace(/\\*([^*\\n]+)\\*/g,'<b>$1</b>').replace(/_([^_\\n]+)_/g,'<i>$1</i>');t=t.replace(/(https?:\\/\\/[^\\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');return t;}
+function ago(ts){if(!ts)return'';var d=Date.now()/1000-ts;if(d<60)return'just now';if(d<3600)return Math.floor(d/60)+'m ago';if(d<86400)return Math.floor(d/3600)+'h ago';return Math.floor(d/86400)+'d ago';}
+function card(p){return '<div class="post" data-id="'+p.id+'">'+(p.image?'<img class="post-img" src="'+esc(p.image)+'" loading="lazy" alt="">':'')+(p.body?'<div class="post-body">'+fmt(p.body)+'</div>':'')+'<div class="post-time">'+ago(p.ts)+'</div></div>';}
+function load(){fetch('/user/api/community-feed').then(function(r){return r.json();}).then(function(d){var ps=d.posts||[];if(!ps.length){feed.innerHTML='<div class="empty">No updates yet — join the community above to get them first.</div>';return;}ps.forEach(function(p){feed.insertAdjacentHTML('beforeend',card(p));});lastId=ps[0].id;oldestId=ps[ps.length-1].id;if(ps.length>=15)more.classList.remove('hidden');}).catch(function(){});}
+function poll(){if(!lastId)return;fetch('/user/api/community-feed?since='+lastId).then(function(r){return r.json();}).then(function(d){(d.posts||[]).slice().reverse().forEach(function(p){if(p.id<=lastId)return;var w=document.createElement('div');w.innerHTML=card(p);var el=w.firstChild;el.classList.add('post-new');feed.insertBefore(el,feed.firstChild);lastId=Math.max(lastId,p.id);});}).catch(function(){});}
+more.onclick=function(){fetch('/user/api/community-feed?before='+oldestId).then(function(r){return r.json();}).then(function(d){var ps=d.posts||[];ps.forEach(function(p){feed.insertAdjacentHTML('beforeend',card(p));});if(ps.length)oldestId=ps[ps.length-1].id;if(ps.length<15)more.classList.add('hidden');}).catch(function(){});};
+load();setInterval(poll,12000);
+})();</script>` : ''}
+</body></html>`;
+}
+app.get(['/community', '/updates', '/group'], async (req, res) => {
+  try {
+    const [enabled, name, subtitle, inviteUrl, siteName, logos, storeTheme] = await Promise.all([
+      getSetting('community_enabled'), getSetting('community_name'), getSetting('community_subtitle'),
+      getSetting('community_invite_url'), getSetting('site_name'), getLogoUrls(), getActiveTheme(),
+    ]);
+    res.type('text/html').send(await withDesign(buildCommunityPage({ enabled: enabled === '1', name, subtitle, inviteUrl, siteName, logos }), storeTheme));
+  } catch { res.status(500).send('Error loading page'); }
+});
+
 // '/admin' is served earlier (before express.static) so the Design Engine can
 // inject its tokens — see the app.get(['/admin','/admin/']) handler above.
 

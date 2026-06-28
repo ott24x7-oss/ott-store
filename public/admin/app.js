@@ -41,6 +41,7 @@ const MENU = [
   { group: 'STOREFRONT' },
   { id: 'appearance',     label: 'Appearance',    icon: '🎨' },
   { id: 'mystore',        label: 'My Store',      icon: '🏪' },
+  { id: 'community',      label: 'Community',     icon: '📣' },
   { id: 'hometext',       label: 'Homepage Content', icon: '📝' },
   { id: 'header-menu',    label: 'Menu Builder',  icon: '🧭' },
   { id: 'store-theme',    label: 'Store Themes',  icon: '🎨' },
@@ -2454,6 +2455,63 @@ window.loginAsCustomer = async function (jid) {
 };
 
 // ── views.mystore ─────────────────────────────────────────────────────────────
+views.community = async function () {
+  try {
+    const s = await api('/settings');
+    const en = s.community_enabled === '1';
+    setMain(`
+      <h1 class="page-title">📣 Community / Updates Feed</h1>
+      <p class="muted" style="margin-bottom:1rem">Mirror your WhatsApp community's <b>announcement group</b> to a live public page at <a href="/community" target="_blank" style="color:var(--accent)">/community</a>. The bot must be a member of that group; only posts from when you switch this on are captured.</p>
+      <div class="card" style="padding:1.2rem;max-width:680px;display:flex;flex-direction:column;gap:1rem">
+        <label style="display:flex;align-items:center;gap:.6rem;font-weight:700;cursor:pointer"><input type="checkbox" id="cm-enabled" ${en ? 'checked' : ''}> Enable the live updates feed</label>
+        <div class="form-group">
+          <label class="form-label">Announcement group <span class="muted">(the bot must be in it)</span></label>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+            <select id="cm-jid" class="form-input" style="flex:1;min-width:220px"><option value="${esc(s.community_jid || '')}">${s.community_jid ? esc(s.community_jid) : '— load &amp; pick a group —'}</option></select>
+            <button type="button" class="btn btn-secondary btn-sm" id="cm-load">Load my groups</button>
+          </div>
+          <div class="muted" style="font-size:.72rem;margin-top:.35rem">Current: <code>${esc(s.community_jid || '(none)')}</code></div>
+        </div>
+        <div class="form-group"><label class="form-label">Page heading</label><input id="cm-name" class="form-input" value="${esc(s.community_name || '')}" placeholder="OTT24x7 Community"></div>
+        <div class="form-group"><label class="form-label">Subtitle</label><input id="cm-subtitle" class="form-input" value="${esc(s.community_subtitle || '')}" placeholder="Live deals, offers & updates"></div>
+        <div class="form-group"><label class="form-label">WhatsApp community invite link <span class="muted">(the green Join button)</span></label><input id="cm-invite" class="form-input" value="${esc(s.community_invite_url || '')}" placeholder="https://chat.whatsapp.com/…"></div>
+        <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-primary" id="cm-save">Save</button>
+          <a class="btn btn-secondary btn-sm" href="/community" target="_blank">View live page ↗</a>
+          <button class="btn btn-red btn-sm" id="cm-clear" style="margin-left:auto">Clear feed</button>
+        </div>
+        <div id="cm-msg" class="muted" style="font-size:.78rem"></div>
+      </div>
+    `);
+    document.getElementById('cm-load').onclick = async function () {
+      this.textContent = 'Loading…'; this.disabled = true;
+      try {
+        const r = await api('/wa-groups');
+        const sel = document.getElementById('cm-jid'); const cur = sel.value;
+        sel.innerHTML = '<option value="">— pick a group —</option>' + (r.groups || []).map(g => `<option value="${esc(g.id)}" ${g.id === cur ? 'selected' : ''}>${esc(g.name)} (${g.participants || 0})</option>`).join('');
+        if (!(r.groups || []).length) showToast('No groups found — is the bot connected and in the group?', 'error');
+      } catch (e) { showToast(e.message, 'error'); }
+      this.textContent = 'Load my groups'; this.disabled = false;
+    };
+    document.getElementById('cm-save').onclick = async function () {
+      try {
+        const r = await api('/community-config', { method: 'POST', body: JSON.stringify({
+          enabled: document.getElementById('cm-enabled').checked,
+          jid: document.getElementById('cm-jid').value,
+          name: document.getElementById('cm-name').value,
+          subtitle: document.getElementById('cm-subtitle').value,
+          invite_url: document.getElementById('cm-invite').value,
+        }) });
+        showToast('Saved'); document.getElementById('cm-msg').textContent = `${r.posts || 0} posts captured so far.`;
+      } catch (e) { showToast(e.message, 'error'); }
+    };
+    document.getElementById('cm-clear').onclick = async function () {
+      if (!confirm('Clear all captured posts from the feed?')) return;
+      try { await api('/community-posts', { method: 'DELETE' }); showToast('Feed cleared'); } catch (e) { showToast(e.message, 'error'); }
+    };
+  } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
+
 views.mystore = async function () {
   setMain('<div class="spinner"></div>');
   try {

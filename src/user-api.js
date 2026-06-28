@@ -750,6 +750,20 @@ router.post('/checkout/upi-direct', requireCustomer, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── Community feed (WhatsApp announcement posts mirrored by the bot; public) ──
+router.get('/community-feed', async (req, res) => {
+  try {
+    const db = await getDb();
+    const sinceId = parseInt(req.query.since || '0', 10) || 0;
+    const beforeId = parseInt(req.query.before || '0', 10) || 0;
+    let rows;
+    if (sinceId > 0) rows = all(db, `SELECT id, body, image_path, msg_ts FROM community_posts WHERE id > ? ORDER BY id DESC LIMIT 40`, [sinceId]);
+    else if (beforeId > 0) rows = all(db, `SELECT id, body, image_path, msg_ts FROM community_posts WHERE id < ? ORDER BY id DESC LIMIT 15`, [beforeId]);
+    else rows = all(db, `SELECT id, body, image_path, msg_ts FROM community_posts ORDER BY id DESC LIMIT 15`, []);
+    res.json({ ok: true, posts: (rows || []).map(r => ({ id: r.id, body: r.body || '', image: r.image_path || null, ts: r.msg_ts || null })) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── Store wallet ─────────────────────────────────────────────────────────────
 router.get('/wallet', requireCustomer, async (req, res) => {
   try {

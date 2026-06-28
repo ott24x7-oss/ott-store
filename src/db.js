@@ -207,6 +207,18 @@ function migrate(db) {
     created_at TEXT DEFAULT (datetime('now'))
   )`);
 
+  // WhatsApp community feed — posts the bot mirrors from the announcement group.
+  db.run(`CREATE TABLE IF NOT EXISTS community_posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    wa_msg_id TEXT UNIQUE,
+    jid TEXT,
+    sender TEXT,
+    body TEXT,
+    image_path TEXT,
+    msg_ts INTEGER,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+
   // ── New tables ─────────────────────────────────────────────────────────────
   db.run(`CREATE TABLE IF NOT EXISTS payment_methods (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -835,6 +847,12 @@ function seedDefaults(db) {
     // overwrite apk_url by uploading a new build (My Store → Android App (APK)).
     apk_url: '/downloads/ott24x7.apk',
     apk_version: '1.0.0',
+    // WhatsApp community feed (the bot mirrors the announcement group → /community)
+    community_enabled: '0',
+    community_jid: '',
+    community_name: 'OTT24x7 Community',
+    community_subtitle: 'Live deals, offers & updates from our WhatsApp community',
+    community_invite_url: '',
     // USDT direct checkout (replaces wallet/Razorpay/manual UPI)
     usdt_inr_rate: '99',
     usdt_fee_pct: '1.5',

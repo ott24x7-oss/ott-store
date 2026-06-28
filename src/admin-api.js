@@ -305,6 +305,30 @@ router.delete('/upload-apk', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── WhatsApp community feed config ───────────────────────────────────────────
+router.get('/wa-groups', requireAdmin, async (req, res) => {
+  try { const groups = await require('./wa-bot').getGroups(); res.json({ ok: true, groups: groups || [] }); }
+  catch (e) { res.json({ ok: true, groups: [], error: e.message }); }
+});
+router.post('/community-config', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const b = req.body || {};
+    const set = (k, v) => run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)`, [k, String(v == null ? '' : v)]);
+    if (b.enabled != null) set('community_enabled', b.enabled ? '1' : '0');
+    if (b.jid != null) set('community_jid', String(b.jid).trim());
+    if (b.name != null) set('community_name', String(b.name).slice(0, 80));
+    if (b.subtitle != null) set('community_subtitle', String(b.subtitle).slice(0, 160));
+    if (b.invite_url != null) set('community_invite_url', String(b.invite_url).trim().slice(0, 300));
+    const count = (get(db, `SELECT COUNT(*) AS n FROM community_posts`) || {}).n || 0;
+    res.json({ ok: true, posts: count });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.delete('/community-posts', requireAdmin, async (req, res) => {
+  try { const db = await getDb(); run(db, `DELETE FROM community_posts`); res.json({ ok: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── Plans ────────────────────────────────────────────────────────────────────
 router.get('/plans', requireAdmin, async (req, res) => {
   try {
