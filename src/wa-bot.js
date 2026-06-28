@@ -431,6 +431,21 @@ async function startBaileysBot() {
       }
     });
 
+    // Backfill older posts: when WhatsApp delivers chat history (the recent-history
+    // batch on connect, or an on-demand fetch), mirror any community-group posts we
+    // don't already have. Lets some pre-existing group messages show on /community.
+    sock.ev.on('messaging-history.set', ({ messages }) => {
+      try {
+        if (!Array.isArray(messages) || !messages.length) return;
+        if (getSettingSync('community_enabled') !== '1') return;
+        const wantJid = (getSettingSync('community_jid') || '').trim();
+        if (!wantJid) return;
+        for (const msg of messages) {
+          if (msg && msg.key && msg.key.remoteJid === wantJid) captureCommunityPost(msg).catch(() => {});
+        }
+      } catch { /* never break on a history batch */ }
+    });
+
   } catch (e) {
     console.error('[wa-bot] Baileys start error:', e.message);
     connStatus = 'error';

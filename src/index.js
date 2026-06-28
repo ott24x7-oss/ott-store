@@ -633,16 +633,30 @@ h1{font-size:26px;font-weight:800;letter-spacing:-.02em}
 .join{display:inline-flex;align-items:center;justify-content:center;gap:9px;background:linear-gradient(135deg,#25d366,#10894a);color:#fff;border-radius:13px;padding:13px 22px;font-weight:800;font-size:15px;text-decoration:none;box-shadow:0 12px 30px rgba(37,211,102,.35)}
 .join svg{width:20px;height:20px}
 .applink{display:block;margin-top:12px;color:#f6c453;font-size:13px;font-weight:700;text-decoration:none}
-.feed{margin-top:22px;display:flex;flex-direction:column;gap:14px}
-.post{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:18px;overflow:hidden;box-shadow:0 12px 30px rgba(0,0,0,.34)}
-.post-img{display:block;width:100%;max-height:440px;object-fit:cover;background:#111}
-.post-body{padding:14px 16px;font-size:14.5px;line-height:1.6;word-break:break-word}
-.post-body a{color:#f6c453;font-weight:700}
-.post-time{padding:2px 16px 13px;font-size:11.5px;color:#82828c}
-.post.post-new{animation:slideIn .5s ease}
-@keyframes slideIn{0%{opacity:0;transform:translateY(-12px)}100%{opacity:1;transform:none}}
-.empty{text-align:center;color:#9a9aa8;font-size:14px;padding:48px 20px}
-.more{display:block;margin:18px auto 0;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);color:#cdcdd6;border-radius:12px;padding:11px 22px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit}
+/* ── WhatsApp-style chat mockup ── */
+.chat{margin-top:22px;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,.08);box-shadow:0 22px 60px rgba(0,0,0,.55)}
+.chat-bar{display:flex;align-items:center;gap:11px;background:#202c33;padding:10px 14px}
+.chat-bar .av{width:42px;height:42px;border-radius:50%;flex:0 0 auto;background:linear-gradient(135deg,#fbbf24,#f59e0b);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.chat-bar .av img{width:100%;height:100%;object-fit:cover}
+.chat-bar .av svg{width:21px;height:21px;color:#1a1206}
+.chat-bar .who{min-width:0;flex:1}
+.chat-bar .nm{font-weight:700;font-size:15px;color:#e9edef;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-bar .st{font-size:12px;color:#8696a0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-body{background-color:#0b141a;background-image:radial-gradient(rgba(255,255,255,.022) 1px,transparent 1px);background-size:22px 22px}
+.feed{display:flex;flex-direction:column;gap:9px;padding:16px 11px 18px;min-height:260px}
+.msg{position:relative;max-width:86%;align-self:flex-start;background:#202c33;border-radius:9px;border-top-left-radius:1px;padding:6px 8px 7px;box-shadow:0 1px 1px rgba(0,0,0,.28)}
+.msg::before{content:'';position:absolute;top:0;left:-7px;border:7px solid transparent;border-top-color:#202c33;border-right:0}
+.msg .sender{display:flex;align-items:center;gap:4px;font-size:12.5px;font-weight:800;color:#f6c453;margin-bottom:3px}
+.msg .sender svg{width:13px;height:13px;color:#34b7f1;flex:0 0 auto}
+.msg .m-img{display:block;width:100%;border-radius:6px;margin-bottom:5px;max-height:420px;object-fit:cover;background:#0b141a}
+.msg .txt{font-size:14px;line-height:1.46;color:#e9edef;white-space:pre-wrap;word-break:break-word}
+.msg .txt a{color:#53bdeb;text-decoration:none}
+.msg .meta{float:right;margin:3px 0 0 10px;font-size:10.5px;color:#8696a0;display:inline-flex;align-items:center;gap:3px;line-height:1}
+.msg .meta svg{width:16px;height:11px;color:#53bdeb}
+.msg.post-new{animation:slideIn .45s ease}
+@keyframes slideIn{0%{opacity:0;transform:translateY(10px) scale(.98)}100%{opacity:1;transform:none}}
+.empty{text-align:center;color:#8696a0;font-size:13.5px;padding:38px 20px;align-self:center;max-width:300px}
+.more{display:block;margin:16px auto 0;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);color:#cdcdd6;border-radius:12px;padding:11px 22px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit}
 .more.hidden{display:none}
 @media(max-width:420px){.wrap{padding:20px 12px 70px}}
 </style></head><body>
@@ -656,15 +670,30 @@ h1{font-size:26px;font-weight:800;letter-spacing:-.02em}
     <a class="applink" href="/app">Browse all products in the app →</a>
   </div>
   ${o.enabled
-      ? `<div class="feed" id="feed"></div><button class="more hidden" id="more">Load older updates</button>`
-      : `<div class="empty">Updates aren't switched on yet — please check back soon${invite ? `, or <a href="${esc(invite)}" target="_blank" style="color:#f6c453">join the community</a>` : ''}.</div>`}
+      ? `<div class="chat">
+           <div class="chat-bar">
+             <div class="av">${logo ? `<img src="${esc(logo)}" alt="">` : `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`}</div>
+             <div class="who"><div class="nm">${name}</div><div class="st">Live offers &amp; updates</div></div>
+           </div>
+           <div class="chat-body"><div class="feed" id="feed"></div></div>
+         </div>
+         <button class="more hidden" id="more">Load older updates</button>`
+      : `<div class="empty" style="margin:30px auto">Updates aren't switched on yet — please check back soon${invite ? `, or <a href="${esc(invite)}" target="_blank" style="color:#f6c453">join the community</a>` : ''}.</div>`}
 </div>
 ${o.enabled ? `<script>(function(){
 var lastId=0,oldestId=0,feed=document.getElementById('feed'),more=document.getElementById('more');
+var SENDER=${JSON.stringify(String(o.name || 'OTT24x7'))};
+var TICK='<svg viewBox="0 0 18 12" fill="none"><path d="M1 6.5l3 3 6.5-7M6.5 9.5l.6.6 6.4-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+var SEAL='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1.6l2.5 1.9 3.1-.2.9 3 2.5 1.8-1 3 1 3-2.5 1.8-.9 3-3.1-.2L12 22.4l-2.5-1.9-3.1.2-.9-3L3 16l1-3-1-3 2.5-1.8.9-3 3.1.2z"/><path d="M8.5 12l2.2 2.2L15.5 9" stroke="#202c33" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 function esc(s){var d=document.createElement('div');d.textContent=(s==null?'':s);return d.innerHTML;}
 function fmt(t){t=esc(t).replace(/\\n/g,'<br>');t=t.replace(/\\*([^*\\n]+)\\*/g,'<b>$1</b>').replace(/_([^_\\n]+)_/g,'<i>$1</i>');t=t.replace(/(https?:\\/\\/[^\\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');return t;}
 function ago(ts){if(!ts)return'';var d=Date.now()/1000-ts;if(d<60)return'just now';if(d<3600)return Math.floor(d/60)+'m ago';if(d<86400)return Math.floor(d/3600)+'h ago';return Math.floor(d/86400)+'d ago';}
-function card(p){return '<div class="post" data-id="'+p.id+'">'+(p.image?'<img class="post-img" src="'+esc(p.image)+'" loading="lazy" alt="">':'')+(p.body?'<div class="post-body">'+fmt(p.body)+'</div>':'')+'<div class="post-time">'+ago(p.ts)+'</div></div>';}
+function card(p){return '<div class="msg" data-id="'+p.id+'">'+
+  '<div class="sender">'+esc(SENDER)+SEAL+'</div>'+
+  (p.image?'<img class="m-img" src="'+esc(p.image)+'" loading="lazy" alt="">':'')+
+  (p.body?'<div class="txt">'+fmt(p.body)+'</div>':'')+
+  '<span class="meta">'+ago(p.ts)+TICK+'</span>'+
+  '</div>';}
 function load(){fetch('/user/api/community-feed').then(function(r){return r.json();}).then(function(d){var ps=d.posts||[];if(!ps.length){feed.innerHTML='<div class="empty">No updates yet — join the community above to get them first.</div>';return;}ps.forEach(function(p){feed.insertAdjacentHTML('beforeend',card(p));});lastId=ps[0].id;oldestId=ps[ps.length-1].id;if(ps.length>=15)more.classList.remove('hidden');}).catch(function(){});}
 function poll(){if(!lastId)return;fetch('/user/api/community-feed?since='+lastId).then(function(r){return r.json();}).then(function(d){(d.posts||[]).slice().reverse().forEach(function(p){if(p.id<=lastId)return;var w=document.createElement('div');w.innerHTML=card(p);var el=w.firstChild;el.classList.add('post-new');feed.insertBefore(el,feed.firstChild);lastId=Math.max(lastId,p.id);});}).catch(function(){});}
 more.onclick=function(){fetch('/user/api/community-feed?before='+oldestId).then(function(r){return r.json();}).then(function(d){var ps=d.posts||[];ps.forEach(function(p){feed.insertAdjacentHTML('beforeend',card(p));});if(ps.length)oldestId=ps[ps.length-1].id;if(ps.length<15)more.classList.add('hidden');}).catch(function(){});};

@@ -34,6 +34,8 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 *
 const dbUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
 // Custom Android APK (sideload build) — can be larger than the DB cap.
 const apkUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200 * 1024 * 1024 } });
+// Community feed images (manual posts) — offer banners can exceed the 2 MB image cap.
+const communityUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
 
 // ─── Admin auth middleware ────────────────────────────────────────────────────
 function requireAdmin(req, res, next) {
@@ -327,6 +329,29 @@ router.post('/community-config', requireAdmin, async (req, res) => {
 router.delete('/community-posts', requireAdmin, async (req, res) => {
   try { const db = await getDb(); run(db, `DELETE FROM community_posts`); res.json({ ok: true }); }
   catch (e) { res.status(500).json({ error: e.message }); }
+});
+// Manually add a post to the feed (e.g. re-post an old offer the bot never captured).
+router.post('/community-post', requireAdmin, communityUpload.single('image'), async (req, res) => {
+  try {
+    const db = await getDb();
+    const body = String((req.body && req.body.body) || '').trim().slice(0, 4000);
+    let imagePath = null;
+    if (req.file && req.file.buffer && req.file.buffer.length) {
+      const dir = path.join(UPLOADS_DIR, 'community');
+      fs.mkdirSync(dir, { recursive: true });
+      const ext = (path.extname(req.file.originalname || '').toLowerCase().replace(/[^.a-z0-9]/g, '') || '.jpg').slice(0, 6);
+      const fname = 'manual-' + Date.now() + '-' + crypto.randomBytes(3).toString('hex') + ext;
+      fs.writeFileSync(path.join(dir, fname), req.file.buffer);
+      imagePath = '/data/uploads/community/' + fname;
+    }
+    if (!body && !imagePath) return res.status(400).json({ error: 'Add some text or an image.' });
+    const ts = Math.floor(Date.now() / 1000);
+    const waId = 'manual-' + ts + '-' + crypto.randomBytes(3).toString('hex');
+    run(db, `INSERT INTO community_posts (wa_msg_id, jid, sender, body, image_path, msg_ts) VALUES (?,?,?,?,?,?)`,
+      [waId, 'manual', 'admin', body, imagePath, ts]);
+    const count = (get(db, `SELECT COUNT(*) AS n FROM community_posts`) || {}).n || 0;
+    res.json({ ok: true, posts: count });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ─── Plans ────────────────────────────────────────────────────────────────────

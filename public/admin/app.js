@@ -2461,7 +2461,7 @@ views.community = async function () {
     const en = s.community_enabled === '1';
     setMain(`
       <h1 class="page-title">📣 Community / Updates Feed</h1>
-      <p class="muted" style="margin-bottom:1rem">Mirror your WhatsApp community's <b>announcement group</b> to a live public page at <a href="/community" target="_blank" style="color:var(--accent)">/community</a>. The bot must be a member of that group; only posts from when you switch this on are captured.</p>
+      <p class="muted" style="margin-bottom:1rem">Mirror your WhatsApp community's <b>announcement group</b> to a live public page at <a href="/community" target="_blank" style="color:var(--accent)">/community</a>. The bot must be a member of that group. New posts are captured automatically; for older offers the bot missed, use <b>➕ Add a post</b> below.</p>
       <div class="card" style="padding:1.2rem;max-width:680px;display:flex;flex-direction:column;gap:1rem">
         <label style="display:flex;align-items:center;gap:.6rem;font-weight:700;cursor:pointer"><input type="checkbox" id="cm-enabled" ${en ? 'checked' : ''}> Enable the live updates feed</label>
         <div class="form-group">
@@ -2481,6 +2481,13 @@ views.community = async function () {
           <button class="btn btn-red btn-sm" id="cm-clear" style="margin-left:auto">Clear feed</button>
         </div>
         <div id="cm-msg" class="muted" style="font-size:.78rem"></div>
+      </div>
+      <div class="card" style="padding:1.2rem;max-width:680px;margin-top:1rem;display:flex;flex-direction:column;gap:.9rem">
+        <div style="font-weight:800">➕ Add a post manually</div>
+        <p class="muted" style="font-size:.78rem;margin-top:-.4rem">Re-post an old offer the bot didn't capture, or add an announcement by hand — it shows on <b>/community</b> instantly. Use <code>*asterisks*</code> for bold.</p>
+        <div class="form-group"><label class="form-label">Message</label><textarea id="cp-body" class="form-input" rows="4" placeholder="🔥 Netflix Premium 1 Month — just ₹199! *Limited stock — grab it now.*"></textarea></div>
+        <div class="form-group"><label class="form-label">Image <span class="muted">(optional)</span></label><input type="file" id="cp-image" accept="image/*" class="form-input"></div>
+        <div><button class="btn btn-primary" id="cp-add">Add to feed</button></div>
       </div>
     `);
     document.getElementById('cm-load').onclick = async function () {
@@ -2508,6 +2515,20 @@ views.community = async function () {
     document.getElementById('cm-clear').onclick = async function () {
       if (!confirm('Clear all captured posts from the feed?')) return;
       try { await api('/community-posts', { method: 'DELETE' }); showToast('Feed cleared'); } catch (e) { showToast(e.message, 'error'); }
+    };
+    document.getElementById('cp-add').onclick = async function () {
+      const body = document.getElementById('cp-body').value.trim();
+      const file = document.getElementById('cp-image').files[0];
+      if (!body && !file) { showToast('Add some text or an image', 'error'); return; }
+      this.disabled = true; this.textContent = 'Adding…';
+      try {
+        const fd = new FormData(); fd.append('body', body); if (file) fd.append('image', file);
+        const res = await fetch('/admin/api/community-post', { method: 'POST', credentials: 'include', headers: { 'X-CSRF-Token': getCsrfToken() }, body: fd });
+        const r = await res.json(); if (!res.ok) throw new Error(r.error || 'Failed');
+        document.getElementById('cp-body').value = ''; document.getElementById('cp-image').value = '';
+        showToast('Posted to the feed ✓'); document.getElementById('cm-msg').textContent = `${r.posts || 0} posts in the feed.`;
+      } catch (e) { showToast(e.message, 'error'); }
+      this.disabled = false; this.textContent = 'Add to feed';
     };
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };
