@@ -607,115 +607,204 @@ function buildCommunityPage(o) {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const siteName = esc(o.siteName || 'OTT24x7');
   const name = esc(o.name || 'Community');
-  const subtitle = esc(o.subtitle || '');
-  const logo = (o.logos && (o.logos.dark || o.logos.light || o.logos.app)) || '';
-  // Avatar (the circular chat icon) prefers a SQUARE source so it isn't a
-  // squished wide logo: community_logo → app logo → wide logo.
+  const subtitle = esc(o.subtitle || 'Live deals, offers and product updates from our WhatsApp community.');
+  // Avatar prefers a SQUARE source so it isn't a squished wide logo:
+  // community_logo → app logo → wide logo.
   const avatarSrc = o.avatar || (o.logos && (o.logos.app || o.logos.dark || o.logos.light)) || '';
   const invite = o.inviteUrl || '';
-  const joinBtn = invite ? `<a class="join" href="${esc(invite)}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15l-1.4 5 5.1-1.3A10 10 0 1 0 12 2z"/></svg>Join the WhatsApp Community</a>` : '';
+  const hasInvite = !!invite;
+  const brandHtml = esc(o.siteName || 'OTT24x7').replace(/(24\s*[xX×]\s*7)/, '<b>$1</b>');
+  const initials = ((o.name || 'OTT').replace(/[^A-Za-z0-9]/g, '').slice(0, 3) || 'OTT').toUpperCase();
+  const avatarInner = avatarSrc ? `<img src="${esc(avatarSrc)}" alt="">` : esc(initials);
+  const brandMark = avatarSrc ? `<img src="${esc(avatarSrc)}" alt="">` : '🚀';
+  const primaryCta = hasInvite
+    ? `<a class="btn btn-primary" href="${esc(invite)}" target="_blank" rel="noopener">💬 Join WhatsApp Community</a>`
+    : `<a class="btn btn-primary" href="/app">🛍️ Browse all products</a>`;
   return `<!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#000000">
-<title>${name} — Live Updates & Offers | ${siteName}</title>
-<meta name="description" content="Live deals, offers and updates from the ${siteName} WhatsApp community — see every announcement as it's posted.">
+<meta name="theme-color" content="#080a08">
+<title>${name} — Live Deals, Offers & Stock Alerts | ${siteName}</title>
+<meta name="description" content="Live deals, offers and stock alerts from the ${siteName} WhatsApp community — every announcement, as it's posted.">
 <link rel="apple-touch-icon" href="/icon-192.png"><link rel="icon" href="/icon-192.png">
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'DM Sans',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:radial-gradient(120% 70% at 50% 0%,#1c1305,#0a0703 50%,#000 100%);color:#f4f5f7;min-height:100vh;line-height:1.55;-webkit-font-smoothing:antialiased}
-.wrap{max-width:600px;margin:0 auto;padding:24px 16px 80px}
-.head{text-align:center;padding:12px 8px 20px}
-.head .lg img{height:42px;max-width:190px;object-fit:contain;margin-bottom:14px}
-.head .lg .word{font-size:24px;font-weight:900}.head .lg .word b{color:#f59e0b}
-.live{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:800;letter-spacing:.1em;color:#34d399;background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.4);border-radius:999px;padding:5px 13px;margin-bottom:14px}
-.live .dot{width:8px;height:8px;border-radius:50%;background:#34d399;box-shadow:0 0 8px #34d399;animation:pulse 1.6s infinite}
+:root{--bg:#080a08;--text:#f5f7f4;--muted:#aeb8b2;--line:rgba(255,255,255,.09);--green:#18d66a;--gold:#ffc42e;--shadow:0 20px 70px rgba(0,0,0,.45);--radius:24px}
+html{scroll-behavior:smooth}
+body{min-height:100vh;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--text);background:radial-gradient(circle at 50% -10%,rgba(34,214,111,.16),transparent 34%),radial-gradient(circle at 15% 22%,rgba(255,195,46,.10),transparent 28%),linear-gradient(180deg,#0c120e 0%,#070a08 42%,#030504 100%);overflow-x:hidden;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.5;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:44px 44px;mask-image:linear-gradient(to bottom,transparent,#000 18%,#000 70%,transparent)}
+a{color:inherit;text-decoration:none}button,input{font:inherit}img{max-width:100%;display:block}
+.container{width:min(1140px,calc(100% - 32px));margin:0 auto}
+.topbar{position:sticky;top:0;z-index:20;backdrop-filter:blur(18px);background:rgba(6,8,7,.72);border-bottom:1px solid rgba(24,214,106,.18)}
+.nav{height:74px;display:flex;align-items:center;justify-content:space-between;gap:18px}
+.brand{display:flex;align-items:center;gap:12px;font-weight:900;letter-spacing:-.03em}
+.brand-mark{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(145deg,#242a18,#07140f);border:1px solid rgba(255,196,46,.34);box-shadow:0 0 34px rgba(24,214,106,.16),inset 0 0 18px rgba(255,196,46,.1);overflow:hidden;font-size:20px}
+.brand-mark img{width:100%;height:100%;object-fit:cover}
+.brand-title{font-size:21px}.brand-title b{color:var(--gold)}
+.nav-links{display:flex;align-items:center;gap:22px;color:#d9ded9;font-weight:700;font-size:14px}
+.nav-links a{opacity:.86}.nav-links a:hover{color:var(--gold)}
+.nav-actions{display:flex;align-items:center;gap:12px}
+.pill{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 15px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.04);font-weight:800;font-size:13px}
+.livepill{color:#62ffa1;border-color:rgba(24,214,106,.3);background:rgba(24,214,106,.08)}
+.livepill::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);animation:pulse 1.6s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
-h1{font-size:26px;font-weight:800;letter-spacing:-.02em}
-.sub{color:#9a9aa8;font-size:14px;margin:8px auto 18px;max-width:390px}
-.join{display:inline-flex;align-items:center;justify-content:center;gap:9px;background:linear-gradient(135deg,#25d366,#10894a);color:#fff;border-radius:13px;padding:13px 22px;font-weight:800;font-size:15px;text-decoration:none;box-shadow:0 12px 30px rgba(37,211,102,.35)}
-.join svg{width:20px;height:20px}
-.applink{display:block;margin-top:12px;color:#f6c453;font-size:13px;font-weight:700;text-decoration:none}
-/* ── WhatsApp-style chat mockup ── */
-.chat{margin-top:22px;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,.08);box-shadow:0 22px 60px rgba(0,0,0,.55)}
-.chat-bar{display:flex;align-items:center;gap:11px;background:#202c33;padding:10px 14px}
-.chat-bar .av{width:42px;height:42px;border-radius:50%;flex:0 0 auto;background:linear-gradient(135deg,#fbbf24,#f59e0b);display:flex;align-items:center;justify-content:center;overflow:hidden}
-.chat-bar .av img{width:100%;height:100%;object-fit:cover}
-.chat-bar .av svg{width:21px;height:21px;color:#1a1206}
-.chat-bar .who{min-width:0;flex:1}
-.chat-bar .nm{font-weight:700;font-size:15px;color:#e9edef;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.chat-bar .st{font-size:12px;color:#8696a0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.chat-body{background-color:#0b141a;background-image:radial-gradient(rgba(255,255,255,.022) 1px,transparent 1px);background-size:22px 22px}
-.feed{display:flex;flex-direction:column;gap:9px;padding:16px 11px 18px;min-height:260px}
-.msg{position:relative;max-width:86%;align-self:flex-start;background:#202c33;border-radius:9px;border-top-left-radius:1px;padding:6px 8px 7px;box-shadow:0 1px 1px rgba(0,0,0,.28)}
-.msg::before{content:'';position:absolute;top:0;left:-7px;border:7px solid transparent;border-top-color:#202c33;border-right:0}
-.msg .sender{display:flex;align-items:center;gap:4px;font-size:12.5px;font-weight:800;color:#f6c453;margin-bottom:3px}
-.msg .sender svg{width:13px;height:13px;color:#34b7f1;flex:0 0 auto}
-.msg .m-img{display:block;width:100%;border-radius:6px;margin-bottom:5px;max-height:420px;object-fit:cover;background:#0b141a}
-.msg .txt{font-size:14px;line-height:1.46;color:#e9edef;white-space:pre-wrap;word-break:break-word}
-.msg .txt a{color:#53bdeb;text-decoration:none}
-.msg .meta{float:right;margin:3px 0 0 10px;font-size:10.5px;color:#8696a0;display:inline-flex;align-items:center;gap:3px;line-height:1}
-.msg .meta svg{width:16px;height:11px;color:#53bdeb}
-.msg.post-new{animation:slideIn .45s ease}
-@keyframes slideIn{0%{opacity:0;transform:translateY(10px) scale(.98)}100%{opacity:1;transform:none}}
-.empty{text-align:center;color:#8696a0;font-size:13.5px;padding:38px 20px;align-self:center;max-width:300px}
-.more{display:block;margin:16px auto 0;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);color:#cdcdd6;border-radius:12px;padding:11px 22px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit}
+.btn{border:0;cursor:pointer;border-radius:14px;font-weight:900;padding:14px 20px;display:inline-flex;align-items:center;justify-content:center;gap:9px;transition:.2s transform,.2s filter}
+.btn:hover{transform:translateY(-2px);filter:saturate(1.08)}
+.btn-primary{color:#061009;background:linear-gradient(135deg,var(--green),#0dbc55);box-shadow:0 16px 40px rgba(24,214,106,.28)}
+.btn-gold{color:#121006;background:linear-gradient(135deg,#ffe45c,#ffad18);box-shadow:0 16px 40px rgba(255,196,46,.22)}
+.btn-ghost{background:rgba(255,255,255,.045);color:#fff;border:1px solid var(--line)}
+.hero{padding:54px 0 30px;text-align:center}
+.live-badge{display:inline-flex;align-items:center;gap:9px;padding:9px 17px;margin-bottom:18px;color:#59ff9f;font-weight:900;border-radius:999px;border:1px solid rgba(24,214,106,.34);background:rgba(24,214,106,.09);box-shadow:0 0 40px rgba(24,214,106,.15);text-transform:uppercase;font-size:12px;letter-spacing:.08em}
+.dot{width:9px;height:9px;border-radius:99px;background:var(--green);box-shadow:0 0 0 6px rgba(24,214,106,.12),0 0 18px var(--green)}
+h1{font-size:clamp(32px,6vw,62px);line-height:1;margin:0 auto 14px;max-width:820px;letter-spacing:-.05em}
+.gradient-text{background:linear-gradient(135deg,#fff 20%,#ffe36a 45%,#22e273 75%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.subtitle{max-width:660px;margin:0 auto;color:var(--muted);font-size:clamp(15px,2.2vw,19px);line-height:1.6}
+.hero-actions{display:flex;justify-content:center;gap:13px;flex-wrap:wrap;margin:26px 0 0}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:26px auto 0;max-width:940px}
+.stat{border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.025));border-radius:18px;padding:16px;text-align:left}
+.stat strong{display:block;font-size:21px;color:#fff}.stat span{font-size:12.5px;color:var(--muted)}
+.community-wrap{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:22px;align-items:start;padding:26px 0 70px}
+.phone-frame{background:linear-gradient(180deg,#22332f,#0c1512);border:1px solid rgba(255,255,255,.1);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow),0 0 0 1px rgba(24,214,106,.08);position:relative}
+.phone-head{display:flex;align-items:center;gap:13px;padding:16px 18px;background:#1f332f;border-bottom:1px solid rgba(255,255,255,.08)}
+.avatar{width:48px;height:48px;flex:0 0 auto;border-radius:50%;display:grid;place-items:center;overflow:hidden;background:linear-gradient(135deg,#ffbf24,#0ed766);color:#061009;font-weight:900;font-size:15px;box-shadow:0 0 0 3px rgba(255,255,255,.06)}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.ph-who{min-width:0;flex:1}.phone-head h2{font-size:17px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.phone-head p{margin:2px 0 0;color:#b8c5c0;font-size:13px}
+.feed{position:relative;min-height:440px;padding:18px;display:flex;flex-direction:column;background:radial-gradient(circle at 90% 20%,rgba(24,214,106,.08),transparent 28%),radial-gradient(circle at 14% 80%,rgba(255,196,46,.08),transparent 30%),#0c1715}
+.feed::before{content:"";position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.08) 1px,transparent 1px);background-size:18px 18px;opacity:.18;pointer-events:none}
+.post{position:relative;width:100%;max-width:640px;margin:0 0 14px;background:#203432;border-radius:14px;padding:13px 14px;border:1px solid rgba(255,255,255,.08);box-shadow:0 14px 30px rgba(0,0,0,.22)}
+.post.post-new{animation:slideIn .45s ease}
+@keyframes slideIn{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:none}}
+.post-author{display:flex;align-items:center;gap:7px;margin-bottom:9px;color:var(--gold);font-weight:900;font-size:13px}
+.verified{color:#37a7ff}
+.post-img{width:100%;border-radius:11px;margin:0 0 10px;max-height:460px;object-fit:cover;background:#0c1715}
+.post-text{font-size:14px;line-height:1.6;color:#eff7f2;white-space:pre-wrap;word-break:break-word}
+.post-text b{color:#fff}.post-text i{color:#dbe7e0}.post-text a{color:#4fd1a1;font-weight:700}
+.post-text.clamp{max-height:210px;overflow:hidden;-webkit-mask-image:linear-gradient(180deg,#000 72%,transparent);mask-image:linear-gradient(180deg,#000 72%,transparent)}
+.post.expanded .post-text.clamp{max-height:none;-webkit-mask-image:none;mask-image:none}
+.readmore{display:inline-block;margin-top:7px;color:#4fd1a1;font-weight:800;font-size:12.5px;cursor:pointer;background:none;border:0;padding:2px 0;font-family:inherit}
+.post-time{text-align:right;color:#7fb2a0;font-size:11px;margin-top:8px}
+.empty{margin:auto;text-align:center;color:#9fb3ab;font-size:14px;padding:40px 18px;line-height:1.6;max-width:340px}.empty a{color:var(--gold);font-weight:700}
+.more{display:block;margin:4px auto 14px;background:rgba(255,255,255,.06);border:1px solid var(--line);color:#d7e5de;border-radius:12px;padding:11px 22px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
 .more.hidden{display:none}
-.msg .txt.clamp{max-height:196px;overflow:hidden;-webkit-mask-image:linear-gradient(180deg,#000 70%,transparent);mask-image:linear-gradient(180deg,#000 70%,transparent)}
-.msg.expanded .txt.clamp{max-height:none;-webkit-mask-image:none;mask-image:none}
-.readmore{display:inline-block;margin-top:5px;color:#53bdeb;font-weight:700;font-size:12.5px;cursor:pointer;background:none;border:0;padding:2px 0;font-family:inherit}
-@media(max-width:420px){.wrap{padding:20px 12px 70px}}
+.side{position:sticky;top:90px;display:grid;gap:16px}
+.panel{border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.065),rgba(255,255,255,.025));border-radius:22px;padding:19px;box-shadow:0 18px 45px rgba(0,0,0,.22)}
+.panel h3{margin:0 0 9px;font-size:18px}.panel>p{margin:0;color:var(--muted);line-height:1.55;font-size:14px}
+.copy-box{display:flex;gap:8px;margin-top:13px}.copy-box input{min-width:0;width:100%;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:#fff;padding:12px}.copy-box .btn{white-space:nowrap;padding:12px 16px;border-radius:12px}
+.join-btn{display:flex;width:100%;margin-top:11px}
+.feature-list{display:grid;gap:10px;margin-top:4px}
+.feature{display:flex;gap:11px;align-items:flex-start;padding:12px;border-radius:14px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.06)}
+.feature .fic{font-size:18px;line-height:1.2}.feature b{display:block;font-size:14px}.feature span{color:var(--muted);font-size:13px;line-height:1.5}
+.live-log{max-height:220px;overflow:auto;padding-right:4px}
+.log-item{padding:9px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:12.5px;color:#cad7d0}.log-item b{color:#66ffa5}
+.cta-section{padding:0 0 80px}
+.cta{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:26px;border-radius:24px;border:1px solid rgba(24,214,106,.24);background:linear-gradient(135deg,rgba(24,214,106,.13),rgba(255,196,46,.07));box-shadow:0 20px 60px rgba(24,214,106,.06)}
+.cta h2{margin:0;font-size:25px}.cta p{margin:6px 0 0;color:var(--muted)}
+.mobile-bottom{display:none;position:fixed;left:12px;right:12px;bottom:12px;z-index:25;padding:9px;border-radius:22px;background:rgba(12,16,14,.9);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.1);box-shadow:0 -12px 45px rgba(0,0,0,.5)}
+.mobile-bottom a{flex:1;text-align:center;color:#b9c5c0;font-size:11px;font-weight:800}.mobile-bottom b{display:block;font-size:18px;margin-bottom:2px}.mobile-bottom a.active{color:var(--green)}
+@media (max-width:980px){.nav-links{display:none}.community-wrap{grid-template-columns:1fr}.side{position:static;grid-template-columns:repeat(2,1fr)}.stats{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:640px){.container{width:min(100% - 22px,560px)}.nav{height:64px}.brand-title{font-size:17px}.brand-mark{width:40px;height:40px;border-radius:12px}.nav-actions .pill,.nav-actions .btn{display:none}.hero{padding:34px 0 18px}.stats{grid-template-columns:repeat(2,1fr);gap:9px}.stat{padding:13px}.stat strong{font-size:18px}.community-wrap{padding-top:16px}.feed{min-height:380px;padding:13px}.side{grid-template-columns:1fr}.cta{display:block}.cta .btn{margin-top:15px;width:100%}.mobile-bottom{display:flex}.cta-section{padding-bottom:92px}}
 </style></head><body>
-<div class="wrap">
-  <div class="head">
-    <div class="lg">${logo ? `<img src="${esc(logo)}" alt="${siteName}">` : `<div class="word">OTT24<b>x7</b></div>`}</div>
-    <div class="live"><span class="dot"></span>LIVE UPDATES</div>
-    <h1>${name}</h1>
-    ${subtitle ? `<p class="sub">${subtitle}</p>` : ''}
-    ${joinBtn}
-    <a class="applink" href="/app">Browse all products in the app →</a>
+<header class="topbar">
+  <div class="container nav">
+    <a class="brand" href="/app"><span class="brand-mark">${brandMark}</span><span class="brand-title">${brandHtml}</span></a>
+    <nav class="nav-links"><a href="#live">Live Updates</a><a href="#join">Join Community</a><a href="/app">Browse App</a></nav>
+    <div class="nav-actions"><span class="pill livepill">Live</span>${hasInvite ? `<a class="btn btn-gold" href="${esc(invite)}" target="_blank" rel="noopener">Join Now</a>` : `<a class="btn btn-gold" href="/app">Open App</a>`}</div>
   </div>
-  ${o.enabled
-      ? `<div class="chat">
-           <div class="chat-bar">
-             <div class="av">${avatarSrc ? `<img src="${esc(avatarSrc)}" alt="">` : `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`}</div>
-             <div class="who"><div class="nm">${name}</div><div class="st">Live offers &amp; updates</div></div>
-           </div>
-           <div class="chat-body"><div class="feed" id="feed"></div></div>
-         </div>
-         <button class="more hidden" id="more">Load older updates</button>`
-      : `<div class="empty" style="margin:30px auto">Updates aren't switched on yet — please check back soon${invite ? `, or <a href="${esc(invite)}" target="_blank" style="color:#f6c453">join the community</a>` : ''}.</div>`}
-</div>
+</header>
+<main>
+  <section class="hero"><div class="container">
+    <div class="live-badge"><span class="dot"></span> Live WhatsApp Updates</div>
+    <h1><span class="gradient-text">${name}</span><br>Offers, Deals &amp; Stock Alerts</h1>
+    <p class="subtitle">${subtitle}</p>
+    <div class="hero-actions" id="join">${primaryCta}<a class="btn btn-ghost" href="/app">Browse all products →</a></div>
+    <div class="stats">
+      <div class="stat"><strong>24×7</strong><span>Live updates</span></div>
+      <div class="stat"><strong>200+</strong><span>Premium services</span></div>
+      <div class="stat"><strong>Instant</strong><span>Stock alerts</span></div>
+      <div class="stat"><strong>Trusted</strong><span>Safe &amp; secure</span></div>
+    </div>
+  </div></section>
+
+  <section class="container community-wrap" id="live">
+    <div class="phone-frame">
+      <div class="phone-head">
+        <div class="avatar">${avatarInner}</div>
+        <div class="ph-who"><h2>${name}</h2><p>Live offers &amp; updates</p></div>
+        <span class="pill livepill" style="margin-left:auto">Live</span>
+      </div>
+      ${o.enabled
+        ? `<div class="feed" id="feed"></div><button class="more hidden" id="more">Load older updates ↓</button>`
+        : `<div class="feed"><div class="empty">Updates aren't switched on yet — please check back soon${hasInvite ? `, or <a href="${esc(invite)}" target="_blank">join the community</a>` : ''}.</div></div>`}
+    </div>
+    <aside class="side">
+      ${hasInvite ? `<div class="panel">
+        <h3>💬 Join the Community</h3>
+        <p>Read the latest offers here, then join our WhatsApp community for instant alerts.</p>
+        <div class="copy-box"><input id="joinLink" value="${esc(invite)}" readonly><button id="copyBtn" class="btn btn-gold" onclick="copyJoinLink()">Copy</button></div>
+        <a class="btn btn-primary join-btn" href="${esc(invite)}" target="_blank" rel="noopener">💬 Join WhatsApp Community</a>
+      </div>` : ''}
+      <div class="panel">
+        <h3>✨ Why join</h3>
+        <div class="feature-list">
+          <div class="feature"><span class="fic">🔔</span><div><b>Instant deal alerts</b><span>Be first to know about new stock &amp; flash offers.</span></div></div>
+          <div class="feature"><span class="fic">🏷️</span><div><b>Member-only prices</b><span>Community deals you won't find anywhere else.</span></div></div>
+          <div class="feature"><span class="fic">✅</span><div><b>Trusted &amp; secure</b><span>Genuine subscriptions · fast delivery · 24×7 support.</span></div></div>
+        </div>
+      </div>
+      ${o.enabled ? `<div class="panel"><h3>📡 Live activity</h3><div class="live-log" id="log"></div></div>` : ''}
+    </aside>
+  </section>
+
+  <section class="container cta-section">
+    <div class="cta">
+      <div><h2>Get every deal first.</h2><p>Browse 200+ premium services and order in seconds.</p></div>
+      <a class="btn btn-primary" href="/app">Open the ${siteName} App →</a>
+    </div>
+  </section>
+</main>
+
+<nav class="mobile-bottom" aria-label="Quick navigation">
+  <a class="active" href="#live"><b>🟢</b>Live</a>
+  <a href="#join"><b>💬</b>Join</a>
+  <a href="/app"><b>🛍️</b>Products</a>
+  <a href="#" onclick="window.scrollTo({top:0,behavior:'smooth'});return false"><b>⬆️</b>Top</a>
+</nav>
+
+<script>
+function copyJoinLink(){var i=document.getElementById('joinLink');if(!i)return;try{navigator.clipboard.writeText(i.value);}catch(e){try{i.select();document.execCommand('copy');}catch(_){}}var b=document.getElementById('copyBtn');if(b){var t=b.textContent;b.textContent='Copied \\u2713';setTimeout(function(){b.textContent=t;},1400);}var lg=document.getElementById('log');if(lg){var tm=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});lg.insertAdjacentHTML('afterbegin','<div class="log-item"><b>'+tm+'</b> — Community link copied</div>');}}
+</script>
 ${o.enabled ? `<script>(function(){
-var lastId=0,oldestId=0,feed=document.getElementById('feed'),more=document.getElementById('more');
+var lastId=0,oldestId=0,feed=document.getElementById('feed'),more=document.getElementById('more'),log=document.getElementById('log');
 var SENDER=${JSON.stringify(String(o.name || 'OTT24x7'))};
-var TICK='<svg viewBox="0 0 18 12" fill="none"><path d="M1 6.5l3 3 6.5-7M6.5 9.5l.6.6 6.4-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-var SEAL='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1.6l2.5 1.9 3.1-.2.9 3 2.5 1.8-1 3 1 3-2.5 1.8-.9 3-3.1-.2L12 22.4l-2.5-1.9-3.1.2-.9-3L3 16l1-3-1-3 2.5-1.8.9-3 3.1.2z"/><path d="M8.5 12l2.2 2.2L15.5 9" stroke="#202c33" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 function esc(s){var d=document.createElement('div');d.textContent=(s==null?'':s);return d.innerHTML;}
 function fmt(t){t=esc(t).replace(/\\r\\n?/g,'\\n').replace(/\\n{3,}/g,'\\n\\n').replace(/\\n/g,'<br>');t=t.replace(/\\*([^*\\n]+)\\*/g,'<b>$1</b>').replace(/_([^_\\n]+)_/g,'<i>$1</i>');t=t.replace(/(https?:\\/\\/[^\\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');return t;}
 function ago(ts){if(!ts)return'';var d=Date.now()/1000-ts;if(d<60)return'just now';if(d<3600)return Math.floor(d/60)+'m ago';if(d<86400)return Math.floor(d/3600)+'h ago';return Math.floor(d/86400)+'d ago';}
-function card(p){return '<div class="msg" data-id="'+p.id+'">'+
-  '<div class="sender">'+esc(SENDER)+SEAL+'</div>'+
-  (p.image?'<img class="m-img" src="'+esc(p.image)+'" loading="lazy" alt="">':'')+
-  (p.body?'<div class="txt">'+fmt(p.body)+'</div>':'')+
-  '<span class="meta">'+ago(p.ts)+TICK+'</span>'+
-  '</div>';}
-function clampMsg(m){var txt=m.querySelector('.txt');if(!txt||m.dataset.cl)return;m.dataset.cl='1';if(txt.scrollHeight>224){txt.classList.add('clamp');var b=document.createElement('button');b.className='readmore';b.textContent='Read more \\u25be';b.onclick=function(){var ex=m.classList.toggle('expanded');b.textContent=ex?'Read less \\u25b4':'Read more \\u25be';};txt.insertAdjacentElement('afterend',b);}}
-function decorate(){feed.querySelectorAll('.msg').forEach(clampMsg);}
-function load(){fetch('/user/api/community-feed').then(function(r){return r.json();}).then(function(d){var ps=d.posts||[];if(!ps.length){feed.innerHTML='<div class="empty">No updates yet — join the community above to get them first.</div>';return;}ps.forEach(function(p){feed.insertAdjacentHTML('beforeend',card(p));});decorate();lastId=ps[0].id;oldestId=ps[ps.length-1].id;if(ps.length>=15)more.classList.remove('hidden');}).catch(function(){});}
-function poll(){if(!lastId)return;fetch('/user/api/community-feed?since='+lastId).then(function(r){return r.json();}).then(function(d){(d.posts||[]).slice().reverse().forEach(function(p){if(p.id<=lastId)return;var w=document.createElement('div');w.innerHTML=card(p);var el=w.firstChild;el.classList.add('post-new');feed.insertBefore(el,feed.firstChild);clampMsg(el);lastId=Math.max(lastId,p.id);});}).catch(function(){});}
-more.onclick=function(){fetch('/user/api/community-feed?before='+oldestId).then(function(r){return r.json();}).then(function(d){var ps=d.posts||[];ps.forEach(function(p){feed.insertAdjacentHTML('beforeend',card(p));});decorate();if(ps.length)oldestId=ps[ps.length-1].id;if(ps.length<15)more.classList.add('hidden');}).catch(function(){});};
+function card(p){return '<article class="post" data-id="'+p.id+'">'+
+  '<div class="post-author">'+esc(SENDER)+' <span class="verified">\\u25c6</span></div>'+
+  (p.image?'<img class="post-img" src="'+esc(p.image)+'" loading="lazy" alt="">':'')+
+  (p.body?'<div class="post-text">'+fmt(p.body)+'</div>':'')+
+  '<div class="post-time">'+ago(p.ts)+' \\u2713\\u2713</div>'+
+  '</article>';}
+function clampMsg(m){var txt=m.querySelector('.post-text');if(!txt||m.dataset.cl)return;m.dataset.cl='1';if(txt.scrollHeight>238){txt.classList.add('clamp');var b=document.createElement('button');b.className='readmore';b.textContent='Read more \\u25be';b.onclick=function(){var ex=m.classList.toggle('expanded');b.textContent=ex?'Read less \\u25b4':'Read more \\u25be';};txt.insertAdjacentElement('afterend',b);}}
+function decorate(){feed.querySelectorAll('.post').forEach(clampMsg);}
+function addLog(msg){if(!log)return;var t=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});log.insertAdjacentHTML('afterbegin','<div class="log-item"><b>'+t+'</b> — '+esc(msg)+'</div>');while(log.children.length>14)log.removeChild(log.lastChild);}
+function load(){fetch('/user/api/community-feed').then(function(r){return r.json();}).then(function(d){var ps=d.posts||[];if(!ps.length){feed.innerHTML='<div class="empty">No updates yet — join the community to get them first.</div>';addLog('Connected · waiting for new posts');return;}ps.forEach(function(p){feed.insertAdjacentHTML('beforeend',card(p));});decorate();lastId=ps[0].id;oldestId=ps[ps.length-1].id;if(ps.length>=15)more.classList.remove('hidden');addLog('Feed loaded · '+ps.length+' recent posts');}).catch(function(){addLog('Reconnecting…');});}
+function poll(){if(!lastId)return;fetch('/user/api/community-feed?since='+lastId).then(function(r){return r.json();}).then(function(d){var np=(d.posts||[]).filter(function(p){return p.id>lastId;});np.slice().reverse().forEach(function(p){var w=document.createElement('div');w.innerHTML=card(p);var el=w.firstChild;el.classList.add('post-new');feed.insertBefore(el,feed.firstChild);clampMsg(el);lastId=Math.max(lastId,p.id);});if(np.length)addLog(np.length+' new update'+(np.length>1?'s':'')+' just in');}).catch(function(){});}
+if(more)more.onclick=function(){fetch('/user/api/community-feed?before='+oldestId).then(function(r){return r.json();}).then(function(d){var ps=d.posts||[];ps.forEach(function(p){feed.insertAdjacentHTML('beforeend',card(p));});decorate();if(ps.length)oldestId=ps[ps.length-1].id;if(ps.length<15)more.classList.add('hidden');}).catch(function(){});};
 load();setInterval(poll,12000);
 })();</script>` : ''}
 </body></html>`;
 }
 app.get(['/community', '/updates', '/group'], async (req, res) => {
   try {
-    const [enabled, name, subtitle, inviteUrl, siteName, logos, storeTheme, avatar] = await Promise.all([
+    const [enabled, name, subtitle, inviteUrl, siteName, logos, avatar] = await Promise.all([
       getSetting('community_enabled'), getSetting('community_name'), getSetting('community_subtitle'),
-      getSetting('community_invite_url'), getSetting('site_name'), getLogoUrls(), getActiveTheme(), getSetting('community_logo'),
+      getSetting('community_invite_url'), getSetting('site_name'), getLogoUrls(), getSetting('community_logo'),
     ]);
-    res.type('text/html').send(await withDesign(buildCommunityPage({ enabled: enabled === '1', name, subtitle, inviteUrl, siteName, logos, avatar }), storeTheme));
+    // Self-contained fixed skin (its own green theme) — NOT run through the
+    // Design Engine (like /app) so its CSS variables aren't overridden.
+    res.type('text/html').send(buildCommunityPage({ enabled: enabled === '1', name, subtitle, inviteUrl, siteName, logos, avatar }));
   } catch { res.status(500).send('Error loading page'); }
 });
 
