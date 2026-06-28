@@ -853,6 +853,7 @@ function seedDefaults(db) {
     community_name: 'OTT24x7 Community',
     community_subtitle: 'Live deals, offers & updates from our WhatsApp community',
     community_invite_url: '',
+    community_logo: '', // square avatar shown on /community (falls back to the site logo)
     // USDT direct checkout (replaces wallet/Razorpay/manual UPI)
     usdt_inr_rate: '99',
     usdt_fee_pct: '1.5',

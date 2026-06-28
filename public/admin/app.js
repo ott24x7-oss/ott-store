@@ -2475,6 +2475,15 @@ views.community = async function () {
         <div class="form-group"><label class="form-label">Page heading</label><input id="cm-name" class="form-input" value="${esc(s.community_name || '')}" placeholder="OTT24x7 Community"></div>
         <div class="form-group"><label class="form-label">Subtitle</label><input id="cm-subtitle" class="form-input" value="${esc(s.community_subtitle || '')}" placeholder="Live deals, offers & updates"></div>
         <div class="form-group"><label class="form-label">WhatsApp community invite link <span class="muted">(the green Join button)</span></label><input id="cm-invite" class="form-input" value="${esc(s.community_invite_url || '')}" placeholder="https://chat.whatsapp.com/…"></div>
+        <div class="form-group">
+          <label class="form-label">Group avatar <span class="muted">(square logo shown in the chat header)</span></label>
+          <div style="display:flex;gap:.7rem;align-items:center;flex-wrap:wrap">
+            <img id="cm-logo-prev" src="${esc(s.community_logo || '')}" alt="" style="width:46px;height:46px;border-radius:50%;object-fit:cover;background:#202c33;border:1px solid var(--border);${s.community_logo ? '' : 'display:none'}">
+            <input type="file" id="cm-logo-file" accept="image/*" class="form-input" style="flex:1;min-width:170px">
+            <button type="button" class="btn btn-secondary btn-sm" id="cm-logo-up">Upload</button>
+            <button type="button" class="btn btn-red btn-sm" id="cm-logo-rm" style="${s.community_logo ? '' : 'display:none'}">Remove</button>
+          </div>
+        </div>
         <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center">
           <button class="btn btn-primary" id="cm-save">Save</button>
           <a class="btn btn-secondary btn-sm" href="/community" target="_blank">View live page ↗</a>
@@ -2529,6 +2538,27 @@ views.community = async function () {
         showToast('Posted to the feed ✓'); document.getElementById('cm-msg').textContent = `${r.posts || 0} posts in the feed.`;
       } catch (e) { showToast(e.message, 'error'); }
       this.disabled = false; this.textContent = 'Add to feed';
+    };
+    document.getElementById('cm-logo-up').onclick = async function () {
+      const f = document.getElementById('cm-logo-file').files[0];
+      if (!f) { showToast('Pick an image first', 'error'); return; }
+      this.disabled = true; this.textContent = 'Uploading…';
+      try {
+        const fd = new FormData(); fd.append('logo', f);
+        const res = await fetch('/admin/api/community-logo', { method: 'POST', credentials: 'include', headers: { 'X-CSRF-Token': getCsrfToken() }, body: fd });
+        const r = await res.json(); if (!res.ok) throw new Error(r.error || 'Failed');
+        const p = document.getElementById('cm-logo-prev'); p.src = r.url + '?t=' + Date.now(); p.style.display = '';
+        document.getElementById('cm-logo-rm').style.display = '';
+        showToast('Avatar updated ✓');
+      } catch (e) { showToast(e.message, 'error'); }
+      this.disabled = false; this.textContent = 'Upload';
+    };
+    document.getElementById('cm-logo-rm').onclick = async function () {
+      try {
+        await api('/community-logo', { method: 'DELETE' });
+        document.getElementById('cm-logo-prev').style.display = 'none'; this.style.display = 'none';
+        showToast('Avatar removed');
+      } catch (e) { showToast(e.message, 'error'); }
     };
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };

@@ -609,6 +609,9 @@ function buildCommunityPage(o) {
   const name = esc(o.name || 'Community');
   const subtitle = esc(o.subtitle || '');
   const logo = (o.logos && (o.logos.dark || o.logos.light || o.logos.app)) || '';
+  // Avatar (the circular chat icon) prefers a SQUARE source so it isn't a
+  // squished wide logo: community_logo → app logo → wide logo.
+  const avatarSrc = o.avatar || (o.logos && (o.logos.app || o.logos.dark || o.logos.light)) || '';
   const invite = o.inviteUrl || '';
   const joinBtn = invite ? `<a class="join" href="${esc(invite)}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15l-1.4 5 5.1-1.3A10 10 0 1 0 12 2z"/></svg>Join the WhatsApp Community</a>` : '';
   return `<!DOCTYPE html><html lang="en"><head>
@@ -675,7 +678,7 @@ h1{font-size:26px;font-weight:800;letter-spacing:-.02em}
   ${o.enabled
       ? `<div class="chat">
            <div class="chat-bar">
-             <div class="av">${logo ? `<img src="${esc(logo)}" alt="">` : `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`}</div>
+             <div class="av">${avatarSrc ? `<img src="${esc(avatarSrc)}" alt="">` : `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`}</div>
              <div class="who"><div class="nm">${name}</div><div class="st">Live offers &amp; updates</div></div>
            </div>
            <div class="chat-body"><div class="feed" id="feed"></div></div>
@@ -708,11 +711,11 @@ load();setInterval(poll,12000);
 }
 app.get(['/community', '/updates', '/group'], async (req, res) => {
   try {
-    const [enabled, name, subtitle, inviteUrl, siteName, logos, storeTheme] = await Promise.all([
+    const [enabled, name, subtitle, inviteUrl, siteName, logos, storeTheme, avatar] = await Promise.all([
       getSetting('community_enabled'), getSetting('community_name'), getSetting('community_subtitle'),
-      getSetting('community_invite_url'), getSetting('site_name'), getLogoUrls(), getActiveTheme(),
+      getSetting('community_invite_url'), getSetting('site_name'), getLogoUrls(), getActiveTheme(), getSetting('community_logo'),
     ]);
-    res.type('text/html').send(await withDesign(buildCommunityPage({ enabled: enabled === '1', name, subtitle, inviteUrl, siteName, logos }), storeTheme));
+    res.type('text/html').send(await withDesign(buildCommunityPage({ enabled: enabled === '1', name, subtitle, inviteUrl, siteName, logos, avatar }), storeTheme));
   } catch { res.status(500).send('Error loading page'); }
 });
 
@@ -1189,8 +1192,9 @@ async function getLogoUrls() {
     const db = await getDb();
     const light = (get(db, `SELECT value FROM settings WHERE key='logo_light_url'`) || {}).value || '';
     const dark  = (get(db, `SELECT value FROM settings WHERE key='logo_dark_url'`)  || {}).value || '';
-    return { light, dark };
-  } catch { return { light: '', dark: '' }; }
+    const app   = (get(db, `SELECT value FROM settings WHERE key='logo_app_url'`)   || {}).value || '';
+    return { light, dark, app };
+  } catch { return { light: '', dark: '', app: '' }; }
 }
 
 // ─── MovieVerse home: server-render the dynamic content ───────────────────────

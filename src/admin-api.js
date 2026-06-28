@@ -353,6 +353,30 @@ router.post('/community-post', requireAdmin, communityUpload.single('image'), as
     res.json({ ok: true, posts: count });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+// Square avatar/logo shown on the /community page (chat header).
+router.post('/community-logo', requireAdmin, communityUpload.single('logo'), async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer || !req.file.buffer.length) return res.status(400).json({ error: 'No image uploaded' });
+    const db = await getDb();
+    const ext = (path.extname(req.file.originalname || '').toLowerCase().replace(/[^.a-z0-9]/g, '') || '.png').slice(0, 6);
+    const filename = 'community-logo-' + Date.now() + ext;
+    fs.writeFileSync(path.join(UPLOADS_DIR, filename), req.file.buffer);
+    const url = '/data/uploads/' + filename;
+    const old = get(db, `SELECT value FROM settings WHERE key='community_logo'`);
+    run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES ('community_logo',?)`, [url]);
+    try { const ofn = old && old.value ? path.basename(old.value) : ''; if (ofn && ofn !== filename) fs.unlinkSync(path.join(UPLOADS_DIR, ofn)); } catch {}
+    res.json({ ok: true, url });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.delete('/community-logo', requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const row = get(db, `SELECT value FROM settings WHERE key='community_logo'`);
+    if (row && row.value) { try { fs.unlinkSync(path.join(UPLOADS_DIR, path.basename(row.value))); } catch {} }
+    run(db, `INSERT OR REPLACE INTO settings (key,value) VALUES ('community_logo','')`);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 // ─── Plans ────────────────────────────────────────────────────────────────────
 router.get('/plans', requireAdmin, async (req, res) => {
