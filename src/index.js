@@ -658,6 +658,9 @@ h1{font-size:26px;font-weight:800;letter-spacing:-.02em}
 .empty{text-align:center;color:#8696a0;font-size:13.5px;padding:38px 20px;align-self:center;max-width:300px}
 .more{display:block;margin:16px auto 0;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);color:#cdcdd6;border-radius:12px;padding:11px 22px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit}
 .more.hidden{display:none}
+.msg .txt.clamp{max-height:196px;overflow:hidden;-webkit-mask-image:linear-gradient(180deg,#000 70%,transparent);mask-image:linear-gradient(180deg,#000 70%,transparent)}
+.msg.expanded .txt.clamp{max-height:none;-webkit-mask-image:none;mask-image:none}
+.readmore{display:inline-block;margin-top:5px;color:#53bdeb;font-weight:700;font-size:12.5px;cursor:pointer;background:none;border:0;padding:2px 0;font-family:inherit}
 @media(max-width:420px){.wrap{padding:20px 12px 70px}}
 </style></head><body>
 <div class="wrap">
@@ -686,7 +689,7 @@ var SENDER=${JSON.stringify(String(o.name || 'OTT24x7'))};
 var TICK='<svg viewBox="0 0 18 12" fill="none"><path d="M1 6.5l3 3 6.5-7M6.5 9.5l.6.6 6.4-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 var SEAL='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1.6l2.5 1.9 3.1-.2.9 3 2.5 1.8-1 3 1 3-2.5 1.8-.9 3-3.1-.2L12 22.4l-2.5-1.9-3.1.2-.9-3L3 16l1-3-1-3 2.5-1.8.9-3 3.1.2z"/><path d="M8.5 12l2.2 2.2L15.5 9" stroke="#202c33" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 function esc(s){var d=document.createElement('div');d.textContent=(s==null?'':s);return d.innerHTML;}
-function fmt(t){t=esc(t).replace(/\\n/g,'<br>');t=t.replace(/\\*([^*\\n]+)\\*/g,'<b>$1</b>').replace(/_([^_\\n]+)_/g,'<i>$1</i>');t=t.replace(/(https?:\\/\\/[^\\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');return t;}
+function fmt(t){t=esc(t).replace(/\\r\\n?/g,'\\n').replace(/\\n{3,}/g,'\\n\\n').replace(/\\n/g,'<br>');t=t.replace(/\\*([^*\\n]+)\\*/g,'<b>$1</b>').replace(/_([^_\\n]+)_/g,'<i>$1</i>');t=t.replace(/(https?:\\/\\/[^\\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');return t;}
 function ago(ts){if(!ts)return'';var d=Date.now()/1000-ts;if(d<60)return'just now';if(d<3600)return Math.floor(d/60)+'m ago';if(d<86400)return Math.floor(d/3600)+'h ago';return Math.floor(d/86400)+'d ago';}
 function card(p){return '<div class="msg" data-id="'+p.id+'">'+
   '<div class="sender">'+esc(SENDER)+SEAL+'</div>'+
@@ -694,9 +697,11 @@ function card(p){return '<div class="msg" data-id="'+p.id+'">'+
   (p.body?'<div class="txt">'+fmt(p.body)+'</div>':'')+
   '<span class="meta">'+ago(p.ts)+TICK+'</span>'+
   '</div>';}
-function load(){fetch('/user/api/community-feed').then(function(r){return r.json();}).then(function(d){var ps=d.posts||[];if(!ps.length){feed.innerHTML='<div class="empty">No updates yet — join the community above to get them first.</div>';return;}ps.forEach(function(p){feed.insertAdjacentHTML('beforeend',card(p));});lastId=ps[0].id;oldestId=ps[ps.length-1].id;if(ps.length>=15)more.classList.remove('hidden');}).catch(function(){});}
-function poll(){if(!lastId)return;fetch('/user/api/community-feed?since='+lastId).then(function(r){return r.json();}).then(function(d){(d.posts||[]).slice().reverse().forEach(function(p){if(p.id<=lastId)return;var w=document.createElement('div');w.innerHTML=card(p);var el=w.firstChild;el.classList.add('post-new');feed.insertBefore(el,feed.firstChild);lastId=Math.max(lastId,p.id);});}).catch(function(){});}
-more.onclick=function(){fetch('/user/api/community-feed?before='+oldestId).then(function(r){return r.json();}).then(function(d){var ps=d.posts||[];ps.forEach(function(p){feed.insertAdjacentHTML('beforeend',card(p));});if(ps.length)oldestId=ps[ps.length-1].id;if(ps.length<15)more.classList.add('hidden');}).catch(function(){});};
+function clampMsg(m){var txt=m.querySelector('.txt');if(!txt||m.dataset.cl)return;m.dataset.cl='1';if(txt.scrollHeight>224){txt.classList.add('clamp');var b=document.createElement('button');b.className='readmore';b.textContent='Read more \\u25be';b.onclick=function(){var ex=m.classList.toggle('expanded');b.textContent=ex?'Read less \\u25b4':'Read more \\u25be';};txt.insertAdjacentElement('afterend',b);}}
+function decorate(){feed.querySelectorAll('.msg').forEach(clampMsg);}
+function load(){fetch('/user/api/community-feed').then(function(r){return r.json();}).then(function(d){var ps=d.posts||[];if(!ps.length){feed.innerHTML='<div class="empty">No updates yet — join the community above to get them first.</div>';return;}ps.forEach(function(p){feed.insertAdjacentHTML('beforeend',card(p));});decorate();lastId=ps[0].id;oldestId=ps[ps.length-1].id;if(ps.length>=15)more.classList.remove('hidden');}).catch(function(){});}
+function poll(){if(!lastId)return;fetch('/user/api/community-feed?since='+lastId).then(function(r){return r.json();}).then(function(d){(d.posts||[]).slice().reverse().forEach(function(p){if(p.id<=lastId)return;var w=document.createElement('div');w.innerHTML=card(p);var el=w.firstChild;el.classList.add('post-new');feed.insertBefore(el,feed.firstChild);clampMsg(el);lastId=Math.max(lastId,p.id);});}).catch(function(){});}
+more.onclick=function(){fetch('/user/api/community-feed?before='+oldestId).then(function(r){return r.json();}).then(function(d){var ps=d.posts||[];ps.forEach(function(p){feed.insertAdjacentHTML('beforeend',card(p));});decorate();if(ps.length)oldestId=ps[ps.length-1].id;if(ps.length<15)more.classList.add('hidden');}).catch(function(){});};
 load();setInterval(poll,12000);
 })();</script>` : ''}
 </body></html>`;
