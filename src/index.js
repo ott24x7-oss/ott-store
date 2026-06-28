@@ -796,6 +796,74 @@ load();setInterval(poll,12000);
 })();</script>` : ''}
 </body></html>`;
 }
+
+// Beautiful community-promo popup injected on the homepage (gated on
+// community_enabled, shown at most once / 24h, dismissible). Self-contained,
+// scoped with the .ottcp- prefix so it never clashes with the home theme.
+function communityPopupHtml(o) {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const name = esc(o.name || 'OTT24x7 Community');
+  const avatarSrc = o.avatar || (o.logos && (o.logos.app || o.logos.dark || o.logos.light)) || '';
+  const av = avatarSrc ? `<img src="${esc(avatarSrc)}" alt="">` : '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+  return `<style>
+.ottcp-ov{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;padding:18px;background:rgba(4,7,5,.68);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);opacity:0;transition:opacity .3s ease;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.ottcp-ov.ottcp-show{opacity:1}
+.ottcp-card{position:relative;width:min(392px,100%);background:linear-gradient(180deg,#10201a,#0a120f);border:1px solid rgba(24,214,106,.28);border-radius:24px;padding:26px 24px 20px;box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 60px rgba(24,214,106,.12);overflow:hidden;color:#eef5f1;transform:translateY(22px) scale(.96);opacity:0;transition:transform .42s cubic-bezier(.2,.9,.3,1.18),opacity .42s ease}
+.ottcp-ov.ottcp-show .ottcp-card{transform:none;opacity:1}
+.ottcp-glow{position:absolute;top:-74px;left:50%;transform:translateX(-50%);width:240px;height:160px;background:radial-gradient(circle,rgba(24,214,106,.5),transparent 70%);filter:blur(20px);pointer-events:none}
+.ottcp-glow::after{content:"";position:absolute;top:14px;right:-46px;width:120px;height:120px;background:radial-gradient(circle,rgba(255,196,46,.4),transparent 70%);filter:blur(18px)}
+.ottcp-x{position:absolute;top:12px;right:12px;z-index:2;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#cfe6db;font-size:21px;line-height:1;cursor:pointer;display:grid;place-items:center;transition:.18s}
+.ottcp-x:hover{background:rgba(255,255,255,.14);color:#fff;transform:rotate(90deg)}
+.ottcp-hd{position:relative;display:flex;align-items:center;gap:12px;margin-bottom:15px}
+.ottcp-av{width:56px;height:56px;border-radius:16px;flex:0 0 auto;display:grid;place-items:center;overflow:hidden;background:linear-gradient(135deg,#ffbf24,#0ed766);color:#06140d;box-shadow:0 8px 24px rgba(24,214,106,.3)}
+.ottcp-av img{width:100%;height:100%;object-fit:cover}.ottcp-av svg{width:26px;height:26px}
+.ottcp-live{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:900;letter-spacing:.12em;color:#5dffa0;background:rgba(24,214,106,.1);border:1px solid rgba(24,214,106,.34);border-radius:999px;padding:6px 12px}
+.ottcp-live i{width:8px;height:8px;border-radius:50%;background:#18d66a;box-shadow:0 0 10px #18d66a;animation:ottcp-pulse 1.5s infinite}
+@keyframes ottcp-pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.ottcp-t{position:relative;margin:0 0 8px;font-size:22px;font-weight:900;letter-spacing:-.02em;line-height:1.15;color:#fff}
+.ottcp-t span{background:linear-gradient(135deg,#ffe36a,#22e273);-webkit-background-clip:text;background-clip:text;color:transparent}
+.ottcp-s{position:relative;margin:0 0 16px;font-size:14px;line-height:1.6;color:#aec3b9}
+.ottcp-f{position:relative;list-style:none;margin:0 0 20px;padding:0;display:grid;gap:9px}
+.ottcp-f li{display:flex;align-items:center;gap:10px;font-size:13.5px;font-weight:600;color:#dcebe3}
+.ottcp-f li b{width:26px;height:26px;flex:0 0 auto;display:grid;place-items:center;border-radius:9px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);font-size:14px}
+.ottcp-cta{position:relative;display:flex;align-items:center;justify-content:center;gap:9px;width:100%;padding:15px;border-radius:14px;background:linear-gradient(135deg,#18d66a,#0bb957);color:#04140b;font-weight:900;font-size:15.5px;text-decoration:none;box-shadow:0 16px 38px rgba(24,214,106,.34);transition:.2s transform,.2s filter}
+.ottcp-cta:hover{transform:translateY(-2px);filter:saturate(1.1)}.ottcp-cta span{transition:.2s transform}.ottcp-cta:hover span{transform:translateX(4px)}
+.ottcp-later{position:relative;display:block;margin:9px auto 0;background:none;border:0;color:#8aa79b;font-size:13px;font-weight:700;cursor:pointer;padding:6px;font-family:inherit}
+.ottcp-later:hover{color:#cfe6db}
+@media (prefers-reduced-motion:reduce){.ottcp-card{transform:none;transition:opacity .2s}}
+@media (max-width:420px){.ottcp-card{padding:24px 18px 16px;border-radius:20px}.ottcp-t{font-size:20px}}
+</style>
+<div id="ottcp" class="ottcp-ov" role="dialog" aria-modal="true" aria-label="${name}" hidden>
+  <div class="ottcp-card" role="document">
+    <button class="ottcp-x" type="button" aria-label="Close">&times;</button>
+    <span class="ottcp-glow"></span>
+    <div class="ottcp-hd"><span class="ottcp-av">${av}</span><span class="ottcp-live"><i></i>LIVE</span></div>
+    <h3 class="ottcp-t">Join the <span>${name}</span></h3>
+    <p class="ottcp-s">Live deals, stock alerts &amp; member-only prices — straight from our WhatsApp community.</p>
+    <ul class="ottcp-f">
+      <li><b>🔔</b> Instant stock &amp; deal alerts</li>
+      <li><b>🏷️</b> Member-only prices</li>
+      <li><b>✅</b> Genuine · trusted · 24×7 support</li>
+    </ul>
+    <a class="ottcp-cta" href="/community">See Live Offers <span>&rarr;</span></a>
+    <button class="ottcp-later" type="button">Maybe later</button>
+  </div>
+</div>
+<script>(function(){try{
+var KEY='ottcp_seen_v1',last=0;try{last=+localStorage.getItem(KEY)||0;}catch(e){}
+if(Date.now()-last<86400000)return;
+var ov=document.getElementById('ottcp');if(!ov)return;
+function seen(){try{localStorage.setItem(KEY,String(Date.now()));}catch(e){}}
+function onkey(e){if(e.key==='Escape')close();}
+function close(){ov.classList.remove('ottcp-show');seen();document.removeEventListener('keydown',onkey);setTimeout(function(){ov.hidden=true;},340);}
+ov.querySelector('.ottcp-x').onclick=close;
+ov.querySelector('.ottcp-later').onclick=close;
+ov.querySelector('.ottcp-cta').addEventListener('click',seen);
+ov.addEventListener('click',function(e){if(e.target===ov)close();});
+setTimeout(function(){ov.hidden=false;requestAnimationFrame(function(){requestAnimationFrame(function(){ov.classList.add('ottcp-show');});});document.addEventListener('keydown',onkey);},1500);
+}catch(e){}})();</script>`;
+}
+
 app.get(['/community', '/updates', '/group'], async (req, res) => {
   try {
     const [enabled, name, subtitle, inviteUrl, siteName, logos, avatar] = await Promise.all([
@@ -1039,6 +1107,17 @@ app.get('/', async (req, res) => {
     html = homeFile === 'movieverse-home.html'
       ? await injectMovieverseDynamic(html, name)
       : await injectDefaultHomeDynamic(html, name);
+    // Community-promo popup (homepage only) — only when the feed is switched on;
+    // shows at most once / 24h client-side and is fully dismissible.
+    try {
+      const [cEnabled, cName, cLogo, cLogos] = await Promise.all([
+        getSetting('community_enabled'), getSetting('community_name'),
+        getSetting('community_logo'), getLogoUrls(),
+      ]);
+      if (cEnabled === '1' && html.includes('</body>')) {
+        html = html.replace('</body>', communityPopupHtml({ name: cName, avatar: cLogo, logos: cLogos }) + '\n</body>');
+      }
+    } catch { /* never block the homepage on the popup */ }
     res.type('text/html').send(await withDesign(html, storeTheme));
   } catch {
     res.sendFile(path.join(__dirname, '..', 'public', 'store', 'index.html'));
