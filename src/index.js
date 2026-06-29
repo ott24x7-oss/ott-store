@@ -56,6 +56,21 @@ app.use((req, res, next) => {
   if (host.startsWith('www.')) return res.redirect(301, `${req.protocol}://${host.slice(4)}${req.originalUrl}`);
   next();
 });
+// ── Subdomain split (SEO-safe) ───────────────────────────────────────────────
+// app.<domain> = the customer dashboard + installable app; the apex keeps the
+// marketing landing + catalog/blog (so search rankings stay on the apex).
+// DORMANT until DNS points an `app.*` host at this service — it never matches
+// the apex or *.railway.app, so the current single domain is unaffected.
+const APP_MARKETING_RE = /^\/(plans|blog|community|updates|group|about|contact|privacy|terms|refund|reseller)(\/|$)/;
+app.use((req, res, next) => {
+  const host = (req.headers.host || '').toLowerCase();
+  if (!host.startsWith('app.')) return next();                 // apex + everything else: unchanged
+  const apex = host.slice(4);                                  // app.ott24x7.com -> ott24x7.com
+  if (req.path === '/') return res.redirect(302, '/app');      // app subdomain root opens the app
+  // Marketing / SEO pages belong on the apex — 301 them there (one canonical home).
+  if (APP_MARKETING_RE.test(req.path)) return res.redirect(301, `https://${apex}${req.originalUrl}`);
+  next();                                                      // /app, /my, /user, /admin, assets, APIs stay here
+});
 app.use(compression());
 // GA4: inject the gtag snippet into every server-rendered store page when a
 // Measurement ID is configured (Admin -> SEO -> Google Analytics). Read live via
