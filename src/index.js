@@ -806,8 +806,9 @@ function communityPopupHtml(o) {
   const avatarSrc = o.avatar || (o.logos && (o.logos.app || o.logos.dark || o.logos.light)) || '';
   const av = avatarSrc ? `<img src="${esc(avatarSrc)}" alt="">` : '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
   return `<style>
-.ottcp-ov{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;padding:18px;background:rgba(4,7,5,.68);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);opacity:0;transition:opacity .3s ease;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-.ottcp-ov.ottcp-show{opacity:1}
+.ottcp-ov{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;padding:18px;background:rgba(4,7,5,.68);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);opacity:0;pointer-events:none;transition:opacity .3s ease;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.ottcp-ov[hidden]{display:none}
+.ottcp-ov.ottcp-show{opacity:1;pointer-events:auto}
 .ottcp-card{position:relative;width:min(392px,100%);background:linear-gradient(180deg,#10201a,#0a120f);border:1px solid rgba(24,214,106,.28);border-radius:24px;padding:26px 24px 20px;box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 60px rgba(24,214,106,.12);overflow:hidden;color:#eef5f1;transform:translateY(22px) scale(.96);opacity:0;transition:transform .42s cubic-bezier(.2,.9,.3,1.18),opacity .42s ease}
 .ottcp-ov.ottcp-show .ottcp-card{transform:none;opacity:1}
 .ottcp-glow{position:absolute;top:-74px;left:50%;transform:translateX(-50%);width:240px;height:160px;background:radial-gradient(circle,rgba(24,214,106,.5),transparent 70%);filter:blur(20px);pointer-events:none}
@@ -860,7 +861,7 @@ ov.querySelector('.ottcp-x').onclick=close;
 ov.querySelector('.ottcp-later').onclick=close;
 ov.querySelector('.ottcp-cta').addEventListener('click',seen);
 ov.addEventListener('click',function(e){if(e.target===ov)close();});
-setTimeout(function(){ov.hidden=false;requestAnimationFrame(function(){requestAnimationFrame(function(){ov.classList.add('ottcp-show');});});document.addEventListener('keydown',onkey);},1500);
+setTimeout(function(){ov.hidden=false;setTimeout(function(){ov.classList.add('ottcp-show');},30);document.addEventListener('keydown',onkey);},1500);
 }catch(e){}})();</script>`;
 }
 
