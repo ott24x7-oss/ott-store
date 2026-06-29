@@ -155,7 +155,8 @@ router.post('/2fa/disable', requireAdmin, async (req, res) => {
 });
 
 router.post('/logout', (req, res) => {
-  res.clearCookie('adminToken', { path: '/', domain: cfg.cookieDomain });
+  res.clearCookie('adminToken', { path: '/' });
+  if (cfg.cookieDomain) res.clearCookie('adminToken', { path: '/', domain: cfg.cookieDomain });
   res.json({ ok: true });
 });
 

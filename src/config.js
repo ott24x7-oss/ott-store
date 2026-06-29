@@ -14,10 +14,11 @@ if (!sessionSecret || sessionSecret.length < 32 || sessionSecret === 'change-me-
   console.warn('[security] SESSION_SECRET is not set or too weak — using a random per-boot secret. Set a persistent SESSION_SECRET (>=32 chars) so sessions survive restarts.');
 }
 
-// Auth-cookie domain: in production, scope session cookies to the registrable
-// domain (e.g. .ott24x7.com) so one login is shared across the apex AND the
-// app.* subdomain. Stays host-only on localhost / *.railway.app / bare IPs,
-// where a leading-dot domain would be invalid (and break local login).
+// Cookies are HOST-ONLY (set without a domain), so ott24x7.com and
+// app.ott24x7.com each keep their own session — the apex flow is identical to
+// before the subdomain split. `cookieDomain` below is computed ONLY so logout
+// can also clear any leftover .ott24x7.com shared cookie from the brief window
+// that domain-scoped cookies were enabled; it is NOT used when setting cookies.
 let cookieDomain;
 try {
   const h = new URL(process.env.BASE_URL || 'http://localhost:3000').hostname;
@@ -54,7 +55,6 @@ module.exports = {
     // Secure cookies by default; only disabled for explicit local dev over http.
     secure: process.env.NODE_ENV !== 'development',
     path: '/',
-    domain: cookieDomain,
   },
   uploadDir: require('path').join(__dirname, '..', 'data', 'uploads'),
   resellkeys: {

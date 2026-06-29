@@ -14,7 +14,6 @@ function ensureCsrfToken(req, res, next) {
     const token = crypto.randomBytes(32).toString('hex');
     res.cookie('csrfToken', token, {
       path: '/',
-      domain: cfg.cookieDomain,
       sameSite: 'strict',
       secure: !!cfg.cookieOptions?.secure,
       maxAge: 12 * 60 * 60 * 1000,

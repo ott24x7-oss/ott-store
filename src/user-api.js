@@ -232,7 +232,8 @@ router.post('/login', loginLimiter, async (req, res) => {
 
 // ─── Logout ───────────────────────────────────────────────────────────────────
 router.post('/logout', (req, res) => {
-  res.clearCookie('customerToken', { path: '/', domain: cfg.cookieDomain });
+  res.clearCookie('customerToken', { path: '/' });
+  if (cfg.cookieDomain) res.clearCookie('customerToken', { path: '/', domain: cfg.cookieDomain });
   res.json({ ok: true });
 });
 
