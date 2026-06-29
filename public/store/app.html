@@ -1139,8 +1139,9 @@
     }
     $('app').innerHTML=appHeader()
       +'<div style="margin-bottom:18px"><h1 style="font-size:28px;font-weight:800;letter-spacing:-.02em">Profile</h1><p style="color:var(--muted);font-size:13px;margin-top:2px">Manage your account</p></div>'
-      +'<div class="pcard2"><div class="pav">'+esc((nm.charAt(0)||'U').toUpperCase())+'<span class="edit">'+svg('pencil')+'</span></div>'
+      +'<div class="pcard2"><div class="pav" id="pavBtn" style="cursor:pointer" title="Change photo">'+(u.avatar_url?'<img src="'+esc(u.avatar_url)+'" alt="" style="position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover" onerror="this.style.display=\'none\'">':esc((nm.charAt(0)||'U').toUpperCase()))+'<span class="edit">'+svg('pencil')+'</span></div>'
         +'<div style="min-width:0"><div class="pn">'+esc(nm)+'</div><div class="pe">'+esc(email)+'</div><span class="premium">'+svg('crown')+'Premium Member</span></div></div>'
+      +'<input type="file" id="avInput" accept="image/*" style="display:none">'
       +'<div class="pmenu">'
         +row({ic:'whatsapp',green:true,t:'WhatsApp',s:'Connect for updates & support',v:(phone?esc(phone):'Add'),act:'whatsapp'})
         +row({ic:'wallet',t:'Wallet Balance',s:'Check your balance & transactions',v:inr(STATE.balance),act:'wallet'})
@@ -1155,6 +1156,21 @@
       +'<div style="text-align:center;color:var(--muted2);font-size:12px;margin:16px 0 4px">OTT24x7 · Premium digital store</div>'
       +trustBar();
     wireCommon();
+    (function(){
+      var pavBtn=$('pavBtn'), avInput=$('avInput');
+      if(!pavBtn||!avInput) return;
+      pavBtn.onclick=function(){ avInput.click(); };
+      avInput.onchange=function(){
+        var f=avInput.files&&avInput.files[0]; if(!f) return;
+        if(f.size>5*1024*1024){ toast('Image too large (max 5MB)'); avInput.value=''; return; }
+        toast('Uploading photo…');
+        var fd=new FormData(); fd.append('avatar',f);
+        fetch('/user/api/me/avatar',{method:'POST',credentials:'include',headers:{'X-CSRF-Token':csrf()},body:fd})
+          .then(function(r){ return r.json().then(function(j){ return {ok:r.ok,data:j}; },function(){ return {ok:r.ok,data:{}}; }); })
+          .then(function(r){ if(r.ok&&r.data&&r.data.url){ if(!STATE.user)STATE.user={}; STATE.user.avatar_url=r.data.url; toast('Profile photo updated'); renderProfile(); } else { toast((r.data&&r.data.error)||'Upload failed'); } })
+          .catch(function(){ toast('Upload failed'); });
+      };
+    })();
     [].forEach.call(document.querySelectorAll('.pmrow'),function(b){ b.onclick=function(){ var a=b.dataset.act;
       if(a==='wallet') go('wallet');
       else if(a==='whatsapp'){ var s=STATE.store||{}; var wa=String(s.support_whatsapp||s.wa_bot_number||'').replace(/\D/g,''); if(wa) window.open('https://wa.me/'+wa,'_blank'); else toast('Support number not set'); }

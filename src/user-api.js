@@ -55,6 +55,16 @@ const upload = multer({
     else cb(new Error('Only images allowed'));
   },
 });
+// Customer profile photo — in-memory so we can write it with a real extension
+// (served with the right content-type from /data/uploads/avatars/).
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype && file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('Only image files are allowed'));
+  },
+});
 
 // --- Auth middleware ---
 function requireCustomer(req, res, next) {
@@ -341,6 +351,34 @@ router.put('/me', requireCustomer, async (req, res) => {
     if (!nextPhone) return res.status(400).json({ error: 'WhatsApp number is required.' });
     run(db, `UPDATE customers SET name=?,email=?,phone=?,password_hash=? WHERE jid=?`,
       [name || c.name, email || c.email, nextPhone, newHash, c.jid]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Profile photo (avatar) ──────────────────────────────────────────────────
+router.post('/me/avatar', requireCustomer, avatarUpload.single('avatar'), async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer || !req.file.buffer.length) return res.status(400).json({ error: 'No image uploaded' });
+    const db = await getDb();
+    const c = get(db, 'SELECT jid, avatar_url FROM customers WHERE jid=?', [req.customer.jid]);
+    if (!c) return res.status(404).json({ error: 'Not found' });
+    const dir = path.join(cfg.uploadDir, 'avatars');
+    fs.mkdirSync(dir, { recursive: true });
+    const ext = (path.extname(req.file.originalname || '').toLowerCase().replace(/[^.a-z0-9]/g, '') || '.jpg').slice(0, 6);
+    const fname = 'av-' + crypto.createHash('sha1').update(c.jid).digest('hex').slice(0, 16) + '-' + Date.now() + ext;
+    fs.writeFileSync(path.join(dir, fname), req.file.buffer);
+    const url = '/data/uploads/avatars/' + fname;
+    run(db, 'UPDATE customers SET avatar_url=? WHERE jid=?', [url, c.jid]);
+    try { if (c.avatar_url && c.avatar_url.indexOf('/data/uploads/avatars/') === 0) fs.unlinkSync(path.join(dir, path.basename(c.avatar_url))); } catch {}
+    res.json({ ok: true, url });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.delete('/me/avatar', requireCustomer, async (req, res) => {
+  try {
+    const db = await getDb();
+    const c = get(db, 'SELECT jid, avatar_url FROM customers WHERE jid=?', [req.customer.jid]);
+    if (c && c.avatar_url) { try { fs.unlinkSync(path.join(cfg.uploadDir, 'avatars', path.basename(c.avatar_url))); } catch {} }
+    run(db, "UPDATE customers SET avatar_url='' WHERE jid=?", [req.customer.jid]);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

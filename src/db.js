@@ -439,6 +439,7 @@ function migrate(db) {
   // Admin-only customer note (visible in the Edit Customer modal)
   try { db.run(`ALTER TABLE customers ADD COLUMN admin_notes TEXT DEFAULT ''`); } catch {}
   try { db.run(`ALTER TABLE customers ADD COLUMN guest INTEGER DEFAULT 0`); } catch {}
+  try { db.run(`ALTER TABLE customers ADD COLUMN avatar_url TEXT DEFAULT ''`); } catch {}
   try { db.run(`ALTER TABLE orders ADD COLUMN stock_credential_id INTEGER`); } catch {}
   try { db.run(`ALTER TABLE orders ADD COLUMN renewal_reminded_at TEXT`); } catch {}
   // Plans: catalog enhancements
