@@ -627,11 +627,22 @@ function buildCommunityPage(o) {
   const primaryCta = hasInvite
     ? `<a class="btn btn-primary" href="${esc(invite)}" target="_blank" rel="noopener">💬 Join WhatsApp Community</a>`
     : `<a class="btn btn-primary" href="/app">🛍️ Browse all products</a>`;
+  // Social-share (OG) image — absolute URL so WhatsApp/Twitter/etc. can fetch it.
+  const baseU = String(o.baseUrl || '').replace(/\/+$/, '');
+  const ogImg = esc(o.ogImage || (baseU + '/og-default.jpg'));
+  const ogUrl = esc(baseU + '/community');
   return `<!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#080a08">
 <title>${name} — Live Deals, Offers & Stock Alerts | ${siteName}</title>
 <meta name="description" content="Live deals, offers and stock alerts from the ${siteName} WhatsApp community — every announcement, as it's posted.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="${name} — Live Deals &amp; Offers">
+<meta property="og:description" content="Live deals, offers and stock alerts from the ${siteName} WhatsApp community.">
+<meta property="og:image" content="${ogImg}">
+<meta property="og:url" content="${ogUrl}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="${ogImg}">
 <link rel="apple-touch-icon" href="/icon-192.png"><link rel="icon" href="/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -905,13 +916,14 @@ if(d)d.onclick=function(){done('declined');};
 
 app.get(['/community', '/updates', '/group'], async (req, res) => {
   try {
-    const [enabled, name, subtitle, inviteUrl, siteName, logos, avatar] = await Promise.all([
+    const [enabled, name, subtitle, inviteUrl, siteName, logos, avatar, baseUrl, ogImage] = await Promise.all([
       getSetting('community_enabled'), getSetting('community_name'), getSetting('community_subtitle'),
       getSetting('community_invite_url'), getSetting('site_name'), getLogoUrls(), getSetting('community_logo'),
+      getSetting('base_url'), getSetting('seo_og_image'),
     ]);
     // Self-contained fixed skin (its own green theme) — NOT run through the
     // Design Engine (like /app) so its CSS variables aren't overridden.
-    res.type('text/html').send(buildCommunityPage({ enabled: enabled === '1', name, subtitle, inviteUrl, siteName, logos, avatar }));
+    res.type('text/html').send(buildCommunityPage({ enabled: enabled === '1', name, subtitle, inviteUrl, siteName, logos, avatar, baseUrl: baseUrl || cfg.baseUrl, ogImage }));
   } catch { res.status(500).send('Error loading page'); }
 });
 
