@@ -69,6 +69,7 @@ app.use((req, res, next) => {
   if (req.path === '/') return res.redirect(302, '/app');      // app subdomain root opens the app
   // Marketing / SEO pages belong on the apex — 301 them there (one canonical home).
   if (APP_MARKETING_RE.test(req.path)) return res.redirect(301, `https://${apex}${req.originalUrl}`);
+  res.set('X-Robots-Tag', 'noindex, nofollow');               // app subdomain stays out of search (no duplicate content)
   next();                                                      // /app, /my, /user, /admin, assets, APIs stay here
 });
 app.use(compression());

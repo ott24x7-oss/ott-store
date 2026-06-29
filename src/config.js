@@ -14,10 +14,23 @@ if (!sessionSecret || sessionSecret.length < 32 || sessionSecret === 'change-me-
   console.warn('[security] SESSION_SECRET is not set or too weak — using a random per-boot secret. Set a persistent SESSION_SECRET (>=32 chars) so sessions survive restarts.');
 }
 
+// Auth-cookie domain: in production, scope session cookies to the registrable
+// domain (e.g. .ott24x7.com) so one login is shared across the apex AND the
+// app.* subdomain. Stays host-only on localhost / *.railway.app / bare IPs,
+// where a leading-dot domain would be invalid (and break local login).
+let cookieDomain;
+try {
+  const h = new URL(process.env.BASE_URL || 'http://localhost:3000').hostname;
+  if (h && h !== 'localhost' && h.includes('.') && !/\.railway\.app$/i.test(h) && !/^\d+(\.\d+){3}$/.test(h)) {
+    cookieDomain = '.' + h.replace(/^www\./, '');
+  }
+} catch { /* leave host-only */ }
+
 module.exports = {
   port: parseInt(process.env.PORT) || 3000,
   baseUrl: process.env.BASE_URL || 'http://localhost:3000',
   sessionSecret,
+  cookieDomain,
   // No insecure default. Admin login refuses unless ADMIN_PASSWORD is set or an
   // admin password hash has been configured in Settings.
   adminPassword: process.env.ADMIN_PASSWORD || '',
@@ -41,6 +54,7 @@ module.exports = {
     // Secure cookies by default; only disabled for explicit local dev over http.
     secure: process.env.NODE_ENV !== 'development',
     path: '/',
+    domain: cookieDomain,
   },
   uploadDir: require('path').join(__dirname, '..', 'data', 'uploads'),
   resellkeys: {
