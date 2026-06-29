@@ -49,7 +49,7 @@ const PALETTE_MAP = {
   'mint':         { brand: '#2dd4bf', accent: '#4ade80' },
   'rose':         { brand: '#f472b6', accent: '#fb7185' },
   'cyber':        { brand: '#6366f1', accent: '#06b6d4' },
-  'ember':        { brand: '#ef4444', accent: '#f59e0b' },
+  'ember':        { brand: '#18d66a', accent: '#0bb957' },
   'midnight-purple': { brand: '#7c3aed', accent: '#4f46e5' },
   'neon-dark':    { brand: '#00ffc6', accent: '#00b8ff' },
 };
