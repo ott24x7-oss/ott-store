@@ -978,6 +978,15 @@ app.get('/reseller', async (req, res) => {
 // wired to /user/api. NOT run through the Design Engine — it has its own fixed skin.
 // Packaged into the Android app via a WebView/Capacitor wrapper (see android/).
 app.get('/app', (req, res) => {
+  // /app is the MOBILE app shell (phone layout, bottom nav). On a desktop
+  // browser, send the user to the desktop web portal (/my) — the mirror of the
+  // mobile /my -> /app redirect — so they don't get the cramped phone UI on a
+  // wide screen. The Android app + installable PWA stay on /app via their UA
+  // tag (OTT24x7App), a mobile UA, or the ?native=1 flag (also a desktop escape
+  // hatch for anyone who wants the app on desktop).
+  const ua = req.headers['user-agent'] || '';
+  const isAppClient = /Android|iPhone|iPad|iPod|Mobile|Silk|OTT24x7App/i.test(ua) || /[?&]native=1\b/.test(req.url);
+  if (!isAppClient) return res.redirect(302, '/my');
   res.setHeader('Cache-Control', 'no-cache, must-revalidate');
   res.sendFile(path.join(__dirname, '..', 'public', 'store', 'app.html'));
 });
