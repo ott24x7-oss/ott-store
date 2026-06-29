@@ -2662,7 +2662,22 @@ views.mystore = async function () {
   </div>
   <div class="form-group"><label class="form-label">Base URL</label><input class="form-input" name="base_url" value="${esc(s.base_url||'')}" placeholder="https://store.watshop.in"><p class="muted" style="font-size:.78rem;margin-top:.3rem">Your live domain, with <code>https://</code> and no trailing slash. Used to build canonical links, the sitemap, email links, share links &amp; SEO tags — set this to your real domain in production.</p></div>
   <button type="submit" class="btn btn-primary">Save Store Settings</button>
-</form></div>`);
+</form></div>
+<div class="card" style="max-width:640px;margin-top:1.2rem">
+  <h3 style="font-weight:800;margin-bottom:.3rem">🍪 Cookie consent banner</h3>
+  <p class="muted" style="font-size:.8rem;margin-bottom:1rem">A slim, dismissible cookie bar shown across the storefront. Turn it off if you don't need it.</p>
+  <label style="display:flex;align-items:center;gap:.6rem;font-weight:700;cursor:pointer;margin-bottom:.8rem"><input type="checkbox" id="ck-enabled" ${s.cookie_banner_enabled !== '0' ? 'checked' : ''}> Show the cookie banner</label>
+  <div class="form-group"><label class="form-label">Banner text</label><textarea id="ck-text" class="form-input" rows="3">${esc(s.cookie_banner_text || '')}</textarea></div>
+  <button type="button" class="btn btn-primary" id="ck-save">Save cookie settings</button>
+  <span id="ck-msg" class="muted" style="font-size:.78rem;margin-left:.6rem"></span>
+</div>`);
+    document.getElementById('ck-save').onclick = async function () {
+      try {
+        await api('/settings', { method: 'POST', body: JSON.stringify({ cookie_banner_enabled: document.getElementById('ck-enabled').checked ? '1' : '0', cookie_banner_text: document.getElementById('ck-text').value }) });
+        document.getElementById('ck-msg').textContent = 'Saved ✓'; showToast('Cookie settings saved');
+        setTimeout(() => { document.getElementById('ck-msg').textContent = ''; }, 2500);
+      } catch (ex) { showToast(ex.message, 'error'); }
+    };
     document.getElementById('store-form').onsubmit = async e => {
       e.preventDefault();
       const fd = new FormData(e.target);

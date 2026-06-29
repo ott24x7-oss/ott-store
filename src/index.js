@@ -457,6 +457,13 @@ async function withDesign(html, storeTheme) {
         return `<html${h}>`;
       });
     }
+    // Cookie-consent bar (storefront) — shown unless explicitly disabled in admin.
+    try {
+      if ((await getSetting('cookie_banner_enabled')) !== '0' && html.includes('</body>')) {
+        const ctext = (await getSetting('cookie_banner_text')) || 'We use cookies to keep you signed in, remember your cart, and improve your experience. By using this site you accept our use of cookies.';
+        html = html.replace('</body>', cookieBannerHtml(ctext) + '\n</body>');
+      }
+    } catch { /* never block a page on the cookie bar */ }
     // Mobile "Get the app" banner — nudges phone visitors of the storefront into
     // the installable /app. Never appears on /app itself (served outside withDesign)
     // or on desktop; dismissible and hidden once the PWA is installed (standalone).
@@ -862,6 +869,37 @@ ov.querySelector('.ottcp-later').onclick=close;
 ov.querySelector('.ottcp-cta').addEventListener('click',seen);
 ov.addEventListener('click',function(e){if(e.target===ov)close();});
 setTimeout(function(){ov.hidden=false;setTimeout(function(){ov.classList.add('ottcp-show');},30);document.addEventListener('keydown',onkey);},1500);
+}catch(e){}})();</script>`;
+}
+
+// Slim, dismissible cookie-consent bar (remembered in localStorage). Scoped
+// #ott-cookie; includes [hidden]{display:none} so the hidden attr actually hides
+// it (a class display rule would otherwise override the UA [hidden] rule).
+function cookieBannerHtml(text) {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  return `<div id="ott-cookie" hidden>
+  <div class="cc-t">${esc(text)} <a href="/privacy">Learn more</a></div>
+  <div class="cc-actions"><button class="cc-x" type="button" id="cc-decline">Decline</button><button class="cc-accept" type="button" id="cc-accept">Accept</button></div>
+</div>
+<style>
+#ott-cookie{position:fixed;left:12px;right:12px;bottom:12px;z-index:2147482000;max-width:760px;margin:0 auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:rgba(11,18,14,.97);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(24,214,106,.32);border-radius:16px;padding:13px 16px;box-shadow:0 18px 50px rgba(0,0,0,.55);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#e7f1ea}
+#ott-cookie[hidden]{display:none}
+#ott-cookie .cc-t{flex:1;min-width:210px;font-size:12.5px;line-height:1.5;color:#cfe0d7}
+#ott-cookie .cc-t a{color:#5dffa0;text-decoration:underline}
+#ott-cookie .cc-actions{display:flex;gap:8px;align-items:center}
+#ott-cookie .cc-accept{background:linear-gradient(135deg,#18d66a,#0bb957);color:#04140b;border:0;border-radius:10px;padding:10px 18px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
+#ott-cookie .cc-x{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);color:#cfe0d7;border-radius:10px;padding:10px 14px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit}
+@media(max-width:520px){#ott-cookie{flex-direction:column;align-items:stretch;text-align:center}#ott-cookie .cc-actions{justify-content:center}}
+</style>
+<script>(function(){try{
+var KEY='ott_cookie_consent';
+if(localStorage.getItem(KEY))return;
+var el=document.getElementById('ott-cookie');if(!el)return;
+el.hidden=false;
+function done(v){try{localStorage.setItem(KEY,v);}catch(e){}el.hidden=true;}
+var a=document.getElementById('cc-accept'),d=document.getElementById('cc-decline');
+if(a)a.onclick=function(){done('accepted');};
+if(d)d.onclick=function(){done('declined');};
 }catch(e){}})();</script>`;
 }
 

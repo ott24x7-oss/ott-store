@@ -854,6 +854,8 @@ function seedDefaults(db) {
     community_subtitle: 'Live deals, offers & updates from our WhatsApp community',
     community_invite_url: '',
     community_logo: '', // square avatar shown on /community (falls back to the site logo)
+    cookie_banner_enabled: '1', // dismissible cookie-consent bar on the storefront
+    cookie_banner_text: 'We use cookies to keep you signed in, remember your cart, and improve your experience. By using this site you accept our use of cookies.',
     // USDT direct checkout (replaces wallet/Razorpay/manual UPI)
     usdt_inr_rate: '99',
     usdt_fee_pct: '1.5',
