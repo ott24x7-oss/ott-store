@@ -114,7 +114,7 @@ router.get('/store', noStoreCache, async (req, res) => {
       ('site_name','site_tagline','hero_title','hero_title2','hero_subtext','hero_cta_label','hero_cta_url','logo_url','logo_light_url','logo_dark_url','logo_app_url','apk_url','apk_version','announcement','upi_id','upi_name',
        'support_whatsapp','support_email','wa_bot_number','telegram_bot_url',
        'pwa_force_prompt','vapid_public_key','store_theme','wa_enabled','imap_enabled',
-       'header_menu_items',
+       'header_menu_items','onboarding_enabled',
        'usdt_inr_rate','usdt_fee_pct','usdt_payment_window_minutes',
        'usdt_binance_enabled','usdt_binance_uid','usdt_binance_qr_url',
        'usdt_bep20_enabled','usdt_bep20_address','usdt_bep20_qr_url',

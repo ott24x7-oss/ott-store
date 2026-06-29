@@ -1226,10 +1226,51 @@ ${ORDERS.length>5?`<div style="padding:.75rem 1rem;text-align:center"><span styl
 </div>`
 :`<div class="card" style="padding:1.5rem;text-align:center;margin-bottom:1.5rem"><p style="color:var(--muted);font-size:.9rem">No orders yet. <span style="color:var(--blue);cursor:pointer;font-weight:600" onclick="goTab('plans')">Browse plans →</span></p></div>`}`;
 
-    main.innerHTML=heroHtml+alertsHtml+statsHtml+qaHtml+activeSubsHtml+recentHtml;
+    // Getting-started onboarding (new users only; admin-toggleable, dismissible)
+    const hasPhone=!!(CUSTOMER.phone&&String(CUSTOMER.phone).trim());
+    const showOb=(STORE.onboarding_enabled!=='0')&&!localStorage.getItem('my_onboard_dismissed')&&ORDERS.length===0;
+    const obHtml=showOb?`
+<style>
+.dash-onboard{background:linear-gradient(135deg,rgba(24,214,106,.12),rgba(255,255,255,.04));border:1px solid rgba(24,214,106,.3);border-radius:16px;padding:1.1rem 1.2rem;margin-bottom:1.25rem}
+.dash-onboard .ob-top{display:flex;align-items:center;justify-content:space-between}
+.dash-onboard .ob-ttl{font-weight:800;font-size:1.05rem}
+.dash-onboard .ob-x{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#cfe0d7;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:18px;line-height:1}
+.dash-onboard .ob-sub{color:var(--muted);font-size:.85rem;margin:.2rem 0 .9rem}
+.dash-onboard .ob-list{display:grid;gap:.5rem;margin-bottom:.6rem}
+.dash-onboard .ob-item{display:flex;align-items:center;gap:.6rem;font-size:.9rem;font-weight:600}
+.dash-onboard .ob-item a{color:var(--blue);cursor:pointer;font-weight:700;margin-left:auto;text-decoration:none;white-space:nowrap}
+.dash-onboard .ob-ck{width:24px;height:24px;flex:0 0 auto;display:grid;place-items:center;border-radius:50%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);font-size:.72rem;font-weight:800;color:var(--muted)}
+.dash-onboard .ob-item.done .ob-ck{background:linear-gradient(135deg,#18d66a,#0bb957);color:#04140b;border-color:transparent}
+.dash-onboard .ob-item.done{opacity:.7}
+.dash-onboard .ob-guide{margin-top:.4rem;border-top:1px solid rgba(255,255,255,.08);padding-top:.6rem}
+.dash-onboard .ob-guide summary{cursor:pointer;font-weight:700;font-size:.85rem;list-style:none}
+.dash-onboard .ob-guide ol{margin:.6rem 0 0;padding-left:1.2rem;display:grid;gap:.4rem}
+.dash-onboard .ob-guide li{font-size:.84rem;color:var(--muted);line-height:1.5}
+.dash-onboard .ob-guide li b{color:var(--text)}
+</style>
+<div class="dash-onboard">
+  <div class="ob-top"><div class="ob-ttl">🚀 Getting started</div><button class="ob-x" onclick="dismissOnboard()" aria-label="Dismiss">×</button></div>
+  <div class="ob-sub">A few quick steps to get the most out of ${esc(STORE.site_name||'your account')}.</div>
+  <div class="ob-list">
+    <div class="ob-item done"><span class="ob-ck">✓</span> Account created</div>
+    <div class="ob-item ${hasPhone?'done':''}"><span class="ob-ck">${hasPhone?'✓':'2'}</span> Add your WhatsApp number ${hasPhone?'':'<a onclick="goTab(\'profile\')">Add →</a>'}</div>
+    <div class="ob-item"><span class="ob-ck">3</span> Place your first order <a onclick="goTab('plans')">Browse →</a></div>
+    <div class="ob-item"><span class="ob-ck">4</span> Join our community <a href="/community" target="_blank" rel="noopener">Join →</a></div>
+  </div>
+  <details class="ob-guide"><summary>📖 How to order in 4 steps</summary>
+    <ol>
+      <li><b>Browse plans</b> — tap Browse Plans and pick a service (Netflix, Prime, ChatGPT…).</li>
+      <li><b>Choose &amp; Buy</b> — open a plan, pick the duration, then tap Buy.</li>
+      <li><b>Pay securely</b> — pay by UPI or USDT; your order confirms automatically.</li>
+      <li><b>Instant delivery</b> — your details arrive on WhatsApp &amp; email within minutes.</li>
+    </ol>
+  </details>
+</div>`:'';
+    main.innerHTML=heroHtml+obHtml+alertsHtml+statsHtml+qaHtml+activeSubsHtml+recentHtml;
     showProfileBanner();
   }catch(e){main.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`;}
 }
+window.dismissOnboard=function(){try{localStorage.setItem('my_onboard_dismissed','1');}catch(e){}var el=document.querySelector('.dash-onboard');if(el)el.remove();};
 
 // ── Plans ─────────────────────────────────────────────────────────────────────
 async function renderPlans(){

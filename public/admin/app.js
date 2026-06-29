@@ -2670,7 +2670,20 @@ views.mystore = async function () {
   <div class="form-group"><label class="form-label">Banner text</label><textarea id="ck-text" class="form-input" rows="3">${esc(s.cookie_banner_text || '')}</textarea></div>
   <button type="button" class="btn btn-primary" id="ck-save">Save cookie settings</button>
   <span id="ck-msg" class="muted" style="font-size:.78rem;margin-left:.6rem"></span>
+</div>
+<div class="card" style="max-width:640px;margin-top:1.2rem">
+  <h3 style="font-weight:800;margin-bottom:.3rem">🚀 Onboarding guide</h3>
+  <p class="muted" style="font-size:.8rem;margin-bottom:1rem">Show new customers a getting-started checklist + a "how to order" guide on their dashboard (hidden automatically once they place an order).</p>
+  <label style="display:flex;align-items:center;gap:.6rem;font-weight:700;cursor:pointer"><input type="checkbox" id="ob-enabled" ${s.onboarding_enabled !== '0' ? 'checked' : ''}> Show the onboarding guide</label>
+  <div style="margin-top:.8rem"><button type="button" class="btn btn-primary" id="ob-save">Save</button> <span id="ob-msg" class="muted" style="font-size:.78rem;margin-left:.6rem"></span></div>
 </div>`);
+    document.getElementById('ob-save').onclick = async function () {
+      try {
+        await api('/settings', { method: 'POST', body: JSON.stringify({ onboarding_enabled: document.getElementById('ob-enabled').checked ? '1' : '0' }) });
+        document.getElementById('ob-msg').textContent = 'Saved ✓'; showToast('Onboarding setting saved');
+        setTimeout(() => { document.getElementById('ob-msg').textContent = ''; }, 2500);
+      } catch (ex) { showToast(ex.message, 'error'); }
+    };
     document.getElementById('ck-save').onclick = async function () {
       try {
         await api('/settings', { method: 'POST', body: JSON.stringify({ cookie_banner_enabled: document.getElementById('ck-enabled').checked ? '1' : '0', cookie_banner_text: document.getElementById('ck-text').value }) });
