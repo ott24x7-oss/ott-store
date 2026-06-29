@@ -17,6 +17,13 @@ const router = express.Router();
 // Strip trailing slash(es) so we never build URLs like https://site.com//path
 const stripSlash = (u) => (u || '').replace(/\/+$/, '');
 
+// ── Auth input hardening ──────────────────────────────────────────────────────
+// isValidEmail bounds + shape-checks email so bots/garbage are rejected early.
+// DUMMY_HASH lets /login spend the same ~bcrypt time on a MISSING account as on a
+// real one, so response timing can't be used to discover whether an email exists.
+const isValidEmail = (e) => typeof e === 'string' && e.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
+const DUMMY_HASH = bcrypt.hashSync('timing-equalizer-not-a-real-password', cfg.bcryptRounds);
+
 // Resolve the UPI address customers should pay to. Prefer the upi_id setting,
 // but fall back to the first enabled UPI-type payment method — admins often
 // configure UPI there (Payment Methods table) and leave the setting blank,
@@ -161,9 +168,14 @@ router.get('/plans', noStoreCache, async (req, res) => {
 // ─── Register ─────────────────────────────────────────────────────────────────
 router.post('/register', registerLimiter, async (req, res) => {
   try {
-    const { name, email, password, phone, referral_code } = req.body;
+    let { name, email, password, phone, referral_code } = req.body;
+    name = typeof name === 'string' ? name.trim() : '';
+    email = typeof email === 'string' ? email.trim().toLowerCase() : '';
     if (!name || !email || !password) return res.status(400).json({ error: 'Name, email and password required' });
-    if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    if (name.length > 80) return res.status(400).json({ error: 'Name is too long (max 80 characters)' });
+    if (!isValidEmail(email)) return res.status(400).json({ error: 'Enter a valid email address' });
+    if (typeof password !== 'string' || password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    if (password.length > 128) return res.status(400).json({ error: 'Password is too long (max 128 characters)' });
     // Phone is OPTIONAL at signup so registration never blocks; if provided it must be
     // valid. (Guest checkout still requires a phone for delivery, and the merge tool
     // dedupes — so "one account = email + WhatsApp" holds without breaking signup.)
@@ -191,15 +203,17 @@ router.post('/register', registerLimiter, async (req, res) => {
 // ─── Login ────────────────────────────────────────────────────────────────────
 router.post('/login', loginLimiter, async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
-    const throttleMsg = checkCredentialThrottle(email.toLowerCase());
+    let { email, password } = req.body;
+    email = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    if (!email || !password || typeof password !== 'string') return res.status(400).json({ error: 'Email and password required' });
+    const throttleMsg = checkCredentialThrottle(email);
     if (throttleMsg) return res.status(429).json({ error: throttleMsg });
     const jid = toJid(email);
     const db = await getDb();
     const customer = get(db, 'SELECT * FROM customers WHERE jid=?', [jid]);
     if (!customer || !customer.password_hash) {
-      recordFailedLogin(email.toLowerCase());
+      await bcrypt.compare(password, DUMMY_HASH); // equalize timing → response can't reveal if the email exists
+      recordFailedLogin(email);
       return res.status(401).json({ error: 'Invalid email or password' });
     }
     if (customer.blocked) return res.status(403).json({ error: 'Account blocked. Contact support.' });
@@ -331,10 +345,11 @@ router.put('/me', requireCustomer, async (req, res) => {
 });
 
 // ─── Forgot/Reset password ────────────────────────────────────────────────────
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', sendLimiter, async (req, res) => {
   try {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ error: 'Email required' });
+    let { email } = req.body;
+    email = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    if (!isValidEmail(email)) return res.status(400).json({ error: 'Enter a valid email address' });
     const jid = toJid(email);
     const db = await getDb();
     const c = get(db, 'SELECT * FROM customers WHERE jid=?', [jid]);
@@ -349,11 +364,12 @@ router.post('/forgot-password', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', sendLimiter, async (req, res) => {
   try {
     const { token, password } = req.body;
-    if (!token || !password) return res.status(400).json({ error: 'Token and password required' });
+    if (!token || !password || typeof password !== 'string') return res.status(400).json({ error: 'Token and password required' });
     if (password.length < 6) return res.status(400).json({ error: 'Password too short' });
+    if (password.length > 128) return res.status(400).json({ error: 'Password is too long (max 128 characters)' });
     const db = await getDb();
     const r = get(db, `SELECT * FROM pw_resets WHERE token=? AND used=0 AND expires_at > datetime('now')`, [token]);
     if (!r) return res.status(400).json({ error: 'Invalid or expired reset link' });
