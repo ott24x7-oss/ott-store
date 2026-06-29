@@ -664,8 +664,8 @@ h1{font-size:clamp(32px,6vw,62px);line-height:1;margin:0 auto 14px;max-width:820
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:26px auto 0;max-width:940px}
 .stat{border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.025));border-radius:18px;padding:16px;text-align:left}
 .stat strong{display:block;font-size:21px;color:#fff}.stat span{font-size:12.5px;color:var(--muted)}
-.community-wrap{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:22px;align-items:start;padding:26px 0 70px}
-.phone-frame{background:linear-gradient(180deg,#22332f,#0c1512);border:1px solid rgba(255,255,255,.1);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow),0 0 0 1px rgba(24,214,106,.08);position:relative}
+.community-wrap{display:grid;grid-template-columns:minmax(0,520px) 320px;gap:22px;justify-content:center;align-items:start;padding:26px 0 70px}
+.phone-frame{width:100%;max-width:540px;margin:0 auto;background:linear-gradient(180deg,#22332f,#0c1512);border:1px solid rgba(255,255,255,.1);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow),0 0 0 1px rgba(24,214,106,.08);position:relative}
 .phone-head{display:flex;align-items:center;gap:13px;padding:16px 18px;background:#1f332f;border-bottom:1px solid rgba(255,255,255,.08)}
 .avatar{width:48px;height:48px;flex:0 0 auto;border-radius:50%;display:grid;place-items:center;overflow:hidden;background:linear-gradient(135deg,#ffbf24,#0ed766);color:#061009;font-weight:900;font-size:15px;box-shadow:0 0 0 3px rgba(255,255,255,.06)}
 .avatar img{width:100%;height:100%;object-fit:cover}
@@ -677,7 +677,7 @@ h1{font-size:clamp(32px,6vw,62px);line-height:1;margin:0 auto 14px;max-width:820
 @keyframes slideIn{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:none}}
 .post-author{display:flex;align-items:center;gap:7px;margin-bottom:9px;color:var(--gold);font-weight:900;font-size:13px}
 .verified{color:#37a7ff}
-.post-img{width:100%;border-radius:11px;margin:0 0 10px;max-height:460px;object-fit:cover;background:#0c1715}
+.post-img{display:block;max-width:100%;max-height:340px;width:auto;height:auto;border-radius:11px;margin:0 auto 10px;background:#0a120f}
 .post-text{font-size:14px;line-height:1.6;color:#eff7f2;white-space:pre-wrap;word-break:break-word}
 .post-text b{color:#fff}.post-text i{color:#dbe7e0}.post-text a{color:#4fd1a1;font-weight:700}
 .post-text.clamp{max-height:210px;overflow:hidden;-webkit-mask-image:linear-gradient(180deg,#000 72%,transparent);mask-image:linear-gradient(180deg,#000 72%,transparent)}
@@ -703,7 +703,7 @@ h1{font-size:clamp(32px,6vw,62px);line-height:1;margin:0 auto 14px;max-width:820
 .mobile-bottom{display:none;position:fixed;left:12px;right:12px;bottom:12px;z-index:25;padding:9px;border-radius:22px;background:rgba(12,16,14,.9);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.1);box-shadow:0 -12px 45px rgba(0,0,0,.5)}
 .mobile-bottom a{flex:1;text-align:center;color:#b9c5c0;font-size:11px;font-weight:800}.mobile-bottom b{display:block;font-size:18px;margin-bottom:2px}.mobile-bottom a.active{color:var(--green)}
 @media (max-width:980px){.nav-links{display:none}.community-wrap{grid-template-columns:1fr}.side{position:static;grid-template-columns:repeat(2,1fr)}.stats{grid-template-columns:repeat(2,1fr)}}
-@media (max-width:640px){.container{width:min(100% - 22px,560px)}.nav{height:64px}.brand-title{font-size:17px}.brand-mark{width:40px;height:40px;border-radius:12px}.nav-actions .pill,.nav-actions .btn{display:none}.hero{padding:34px 0 18px}.stats{grid-template-columns:repeat(2,1fr);gap:9px}.stat{padding:13px}.stat strong{font-size:18px}.community-wrap{padding-top:16px}.feed{min-height:380px;padding:13px}.side{grid-template-columns:1fr}.cta{display:block}.cta .btn{margin-top:15px;width:100%}.mobile-bottom{display:flex}.cta-section{padding-bottom:92px}}
+@media (max-width:640px){.container{width:min(100% - 22px,560px)}.nav{height:64px}.brand-title{font-size:17px}.brand-mark{width:40px;height:40px;border-radius:12px}.nav-actions .pill,.nav-actions .btn{display:none}.hero{padding:34px 0 18px}.stats{grid-template-columns:repeat(2,1fr);gap:9px}.stat{padding:13px}.stat strong{font-size:18px}.community-wrap{padding-top:16px}.feed{min-height:340px;padding:12px}.post{padding:11px 12px}.post-img{max-height:280px}.side{grid-template-columns:1fr}.cta{display:block}.cta .btn{margin-top:15px;width:100%}.mobile-bottom{display:flex}.cta-section{padding-bottom:92px}}
 </style></head><body>
 <header class="topbar">
   <div class="container nav">
