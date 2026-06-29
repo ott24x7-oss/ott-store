@@ -666,6 +666,10 @@ window.otpVerify=async function(){
 };
 
 // ── Password Form ─────────────────────────────────────────────────────────────
+// Client-side auth validation — instant feedback that mirrors the server checks.
+window.myValidEmail=function(e){return typeof e==='string'&&e.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);};
+function clearErrOnInput(ids,errId){ids.forEach(function(id){var el=document.getElementById(id);if(el)el.addEventListener('input',function(){var e=document.getElementById(errId);if(e)e.style.display='none';});});}
+
 function renderPasswordForm(area){
   area.innerHTML=`
 <div class="my-form">
@@ -681,6 +685,7 @@ function renderPasswordForm(area){
   </p>
 </div>`;
   document.getElementById('pw-pass').addEventListener('keypress',e=>{if(e.key==='Enter')pwLogin();});
+  clearErrOnInput(['pw-email','pw-pass'],'pw-err');
   const savedEmail=localStorage.getItem('my_last_email');
   if(savedEmail)document.getElementById('pw-email').value=savedEmail;
 }
@@ -691,6 +696,8 @@ window.pwLogin=async function(){
   const err=document.getElementById('pw-err');
   const btn=document.getElementById('pw-login-btn');
   if(!email||!password){err.textContent='Email and password required.';err.style.display='';return;}
+  if(!myValidEmail(email)){err.textContent='Enter a valid email address.';err.style.display='';return;}
+  if(password.length>128){err.textContent='Password is too long (max 128 characters).';err.style.display='';return;}
   setLoading(btn,true,'Logging in...');
   try{
     await api('/login',{method:'POST',body:JSON.stringify({email,password})});
@@ -714,6 +721,7 @@ window.showRegister=function(){
   <button class="btn btn-primary btn-block" id="reg-btn" onclick="doRegister()">Create Account →</button>
   <p style="text-align:center;font-size:.8rem">Already have an account? <span style="color:var(--blue);cursor:pointer" onclick="setMethod('password')">Login</span></p>
 </div>`;
+  clearErrOnInput(['reg-name','reg-email','reg-pass','reg-phone'],'reg-err');
 };
 
 window.doRegister=async function(){
@@ -724,7 +732,10 @@ window.doRegister=async function(){
   const err=document.getElementById('reg-err');
   const btn=document.getElementById('reg-btn');
   if(!name||!email||!password){err.textContent='Name, email and password are required.';err.style.display='';return;}
+  if(name.length>80){err.textContent='Name is too long (max 80 characters).';err.style.display='';return;}
+  if(!myValidEmail(email)){err.textContent='Enter a valid email address.';err.style.display='';return;}
   if(password.length<6){err.textContent='Password must be at least 6 characters.';err.style.display='';return;}
+  if(password.length>128){err.textContent='Password is too long (max 128 characters).';err.style.display='';return;}
   setLoading(btn,true,'Creating account...');
   try{
     await api('/register',{method:'POST',body:JSON.stringify({name,email,password,phone:phone||undefined})});
