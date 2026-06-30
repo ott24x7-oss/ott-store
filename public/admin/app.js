@@ -2676,7 +2676,25 @@ views.mystore = async function () {
   <p class="muted" style="font-size:.8rem;margin-bottom:1rem">Show new customers a getting-started checklist + a "how to order" guide on their dashboard (hidden automatically once they place an order).</p>
   <label style="display:flex;align-items:center;gap:.6rem;font-weight:700;cursor:pointer"><input type="checkbox" id="ob-enabled" ${s.onboarding_enabled !== '0' ? 'checked' : ''}> Show the onboarding guide</label>
   <div style="margin-top:.8rem"><button type="button" class="btn btn-primary" id="ob-save">Save</button> <span id="ob-msg" class="muted" style="font-size:.78rem;margin-left:.6rem"></span></div>
+</div>
+<div class="card" style="max-width:640px;margin-top:1.2rem">
+  <h3 style="font-weight:800;margin-bottom:.3rem">🎨 App theme</h3>
+  <p class="muted" style="font-size:.8rem;margin-bottom:1rem">Colour theme for the mobile app (<code>/app</code>) and the Android app. Tap one — it applies instantly, no rebuild.</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(94px,1fr));gap:.7rem">
+    ${[['gold','Gold','linear-gradient(135deg,#fbbf24,#f59e0b)'],['purple','Purple','linear-gradient(135deg,#c084fc,#a855f7)'],['green','Emerald','linear-gradient(135deg,#5eead4,#10d9a3)'],['blue','Blue','linear-gradient(135deg,#60a5fa,#3b82f6)'],['red','Ruby','linear-gradient(135deg,#fb7185,#f43f5e)'],['light','Light','linear-gradient(135deg,#fdba74,#fb923c)']].map(t => `<button type="button" class="theme-sw" data-theme="${t[0]}" style="border:2px solid ${(s.app_theme || 'gold') === t[0] ? 'var(--accent)' : 'var(--border)'};background:var(--card);border-radius:14px;padding:.55rem;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:.45rem"><span style="width:100%;height:32px;border-radius:9px;background:${t[2]}"></span><span style="font-size:.74rem;font-weight:700">${t[1]}</span></button>`).join('')}
+  </div>
+  <div style="margin-top:.9rem"><span id="theme-msg" class="muted" style="font-size:.78rem"></span></div>
 </div>`);
+    [].forEach.call(document.querySelectorAll('.theme-sw'), function (b) {
+      b.onclick = async function () {
+        var t = b.dataset.theme;
+        [].forEach.call(document.querySelectorAll('.theme-sw'), function (x) { x.style.borderColor = (x === b) ? 'var(--accent)' : 'var(--border)'; });
+        try {
+          await api('/settings', { method: 'POST', body: JSON.stringify({ app_theme: t }) });
+          document.getElementById('theme-msg').textContent = 'Theme set to ' + t + ' ✓ — reopen /app to see it.'; showToast('App theme: ' + t);
+        } catch (ex) { showToast(ex.message, 'error'); }
+      };
+    });
     document.getElementById('ob-save').onclick = async function () {
       try {
         await api('/settings', { method: 'POST', body: JSON.stringify({ onboarding_enabled: document.getElementById('ob-enabled').checked ? '1' : '0' }) });
