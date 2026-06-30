@@ -369,8 +369,8 @@
   .pd-ic svg{width:34px;height:34px}
   .pd-t{font-size:23px;font-weight:800;margin-bottom:8px}
   /* ── shared header ── */
-  /* GLASSMORPHISM — frosted sticky header */
-  .appbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;justify-content:space-between;gap:10px;margin:-18px -16px 16px;padding:14px 16px;background:var(--glass);backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);border-bottom:1px solid var(--glass-line);box-shadow:0 6px 24px rgba(0,0,0,.28)}
+  /* GLASSMORPHISM — rounded floating frosted header (pill-shaped, neon-tinted) */
+  .appbar{position:sticky;top:10px;z-index:40;display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 16px;padding:11px 14px;background:var(--glass);backdrop-filter:blur(22px) saturate(1.5);-webkit-backdrop-filter:blur(22px) saturate(1.5);border:1px solid var(--glass-line);border-radius:22px;box-shadow:var(--glass-sh),0 10px 30px rgba(0,0,0,.3),0 0 22px rgba(var(--acc-rgb),.1)}
   .appbar .lg{display:flex;align-items:center;min-width:0}
   .appbar .lg img{height:36px;max-width:178px;object-fit:contain}
   .appbar .lg-txt{font-size:21px;font-weight:900;letter-spacing:-.02em;white-space:nowrap}
