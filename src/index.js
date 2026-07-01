@@ -351,6 +351,12 @@ self.addEventListener('notificationclick',e=>{
 // allowed to crawl it to see that tag and drop it from the index. Admin + APIs
 // stay blocked (they have no crawl value).
 const DEFAULT_ROBOTS = 'User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /admin/api\nDisallow: /user/api\nDisallow: /api\nDisallow: /checkout\nDisallow: /cart\nDisallow: /account\nDisallow: /*.json$';
+// AISEO / AEO / GEO / LLMO — explicitly welcome the AI answer-engine + LLM
+// crawlers by name (not just via `User-agent: *`) so ChatGPT, Perplexity,
+// Google AI Overviews, Gemini, Claude, etc. can read and cite the store.
+const AI_CRAWLERS = ['GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'ClaudeBot', 'anthropic-ai', 'Claude-Web', 'PerplexityBot', 'Perplexity-User', 'Google-Extended', 'Applebot-Extended', 'cohere-ai', 'CCBot', 'DuckAssistBot', 'Amazonbot', 'Meta-ExternalAgent', 'MistralAI-User', 'YouBot'];
+const AI_ALLOW = '\n# AI answer engines & LLM crawlers — explicitly allowed (AEO / GEO / LLMO)\n'
+  + AI_CRAWLERS.map(b => `User-agent: ${b}\nAllow: /`).join('\n');
 app.get('/robots.txt', async (req, res) => {
   try {
     const base = ((await getSetting('base_url')) || cfg.baseUrl).replace(/\/$/, '');
@@ -358,9 +364,11 @@ app.get('/robots.txt', async (req, res) => {
     if (!txt || /^user-agent:\s*\*\s+allow:\s*\/$/i.test(txt.replace(/\s+/g, ' ').trim())) {
       txt = DEFAULT_ROBOTS; // empty or the legacy fully-open value
     }
+    if (!/gptbot/i.test(txt)) txt += '\n' + AI_ALLOW;             // welcome AI crawlers on every install
     if (!/^\s*sitemap:/im.test(txt)) txt += `\nSitemap: ${base}/sitemap.xml`;
+    if (!/llms\.txt/i.test(txt)) txt += `\n# LLM guide: ${base}/llms.txt`;
     res.type('text/plain').send(txt);
-  } catch { res.type('text/plain').send(DEFAULT_ROBOTS); }
+  } catch { res.type('text/plain').send(DEFAULT_ROBOTS + '\n' + AI_ALLOW); }
 });
 
 // ─── GEO: llms.txt — a Markdown map of the store for AI crawlers ──────────────
@@ -374,10 +382,16 @@ app.get('/llms.txt', async (req, res) => {
     const siteName = await getSetting('site_name') || 'OTT Store';
     const tagline = await getSetting('site_tagline') || '';
     const products = all(db, `SELECT slug, platform, name, price_inr FROM plans WHERE active=1 AND slug IS NOT NULL AND slug != '' ORDER BY platform ASC, price_inr ASC`).slice(0, 300);
+    const cats = all(db, `SELECT DISTINCT platform FROM plans WHERE active=1 AND platform IS NOT NULL AND platform != '' AND lower(platform) != 'other' ORDER BY platform ASC`).map(r => r.platform).slice(0, 40);
+    const wa = ((await getSetting('support_whatsapp')) || '').trim();
+    const em = ((await getSetting('support_email')) || '').trim();
     let txt = `# ${siteName}\n`;
     if (tagline) txt += `\n> ${tagline}\n`;
-    txt += `\n${siteName} sells digital subscriptions and software (OTT/streaming, music, AI tools, cloud storage, productivity & software keys) with instant digital delivery and UPI/USDT checkout.\n`;
-    txt += `\n## Key pages\n- [All plans](${base}/plans)\n- [Blog](${base}/blog)\n- [Contact / Support](${base}/contact)\n- [Refund policy](${base}/refund)\n`;
+    txt += `\n${siteName} is an India-based digital store selling genuine subscriptions and software — OTT/streaming, music, AI tools, cloud storage, productivity and software keys — with instant digital delivery and UPI/USDT checkout.\n`;
+    txt += `\n## About & buying\n- Instant digital delivery — access details are sent to WhatsApp and email within minutes of payment.\n- Genuine products backed by a replacement warranty for the plan's validity.\n- Payment methods: UPI and USDT (crypto).\n- 24×7 customer support.\n`;
+    if (cats.length) txt += `\n## Categories / brands\n${cats.map(c => `- ${c}`).join('\n')}\n`;
+    txt += `\n## Key pages\n- [All plans](${base}/plans)\n- [Blog](${base}/blog)\n- [About](${base}/about)\n- [Contact / Support](${base}/contact)\n- [Refund policy](${base}/refund)\n- [Terms](${base}/terms)\n- [Privacy](${base}/privacy)\n`;
+    txt += `\n## Contact\n${wa ? `- WhatsApp: ${wa}\n` : ''}${em ? `- Email: ${em}\n` : ''}- Website: ${base}\n`;
     txt += `\n## Products\n`;
     for (const p of products) {
       const plat = (p.platform && p.platform.toLowerCase() !== 'other') ? `${p.platform} — ` : '';
@@ -1149,6 +1163,25 @@ app.get('/', async (req, res) => {
       : clampLen(titleBase, 60);
     // Lead with legitimate USPs; avoid grey "unlimited access / lowest price" claims.
     const seoDescFinal = clampLen(seoDesc || 'Genuine OTT, AI & software subscriptions in India. Instant activation, full-validity replacement warranty, UPI & crypto checkout, 24×7 support.', 155);
+    // ── E-E-A-T entity signals for the Organization schema (sameAs profiles +
+    // a support contactPoint) — trust cues AI engines & Google read. ──
+    const [supEmail, supWa, supTg, supIg, supTgCh, supWaComm] = await Promise.all([
+      getSetting('support_email'), getSetting('support_whatsapp'), getSetting('support_telegram'),
+      getSetting('support_instagram'), getSetting('support_telegram_channel'), getSetting('support_wa_community'),
+    ]);
+    const sameAs = [];
+    const pushUrl = u => { u = String(u || '').trim(); if (u && /^https?:\/\//i.test(u) && !sameAs.includes(u)) sameAs.push(u); };
+    if (supIg) pushUrl(/^https?:/i.test(supIg) ? supIg : 'https://instagram.com/' + String(supIg).replace(/^@/, ''));
+    if (supTg) pushUrl(/^https?:/i.test(supTg) ? supTg : 'https://t.me/' + String(supTg).replace(/^@/, ''));
+    if (supTgCh) pushUrl(/^https?:/i.test(supTgCh) ? supTgCh : 'https://t.me/' + String(supTgCh).replace(/^@/, ''));
+    pushUrl(supWaComm);
+    const orgNode = { '@type': 'Organization', '@id': base + '/#org', name, url: base, logo: ogImgFinal, description: seoDescFinal, areaServed: 'IN' };
+    if (sameAs.length) orgNode.sameAs = sameAs;
+    const _cp = {};
+    if (supEmail) _cp.email = String(supEmail).trim();
+    const _waNum = String(supWa || '').replace(/\D/g, '');
+    if (_waNum) _cp.telephone = '+' + _waNum;
+    if (_cp.email || _cp.telephone) orgNode.contactPoint = Object.assign({ '@type': 'ContactPoint', contactType: 'customer support', areaServed: 'IN', availableLanguage: ['en', 'hi'] }, _cp);
     html = html
       .replace(/<title id="page-title">[^<]*<\/title>/, `<title id="page-title">${esc(seoTitleFinal)}</title>`)
       .replace(/(<meta name="description" id="meta-desc" content=")[^"]*"/, `$1${esc(seoDescFinal)}"`)
@@ -1161,7 +1194,7 @@ app.get('/', async (req, res) => {
         `<script id="ld-org" type="application/ld+json">${JSON.stringify({
           '@context': 'https://schema.org',
           '@graph': [
-            { '@type': 'Organization', '@id': base + '/#org', name, url: base, logo: ogImgFinal },
+            orgNode,
             { '@type': 'WebSite', '@id': base + '/#website', url: base, name, inLanguage: 'en', publisher: { '@id': base + '/#org' } },
             { '@type': 'OnlineStore', '@id': base + '/#store', name, url: base, parentOrganization: { '@id': base + '/#org' }, currenciesAccepted: 'INR', paymentAccepted: 'UPI, USDT' },
           ],
