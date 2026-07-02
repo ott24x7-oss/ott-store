@@ -295,9 +295,15 @@ async function showLockScreen(lic) {
   <p class="muted" style="margin-bottom:1.1rem">${esc(d.message || 'Your admin is locked until the rent is renewed. Your customer storefront keeps running normally.')}</p>
   ${d.plan ? `<div class="muted" style="font-size:.85rem;margin-bottom:.8rem">Plan <b>${esc(d.plan)}</b>${d.next_renewal ? ` · was due ${esc(d.next_renewal)}` : ''}</div>` : ''}
   <a class="btn btn-primary btn-block" href="${esc(pay)}" target="_blank" rel="noopener" style="margin-bottom:.6rem">💳 Pay / Renew now</a>
-  <button class="btn btn-secondary btn-block" onclick="location.reload()">↻ I've paid — refresh</button>
+  <button class="btn btn-secondary btn-block" onclick="recheckLicence(this)">↻ I've paid — refresh</button>
   ${d.contact ? `<p class="muted" style="font-size:.8rem;margin-top:1rem">Questions? Contact ${esc(d.contact)}</p>` : ''}
 </div>`;
+}
+
+async function recheckLicence(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Checking…'; }
+  try { await api('/subscription/refresh', { method: 'POST', body: '{}' }); } catch { /* ignore — reload will re-evaluate */ }
+  location.reload();
 }
 
 async function initAdmin() {
