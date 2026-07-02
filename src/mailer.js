@@ -29,7 +29,7 @@ async function sendMail({ to, subject, html }) {
 }
 
 async function siteName() {
-  try { return (await getSetting('site_name')) || 'OTT24x7'; } catch { return 'OTT24x7'; }
+  try { return (await getSetting('site_name')) || 'OTT Store'; } catch { return 'OTT Store'; }
 }
 
 // Branded email shell — navy/blue→violet header (matches the storefront) + white

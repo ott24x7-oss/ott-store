@@ -10,7 +10,7 @@ async function runRecoveryTick() {
   try {
     const db = await getDb();
     if ((await getSetting('imap_enabled')) !== '1') return; // only when UPI auto-verify is on
-    const siteName = (await getSetting('site_name')) || 'OTT24x7';
+    const siteName = (await getSetting('site_name')) || 'OTT Store';
     const base = ((await getSetting('base_url')) || 'http://localhost:3000').replace(/\/$/, '');
 
     // Unpaid UPI order top-ups: abandoned for 45+ min, still inside the 24h window,

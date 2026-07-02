@@ -834,7 +834,7 @@ function seedDefaults(db) {
     support_email: '',
     support_whatsapp: '',
     support_telegram: '',
-    telegram_bot_url: 'https://t.me/ott24x7_bot',
+    telegram_bot_url: '',
     announcement: '',
     timezone: 'Asia/Kolkata',
     logo_url: '',
@@ -851,7 +851,7 @@ function seedDefaults(db) {
     // WhatsApp community feed (the bot mirrors the announcement group → /community)
     community_enabled: '0',
     community_jid: '',
-    community_name: 'OTT24x7 Community',
+    community_name: '',
     community_subtitle: 'Live deals, offers & updates from our WhatsApp community',
     community_invite_url: '',
     community_logo: '', // square avatar shown on /community (falls back to the site logo)

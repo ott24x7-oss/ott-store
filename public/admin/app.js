@@ -39,6 +39,7 @@ const MENU = [
   { id: 'email-marketing', label: 'Email Marketing', icon: '📧' },
   { id: 'pwa-manager',   label: 'App Manager',   icon: '📱' },
   { group: 'STOREFRONT' },
+  { id: 'branding',       label: 'Branding',      icon: '✨' },
   { id: 'appearance',     label: 'Appearance',    icon: '🎨' },
   { id: 'mystore',        label: 'My Store',      icon: '🏪' },
   { id: 'community',      label: 'Community',     icon: '📣' },
@@ -2835,6 +2836,143 @@ views.appearance = async function () {
     renderPreview();
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };
+
+// ── views.branding — the white-label control centre ──────────────────────────
+// ONE screen to manage every brand element (identity, logos, colours, contact,
+// social, homepage copy, SEO/sharing, app + PWA, community). Every field writes
+// to the same settings the storefront, portal and /app already read — so a fresh
+// deploy can be fully re-branded here, no code or redeploy needed.
+views.branding = async function () {
+  setMain('<div class="spinner"></div>');
+  try {
+    const s = await api('/settings');
+    const filled = k => (s[k] != null && String(s[k]).trim() !== '');
+    const CHECK = [['site_name','Store name'],['logo_dark_url','Logo'],['pwa_icon_b64','App icon'],['support_whatsapp','WhatsApp'],['support_email','Email'],['base_url','Domain'],['seo_home_title','SEO title'],['seo_og_image','Share image'],['design_brand','Brand colour']];
+    const doneN = CHECK.filter(c => filled(c[0])).length, pct = Math.round(doneN / CHECK.length * 100);
+    const missing = CHECK.filter(c => !filled(c[0])).map(c => c[1]);
+    const brand = s.design_brand || '#2b6fff', accent = s.design_accent || '#8d5cff';
+    const F = (label, name, ph, type) => `<div class="form-group"><label class="form-label">${label}</label><input class="form-input" name="${name}" type="${type || 'text'}" value="${esc(s[name] || '')}" placeholder="${esc(ph || '')}"></div>`;
+    const A = (label, name, ph, rows) => `<div class="form-group"><label class="form-label">${label}</label><textarea class="form-input" name="${name}" rows="${rows || 2}" placeholder="${esc(ph || '')}">${esc(s[name] || '')}</textarea></div>`;
+    const two = (a, b) => `<div class="form-row">${a}${b}</div>`;
+    const sect = (title, sub, inner) => `<div class="card" style="max-width:780px;margin-bottom:1.1rem"><h3 style="font-weight:800;margin-bottom:.2rem">${title}</h3><p class="muted" style="font-size:.78rem;margin-bottom:1rem">${sub}</p>${inner}</div>`;
+    const logoCard = (type, title, note, bg) => `<div class="card" style="padding:1rem;border:2px dashed var(--border)"><div style="font-size:.8rem;font-weight:700;margin-bottom:.4rem">${title}</div><div style="font-size:.68rem;color:var(--muted);margin-bottom:.55rem">${note}</div><div id="logo-${type}-preview" style="height:50px;display:flex;align-items:center;justify-content:center;background:${bg};border-radius:8px;margin-bottom:.55rem;overflow:hidden;border:1px solid var(--border)">${s['logo_' + type + '_url'] ? `<img src="${esc(s['logo_' + type + '_url'])}" style="max-height:42px;max-width:100%;object-fit:contain">` : '<span style="font-size:.7rem;color:var(--muted)">None</span>'}</div><div style="display:flex;gap:.4rem"><label style="flex:1;cursor:pointer"><input type="file" accept="image/*" style="display:none" onchange="uploadLogo('${type}',this)"><span class="btn btn-secondary btn-sm" style="width:100%;display:block;text-align:center">Upload</span></label>${s['logo_' + type + '_url'] ? `<button type="button" class="btn btn-red btn-sm" onclick="deleteLogo('${type}')">✕</button>` : ''}</div></div>`;
+    const iconPrev = s.pwa_icon_b64 ? `<img src="data:image/png;base64,${s.pwa_icon_b64}" style="width:64px;height:64px;border-radius:14px;object-fit:cover;border:1px solid var(--border)">` : '<div style="width:64px;height:64px;border-radius:14px;border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.7rem">None</div>';
+    const swatches = [['gold','Gold','linear-gradient(135deg,#fbbf24,#f59e0b)'],['purple','Purple','linear-gradient(135deg,#c084fc,#a855f7)'],['green','Emerald','linear-gradient(135deg,#5eead4,#10d9a3)'],['blue','Blue','linear-gradient(135deg,#60a5fa,#3b82f6)'],['red','Ruby','linear-gradient(135deg,#fb7185,#f43f5e)'],['light','Light','linear-gradient(135deg,#fdba74,#fb923c)']].map(t => `<button type="button" class="theme-sw" data-theme="${t[0]}" style="border:2px solid ${(s.app_theme || 'gold') === t[0] ? 'var(--accent)' : 'var(--border)'};background:var(--card);border-radius:12px;padding:.5rem;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:.4rem"><span style="width:100%;height:26px;border-radius:7px;background:${t[2]}"></span><span style="font-size:.7rem;font-weight:700">${t[1]}</span></button>`).join('');
+
+    const secId = sect('🏷️ Identity', 'Your store name, tagline, domain and logos.',
+      F('Store name', 'site_name', 'Acme Digital') +
+      F('Tagline', 'site_tagline', 'Premium digital products & software') +
+      F('Website domain (Base URL)', 'base_url', 'https://yourstore.com') +
+      '<label class="form-label" style="margin:.5rem 0 .5rem;display:block">Logos</label>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.8rem;margin-bottom:1rem">' +
+        logoCard('light', '☀️ Light logo', 'For light backgrounds', 'var(--card)') +
+        logoCard('dark', '🌙 Dark logo', 'For dark backgrounds', '#111') +
+        logoCard('app', '📱 App logo', 'Mini / Android app', '#13142a') +
+      '</div>' +
+      '<label class="form-label" style="margin-bottom:.5rem;display:block">App icon / favicon <span class="muted">(square PNG, 512×512 — used by the installable app &amp; browser tab)</span></label>' +
+      '<div style="display:flex;align-items:center;gap:.9rem"><div id="br-icon-preview">' + iconPrev + '</div><label style="cursor:pointer"><input type="file" accept="image/png,image/*" style="display:none" onchange="uploadBrandIcon(this)"><span class="btn btn-secondary btn-sm">Upload icon</span></label></div>');
+
+    const secCol = sect('🎨 Brand colours', 'Your primary and accent colour + the customer-app theme. Fonts, light/dark and contrast live in <b>Appearance</b>.',
+      '<div style="display:flex;gap:1.6rem;flex-wrap:wrap;margin-bottom:.4rem">' +
+        '<div><div class="muted" style="font-size:.72rem;margin-bottom:.3rem">Brand</div><input type="color" id="br-brand" value="' + brand + '" style="width:52px;height:40px;border:1px solid var(--border);border-radius:8px;background:none;cursor:pointer;vertical-align:middle"><input class="form-input" id="br-brandhex" value="' + brand + '" style="width:104px;display:inline-block;margin-left:.4rem"></div>' +
+        '<div><div class="muted" style="font-size:.72rem;margin-bottom:.3rem">Accent</div><input type="color" id="br-accent" value="' + accent + '" style="width:52px;height:40px;border:1px solid var(--border);border-radius:8px;background:none;cursor:pointer;vertical-align:middle"><input class="form-input" id="br-accenthex" value="' + accent + '" style="width:104px;display:inline-block;margin-left:.4rem"></div>' +
+      '</div>' +
+      '<label class="form-label" style="margin:.7rem 0 .5rem;display:block">Customer app theme <span class="muted">(applies to /app instantly)</span></label>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:.6rem">' + swatches + '</div>' +
+      '<div style="margin-top:.6rem"><span id="br-theme-msg" class="muted" style="font-size:.76rem"></span></div>' +
+      '<div style="margin-top:.7rem;font-size:.76rem"><a href="#appearance" onclick="goView(\'appearance\')" style="color:var(--accent);cursor:pointer">Open Appearance →</a> &nbsp;·&nbsp; <a href="#store-theme" onclick="goView(\'store-theme\')" style="color:var(--accent);cursor:pointer">Theme templates →</a></div>');
+
+    const secContact = sect('📞 Contact & social', 'Shown in the chat widget, footer and share/schema data.',
+      two(F('Support email', 'support_email', 'help@yourstore.com', 'email'), F('WhatsApp number', 'support_whatsapp', '+91…')) +
+      two(F('Telegram support', 'support_telegram', '@user or t.me/…'), F('Telegram bot URL', 'telegram_bot_url', 'https://t.me/your_bot')) +
+      two(F('Instagram', 'support_instagram', '@handle or URL'), F('Telegram channel', 'support_telegram_channel', 't.me/yourchannel')) +
+      F('WhatsApp community invite', 'support_wa_community', 'https://chat.whatsapp.com/…'));
+
+    const secHero = sect('🎬 Homepage copy', 'The big hero text on your storefront home page.',
+      F('Hero line 1', 'hero_title', 'Premium digital products.') +
+      F('Hero line 2', 'hero_title2', 'Delivered cinematic fast.') +
+      A('Hero subtext', 'hero_subtext', 'One or two lines under the headline') +
+      two(F('Extra button label', 'hero_cta_label', 'e.g. Join Telegram'), F('Extra button link', 'hero_cta_url', 'https://…')) +
+      A('Announcement banner', 'announcement', 'Optional banner in the customer dashboard'));
+
+    const secSeo = sect('🔍 SEO & sharing', 'Search title/description and the image shown when your links are shared.',
+      F('SEO title', 'seo_home_title', 'Digital Products & Software — …') +
+      A('Meta description', 'seo_home_desc', '150–160 characters') +
+      F('Keywords', 'seo_home_keywords', 'ott subscription, netflix, …') +
+      F('Share image URL (OG)', 'seo_og_image', 'https://…/og.jpg'));
+
+    const secApp = sect('📱 App & assistant', 'How your installable app and chat assistant are named.',
+      two(F('App name', 'pwa_name', 'Your Store'), F('App short name', 'pwa_short_name', 'Store')) +
+      F('App description', 'pwa_description', 'Buy subscriptions at the best prices') +
+      two(F('Chat-bot name', 'bot_name', 'Store AI'), F('Chat-bot status', 'bot_tagline', 'Online · Replies instantly')) +
+      A('Chat-bot greeting', 'bot_greeting', 'Use {site_name} to insert your store name'));
+
+    const secComm = sect('📣 Community', 'The public /community page (mirrors your WhatsApp group). Leave blank if unused.',
+      two(F('Community name', 'community_name', 'Your Store Community'), F('Community invite link', 'community_invite_url', 'https://chat.whatsapp.com/…')) +
+      A('Community subtitle', 'community_subtitle', 'Live deals, offers & updates'));
+
+    const comp = '<div class="card" style="max-width:780px;margin-bottom:1.1rem;background:linear-gradient(135deg,rgba(43,111,255,.08),rgba(141,92,255,.08))">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap">' +
+        '<div><div style="font-weight:800;font-size:1.05rem">Branding ' + pct + '% complete</div><div class="muted" style="font-size:.78rem">' + (missing.length ? 'Still to add: ' + esc(missing.join(', ')) : 'Everything essential is set — nice! 🎉') + '</div></div>' +
+        '<div style="font-size:1.6rem;font-weight:800;color:var(--accent)">' + doneN + '/' + CHECK.length + '</div>' +
+      '</div>' +
+      '<div style="height:8px;border-radius:6px;background:var(--border);margin-top:.8rem;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,#2b6fff,#8d5cff)"></div></div></div>';
+
+    const saveBar = '<div style="position:sticky;bottom:0;background:var(--card);padding:.9rem 0;max-width:780px;border-top:1px solid var(--border);display:flex;gap:.8rem;align-items:center;flex-wrap:wrap"><button type="submit" class="btn btn-primary">Save all branding</button><span class="muted" style="font-size:.76rem">Applies to your storefront, app &amp; SEO immediately.</span></div>';
+
+    setMain(
+      '<h2 style="font-weight:800;margin-bottom:.3rem">✨ Branding</h2>' +
+      '<p class="muted" style="max-width:780px;margin-bottom:1.2rem">One place to brand this entire store — website, customer app and share cards. Everything here is saved to <b>this</b> store only and can be changed anytime, no code or redeploy needed.</p>' +
+      '<div id="br-msg"></div>' + comp +
+      '<form id="br-form">' + secId + secCol + secContact + secHero + secSeo + secApp + secComm + saveBar + '</form>');
+
+    const $ = id => document.getElementById(id);
+    let brandTouched = false, accentTouched = false;
+    const bC = $('br-brand'), bH = $('br-brandhex'), aC = $('br-accent'), aH = $('br-accenthex');
+    bC.oninput = () => { bH.value = bC.value; brandTouched = true; };
+    bH.onchange = () => { if (/^#?[0-9a-fA-F]{6}$/.test(bH.value)) { const v = bH.value[0] === '#' ? bH.value : '#' + bH.value; bC.value = v; bH.value = v; brandTouched = true; } };
+    aC.oninput = () => { aH.value = aC.value; accentTouched = true; };
+    aH.onchange = () => { if (/^#?[0-9a-fA-F]{6}$/.test(aH.value)) { const v = aH.value[0] === '#' ? aH.value : '#' + aH.value; aC.value = v; aH.value = v; accentTouched = true; } };
+    [].forEach.call(document.querySelectorAll('.theme-sw'), function (b) {
+      b.onclick = async function () {
+        const t = b.dataset.theme;
+        [].forEach.call(document.querySelectorAll('.theme-sw'), x => x.style.borderColor = (x === b) ? 'var(--accent)' : 'var(--border)');
+        try { await api('/settings', { method: 'POST', body: JSON.stringify({ app_theme: t }) }); const m = $('br-theme-msg'); if (m) m.textContent = 'App theme: ' + t + ' ✓ — reopen /app to see it.'; showToast('App theme: ' + t); } catch (ex) { showToast(ex.message, 'error'); }
+      };
+    });
+    $('br-form').onsubmit = async e => {
+      e.preventDefault();
+      const fd = new FormData(e.target), body = {}; fd.forEach((v, k) => body[k] = v);
+      const design = {};
+      if (brandTouched) design.design_brand = bC.value;
+      if (accentTouched) design.design_accent = aC.value;
+      const btn = e.target.querySelector('button[type=submit]'), old = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        await api('/settings', { method: 'POST', body: JSON.stringify(body) });
+        if (Object.keys(design).length) await api('/design-settings', { method: 'POST', body: JSON.stringify(design) });
+        $('br-msg').innerHTML = '<div class="alert alert-success">Branding saved — live across your storefront, app &amp; SEO.</div>';
+        showToast('Branding saved'); window.scrollTo({ top: 0, behavior: 'smooth' });
+        setTimeout(() => { const m = $('br-msg'); if (m) m.innerHTML = ''; }, 4000);
+      } catch (ex) { $('br-msg').innerHTML = `<div class="alert alert-error">${esc(ex.message)}</div>`; }
+      finally { btn.disabled = false; btn.textContent = old; }
+    };
+  } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
+async function uploadBrandIcon(input) {
+  const f = input.files[0]; if (!f) return;
+  if (f.size > 512 * 1024) { showToast('Icon too large — max 512KB', 'error'); input.value = ''; return; }
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const b64 = String(reader.result || '').split(',')[1] || '';
+    try {
+      await api('/settings', { method: 'POST', body: JSON.stringify({ pwa_icon_b64: b64 }) });
+      const p = document.getElementById('br-icon-preview'); if (p) p.innerHTML = `<img src="data:image/png;base64,${b64}" style="width:64px;height:64px;border-radius:14px;object-fit:cover;border:1px solid var(--border)">`;
+      showToast('App icon updated');
+    } catch (e) { showToast(e.message, 'error'); }
+  };
+  reader.readAsDataURL(f); input.value = '';
+}
+window.uploadBrandIcon = uploadBrandIcon;
 
 // ── views.tickets ─────────────────────────────────────────────────────────────
 views.tickets = async function () {

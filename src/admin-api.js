@@ -117,7 +117,7 @@ router.post('/2fa/setup', requireAdmin, async (req, res) => {
   try {
     if ((await getSetting('admin_2fa_enabled')) === '1') return res.status(400).json({ error: '2FA is already on. Turn it off first to re-enroll.' });
     const secret = totp.generateSecret();
-    const siteName = (await getSetting('site_name')) || 'OTT24x7';
+    const siteName = (await getSetting('site_name')) || 'OTT Store';
     const uri = totp.keyuri(secret, 'admin', `${siteName} Admin`);
     const qr = await require('qrcode').toDataURL(uri, { width: 240, margin: 1 });
     await setSetting('admin_2fa_secret', secret);      // pending until /2fa/enable confirms a code

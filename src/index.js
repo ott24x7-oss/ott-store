@@ -174,7 +174,7 @@ app.get('/pay/:token', async (req, res) => {
     const t = token ? get(db, `SELECT t.*, p.name AS plan_name, p.platform FROM topups t
       LEFT JOIN plans p ON p.id = t.plan_id
       WHERE t.guest_token=? AND t.purpose='order' AND t.method='upi_imap' LIMIT 1`, [token]) : null;
-    const siteName = (await getSetting('site_name')) || 'OTT24x7';
+    const siteName = (await getSetting('site_name')) || 'OTT Store';
     const page = (inner) => `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Complete your payment — ${esc(siteName)}</title><style>body{margin:0;background:#04060f;color:#f4f7ff;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:1rem}.card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:20px;max-width:380px;width:100%;padding:1.6rem;text-align:center}.amt{font-size:2.6rem;font-weight:900;color:#2b6fff;margin:.15rem 0;letter-spacing:-1px}.btn{display:block;background:linear-gradient(135deg,#2b6fff,#8d5cff);color:#fff;text-decoration:none;border-radius:12px;padding:.85rem;font-weight:800;margin:.7rem 0}.muted{color:#aab4cf;font-size:.83rem}code{background:rgba(255,255,255,.08);padding:.5rem;border-radius:8px;display:block;word-break:break-all;margin:.35rem 0;font-size:.82rem}</style></head><body><div class="card">${inner}</div></body></html>`;
     if (!t) return res.status(404).type('html').send(page(`<div style="font-size:2.2rem">🔗</div><h2 style="margin:.3rem 0">Link not found</h2><p class="muted">This payment link is invalid.</p><a class="btn" href="/plans">Browse plans</a>`));
     if (t.status !== 'pending') {
@@ -570,7 +570,7 @@ for (const t of MY_TABS) app.get(`/my/${t}`, (req, res) => serveMyHtml(req, res,
 // ─── Android APK download + sideload-install landing page ─────────────────────
 function buildGetAppPage(o) {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const siteName = esc(o.siteName || 'OTT24x7');
+  const siteName = esc(o.siteName || 'OTT Store');
   const logo = (o.logos && (o.logos.dark || o.logos.light || o.logos.app)) || '';
   const hasApk = !!o.apkUrl;
   const sizeMb = o.apkSize ? (Number(o.apkSize) / 1048576).toFixed(1) + ' MB' : '';
@@ -642,7 +642,7 @@ app.get(['/get-app', '/download-app', '/android'], async (req, res) => {
 // ─── WhatsApp community — live updates feed mirrored from the announcement group ─
 function buildCommunityPage(o) {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const siteName = esc(o.siteName || 'OTT24x7');
+  const siteName = esc(o.siteName || 'OTT Store');
   const name = esc(o.name || 'Community');
   const subtitle = esc(o.subtitle || 'Live deals, offers and product updates from our WhatsApp community.');
   // Avatar prefers a SQUARE source so it isn't a squished wide logo:
@@ -650,7 +650,7 @@ function buildCommunityPage(o) {
   const avatarSrc = o.avatar || (o.logos && (o.logos.app || o.logos.dark || o.logos.light)) || '';
   const invite = o.inviteUrl || '';
   const hasInvite = !!invite;
-  const brandHtml = esc(o.siteName || 'OTT24x7').replace(/(24\s*[xX×]\s*7)/, '<b>$1</b>');
+  const brandHtml = esc(o.siteName || 'OTT Store').replace(/(24\s*[xX×]\s*7)/, '<b>$1</b>');
   const initials = ((o.name || 'OTT').replace(/[^A-Za-z0-9]/g, '').slice(0, 3) || 'OTT').toUpperCase();
   const avatarInner = avatarSrc ? `<img src="${esc(avatarSrc)}" alt="">` : esc(initials);
   const brandMark = avatarSrc ? `<img src="${esc(avatarSrc)}" alt="">` : '🚀';
@@ -824,7 +824,7 @@ function copyJoinLink(){var i=document.getElementById('joinLink');if(!i)return;t
 </script>
 ${o.enabled ? `<script>(function(){
 var lastId=0,oldestId=0,feed=document.getElementById('feed'),more=document.getElementById('more'),log=document.getElementById('log');
-var SENDER=${JSON.stringify(String(o.name || 'OTT24x7'))};
+var SENDER=${JSON.stringify(String(o.name || 'OTT Store'))};
 function esc(s){var d=document.createElement('div');d.textContent=(s==null?'':s);return d.innerHTML;}
 function fmt(t){t=esc(t).replace(/\\r\\n?/g,'\\n').replace(/\\n{3,}/g,'\\n\\n').replace(/\\n/g,'<br>');t=t.replace(/\\*([^*\\n]+)\\*/g,'<b>$1</b>').replace(/_([^_\\n]+)_/g,'<i>$1</i>');t=t.replace(/(https?:\\/\\/[^\\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');return t;}
 function ago(ts){if(!ts)return'';var d=Date.now()/1000-ts;if(d<60)return'just now';if(d<3600)return Math.floor(d/60)+'m ago';if(d<86400)return Math.floor(d/3600)+'h ago';return Math.floor(d/86400)+'d ago';}
@@ -1004,10 +1004,14 @@ app.get('/app', (req, res) => {
   res.setHeader('Cache-Control', 'no-cache, must-revalidate');
   res.sendFile(path.join(__dirname, '..', 'public', 'store', 'app.html'));
 });
-app.get('/app.webmanifest', (req, res) => {
+app.get('/app.webmanifest', async (req, res) => {
   res.type('application/manifest+json').setHeader('Cache-Control', 'no-cache');
+  const [siteName, pwaName, pwaShort, pwaDesc] = await Promise.all([
+    getSetting('site_name'), getSetting('pwa_name'), getSetting('pwa_short_name'), getSetting('pwa_description'),
+  ]);
+  const nm = pwaName || siteName || 'OTT Store';
   res.json({
-    name: 'OTT24x7', short_name: 'OTT24x7', description: 'OTT24x7 — premium digital store',
+    name: nm, short_name: pwaShort || siteName || nm, description: pwaDesc || (nm + ' — premium digital store'),
     start_url: '/app', scope: '/app', display: 'standalone', orientation: 'portrait',
     background_color: '#06070C', theme_color: '#06070C',
     icons: [
