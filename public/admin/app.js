@@ -358,6 +358,7 @@ views.subscription = async function () {
   ${d.message ? `<p class="muted" style="font-size:.85rem;margin-bottom:1rem">${esc(d.message)}</p>` : ''}
   <div style="display:flex;gap:.6rem;flex-wrap:wrap">
     <a class="btn btn-primary" href="${esc(pay)}" target="_blank" rel="noopener">💳 Pay / Renew in advance</a>
+    <button class="btn btn-secondary" id="sub-portal">🔗 Open billing portal</button>
     <button class="btn btn-secondary" id="sub-refresh">↻ Refresh</button>
   </div>
   <p class="muted" style="font-size:.78rem;margin-top:1rem">Your customer-facing store keeps running normally even if a rent payment is late — only this admin locks if the subscription lapses past the grace period.${d.contact ? ` Questions? Contact <b>${esc(d.contact)}</b>.` : ''}</p>
@@ -366,6 +367,18 @@ views.subscription = async function () {
       this.disabled = true; this.textContent = 'Checking…';
       try { await api('/subscription/refresh', { method: 'POST', body: '{}' }); showToast('Subscription refreshed'); views.subscription(); }
       catch (e) { showToast(e.message, 'error'); this.disabled = false; this.textContent = '↻ Refresh'; }
+    };
+    document.getElementById('sub-portal').onclick = async function () {
+      // Open the tab synchronously (user gesture) so the popup blocker allows it,
+      // then point it at the single-use magic link once the console returns it.
+      const w = window.open('', '_blank');
+      this.disabled = true; const label = this.textContent; this.textContent = 'Opening…';
+      try {
+        const j = await api('/subscription/portal-link');
+        if (j && j.url) { if (w) w.location = j.url; else location.href = j.url; }
+        else { if (w) w.close(); showToast((j && j.error) || 'Could not open the portal', 'error'); }
+      } catch (e) { if (w) w.close(); showToast(e.message, 'error'); }
+      this.disabled = false; this.textContent = label;
     };
   } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
 };

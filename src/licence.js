@@ -1,16 +1,26 @@
 'use strict';
-// ── Licence client — phones home to the Rent Control panel ────────────────────
-// Licensing is OFF unless BOTH LICENCE_SERVER and LICENCE_KEY are set, so the
-// flagship deploy (ott24x7 — no key) is never affected. It ALWAYS fails open:
-// if the panel is unreachable we fall back to the last cached status, and if we
-// have never reached it we stay unlocked. Only a signed "locked/expired" reply
-// from the panel ever locks the admin — never a network error on our side.
-const crypto = require('crypto');
+// ── Licence client — phones home to the Landlord Console (rentalsmmpanel.com) ──
+// Licensing is OFF unless a licence key + server are set, so the flagship deploy
+// (no key) is never affected. It ALWAYS fails open: if the console is unreachable
+// we fall back to the last cached status, and with no cache at all we stay
+// unlocked. Only a "locked" reply from the console ever locks the admin.
+//
+// Config (env vars on the tenant's Railway):
+//   LICENSE_KEY        RP-XXXX-XXXX-XXXX-XXXX
+//   LICENSE_API_URL    https://rentalsmmpanel.com/api/license.php
+//   (LICENCE_SERVER + LICENCE_KEY are also accepted for back-compat — if
+//    LICENCE_SERVER is a bare origin we append /api/license.php.)
 const { getSettingSync, setSettingSync } = require('./db');
 
-const SERVER = (process.env.LICENCE_SERVER || '').replace(/\/+$/, '');
-const KEY = (process.env.LICENCE_KEY || '').trim();
-const SECRET = process.env.LICENCE_SECRET || '';
+function apiUrl() {
+  const direct = (process.env.LICENSE_API_URL || process.env.LICENCE_API_URL || '').trim().replace(/\/+$/, '');
+  if (direct) return direct;
+  const origin = (process.env.LICENCE_SERVER || process.env.LICENSE_SERVER || '').trim().replace(/\/+$/, '');
+  if (!origin) return '';
+  return /\/api\/licen[cs]e/i.test(origin) ? origin : origin + '/api/license.php';
+}
+const KEY = (process.env.LICENSE_KEY || process.env.LICENCE_KEY || '').trim().toUpperCase();
+const SERVER = apiUrl();
 const ENABLED = !!(SERVER && KEY);
 
 let mem = null; // last known status (also mirrored to the _licence_cache setting)
@@ -21,20 +31,37 @@ function loadCache() {
   return mem;
 }
 
-// Fetch fresh status from the panel, verify its HMAC signature, cache it.
+// Map the console's /api/license.php JSON → the shape the Subscription page + lock
+// screen already expect (pay_url, next_renewal, days_left, contact, name…).
+function mapStatus(j) {
+  return {
+    enabled: true,
+    locked: !!j.locked,
+    status: j.status || (j.locked ? 'locked' : 'active'),
+    message: j.message || '',
+    plan: j.plan || '',
+    product: j.product || '',
+    next_renewal: j.next_due || '',
+    days_left: (typeof j.days_to_due === 'number') ? j.days_to_due : null,
+    grace_until: '',
+    name: j.business || '',
+    pay_url: j.renew_url || '',
+    contact: j.support || '',
+    fetched_at: Date.now(),
+  };
+}
+
 async function refresh() {
   if (!ENABLED) return { enabled: false, locked: false, status: 'disabled' };
   try {
-    const res = await fetch(`${SERVER}/api/licence/check`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: KEY, domain: getSettingSync('base_url') || '' }),
-      signal: AbortSignal.timeout(8000),
-    });
+    const base = SERVER;
+    const url = base + (base.includes('?') ? '&' : '?')
+      + 'key=' + encodeURIComponent(KEY)
+      + '&domain=' + encodeURIComponent(getSettingSync('base_url') || '');
+    const res = await fetch(url, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
     const j = await res.json();
-    const expect = crypto.createHmac('sha256', SECRET).update(JSON.stringify(j.data)).digest('hex');
-    if (!j || !j.data || expect !== j.sig) throw new Error('bad signature');
-    mem = { ...j.data, enabled: true, fetched_at: Date.now() };
+    if (!j || typeof j.locked === 'undefined') throw new Error('bad response');
+    mem = mapStatus(j);
     try { setSettingSync('_licence_cache', JSON.stringify(mem)); } catch { /* ignore */ }
     return mem;
   } catch (e) {
@@ -52,7 +79,7 @@ function status() {
 function isLocked() { const s = status(); return !!(s.enabled && s.locked); }
 
 function start() {
-  if (!ENABLED) { console.log('Licence client: disabled (no LICENCE_KEY set).'); return; }
+  if (!ENABLED) { console.log('Licence client: disabled (no LICENSE_KEY set).'); return; }
   console.log('Licence client: enabled →', SERVER);
   refresh().catch(() => {});
   setInterval(() => refresh().catch(() => {}), 6 * 60 * 60 * 1000).unref();

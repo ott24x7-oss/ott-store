@@ -43,6 +43,24 @@ router.get('/subscription', requireAdmin, (req, res) => res.json(licence.status(
 router.post('/subscription/refresh', requireAdmin, async (req, res) => {
   try { res.json(await licence.refresh()); } catch (e) { res.status(500).json({ error: e.message }); }
 });
+// One-click SSO into the console's billing portal. Admin-only: mints a single-use
+// magic link server-side via the console's /api/portal-login.php (the licence key
+// never reaches the browser). Whitelisted by LOCK_ALLOW so a locked admin can still
+// reach the portal to renew.
+router.get('/subscription/portal-link', requireAdmin, async (req, res) => {
+  try {
+    const key = (process.env.LICENSE_KEY || process.env.LICENCE_KEY || '').trim();
+    const apiUrl = (process.env.LICENSE_API_URL || process.env.LICENCE_API_URL || '').trim()
+      || ((process.env.LICENCE_SERVER || process.env.LICENSE_SERVER || '').trim().replace(/\/+$/, '') + '/api/license.php');
+    let origin = '';
+    try { origin = new URL(apiUrl).origin; } catch { /* not configured */ }
+    if (!key || !origin) return res.status(400).json({ error: 'This deployment has no licence / console configured.' });
+    const r = await fetch(origin + '/api/portal-login.php?key=' + encodeURIComponent(key), { signal: AbortSignal.timeout(12000) });
+    const j = await r.json();
+    if (j && j.ok && j.url) return res.json({ ok: true, url: j.url });
+    return res.status(502).json({ error: (j && j.error) || 'Console did not return a link.' });
+  } catch (e) { res.status(500).json({ error: 'Could not reach the console. Try again.' }); }
+});
 
 const UPLOADS_DIR = path.join(__dirname, '..', 'data', 'uploads');
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
