@@ -16,6 +16,7 @@ const { buildXlsx, parseXlsx } = require('./xlsx');
 const totp = require('./totp');
 const crypto = require('crypto');
 const design = require('./design');
+const licence = require('./licence');
 
 const router = express.Router();
 
@@ -25,6 +26,23 @@ const router = express.Router();
 // cookie (SameSite=strict) so they can't forge a matching header. Safe methods
 // (GET/HEAD/OPTIONS) skip the check inside requireCsrf itself.
 router.use(requireCsrf);
+
+// ── Rent-Control licence lock ─────────────────────────────────────────────────
+// When this deployment's rent lapses past its grace period, lock the ADMIN only
+// — the customer storefront and /user API are never touched. It is a no-op
+// unless a LICENCE_KEY is configured (so the flagship deploy is unaffected), and
+// it fails open if the panel is unreachable. See src/licence.js.
+const LOCK_ALLOW = /^\/(login|logout|me|subscription|2fa)/;
+router.use((req, res, next) => {
+  if (licence.isLocked() && !LOCK_ALLOW.test(req.path)) {
+    return res.status(402).json({ error: 'subscription_lapsed', licence: licence.status() });
+  }
+  next();
+});
+router.get('/subscription', requireAdmin, (req, res) => res.json(licence.status()));
+router.post('/subscription/refresh', requireAdmin, async (req, res) => {
+  try { res.json(await licence.refresh()); } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 const UPLOADS_DIR = path.join(__dirname, '..', 'data', 'uploads');
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });

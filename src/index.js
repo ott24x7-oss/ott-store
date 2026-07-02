@@ -2232,6 +2232,7 @@ async function start() {
     console.log(`  Store:  http://localhost:${cfg.port}/`);
     console.log(`  Portal: http://localhost:${cfg.port}/my`);
     console.log(`  Admin:  http://localhost:${cfg.port}/admin`);
+    require('./licence').start();
   });
 }
 

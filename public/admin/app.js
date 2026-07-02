@@ -9,6 +9,7 @@ const MENU = [
   { group: 'OVERVIEW' },
   { id: 'dashboard',      label: 'Dashboard',     icon: '📊' },
   { id: 'analytics',      label: 'Analytics',     icon: '📈' },
+  { id: 'subscription',   label: 'Subscription',  icon: '💳' },
   { group: 'CATALOG' },
   { id: 'plans',          label: 'Plans',         icon: '🎬' },
   { id: 'stock',          label: 'Stock',         icon: '📦' },
@@ -96,6 +97,11 @@ async function api(path, opts = {}) {
       signal: fetchOpts.signal || controller.signal,
     });
     if (res.status === 401) { renderLogin(); throw new Error('Unauthorized'); }
+    if (res.status === 402) {
+      const jj = await res.json().catch(() => ({}));
+      if (jj && jj.error === 'subscription_lapsed') { showLockScreen(jj.licence || {}); throw new Error('Subscription lapsed'); }
+      throw new Error((jj && jj.error) || 'Payment required');
+    }
     const j = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
     return j;
@@ -272,9 +278,32 @@ function renderLogin() {
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
+// ── Subscription lock screen (rent lapsed — admin locked, storefront stays up) ─
+async function showLockScreen(lic) {
+  const wrap = document.getElementById('admin-wrap'); if (wrap) wrap.style.display = 'none';
+  const loginEl = document.getElementById('admin-login'); if (loginEl) loginEl.style.display = 'none';
+  let el = document.getElementById('admin-lock');
+  if (!el) { el = document.createElement('div'); el.id = 'admin-lock'; el.style.cssText = 'min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem'; document.body.appendChild(el); }
+  el.style.display = 'flex';
+  let d = lic || {};
+  try { d = await api('/subscription'); } catch { /* use passed-in snapshot */ }
+  const pay = d.pay_url || '#';
+  el.innerHTML = `
+<div class="card" style="width:100%;max-width:460px;text-align:center">
+  <div style="font-size:2.4rem;margin-bottom:.4rem">🔒</div>
+  <h2 style="font-size:1.3rem;font-weight:800;margin-bottom:.3rem">Subscription ${esc(d.status || 'lapsed')}</h2>
+  <p class="muted" style="margin-bottom:1.1rem">${esc(d.message || 'Your admin is locked until the rent is renewed. Your customer storefront keeps running normally.')}</p>
+  ${d.plan ? `<div class="muted" style="font-size:.85rem;margin-bottom:.8rem">Plan <b>${esc(d.plan)}</b>${d.next_renewal ? ` · was due ${esc(d.next_renewal)}` : ''}</div>` : ''}
+  <a class="btn btn-primary btn-block" href="${esc(pay)}" target="_blank" rel="noopener" style="margin-bottom:.6rem">💳 Pay / Renew now</a>
+  <button class="btn btn-secondary btn-block" onclick="location.reload()">↻ I've paid — refresh</button>
+  ${d.contact ? `<p class="muted" style="font-size:.8rem;margin-top:1rem">Questions? Contact ${esc(d.contact)}</p>` : ''}
+</div>`;
+}
+
 async function initAdmin() {
   try {
     await api('/me', { timeoutMs: 12000 });
+    try { const sub = await api('/subscription'); if (sub && sub.locked) { showLockScreen(sub); return; } } catch { /* fail open */ }
     buildSidebar();
     // Restore view from URL hash, fallback to dashboard
     const hashView = location.hash.replace('#', '').trim();
@@ -292,6 +321,48 @@ async function initAdmin() {
 
 // ─── Views ────────────────────────────────────────────────────────────────────
 const views = {};
+
+// ── views.subscription — this deployment's rental status (Rent Control) ────────
+views.subscription = async function () {
+  setMain('<div class="spinner"></div>');
+  try {
+    const d = await api('/subscription');
+    if (!d.enabled) {
+      setMain(`<h2 style="font-weight:800;margin-bottom:1rem">💳 Subscription</h2>
+<div class="card" style="max-width:560px"><p class="muted">This deployment isn't licence-managed — it runs without a rental subscription (no <code>LICENCE_KEY</code> is configured). Nothing to pay here.</p></div>`);
+      return;
+    }
+    const st = d.status || 'unknown';
+    const badge = st === 'active' ? '<span style="color:#16a34a;font-weight:700">● Active</span>'
+      : st === 'grace' ? '<span style="color:#d97706;font-weight:700">● Grace period</span>'
+      : d.locked ? '<span style="color:#dc2626;font-weight:700">● Locked</span>'
+      : `<span class="muted">● ${esc(st)}</span>`;
+    const pay = d.pay_url || '#';
+    const row = (k, v) => v != null && v !== '' ? `<tr><td class="muted" style="padding:.35rem 0">${k}</td><td style="text-align:right;font-weight:700">${v}</td></tr>` : '';
+    setMain(`
+<h2 style="font-weight:800;margin-bottom:1.2rem">💳 Subscription</h2>
+<div class="card" style="max-width:600px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem"><div style="font-weight:800;font-size:1.05rem">Rental status</div><div>${badge}</div></div>
+  <table style="width:100%;font-size:.9rem;margin-bottom:1.1rem">
+    ${row('Plan', d.plan ? esc(d.plan) : '')}
+    ${row('Next renewal', d.next_renewal ? esc(d.next_renewal) + (d.days_left != null ? ` <span class="muted">(${d.days_left} days)</span>` : '') : '')}
+    ${row('Grace until', d.grace_until ? esc(d.grace_until) : '')}
+    ${row('Licence', d.name ? esc(d.name) : '')}
+  </table>
+  ${d.message ? `<p class="muted" style="font-size:.85rem;margin-bottom:1rem">${esc(d.message)}</p>` : ''}
+  <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+    <a class="btn btn-primary" href="${esc(pay)}" target="_blank" rel="noopener">💳 Pay / Renew in advance</a>
+    <button class="btn btn-secondary" id="sub-refresh">↻ Refresh</button>
+  </div>
+  <p class="muted" style="font-size:.78rem;margin-top:1rem">Your customer-facing store keeps running normally even if a rent payment is late — only this admin locks if the subscription lapses past the grace period.${d.contact ? ` Questions? Contact <b>${esc(d.contact)}</b>.` : ''}</p>
+</div>`);
+    document.getElementById('sub-refresh').onclick = async function () {
+      this.disabled = true; this.textContent = 'Checking…';
+      try { await api('/subscription/refresh', { method: 'POST', body: '{}' }); showToast('Subscription refreshed'); views.subscription(); }
+      catch (e) { showToast(e.message, 'error'); this.disabled = false; this.textContent = '↻ Refresh'; }
+    };
+  } catch (e) { setMain(`<div class="alert alert-error">${esc(e.message)}</div>`); }
+};
 
 // ── views['bot-panel'] — one-click into the bot's separate admin app ───────────
 views['bot-panel'] = async function () {
