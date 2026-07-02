@@ -121,6 +121,11 @@ app.use(ensureCsrfToken);
 // after each push. Versioned assets (anything under /static/) can still be
 // long-cached if added later.
 
+// License gate — a rented deployment locks its /admin (only) when the rent lapses.
+// No-op unless LICENSE_API_URL + LICENSE_KEY are set. Mounted before ALL /admin routes.
+const licenseClient = require('./license-client');
+app.use('/admin', licenseClient.makeAdminGate());
+
 // Admin SPA shell — served through the Design Engine. MUST be registered before
 // express.static, which would otherwise serve public/admin/index.html as a raw
 // directory index and skip the design-token injection.
@@ -2199,6 +2204,7 @@ async function start() {
   try { require('./renewal-worker').startRenewalWorker(); } catch (e) { console.error('renewal-worker error:', e.message); }
   try { require('./recovery-worker').startRecoveryWorker(); } catch (e) { console.error('recovery-worker error:', e.message); }
   try { require('./autopost-worker').startAutopostWorker(); } catch (e) { console.error('autopost-worker error:', e.message); }
+  try { require('./license-client').startHeartbeat(); } catch (e) { console.error('license-client error:', e.message); }
   // ResellKeys auto-fulfillment worker removed — scrape-only integration now.
   try { require('./imap-verify').startImapWorker(); } catch (e) { console.error('imap-verify error:', e.message); }
   try { require('./backup-worker').startBackupWorker(); } catch (e) { console.error('backup-worker error:', e.message); }
